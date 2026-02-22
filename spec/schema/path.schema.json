@@ -1,0 +1,48 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "oebf://schema/0.1/path",
+  "title": "OEBF Path",
+  "type": "object",
+  "required": ["id", "type", "closed", "segments"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "id":          { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+    "type":        { "type": "string", "const": "Path" },
+    "description": { "type": "string" },
+    "closed":      { "type": "boolean" },
+    "tags":        { "type": "array", "items": { "type": "string" } },
+    "segments": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["type"],
+        "properties": {
+          "type": { "type": "string", "enum": ["line", "arc", "bezier", "spline"] },
+          "start": { "$ref": "#/definitions/point3" },
+          "end":   { "$ref": "#/definitions/point3" },
+          "mid":   { "$ref": "#/definitions/point3" },
+          "cp1":   { "$ref": "#/definitions/point3" },
+          "cp2":   { "$ref": "#/definitions/point3" },
+          "points": {
+            "type": "array",
+            "items": { "$ref": "#/definitions/point3" }
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "point3": {
+      "type": "object",
+      "required": ["x", "y", "z"],
+      "additionalProperties": false,
+      "properties": {
+        "x": { "type": "number" },
+        "y": { "type": "number" },
+        "z": { "type": "number" }
+      }
+    }
+  }
+}
