@@ -1,0 +1,25 @@
+{
+  "name": "oebf",
+  "version": "1.0.0",
+  "description": "Editable BIM format bundle based on IFC, SVG and Json to allow easy interaction and editing with LLMs",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "example": "example",
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "vitest run --reporter verbose",
+    "dev": "vite viewer/index.html"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "ajv": "^8.18.0",
+    "ajv-formats": "^3.0.1",
+    "three": "^0.183.1",
+    "vite": "^7.3.1",
+    "vitest": "^4.0.18"
+  }
+}
