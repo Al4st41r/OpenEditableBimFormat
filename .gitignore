@@ -1,0 +1,9 @@
+backups/
+.venv/
+__pycache__/
+*.pyc
+node_modules/
+dist/
+example/*/ifc/last_export.ifc
+.DS_Store
+.worktrees/
