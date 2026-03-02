@@ -1,3 +1,4 @@
+<!-- OEBF Format Guide v0.1.0 — 2026-02-22 -->
 # OEBF Format Guide — v0.1.0
 
 Read this before editing any file in this bundle. Every 3D element sweeps a

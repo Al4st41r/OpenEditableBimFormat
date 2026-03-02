@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "oebf://schema/0.1/element",
+  "title": "OEBF Element",
+  "type": "object",
+  "required": ["id", "type", "ifc_type", "path_id", "profile_id", "sweep_mode"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema":         { "type": "string" },
+    "id":              { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+    "type":            { "type": "string", "const": "Element" },
+    "description":     { "type": "string" },
+    "ifc_type":        { "type": "string" },
+    "path_id":         { "type": "string" },
+    "profile_id":      { "type": "string" },
+    "sweep_mode":      { "type": "string", "enum": ["perpendicular", "fixed", "twisted"] },
+    "cap_start":       { "type": "string", "enum": ["flat", "angled", "open", "junction"] },
+    "cap_end":         { "type": "string", "enum": ["flat", "angled", "open", "junction"] },
+    "start_offset":    { "type": "number" },
+    "end_offset":      { "type": "number" },
+    "parent_group_id": { "type": "string" },
+    "properties":      { "type": "object" }
+  }
+}

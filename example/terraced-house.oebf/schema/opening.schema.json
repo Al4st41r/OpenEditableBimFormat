@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "oebf://schema/0.1/opening",
+  "title": "OEBF Opening",
+  "type": "object",
+  "required": ["id", "type", "host_element_id", "path_id", "path_position", "width_m", "height_m"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema":          { "type": "string" },
+    "id":               { "type": "string" },
+    "type":             { "type": "string", "const": "Opening" },
+    "description":      { "type": "string" },
+    "host_element_id":  { "type": "string" },
+    "path_id":          { "type": "string" },
+    "path_position":    { "type": "number" },
+    "width_m":          { "type": "number", "exclusiveMinimum": 0 },
+    "height_m":         { "type": "number", "exclusiveMinimum": 0 },
+    "sill_height_m":    { "type": "number", "default": 0 },
+    "ifc_type":         { "type": "string" }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "$schema": "oebf://schema/0.1/path",
+  "id": "path-wall-south-gf",
+  "type": "Path",
+  "description": "Ground floor south wall centreline — runs west to east",
+  "closed": false,
+  "segments": [{
+    "type": "line",
+    "start": { "x": 0.0, "y": 0.0, "z": 0.0 },
+    "end":   { "x": 5.4, "y": 0.0, "z": 0.0 }
+  }],
+  "tags": ["wall", "external", "ground-floor"]
+}

@@ -1,0 +1,15 @@
+{
+  "$schema": "oebf://schema/0.1/junction",
+  "id": "junction-sw-corner",
+  "type": "Junction",
+  "description": "SW corner: south wall butts into west wall (west wall runs through)",
+  "elements": ["element-wall-south-gf", "element-wall-west-gf"],
+  "rule": "butt",
+  "priority": ["element-wall-west-gf"],
+  "trim_planes": [{
+    "element_id": "element-wall-south-gf",
+    "at_end": "start",
+    "plane_normal": { "x": 1, "y": 0, "z": 0 },
+    "plane_origin": { "x": 0.0, "y": 0.0, "z": 0.0 }
+  }]
+}

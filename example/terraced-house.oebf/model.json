@@ -1,0 +1,36 @@
+{
+  "hierarchy": {
+    "type": "Project",
+    "id": "project-root",
+    "description": "Terraced House",
+    "children": [{
+      "type": "Site",
+      "id": "site-main",
+      "children": [{
+        "type": "Building",
+        "id": "building-main",
+        "children": [{
+          "type": "Storey",
+          "id": "storey-gf",
+          "description": "Ground Floor",
+          "elevation": 0.0,
+          "children": ["element-wall-south-gf", "element-wall-north-gf", "element-wall-east-gf", "element-wall-west-gf"]
+        }]
+      }]
+    }]
+  },
+  "elements": [
+    "element-wall-south-gf",
+    "element-wall-north-gf",
+    "element-wall-east-gf",
+    "element-wall-west-gf"
+  ],
+  "objects": [],
+  "arrays": [],
+  "junctions": [
+    "junction-sw-corner",
+    "junction-se-corner",
+    "junction-nw-corner",
+    "junction-ne-corner"
+  ]
+}

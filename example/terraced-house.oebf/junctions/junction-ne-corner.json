@@ -1,0 +1,15 @@
+{
+  "$schema": "oebf://schema/0.1/junction",
+  "id": "junction-ne-corner",
+  "type": "Junction",
+  "description": "NE corner: north wall butts into east wall (east wall runs through)",
+  "elements": ["element-wall-north-gf", "element-wall-east-gf"],
+  "rule": "butt",
+  "priority": ["element-wall-east-gf"],
+  "trim_planes": [{
+    "element_id": "element-wall-north-gf",
+    "at_end": "end",
+    "plane_normal": { "x": -1, "y": 0, "z": 0 },
+    "plane_origin": { "x": 5.4, "y": 8.5, "z": 0.0 }
+  }]
+}

@@ -1,0 +1,23 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "oebf://schema/0.1/object",
+  "title": "OEBF Object (Symbol Instance)",
+  "type": "object",
+  "required": ["id", "type", "symbol_id", "host_element_id", "path_id", "path_position", "parent_group_id"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema":             { "type": "string" },
+    "id":                  { "type": "string" },
+    "type":                { "type": "string", "const": "Object" },
+    "description":         { "type": "string" },
+    "ifc_type":            { "type": "string" },
+    "symbol_id":           { "type": "string" },
+    "host_element_id":     { "type": "string" },
+    "path_id":             { "type": "string" },
+    "path_position":       { "type": "number" },
+    "opening_id":          { "type": "string" },
+    "parameter_overrides": { "type": "object" },
+    "parent_group_id":     { "type": "string" },
+    "properties":          { "type": "object" }
+  }
+}
