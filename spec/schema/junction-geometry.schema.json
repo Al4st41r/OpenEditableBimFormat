@@ -1,0 +1,59 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "oebf://schema/0.1/junction-geometry",
+  "title": "OEBF Junction Geometry",
+  "type": "object",
+  "required": ["$schema", "id", "type", "description", "junction_id", "vertices", "faces"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema":     { "type": "string" },
+    "id":          { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*-geometry$" },
+    "type":        { "type": "string", "const": "JunctionGeometry" },
+    "description": { "type": "string" },
+    "junction_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+    "vertices": {
+      "type": "array",
+      "minItems": 3,
+      "items": {
+        "type": "object",
+        "required": ["x", "y", "z"],
+        "additionalProperties": false,
+        "properties": {
+          "x": { "type": "number" },
+          "y": { "type": "number" },
+          "z": { "type": "number" }
+        }
+      }
+    },
+    "faces": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["indices"],
+        "additionalProperties": false,
+        "properties": {
+          "indices": {
+            "type": "array",
+            "minItems": 3,
+            "items": { "type": "integer", "minimum": 0 }
+          },
+          "material_id": { "type": "string" }
+        }
+      }
+    },
+    "normals": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["x", "y", "z"],
+        "additionalProperties": false,
+        "properties": {
+          "x": { "type": "number" },
+          "y": { "type": "number" },
+          "z": { "type": "number" }
+        }
+      }
+    }
+  }
+}
