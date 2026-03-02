@@ -3,11 +3,11 @@
   "$id": "oebf://schema/0.1/opening",
   "title": "OEBF Opening",
   "type": "object",
-  "required": ["id", "type", "host_element_id", "path_id", "path_position", "width_m", "height_m"],
+  "required": ["$schema", "id", "type", "host_element_id", "path_id", "path_position", "width_m", "height_m"],
   "additionalProperties": false,
   "properties": {
     "$schema":          { "type": "string" },
-    "id":               { "type": "string" },
+    "id":               { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
     "type":             { "type": "string", "const": "Opening" },
     "description":      { "type": "string" },
     "host_element_id":  { "type": "string" },

@@ -32,13 +32,15 @@ def check_version(bundle_path: Path) -> None:
 def migrate(bundle_path: Path) -> None:
     check_version(bundle_path)
 
-    # --- Apply 0.1 -> 0.2 changes here ---
-    # Example:
-    #   for entity_file in bundle_path.rglob("*.json"):
-    #       data = json.loads(entity_file.read_text())
-    #       if "$schema" in data:
-    #           data["$schema"] = data["$schema"].replace("/0.1/", "/0.2/")
-    #       entity_file.write_text(json.dumps(data, indent=2))
+    # Apply 0.1 → 0.2 changes here.
+    # To update $schema fields in all entity files (skipping the schema/ subdirectory):
+    #   entity_dirs = ["paths", "profiles", "elements", "junctions", "arrays", "symbols", "groups", "materials"]
+    #   for dir_name in entity_dirs:
+    #       for entity_file in (bundle_path / dir_name).glob("*.json"):
+    #           data = json.loads(entity_file.read_text())
+    #           if "$schema" in data:
+    #               data["$schema"] = data["$schema"].replace("/0.1/", "/0.2/")
+    #           entity_file.write_text(json.dumps(data, indent=2))
 
     # Update manifest version
     manifest_path = bundle_path / "manifest.json"

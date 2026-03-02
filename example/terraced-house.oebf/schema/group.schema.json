@@ -3,11 +3,11 @@
   "$id": "oebf://schema/0.1/group",
   "title": "OEBF Group",
   "type": "object",
-  "required": ["id", "type", "description", "ifc_type"],
+  "required": ["$schema", "id", "type", "description", "ifc_type"],
   "additionalProperties": false,
   "properties": {
     "$schema":      { "type": "string" },
-    "id":           { "type": "string" },
+    "id":           { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
     "type":         { "type": "string", "const": "Group" },
     "description":  { "type": "string" },
     "ifc_type":     { "type": "string" },

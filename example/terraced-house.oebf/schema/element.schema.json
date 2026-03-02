@@ -3,7 +3,7 @@
   "$id": "oebf://schema/0.1/element",
   "title": "OEBF Element",
   "type": "object",
-  "required": ["id", "type", "ifc_type", "path_id", "profile_id", "sweep_mode"],
+  "required": ["$schema", "id", "type", "ifc_type", "path_id", "profile_id", "sweep_mode", "cap_start", "cap_end", "parent_group_id"],
   "additionalProperties": false,
   "properties": {
     "$schema":         { "type": "string" },

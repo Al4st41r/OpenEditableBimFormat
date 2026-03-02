@@ -3,11 +3,11 @@
   "$id": "oebf://schema/0.1/junction",
   "title": "OEBF Junction",
   "type": "object",
-  "required": ["id", "type", "elements", "rule", "priority"],
+  "required": ["$schema", "id", "type", "elements", "rule", "priority"],
   "additionalProperties": false,
   "properties": {
     "$schema":         { "type": "string" },
-    "id":              { "type": "string" },
+    "id":              { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
     "type":            { "type": "string", "const": "Junction" },
     "description":     { "type": "string" },
     "elements":        { "type": "array", "minItems": 2, "items": { "type": "string" } },

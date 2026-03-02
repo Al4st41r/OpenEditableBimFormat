@@ -2,6 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "oebf://schema/0.1/manifest",
   "title": "OEBF Manifest",
+  "x-oebf-note": "manifest.json uses format + format_version for self-identification instead of $schema",
   "type": "object",
   "required": ["format", "format_version", "project_name", "units", "coordinate_system"],
   "additionalProperties": false,

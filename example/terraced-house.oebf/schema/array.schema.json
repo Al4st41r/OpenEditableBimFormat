@@ -3,11 +3,11 @@
   "$id": "oebf://schema/0.1/array",
   "title": "OEBF Array",
   "type": "object",
-  "required": ["id", "type", "source_id", "path_id", "mode", "alignment", "axes"],
+  "required": ["$schema", "id", "type", "source_id", "path_id", "mode", "alignment", "axes"],
   "additionalProperties": false,
   "properties": {
     "$schema":           { "type": "string" },
-    "id":                { "type": "string" },
+    "id":                { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
     "type":              { "type": "string", "const": "Array" },
     "description":       { "type": "string" },
     "source_id":         { "type": "string" },

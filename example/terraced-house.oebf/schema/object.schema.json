@@ -3,11 +3,11 @@
   "$id": "oebf://schema/0.1/object",
   "title": "OEBF Object (Symbol Instance)",
   "type": "object",
-  "required": ["id", "type", "symbol_id", "host_element_id", "path_id", "path_position", "parent_group_id"],
+  "required": ["$schema", "id", "type", "symbol_id", "host_element_id", "path_id", "path_position", "parent_group_id"],
   "additionalProperties": false,
   "properties": {
     "$schema":             { "type": "string" },
-    "id":                  { "type": "string" },
+    "id":                  { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
     "type":                { "type": "string", "const": "Object" },
     "description":         { "type": "string" },
     "ifc_type":            { "type": "string" },

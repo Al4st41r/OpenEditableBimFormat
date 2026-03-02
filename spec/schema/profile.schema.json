@@ -3,7 +3,7 @@
   "$id": "oebf://schema/0.1/profile",
   "title": "OEBF Profile",
   "type": "object",
-  "required": ["id", "type", "svg_file", "origin", "alignment", "assembly"],
+  "required": ["$schema", "id", "type", "svg_file", "origin", "alignment", "assembly"],
   "additionalProperties": false,
   "properties": {
     "$schema":     { "type": "string" },

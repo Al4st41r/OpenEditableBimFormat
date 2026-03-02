@@ -3,7 +3,8 @@
   "$id": "oebf://schema/0.1/materials",
   "title": "OEBF Material Library",
   "type": "object",
-  "required": ["materials"],
+  "required": ["$schema", "materials"],
+  "additionalProperties": false,
   "properties": {
     "$schema": { "type": "string" },
     "materials": {
@@ -13,7 +14,7 @@
         "required": ["id", "type", "name", "category"],
         "additionalProperties": false,
         "properties": {
-          "id":                 { "type": "string" },
+          "id":                 { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
           "type":               { "type": "string", "const": "Material" },
           "name":               { "type": "string" },
           "category":           { "type": "string" },

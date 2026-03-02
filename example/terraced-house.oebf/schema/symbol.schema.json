@@ -3,11 +3,11 @@
   "$id": "oebf://schema/0.1/symbol",
   "title": "OEBF Symbol (Type Definition)",
   "type": "object",
-  "required": ["id", "type", "ifc_type", "parameters"],
+  "required": ["$schema", "id", "type", "ifc_type", "parameters"],
   "additionalProperties": false,
   "properties": {
     "$schema":              { "type": "string" },
-    "id":                   { "type": "string" },
+    "id":                   { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
     "type":                 { "type": "string", "const": "Symbol" },
     "description":          { "type": "string" },
     "ifc_type":             { "type": "string" },

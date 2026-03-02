@@ -15,11 +15,19 @@ Migration scripts update OEBF bundles from one format version to the next.
 import json, sys
 from pathlib import Path
 
-def check_version(bundle_path, expected_version):
-    manifest = json.loads((bundle_path / "manifest.json").read_text())
+FROM_VERSION = "0.1.0"
+TO_VERSION = "0.2.0"
+
+def check_version(bundle_path: Path) -> None:
+    manifest_path = bundle_path / "manifest.json"
+    if not manifest_path.exists():
+        print(f"Error: {manifest_path} not found")
+        sys.exit(1)
+    manifest = json.loads(manifest_path.read_text())
     actual = manifest.get("format_version")
-    if actual != expected_version:
-        print(f"Error: expected format_version {expected_version!r}, got {actual!r}")
+    if actual != FROM_VERSION:
+        print(f"Error: this script migrates {FROM_VERSION} → {TO_VERSION}")
+        print(f"       bundle has format_version: {actual!r}")
         sys.exit(1)
 ```
 
