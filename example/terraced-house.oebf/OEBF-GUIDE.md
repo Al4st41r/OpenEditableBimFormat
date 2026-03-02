@@ -20,6 +20,7 @@ Read this before editing any file in this bundle. Every 3D element sweeps a
 | Symbol | `symbols/symbol-{id}.json` | `id` `type:"Symbol"` `ifc_type` `parameters{}` |
 | Group | `groups/group-{id}.json` | `id` `type:"Group"` `description` `ifc_type` |
 | Material | `materials/library.json` | `id` `type:"Material"` `name` `category` (all materials in **one file**) |
+| Grid | `grids/grid-{id}.json` | `id` `type:"Grid"` `description` `axes[]` `ifc_type` |
 
 ---
 
@@ -38,6 +39,7 @@ project.oebf/
 ├── symbols/                — symbol type definitions
 ├── groups/                 — group files (or inline in model.json)
 ├── materials/library.json  — all materials in one file
+├── grids/                  — one JSON per grid
 ├── schema/                 — JSON Schema for validation
 └── ifc/mapping.json        — IFC class and property set mappings
 ```
@@ -50,7 +52,7 @@ project.oebf/
 - IDs are **unique across all entity types** in the bundle
 - File name matches entity ID: `element-wall-south-gf.json`
 - Prefix convention: `path-` `profile-` `element-` `object-` `opening-`
-  `junction-` `array-` `symbol-` `mat-`
+  `junction-` `array-` `symbol-` `mat-` `grid-`
 
 ---
 
@@ -82,6 +84,7 @@ After writing a new entity file, add its ID to `model.json`:
 | Object | `objects[]` **and** relevant storey `children[]` |
 | Junction | `junctions[]` |
 | Array | `arrays[]` |
+| Grid | `grids[]` |
 
 Paths, Profiles, Symbols, Groups, and Materials are **not registered** in
 `model.json` — they are found by ID reference from the entities that use them.
@@ -265,6 +268,127 @@ instances — no other edits required.
 > **Note:** `mode` choices — `"spacing"` places instances at fixed intervals;
 > `"count"` distributes a fixed number evenly; `"fill"` packs as many
 > instances as fit within the path length.
+
+---
+
+## Worked example: add a structural grid
+
+Grids are **reference geometry only** — not physical elements. Axes are
+defined inline in the Grid entity; the viewer generates display lines from
+them at render time. Grid axes do not participate in the Path/Profile/sweep
+system.
+
+**Step 1.** Create `grids/grid-structural.json`:
+
+```json
+{
+  "$schema": "oebf://schema/0.1/grid",
+  "id": "grid-structural",
+  "type": "Grid",
+  "description": "Structural column grid",
+  "ifc_type": "IfcGrid",
+  "axes": [
+    { "id": "1", "direction": "y", "offset_m": 0.0 },
+    { "id": "2", "direction": "y", "offset_m": 5.4 },
+    { "id": "A", "direction": "x", "offset_m": 0.0 },
+    { "id": "B", "direction": "x", "offset_m": 8.5 }
+  ],
+  "elevations": [
+    { "id": "GF", "z_m": 0.0, "description": "Ground floor" },
+    { "id": "FF", "z_m": 3.0, "description": "First floor" }
+  ]
+}
+```
+
+**Axis direction convention:**
+- `direction: "y"` — axis runs **north-south** (parallel to Y), positioned at
+  the given X offset. Named with numbers: `"1"`, `"2"`.
+- `direction: "x"` — axis runs **east-west** (parallel to X), positioned at
+  the given Y offset. Named with letters: `"A"`, `"B"`.
+
+**Radial grids** use two additional axis types:
+- `direction: "radial"` with `angle_deg` — a line from an origin at the
+  given angle (degrees from positive X, anti-clockwise). For fan/circular plans.
+- `direction: "arc"` with `radius_m` — a concentric arc at the given radius
+  from an origin.
+
+**Step 2.** Register in `model.json`: add `"grid-structural"` to `grids[]`.
+
+---
+
+## Worked example: add a custom junction geometry
+
+Use `rule: "custom"` when a junction cannot be described by `butt`, `mitre`,
+`lap`, `halving`, or `notch`. Set `custom_geometry` to the geometry filename;
+the renderer uses the mesh file instead of computing the junction from trim
+planes.
+
+**Common cases:** padstones, moment connections, notched timber laps with
+non-standard geometry, bespoke curtain-wall nodes.
+
+**Step 1.** Write the junction entity
+(`junctions/junction-ne-padstone.json`):
+
+```json
+{
+  "$schema": "oebf://schema/0.1/junction",
+  "id": "junction-ne-padstone",
+  "type": "Junction",
+  "description": "Concrete padstone at NE corner",
+  "elements": ["element-wall-east-gf", "element-wall-north-gf"],
+  "rule": "custom",
+  "priority": ["element-wall-east-gf"],
+  "custom_geometry": "junction-ne-padstone-geometry.json"
+}
+```
+
+**Step 2.** Write the geometry file
+(`junctions/junction-ne-padstone-geometry.json`).
+
+Geometry rules:
+- `vertices[]` — world coordinates, metres, Z-up (same as all OEBF coords)
+- `faces[].indices[]` — vertex indices, **counter-clockwise winding** (outward normal)
+- `normals[]` — optional per-vertex normals; computed from faces if absent
+- `material_id` on each face — optional; references `materials/library.json`
+
+```json
+{
+  "$schema": "oebf://schema/0.1/junction-geometry",
+  "id": "junction-ne-padstone-geometry",
+  "type": "JunctionGeometry",
+  "description": "400×400×100mm concrete padstone centred on NE corner (x=5.4, y=8.5)",
+  "junction_id": "junction-ne-padstone",
+  "vertices": [
+    { "x": 5.20, "y": 8.30, "z": 0.00 },
+    { "x": 5.60, "y": 8.30, "z": 0.00 },
+    { "x": 5.60, "y": 8.70, "z": 0.00 },
+    { "x": 5.20, "y": 8.70, "z": 0.00 },
+    { "x": 5.20, "y": 8.30, "z": 0.10 },
+    { "x": 5.60, "y": 8.30, "z": 0.10 },
+    { "x": 5.60, "y": 8.70, "z": 0.10 },
+    { "x": 5.20, "y": 8.70, "z": 0.10 }
+  ],
+  "faces": [
+    { "indices": [0, 3, 2, 1], "material_id": "mat-dense-aggregate" },
+    { "indices": [4, 5, 6, 7], "material_id": "mat-dense-aggregate" },
+    { "indices": [0, 1, 5, 4], "material_id": "mat-dense-aggregate" },
+    { "indices": [1, 2, 6, 5], "material_id": "mat-dense-aggregate" },
+    { "indices": [2, 3, 7, 6], "material_id": "mat-dense-aggregate" },
+    { "indices": [3, 0, 4, 7], "material_id": "mat-dense-aggregate" }
+  ]
+}
+```
+
+**Step 3.** Register in `model.json`: add `"junction-ne-padstone"` to
+`junctions[]`.
+
+**LLM authoring notes:**
+- Derive vertex positions from element path endpoints and profile widths.
+- Keep face count minimal — a simplified shape is sufficient for BIM exchange.
+- Put semantic geometry notes in `description` (which vertices form which face
+  cluster).
+- The geometry filename **must** match `junction-{id}-geometry.json`; the
+  schema enforces this pattern.
 
 ---
 
