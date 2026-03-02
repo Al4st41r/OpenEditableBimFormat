@@ -2,6 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "oebf://schema/0.1/array",
   "title": "OEBF Array",
+  "$comment": "v0.1: Always parametric. Instance positions are computed at load time from path geometry and spacing parameters. No 'instances' array is ever stored in this file.",
   "type": "object",
   "required": ["$schema", "id", "type", "source_id", "path_id", "mode", "alignment", "axes"],
   "additionalProperties": false,

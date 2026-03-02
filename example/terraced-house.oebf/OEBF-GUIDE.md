@@ -186,6 +186,88 @@ and `storey-gf > children[]`. The opening does **not** need a separate entry.
 
 ---
 
+## Worked example: add a parametric array
+
+Arrays are **always parametric**. Instance positions are computed at load time
+from the path geometry and spacing parameters. No `instances` list is ever
+stored in the file — the array file stays short regardless of how many
+instances it produces.
+
+**Step 1.** Create the path the instances will follow
+(`paths/path-front-boundary.json`):
+
+```json
+{
+  "$schema": "oebf://schema/0.1/path",
+  "id": "path-front-boundary",
+  "type": "Path",
+  "description": "Front boundary line — runs west to east, 1.2 m south of south wall",
+  "closed": false,
+  "segments": [{
+    "type": "line",
+    "start": { "x": 0.0, "y": -1.2, "z": 0.0 },
+    "end":   { "x": 5.4, "y": -1.2, "z": 0.0 }
+  }],
+  "tags": ["boundary", "external", "ground-floor"]
+}
+```
+
+**Step 2.** Create the symbol being repeated
+(`symbols/symbol-fence-post.json`):
+
+```json
+{
+  "$schema": "oebf://schema/0.1/symbol",
+  "id": "symbol-fence-post",
+  "type": "Symbol",
+  "description": "Timber fence post — 75 × 75 mm section, 1.2 m high",
+  "ifc_type": "IfcMember",
+  "ifc_predefined_type": "POST",
+  "parameters": {
+    "width_m":  0.075,
+    "depth_m":  0.075,
+    "height_m": 1.2,
+    "material": "mat-timber-treated"
+  },
+  "geometry_definition": "box"
+}
+```
+
+**Step 3.** Create the array entity
+(`arrays/array-front-fence-posts.json`):
+
+```json
+{
+  "$schema": "oebf://schema/0.1/array",
+  "id": "array-front-fence-posts",
+  "type": "Array",
+  "description": "Timber fence posts at 1.8 m centres along the front boundary",
+  "source_id": "symbol-fence-post",
+  "path_id": "path-front-boundary",
+  "mode": "spacing",
+  "spacing": 1.8,
+  "start_offset": 0.0,
+  "end_offset": 0.0,
+  "alignment": "fixed",
+  "axes": ["z"],
+  "offset_local": { "x": 0.0, "y": 0.0, "z": 0.0 },
+  "rotation_local_deg": 0
+}
+```
+
+A 5.4 m path with `spacing: 1.8` produces **4 instances** (at 0 m, 1.8 m,
+3.6 m, 5.4 m). Change `spacing` to `0.9` and the same file yields 7
+instances — no other edits required.
+
+**Step 4.** Register in `model.json`: add `"array-front-fence-posts"` to
+`arrays[]`.
+
+> **Note:** `mode` choices — `"spacing"` places instances at fixed intervals;
+> `"count"` distributes a fixed number evenly; `"fill"` packs as many
+> instances as fit within the path length.
+
+---
+
 ## Validation
 
 Validate a single file against its schema:
