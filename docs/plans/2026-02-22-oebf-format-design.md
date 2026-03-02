@@ -715,7 +715,7 @@ The following questions require further research or design decisions. Each is fi
 | 8 | What is the correct approach to clash detection between elements that share a material boundary vs. overlap? |
 | 9 | How should the macOS wrapper handle file watching for live reload during LLM editing sessions? |
 | 10 | What is the data model for structural grids (column grids, elevation markers)? |
-| 11 | Should the format include a built-in material library or rely solely on project-level materials? |
+| 11 | ~~Should the format include a built-in material library or rely solely on project-level materials?~~ **Resolved:** project-level only for v0.1; optional standard library opt-in for v0.2. See [decision doc](../decisions/2026-03-02-material-library-approach.md). |
 | 12 | How are slabs and raked/curved slabs modelled — as a swept profile on a closed path, or as a separate entity type? |
 | 13 | What are the performance limits for the web viewer (max elements, max array count)? |
 | 14 | How should the schema version be embedded so that LLMs know which version they are editing? |

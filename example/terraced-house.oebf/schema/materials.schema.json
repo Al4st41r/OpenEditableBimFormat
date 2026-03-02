@@ -14,7 +14,7 @@
         "required": ["id", "type", "name", "category"],
         "additionalProperties": false,
         "properties": {
-          "id":                 { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+          "id":                 { "type": "string", "pattern": "^mat-[a-z0-9][a-z0-9-]*$", "description": "Unique slug ID. Must start with 'mat-'. The 'oebf-std:' prefix is reserved for the v0.2 standard library and is not valid in v0.1 project materials." },
           "type":               { "type": "string", "const": "Material" },
           "name":               { "type": "string" },
           "category":           { "type": "string" },

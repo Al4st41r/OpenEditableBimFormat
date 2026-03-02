@@ -15,6 +15,10 @@
     "author":             { "type": "string" },
     "units":              { "type": "string", "enum": ["metres"] },
     "coordinate_system":  { "type": "string", "enum": ["right_hand_z_up"] },
+    "material_library": {
+      "type": "string",
+      "description": "Optional. Reference to a named standard material library distributed with the oebf tools. Reserved for v0.2. Omit in v0.1 projects. Example value: 'oebf-standard-v1'."
+    },
     "files": {
       "type": "object",
       "properties": {
