@@ -1,0 +1,25 @@
+{
+  "$schema": "oebf://schema/0.1/junction-geometry",
+  "id": "junction-ne-padstone-geometry",
+  "type": "JunctionGeometry",
+  "description": "400×400×100mm concrete padstone centred on NE corner (x=5.4, y=8.5, z=0). Vertices v0–v3: bottom face SW→SE→NE→NW. Vertices v4–v7: top face same order.",
+  "junction_id": "junction-ne-padstone",
+  "vertices": [
+    { "x": 5.20, "y": 8.30, "z": 0.00 },
+    { "x": 5.60, "y": 8.30, "z": 0.00 },
+    { "x": 5.60, "y": 8.70, "z": 0.00 },
+    { "x": 5.20, "y": 8.70, "z": 0.00 },
+    { "x": 5.20, "y": 8.30, "z": 0.10 },
+    { "x": 5.60, "y": 8.30, "z": 0.10 },
+    { "x": 5.60, "y": 8.70, "z": 0.10 },
+    { "x": 5.20, "y": 8.70, "z": 0.10 }
+  ],
+  "faces": [
+    { "indices": [0, 3, 2, 1], "material_id": "mat-dense-aggregate" },
+    { "indices": [4, 5, 6, 7], "material_id": "mat-dense-aggregate" },
+    { "indices": [0, 1, 5, 4], "material_id": "mat-dense-aggregate" },
+    { "indices": [1, 2, 6, 5], "material_id": "mat-dense-aggregate" },
+    { "indices": [2, 3, 7, 6], "material_id": "mat-dense-aggregate" },
+    { "indices": [3, 0, 4, 7], "material_id": "mat-dense-aggregate" }
+  ]
+}
