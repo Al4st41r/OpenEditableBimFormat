@@ -82,13 +82,8 @@ Layer boundaries in the cross-section are derived from cumulative `thickness`
 values in `assembly[]`, not from SVG sub-paths. The SVG records the visual
 shape; the JSON is the authoritative source of layer dimensions.
 
-| assembly index | X start | X end |
-|----------------|---------|-------|
-| layer 1 (finish, 13mm) | 0.000 | 0.013 |
-| layer 2 (structure, 100mm) | 0.013 | 0.113 |
-| layer 3 (insulation, 50mm) | 0.113 | 0.163 |
-| layer 4 (structure, 100mm) | 0.163 | 0.263 |
-| layer 5 (finish, 13mm) | 0.263 | 0.276 |
+See the profile worked example below for a concrete 265mm cavity wall with
+layer boundaries derived from cumulative assembly thicknesses.
 
 ---
 

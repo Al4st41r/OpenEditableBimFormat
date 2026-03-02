@@ -4,7 +4,7 @@
   "title": "OEBF Profile",
   "description": "Cross-section profile for sweep geometry. SVG defines the shape in absolute metre coordinates; assembly defines layer composition and thicknesses in metres.",
   "type": "object",
-  "required": ["id", "type", "svg_file", "origin", "alignment", "assembly"],
+  "required": ["id", "type", "svg_file", "width", "origin", "alignment", "assembly"],
   "additionalProperties": false,
   "properties": {
     "$schema":     { "type": "string" },

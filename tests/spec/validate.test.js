@@ -134,3 +134,18 @@ test("profile: invalid alignment enum fails", () => {
   const { valid } = validate("profile", doc)
   expect(valid).toBe(false)
 })
+
+test("profile: missing width fails", () => {
+  const doc = {
+    id: "profile-no-width",
+    type: "Profile",
+    svg_file: "profile.svg",
+    origin: { x: 0, y: 0 },
+    alignment: "center",
+    assembly: [
+      { layer: 1, name: "Layer", material_id: "mat-brick", thickness: 0.100, function: "structure" }
+    ]
+  }
+  const { valid } = validate("profile", doc)
+  expect(valid).toBe(false)
+})
