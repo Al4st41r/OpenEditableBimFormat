@@ -1,0 +1,19 @@
+{
+  "name": "oebf-viewer",
+  "version": "0.1.0",
+  "description": "Three.js viewer for OEBF building models",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "three": "^0.170.0"
+  },
+  "devDependencies": {
+    "vite": "^6.0.0",
+    "vitest": "^2.0.0"
+  }
+}
