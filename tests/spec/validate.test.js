@@ -71,3 +71,66 @@ test("element: valid element passes", () => {
   const { valid } = validate("element", doc)
   expect(valid).toBe(true)
 })
+
+test("profile: valid profile with assembly passes", () => {
+  const doc = {
+    id: "profile-cavity-265",
+    type: "Profile",
+    description: "265mm cavity wall",
+    svg_file: "profile-cavity-265.svg",
+    width: 0.265,
+    height: null,
+    origin: { x: 0.0, y: 0.0 },
+    alignment: "left-face",
+    assembly: [
+      { layer: 1, name: "Brick outer leaf",  material_id: "mat-brick",   thickness: 0.102, function: "structure" },
+      { layer: 2, name: "Cavity unfilled",   material_id: "mat-air",     thickness: 0.050, function: "service"   },
+      { layer: 3, name: "Block inner leaf",  material_id: "mat-block",   thickness: 0.100, function: "structure" },
+      { layer: 4, name: "Plaster finish",    material_id: "mat-plaster", thickness: 0.013, function: "finish"    }
+    ]
+  }
+  const { valid } = validate("profile", doc)
+  expect(valid).toBe(true)
+})
+
+test("profile: missing assembly fails", () => {
+  const doc = {
+    id: "profile-no-assembly",
+    type: "Profile",
+    svg_file: "profile.svg",
+    origin: { x: 0, y: 0 },
+    alignment: "center"
+  }
+  const { valid } = validate("profile", doc)
+  expect(valid).toBe(false)
+})
+
+test("profile: layer thickness zero fails", () => {
+  const doc = {
+    id: "profile-bad-thickness",
+    type: "Profile",
+    svg_file: "profile.svg",
+    origin: { x: 0, y: 0 },
+    alignment: "center",
+    assembly: [
+      { layer: 1, name: "Layer", material_id: "mat-brick", thickness: 0, function: "structure" }
+    ]
+  }
+  const { valid } = validate("profile", doc)
+  expect(valid).toBe(false)
+})
+
+test("profile: invalid alignment enum fails", () => {
+  const doc = {
+    id: "profile-bad-align",
+    type: "Profile",
+    svg_file: "profile.svg",
+    origin: { x: 0, y: 0 },
+    alignment: "invalid-value",
+    assembly: [
+      { layer: 1, name: "Layer", material_id: "mat-brick", thickness: 0.100, function: "structure" }
+    ]
+  }
+  const { valid } = validate("profile", doc)
+  expect(valid).toBe(false)
+})
