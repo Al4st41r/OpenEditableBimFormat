@@ -445,6 +445,225 @@ export function computeMitreTrimPlane(dirA, dirB, junctionPoint) {
 }
 
 // ---------------------------------------------------------------------------
+// Curved-path tangent evaluation
+// ---------------------------------------------------------------------------
+
+/**
+ * Circumcenter of a triangle (a, b, c) in 3D — used for arc tangent computation.
+ * Returns null if the three points are collinear (degenerate arc).
+ *
+ * @param {number[]} a
+ * @param {number[]} b
+ * @param {number[]} c
+ * @returns {number[]|null}
+ */
+function circumcenter3d(a, b, c) {
+  const ab = sub(b, a);
+  const ac = sub(c, a);
+  const p = dot(ab, ab);  // |ab|²
+  const q = dot(ab, ac);  // ab·ac
+  const r = dot(ac, ac);  // |ac|²
+  const denom = 2 * (p * r - q * q);  // 2|ab × ac|²
+  if (Math.abs(denom) < EPS) return null;
+  const s = r * (p - q) / denom;
+  const t = p * (r - q) / denom;
+  return add(a, add(scale(ab, s), scale(ac, t)));
+}
+
+/**
+ * Tangent of a circular arc (defined by start, mid, end) at its start point,
+ * in the direction of arc traversal (start → mid → end).
+ *
+ * @param {number[]} start
+ * @param {number[]} mid  - a point on the arc between start and end
+ * @param {number[]} end
+ * @returns {number[]} unit tangent vector
+ */
+function evaluateArcTangentAtStart(start, mid, end) {
+  const center = circumcenter3d(start, mid, end);
+  if (!center) return normalise(sub(end, start)); // degenerate: treat as line
+  const planeNormal = normalise(cross(sub(mid, start), sub(end, start)));
+  const radial = normalise(sub(start, center));
+  return normalise(cross(planeNormal, radial));
+}
+
+/**
+ * Tangent of a circular arc at its end point, in the direction of arc traversal.
+ *
+ * @param {number[]} start
+ * @param {number[]} mid
+ * @param {number[]} end
+ * @returns {number[]} unit tangent vector
+ */
+function evaluateArcTangentAtEnd(start, mid, end) {
+  const center = circumcenter3d(start, mid, end);
+  if (!center) return normalise(sub(end, start));
+  const planeNormal = normalise(cross(sub(mid, start), sub(end, start)));
+  const radial = normalise(sub(end, center));
+  return normalise(cross(planeNormal, radial));
+}
+
+/**
+ * Evaluate the unit tangent of a path segment at its start point, in the
+ * forward direction (start → end).
+ *
+ * Segment types supported:
+ *   - line:    { type: 'line',    start, end }
+ *   - arc:     { type: 'arc',     start, mid, end }
+ *   - bezier:  { type: 'bezier',  start, cp1, cp2, end }
+ *   - spline:  { type: 'spline',  points: [[x,y,z], …] }  (≥2 points)
+ *
+ * For arc and bezier the result is analytically exact. For spline, the result
+ * is the chord direction from the first to the second control point
+ * (an approximation sufficient for tangent-plane computation).
+ *
+ * @param {{ type: string, [key: string]: any }} segment
+ * @returns {number[]} unit tangent vector
+ */
+export function evaluateSegmentTangentAtStart(segment) {
+  switch (segment.type) {
+    case 'line':
+      return normalise(sub(
+        [segment.end.x, segment.end.y, segment.end.z],
+        [segment.start.x, segment.start.y, segment.start.z],
+      ));
+    case 'arc':
+      return evaluateArcTangentAtStart(
+        [segment.start.x, segment.start.y, segment.start.z],
+        [segment.mid.x,   segment.mid.y,   segment.mid.z],
+        [segment.end.x,   segment.end.y,   segment.end.z],
+      );
+    case 'bezier':
+      return normalise(sub(
+        [segment.cp1.x, segment.cp1.y, segment.cp1.z],
+        [segment.start.x, segment.start.y, segment.start.z],
+      ));
+    case 'spline': {
+      const pts = segment.points;
+      return normalise(sub(
+        [pts[1].x, pts[1].y, pts[1].z],
+        [pts[0].x, pts[0].y, pts[0].z],
+      ));
+    }
+    default:
+      throw new Error(`[OEBF] Unknown segment type: ${segment.type}`);
+  }
+}
+
+/**
+ * Evaluate the unit tangent of a path segment at its end point, in the
+ * forward direction (start → end).
+ *
+ * @param {{ type: string, [key: string]: any }} segment
+ * @returns {number[]} unit tangent vector
+ */
+export function evaluateSegmentTangentAtEnd(segment) {
+  switch (segment.type) {
+    case 'line':
+      return normalise(sub(
+        [segment.end.x, segment.end.y, segment.end.z],
+        [segment.start.x, segment.start.y, segment.start.z],
+      ));
+    case 'arc':
+      return evaluateArcTangentAtEnd(
+        [segment.start.x, segment.start.y, segment.start.z],
+        [segment.mid.x,   segment.mid.y,   segment.mid.z],
+        [segment.end.x,   segment.end.y,   segment.end.z],
+      );
+    case 'bezier':
+      return normalise(sub(
+        [segment.end.x, segment.end.y, segment.end.z],
+        [segment.cp2.x, segment.cp2.y, segment.cp2.z],
+      ));
+    case 'spline': {
+      const pts = segment.points;
+      const n = pts.length;
+      return normalise(sub(
+        [pts[n - 1].x, pts[n - 1].y, pts[n - 1].z],
+        [pts[n - 2].x, pts[n - 2].y, pts[n - 2].z],
+      ));
+    }
+    default:
+      throw new Error(`[OEBF] Unknown segment type: ${segment.type}`);
+  }
+}
+
+/**
+ * Compute a butt trim plane for a curved (or straight) path segment.
+ *
+ * For line, arc, and bezier segments the trim plane is computed analytically
+ * from the path tangent at the junction endpoint. This is exact for lines and
+ * arcs; for bezier it uses the endpoint control-point tangent.
+ *
+ * For spline segments a planar trim cannot be guaranteed to be accurate
+ * (the endpoint tangent is a chord approximation only). A warning is logged
+ * and null is returned. The caller should fall back to CSG or custom geometry.
+ *
+ * The returned plane is identical to what computeButtTrimPlane() would produce
+ * if handed the exact tangent direction.
+ *
+ * @param {{ type: string, [key: string]: any }} segment  - the subordinate segment at the junction
+ * @param {'start'|'end'} atEnd   - which end of the subordinate segment is at the junction
+ * @param {number[]} intersectionPoint - world-space junction point [x,y,z]
+ * @returns {{ normal: number[], origin: number[] }|null}
+ *   null if the segment type requires CSG (spline).
+ */
+export function computeButtTrimPlaneFromSegment(segment, atEnd, intersectionPoint) {
+  if (segment.type === 'spline') {
+    console.warn(
+      '[OEBF] computeButtTrimPlaneFromSegment: spline segment requires CSG for ' +
+      'accurate butt trim. Trim plane not computed; set trim_method:"csg" on the ' +
+      'junction and use custom_geometry or a future CSG exporter.'
+    );
+    return null;
+  }
+  const tangent = atEnd === 'start'
+    ? evaluateSegmentTangentAtStart(segment)
+    : evaluateSegmentTangentAtEnd(segment);
+  return computeButtTrimPlane(tangent, intersectionPoint, atEnd);
+}
+
+/**
+ * Compute a mitre trim plane from two curved (or straight) path segments.
+ *
+ * Both elements receive the same bisecting plane. dirA and dirB are derived
+ * from the outward tangent of each segment at its junction endpoint.
+ *
+ * Returns null with a warning if either segment is a spline.
+ *
+ * @param {{ type: string, [key: string]: any }} segA - path segment for element A
+ * @param {'start'|'end'} atEndA - which end of A is at the junction
+ * @param {{ type: string, [key: string]: any }} segB - path segment for element B
+ * @param {'start'|'end'} atEndB - which end of B is at the junction
+ * @param {number[]} junctionPoint - world-space junction point [x,y,z]
+ * @returns {{ normal: number[], origin: number[] }|null}
+ */
+export function computeMitreTrimPlaneFromSegments(segA, atEndA, segB, atEndB, junctionPoint) {
+  if (segA.type === 'spline' || segB.type === 'spline') {
+    console.warn(
+      '[OEBF] computeMitreTrimPlaneFromSegments: spline segment(s) require CSG for ' +
+      'accurate mitre trim. Trim plane not computed; set trim_method:"csg" on the ' +
+      'junction and use custom_geometry or a future CSG exporter.'
+    );
+    return null;
+  }
+  // Outward direction: away from junction along the element's path.
+  // For atEnd='start': outward = forward tangent at start.
+  // For atEnd='end':   outward = reverse of forward tangent at end.
+  const fwdA = atEndA === 'start'
+    ? evaluateSegmentTangentAtStart(segA)
+    : evaluateSegmentTangentAtEnd(segA);
+  const dirA = atEndA === 'start' ? fwdA : scale(fwdA, -1);
+
+  const fwdB = atEndB === 'start'
+    ? evaluateSegmentTangentAtStart(segB)
+    : evaluateSegmentTangentAtEnd(segB);
+  const dirB = atEndB === 'start' ? fwdB : scale(fwdB, -1);
+
+  return computeMitreTrimPlane(dirA, dirB, junctionPoint);
+}
+
+// ---------------------------------------------------------------------------
 // Mesh utilities (useful for testing and export)
 // ---------------------------------------------------------------------------
 
