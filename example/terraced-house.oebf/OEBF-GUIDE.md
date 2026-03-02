@@ -383,7 +383,9 @@ Geometry rules:
 `junctions[]`.
 
 **LLM authoring notes:**
-- Derive vertex positions from element path endpoints and profile widths.
+- Derive vertex positions from element path endpoints and profile widths. Load
+  `paths/path-{path_id}.json` for each connected element to find centreline
+  start and end coordinates.
 - Keep face count minimal — a simplified shape is sufficient for BIM exchange.
 - Put semantic geometry notes in `description` (which vertices form which face
   cluster).
