@@ -98,6 +98,7 @@ test("profile: missing assembly fails", () => {
     id: "profile-no-assembly",
     type: "Profile",
     svg_file: "profile.svg",
+    width: 0.100,
     origin: { x: 0, y: 0 },
     alignment: "center"
   }
@@ -110,6 +111,7 @@ test("profile: layer thickness zero fails", () => {
     id: "profile-bad-thickness",
     type: "Profile",
     svg_file: "profile.svg",
+    width: 0.100,
     origin: { x: 0, y: 0 },
     alignment: "center",
     assembly: [
@@ -125,6 +127,7 @@ test("profile: invalid alignment enum fails", () => {
     id: "profile-bad-align",
     type: "Profile",
     svg_file: "profile.svg",
+    width: 0.100,
     origin: { x: 0, y: 0 },
     alignment: "invalid-value",
     assembly: [

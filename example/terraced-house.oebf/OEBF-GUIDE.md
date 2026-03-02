@@ -10,7 +10,7 @@ Read this before editing any file in this bundle. Every 3D element sweeps a
 | Type | File path | Required fields |
 |------|-----------|-----------------|
 | Path | `paths/path-{id}.json` | `id` `type:"Path"` `closed` `segments[]` |
-| Profile | `profiles/profile-{id}.json` | `id` `type:"Profile"` `svg_file` `origin` `alignment` `assembly[]` |
+| Profile | `profiles/profile-{id}.json` | `id` `type:"Profile"` `svg_file` `width` `origin` `alignment` `assembly[]` |
 | Element | `elements/element-{id}.json` | `id` `type:"Element"` `ifc_type` `path_id` `profile_id` `sweep_mode` `cap_start` `cap_end` `parent_group_id` |
 | Object | `elements/object-{id}.json` | `id` `type:"Object"` `symbol_id` `host_element_id` `path_id` `path_position` `parent_group_id` |
 | Opening | `elements/opening-{id}.json` | `id` `type:"Opening"` `host_element_id` `path_id` `path_position` `width_m` `height_m` |
@@ -82,7 +82,7 @@ Layer boundaries in the cross-section are derived from cumulative `thickness`
 values in `assembly[]`, not from SVG sub-paths. The SVG records the visual
 shape; the JSON is the authoritative source of layer dimensions.
 
-See the profile worked example below for a concrete 265mm cavity wall with
+See the profile worked example below for a brick-and-block 265mm cavity wall with
 layer boundaries derived from cumulative assembly thicknesses.
 
 ---
@@ -135,7 +135,7 @@ Openings are found via their Object's `opening_id` — no separate registration.
   "description": "Internal partition — east side of hallway",
   "ifc_type": "IfcWall",
   "path_id": "path-wall-internal-01",
-  "profile_id": "profile-cavity-250",
+  "profile_id": "profile-cavity-265",
   "sweep_mode": "perpendicular",
   "cap_start": "flat",
   "cap_end": "flat",
