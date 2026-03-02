@@ -5,7 +5,7 @@
   "description": "Combined OEBF schema bundle. Entity files reference individual sub-schemas by $id (e.g. oebf://schema/0.1/element). Validators should load the individual schema files from spec/schema/ or from this bundle's schema/ directory.",
   "definitions": {
     "schemaVersion": "0.1.0",
-    "entityTypes": ["manifest", "path", "profile", "element", "junction", "array", "materials", "group", "opening", "object", "symbol"],
+    "entityTypes": ["manifest", "path", "profile", "element", "junction", "junction-geometry", "array", "materials", "group", "opening", "object", "symbol", "grid"],
     "uriPattern": "oebf://schema/{version}/{type}",
     "localResolution": "schema/{type}.schema.json"
   }
