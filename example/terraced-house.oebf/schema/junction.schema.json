@@ -14,7 +14,12 @@
     "rule":            { "type": "string", "enum": ["butt", "mitre", "lap", "halving", "notch", "custom"] },
     "priority":        { "type": "array", "items": { "type": "string" } },
     "butt_axis":       { "type": "string", "enum": ["x", "y", "z"] },
-    "custom_geometry": { "type": ["string", "null"] },
+    "custom_geometry": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "string", "pattern": "^junction-[a-z0-9][a-z0-9-]*-geometry\\.json$" }
+      ]
+    },
     "trim_planes": {
       "type": "array",
       "items": {
