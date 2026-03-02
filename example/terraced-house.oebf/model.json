@@ -31,6 +31,8 @@
     "junction-sw-corner",
     "junction-se-corner",
     "junction-nw-corner",
-    "junction-ne-corner"
-  ]
+    "junction-ne-corner",
+    "junction-ne-padstone"
+  ],
+  "grids": ["grid-structural"]
 }
