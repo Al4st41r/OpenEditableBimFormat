@@ -19,6 +19,11 @@ import * as THREE from 'three';
 import { computePathLength, samplePathAtDistance } from '../path/pathSampler.js';
 import { computeInstanceDistances } from './arrayDistributor.js';
 
+// Module-level constants — avoids per-instance allocations
+const _FORWARD = new THREE.Vector3(1, 0, 0);
+const _Z_AXIS = new THREE.Vector3(0, 0, 1);
+const _UNIT_SCALE = new THREE.Vector3(1, 1, 1);
+
 /**
  * Build a quaternion that orients an instance relative to the path at a
  * given sample point.
@@ -34,28 +39,21 @@ function buildOrientation(tangent, alignment, rotationLocalDeg) {
   const q = new THREE.Quaternion();
 
   if (alignment === 'tangent') {
-    const forward = new THREE.Vector3(1, 0, 0);
     const t = new THREE.Vector3(tangent.x, tangent.y, tangent.z).normalize();
-    q.setFromUnitVectors(forward, t);
+    q.setFromUnitVectors(_FORWARD, t);
   } else if (alignment === 'perpendicular') {
     // Perpendicular to path in XY plane; instance Z stays vertical
     const tx = tangent.x;
     const ty = tangent.y;
     const tLen = Math.sqrt(tx * tx + ty * ty) || 1;
-    const perpX = -ty / tLen;
-    const perpY = tx / tLen;
-    const forward = new THREE.Vector3(1, 0, 0);
-    const perp = new THREE.Vector3(perpX, perpY, 0);
-    q.setFromUnitVectors(forward, perp);
+    const perp = new THREE.Vector3(-ty / tLen, tx / tLen, 0);
+    q.setFromUnitVectors(_FORWARD, perp);
   }
   // 'fixed': identity quaternion — no rotation applied
 
   if (rotationLocalDeg) {
     const localRot = new THREE.Quaternion();
-    localRot.setFromAxisAngle(
-      new THREE.Vector3(0, 0, 1),
-      rotationLocalDeg * (Math.PI / 180),
-    );
+    localRot.setFromAxisAngle(_Z_AXIS, rotationLocalDeg * (Math.PI / 180));
     q.multiply(localRot);
   }
 
@@ -87,7 +85,7 @@ function buildInstanceMatrix(position, tangent, alignment, offsetLocal, rotation
   );
 
   const matrix = new THREE.Matrix4();
-  matrix.compose(pos, q, new THREE.Vector3(1, 1, 1));
+  matrix.compose(pos, q, _UNIT_SCALE);
   return matrix;
 }
 

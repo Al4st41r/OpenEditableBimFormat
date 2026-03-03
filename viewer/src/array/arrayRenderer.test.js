@@ -97,4 +97,21 @@ describe('buildArrayGroup', () => {
     expect(xAxis.x).toBeCloseTo(1);
     expect(xAxis.y).toBeCloseTo(0);
   });
+
+  it('perpendicular alignment: instance X-axis points perpendicular to path tangent in XY', () => {
+    // PATH_POINTS runs along +X, so tangent = (1,0,0)
+    // perpendicular in XY = (-0, 1, 0) = +Y
+    const perpDef = { ...ARRAY_DEF, alignment: 'perpendicular', mode: 'count', count: 1 };
+    const group = buildArrayGroup(perpDef, PATH_POINTS, SOURCE_GEOMETRIES);
+    const im = group.children[0];
+
+    const matrix = new THREE.Matrix4();
+    im.getMatrixAt(0, matrix);
+
+    const xAxis = new THREE.Vector3();
+    xAxis.setFromMatrixColumn(matrix, 0);
+    expect(xAxis.x).toBeCloseTo(0);
+    expect(xAxis.y).toBeCloseTo(1);
+    expect(xAxis.z).toBeCloseTo(0);
+  });
 });
