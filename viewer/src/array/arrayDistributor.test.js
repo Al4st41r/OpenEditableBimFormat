@@ -73,6 +73,14 @@ describe('computeInstanceDistances', () => {
     expect(distances[0]).toBeCloseTo(1);
   });
 
+  it('fill mode: distances are start_offset + i * spacing', () => {
+    const distances = computeInstanceDistances(def('fill', { spacing: 2, start_offset: 0.5 }), 10);
+    // usable = 9.5, floor(9.5/2) = 4 instances at 0.5, 2.5, 4.5, 6.5
+    expect(distances).toHaveLength(4);
+    expect(distances[0]).toBeCloseTo(0.5);
+    expect(distances[3]).toBeCloseTo(6.5);
+  });
+
   it('returns empty array when count is 0', () => {
     const distances = computeInstanceDistances(
       def('spacing', { spacing: 1, start_offset: 5, end_offset: 5 }),
