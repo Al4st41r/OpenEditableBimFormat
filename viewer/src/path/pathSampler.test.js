@@ -12,6 +12,10 @@ const LINE = [
 // segment 1: length 3, segment 2: length 4, total 7
 
 describe('computePathLength', () => {
+  it('throws for an empty array', () => {
+    expect(() => computePathLength([])).toThrow('must not be empty');
+  });
+
   it('returns 0 for a single point', () => {
     expect(computePathLength([{ x: 0, y: 0, z: 0 }])).toBe(0);
   });
@@ -22,6 +26,15 @@ describe('computePathLength', () => {
 });
 
 describe('samplePathAtDistance', () => {
+  it('throws for an empty array', () => {
+    expect(() => samplePathAtDistance([], 1)).toThrow('must not be empty');
+  });
+
+  it('clamps negative distance to the start point', () => {
+    const { position } = samplePathAtDistance(LINE, -5);
+    expect(position).toEqual({ x: 0, y: 0, z: 0 });
+  });
+
   it('returns start point at distance 0', () => {
     const { position } = samplePathAtDistance(LINE, 0);
     expect(position).toEqual({ x: 0, y: 0, z: 0 });
@@ -65,5 +78,12 @@ describe('samplePathAtDistance', () => {
     expect(tangent.x).toBeCloseTo(0);
     expect(tangent.y).toBeCloseTo(1);
     expect(tangent.z).toBeCloseTo(0);
+  });
+
+  it('returns point and canonical +X tangent for a single-point path', () => {
+    const pt = { x: 1, y: 2, z: 3 };
+    const { position, tangent } = samplePathAtDistance([pt], 0);
+    expect(position).toEqual(pt);
+    expect(tangent).toEqual({ x: 1, y: 0, z: 0 });
   });
 });

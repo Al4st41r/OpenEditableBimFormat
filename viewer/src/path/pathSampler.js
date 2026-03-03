@@ -10,10 +10,12 @@
 /**
  * Compute the total arc length of a polyline.
  *
- * @param {Array<{x:number,y:number,z:number}>} points
+ * @param {Array<{x:number,y:number,z:number}>} points - must be non-empty
  * @returns {number} total length in metres
  */
 export function computePathLength(points) {
+  if (points.length === 0) throw new Error('computePathLength: points array must not be empty');
+
   let length = 0;
   for (let i = 0; i < points.length - 1; i++) {
     const a = points[i];
@@ -33,14 +35,19 @@ export function computePathLength(points) {
  * that contains the sample point. If distance exceeds the path length the
  * result is clamped to the final point.
  *
- * @param {Array<{x:number,y:number,z:number}>} points
- * @param {number} distance - arc-length from start (metres)
+ * @param {Array<{x:number,y:number,z:number}>} points - must be non-empty
+ * @param {number} distance - arc-length from start (metres); negative values are clamped to 0
  * @returns {{ position: {x,y,z}, tangent: {x,y,z} }}
  */
 export function samplePathAtDistance(points, distance) {
+  if (points.length === 0) throw new Error('samplePathAtDistance: points array must not be empty');
+
   if (points.length === 1) {
     return { position: { ...points[0] }, tangent: { x: 1, y: 0, z: 0 } };
   }
+
+  // Clamp negative distance to the start of the path
+  const d = distance < 0 ? 0 : distance;
 
   let accumulated = 0;
 
@@ -52,8 +59,8 @@ export function samplePathAtDistance(points, distance) {
     const dz = b.z - a.z;
     const segLen = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
-    if (accumulated + segLen >= distance) {
-      const t = segLen > 0 ? (distance - accumulated) / segLen : 0;
+    if (accumulated + segLen >= d) {
+      const t = segLen > 0 ? (d - accumulated) / segLen : 0;
       return {
         position: {
           x: a.x + t * dx,
