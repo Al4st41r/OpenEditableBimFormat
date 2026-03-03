@@ -81,6 +81,15 @@ describe('computeInstanceDistances', () => {
     expect(distances[3]).toBeCloseTo(6.5);
   });
 
+  it('spacing mode with end_offset: no instance placed beyond pathLength - end_offset', () => {
+    // path = 10 m, end_offset = 1, usable = 9, spacing = 2 → 5 instances at 0,2,4,6,8
+    const distances = computeInstanceDistances(def('spacing', { spacing: 2, end_offset: 1 }), 10);
+    expect(distances).toHaveLength(5);
+    const last = distances[distances.length - 1];
+    expect(last).toBeCloseTo(8); // well inside pathLength - end_offset = 9
+    expect(last).toBeLessThan(9 + 1e-9);
+  });
+
   it('returns empty array when count is 0', () => {
     const distances = computeInstanceDistances(
       def('spacing', { spacing: 1, start_offset: 5, end_offset: 5 }),

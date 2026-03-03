@@ -49,7 +49,7 @@ function buildOrientation(tangent, alignment, rotationLocalDeg) {
     const perp = new THREE.Vector3(-ty / tLen, tx / tLen, 0);
     q.setFromUnitVectors(_FORWARD, perp);
   }
-  // 'fixed': identity quaternion — no rotation applied
+  // 'fixed': no path-tangent rotation applied (rotation_local_deg still applies below)
 
   if (rotationLocalDeg) {
     const localRot = new THREE.Quaternion();

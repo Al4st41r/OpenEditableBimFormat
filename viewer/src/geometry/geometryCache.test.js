@@ -36,6 +36,15 @@ describe('getCachedGeometry / setCachedGeometry', () => {
     expect(getCachedGeometry(key)).toBe(geom);
   });
 
+  it('overwrites an existing entry and updates the stored reference', () => {
+    const key = makeGeometryKey('p', 1, 'perpendicular');
+    const g1 = new THREE.BufferGeometry();
+    const g2 = new THREE.BufferGeometry();
+    setCachedGeometry(key, g1);
+    setCachedGeometry(key, g2);
+    expect(getCachedGeometry(key)).toBe(g2);
+  });
+
   it('stores independent entries for different keys', () => {
     const g1 = new THREE.BufferGeometry();
     const g2 = new THREE.BufferGeometry();
