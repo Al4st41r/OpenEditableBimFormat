@@ -21,13 +21,13 @@ export function buildJson({ layers, originX, id, description }) {
     svg_file:    `profiles/${id}.svg`,
     width:       Math.round(width * 1e6) / 1e6,
     height:      null,
-    origin:      { x: originX, y: 0.0 },
+    origin:      { x: Math.round(originX * 1e6) / 1e6, y: 0.0 },
     alignment:   'center',
     assembly:    layers.map((l, i) => ({
       layer:       i + 1,
       name:        l.name,
       material_id: l.material_id,
-      thickness:   l.thickness,
+      thickness:   Math.round(l.thickness * 1e6) / 1e6,
       function:    l.function,
     })),
   };

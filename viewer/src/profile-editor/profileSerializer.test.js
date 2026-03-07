@@ -55,4 +55,17 @@ describe('buildJson', () => {
     const result = buildJson({ layers, originX: 0.101, id: 'p', description: '' });
     expect(result.height).toBeNull();
   });
+
+  it('rounds layer thickness to 6 decimal places', () => {
+    const driftLayers = [
+      { name: 'A', material_id: 'mat-a', thickness: 0.1 + 0.001, function: 'finish' },
+    ];
+    const result = buildJson({ layers: driftLayers, originX: 0.05, id: 'p', description: '' });
+    expect(result.assembly[0].thickness).toBe(0.101);
+  });
+
+  it('rounds originX to 6 decimal places in origin.x', () => {
+    const result = buildJson({ layers: [{ name: 'A', material_id: 'mat-a', thickness: 0.1, function: 'finish' }], originX: 0.1 + 0.001 + 0.0001, id: 'p', description: '' });
+    expect(result.origin.x).toBe(Math.round((0.1 + 0.001 + 0.0001) * 1e6) / 1e6);
+  });
 });
