@@ -400,6 +400,40 @@ describe('loadBundle — grids', () => {
   });
 });
 
+describe('loadBundle — missing core files', () => {
+  test('throws when manifest.json is missing', async () => {
+    const files = {
+      'model.json': { elements: [], junctions: [], arrays: [] },
+      'materials/library.json': { materials: [] },
+    };
+    await expect(loadBundle(mockDirHandle(files))).rejects.toThrow();
+  });
+
+  test('throws when model.json is missing', async () => {
+    const files = {
+      'manifest.json': { format: 'oebf', format_version: '0.1.0', project_name: 'T', units: 'metres', coordinate_system: 'right_hand_z_up' },
+      'materials/library.json': { materials: [] },
+    };
+    await expect(loadBundle(mockDirHandle(files))).rejects.toThrow();
+  });
+});
+
+describe('loadBundle — two elements sharing a profile', () => {
+  test('two elements sharing the same profile both produce mesh data', async () => {
+    const model = { elements: ['element-wall-a', 'element-wall-b'], junctions: [], arrays: [] };
+    const ELEMENT_B = { ...ELEMENT_A, id: 'element-wall-b', description: 'Wall B' };
+    // element-wall-b uses the same path and profile as element-wall-a
+    const files = bundleFiles({
+      'model.json': model,
+      'elements/element-wall-b.json': ELEMENT_B,
+    });
+    const { meshes } = await loadBundle(mockDirHandle(files));
+    expect(meshes.length).toBeGreaterThanOrEqual(2); // at least 1 mesh per element
+    expect(meshes.some(m => m.elementId === 'element-wall-a')).toBe(true);
+    expect(meshes.some(m => m.elementId === 'element-wall-b')).toBe(true);
+  });
+});
+
 describe('loadBundle — resilience', () => {
   test('skips a missing element file and loads the rest', async () => {
     const model = { elements: ['element-wall-a', 'element-missing'], junctions: [], arrays: [] };
