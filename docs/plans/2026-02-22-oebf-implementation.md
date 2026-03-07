@@ -2108,7 +2108,7 @@ git commit -m "feat: IFC importer — wall/slab/beam/column to OEBF elements wit
 
 | Task | Description | Status | GitHub |
 |------|-------------|--------|--------|
-| 14 | Profile SVG editor | **Pending** | [#21](https://github.com/Al4st41r/OpenEditableBimFormat/issues/21) |
+| 14 | Profile SVG editor | **✓ Complete** | [#21](https://github.com/Al4st41r/OpenEditableBimFormat/issues/21) |
 | 15 | Junction trim rendering | **✓ Complete** | — |
 | 16 | Array system | **✓ Complete** | — |
 | 17 | IFC exporter | **✓ Complete** | — |
@@ -2118,14 +2118,18 @@ git commit -m "feat: IFC importer — wall/slab/beam/column to OEBF elements wit
 
 ---
 
-### Task 14: Profile SVG editor (2D canvas in web viewer) — PENDING
-**GitHub:** [#21](https://github.com/Al4st41r/OpenEditableBimFormat/issues/21)
+### Task 14: Profile SVG editor ✓ COMPLETE
+**GitHub:** [#21](https://github.com/Al4st41r/OpenEditableBimFormat/issues/21) (closed)
 
-- Embedded 2D SVG drawing canvas (panel or modal in viewer UI)
-- Material layer paint tool (flood fill by region)
-- Origin marker drag-and-drop placement
-- Export writes `profiles/<id>.json` + `profiles/<id>.svg` (absolute metre coords per Issue #6 decision)
-- Profile JSON validated against `spec/schema/profile.schema.json` on export
+- `viewer/src/profile-editor/profileSerializer.js` — `buildJson()` + `buildSvg()` (pure, fully TDD'd, 19 Vitest tests)
+- `viewer/src/profile-editor/profileCanvas.js` — SVG DOM canvas: layer rects, click-to-select, draggable origin marker
+- `viewer/src/profile-editor/profileForm.js` — layer list panel: add/reorder/delete, fires `layers-changed`
+- `viewer/src/profile-editor/editor.js` — orchestrator: bundle open, profile load/save, `postMessage` handle transfer
+- `viewer/profile-editor.html` — two-panel page (SVG canvas left, form right)
+- `viewer/index.html` + `viewer/src/main.js` — "Edit profiles" button wired with same-origin postMessage
+- `viewer/tests/e2e/profile-editor.spec.js` — 3 Playwright tests (page load state, buildJson, buildSvg)
+- Save writes `profiles/<id>.json` + `profiles/<id>.svg` directly to open bundle via File System Access API
+- 19 Vitest unit tests + 3 Playwright e2e tests — all passing
 
 ---
 
