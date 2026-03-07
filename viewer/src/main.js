@@ -124,14 +124,8 @@ document.getElementById('open-dir-btn').addEventListener('click', async () => {
     // Render arrays (InstancedMesh per symbol layer)
     for (const { arrayDef, pathPoints, symbolDef } of arrays) {
       try {
-        const symMatId = symbolDef.parameters?.material;
-        const symMat = symMatId
-          ? new THREE.MeshLambertMaterial({
-              color: new THREE.Color(matMap.get(symMatId)?.color ?? 0x888888),
-              side: THREE.DoubleSide,
-            })
-          : new THREE.MeshLambertMaterial({ color: 0x888888, side: THREE.DoubleSide });
-        const symMatMap = symMatId ? new Map([[symMatId, symMat]]) : new Map();
+        const symMat = new THREE.MeshLambertMaterial({ color: 0x888888, side: THREE.DoubleSide });
+        const symMatMap = new Map();
         const sourceGeometries = buildSymbolGeometries(symbolDef, symMatMap);
         const arrayGroup = buildArrayGroup(arrayDef, pathPoints, sourceGeometries);
         currentGroup.add(arrayGroup);

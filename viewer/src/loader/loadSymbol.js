@@ -11,6 +11,10 @@ import * as THREE from 'three';
 export function buildSymbolGeometries(symbolDef, matMap) {
   const { geometry_definition, parameters } = symbolDef;
 
+  if (!parameters) {
+    throw new Error(`buildSymbolGeometries: symbol "${symbolDef.id}" has no parameters`);
+  }
+
   if (geometry_definition === 'box') {
     const { width_m = 0.1, depth_m = 0.1, height_m = 1.0, material } = parameters;
     const geometry = new THREE.BoxGeometry(width_m, depth_m, height_m);
