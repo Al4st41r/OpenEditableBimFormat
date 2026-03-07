@@ -15,6 +15,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { loadBundle }           from './loader/loadBundle.js';
+import { loadBundleZstd }       from './loader/loadBundleZstd.js';
 import { buildThreeMesh }        from './scene/buildMesh.js';
 import { applyJunctionClipping, buildCustomJunctionMesh } from './junction-renderer.js';
 import { buildArrayGroup }       from './array/arrayRenderer.js';
@@ -86,9 +87,72 @@ function _clearScene() {
   currentGroup = null;
 }
 
+function _buildScene(meshes, manifest, junctions, arrays, grids) {
+  _clearScene();
+
+  currentGroup = new THREE.Group();
+  currentGroup.name = manifest.project_name;
+  for (const meshData of meshes) currentGroup.add(buildThreeMesh(meshData));
+  applyJunctionClipping(currentGroup, junctions);
+
+  // Build material map for custom junction rendering
+  const matMap = new Map();
+  for (const meshData of meshes) {
+    if (meshData.materialId && !matMap.has(meshData.materialId)) {
+      matMap.set(meshData.materialId, new THREE.MeshLambertMaterial({
+        color: new THREE.Color(meshData.colour ?? '#888888'),
+        side: THREE.DoubleSide,
+      }));
+    }
+  }
+  for (const junction of junctions) {
+    if (junction.rule === 'custom' && junction.geomData) {
+      const customMesh = buildCustomJunctionMesh(junction.geomData, matMap);
+      currentGroup.add(customMesh);
+    }
+  }
+
+  // Render arrays (InstancedMesh per symbol layer)
+  for (const { arrayDef, pathPoints, symbolDef } of arrays) {
+    try {
+      const symMatMap = new Map();
+      const sourceGeometries = buildSymbolGeometries(symbolDef, symMatMap);
+      const arrayGroup = buildArrayGroup(arrayDef, pathPoints, sourceGeometries);
+      currentGroup.add(arrayGroup);
+    } catch (err) {
+      console.warn(`[OEBF] Skipping array render ${arrayDef.id}: ${err.message}`);
+    }
+  }
+
+  // Render structural grids as subtle line segments
+  for (const grid of grids) {
+    const { positions } = buildGridLineSegments(grid);
+    if (positions.length === 0) continue;
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    const material = new THREE.LineBasicMaterial({ color: 0x555555, opacity: 0.5, transparent: true });
+    const lines = new THREE.LineSegments(geometry, material);
+    lines.userData.gridId = grid.id;
+    currentGroup.add(lines);
+  }
+
+  scene.add(currentGroup);
+
+  // Fit camera to loaded geometry
+  const box    = new THREE.Box3().setFromObject(currentGroup);
+  const centre = box.getCenter(new THREE.Vector3());
+  const size   = box.getSize(new THREE.Vector3());
+  const maxDim = Math.max(size.x, size.y, size.z);
+  camera.position.copy(centre).add(new THREE.Vector3(maxDim, -maxDim, maxDim * 0.8));
+  controls.target.copy(centre);
+  controls.update();
+
+  statusEl.textContent = `${manifest.project_name} — ${meshes.length} mesh(es) loaded`;
+}
+
 document.getElementById('open-dir-btn').addEventListener('click', async () => {
   if (!window.showDirectoryPicker) {
-    statusEl.textContent = 'File System Access API not supported in this browser — use Open .oebfz instead';
+    statusEl.textContent = 'Your browser does not support folder opening (Firefox). Use "Open .oebfz" instead.';
     return;
   }
   statusEl.textContent = 'Opening…';
@@ -97,68 +161,8 @@ document.getElementById('open-dir-btn').addEventListener('click', async () => {
     currentDirHandle = dirHandle;
     document.getElementById('edit-profiles-btn').disabled = false;
     statusEl.textContent = 'Loading…';
-    _clearScene();
-
     const { meshes, manifest, junctions, arrays, grids } = await loadBundle(dirHandle);
-    currentGroup = new THREE.Group();
-    currentGroup.name = manifest.project_name;
-    for (const meshData of meshes) currentGroup.add(buildThreeMesh(meshData));
-    applyJunctionClipping(currentGroup, junctions);
-
-    // Build material map for custom junction rendering
-    const matMap = new Map();
-    for (const meshData of meshes) {
-      if (meshData.materialId && !matMap.has(meshData.materialId)) {
-        matMap.set(meshData.materialId, new THREE.MeshLambertMaterial({
-          color: new THREE.Color(meshData.colour ?? '#888888'),
-          side: THREE.DoubleSide,
-        }));
-      }
-    }
-    for (const junction of junctions) {
-      if (junction.rule === 'custom' && junction.geomData) {
-        const customMesh = buildCustomJunctionMesh(junction.geomData, matMap);
-        currentGroup.add(customMesh);
-      }
-    }
-
-    // Render arrays (InstancedMesh per symbol layer)
-    for (const { arrayDef, pathPoints, symbolDef } of arrays) {
-      try {
-        const symMat = new THREE.MeshLambertMaterial({ color: 0x888888, side: THREE.DoubleSide });
-        const symMatMap = new Map();
-        const sourceGeometries = buildSymbolGeometries(symbolDef, symMatMap);
-        const arrayGroup = buildArrayGroup(arrayDef, pathPoints, sourceGeometries);
-        currentGroup.add(arrayGroup);
-      } catch (err) {
-        console.warn(`[OEBF] Skipping array render ${arrayDef.id}: ${err.message}`);
-      }
-    }
-
-    // Render structural grids as subtle line segments
-    for (const grid of grids) {
-      const { positions } = buildGridLineSegments(grid);
-      if (positions.length === 0) continue;
-      const geometry = new THREE.BufferGeometry();
-      geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-      const material = new THREE.LineBasicMaterial({ color: 0x555555, opacity: 0.5, transparent: true });
-      const lines = new THREE.LineSegments(geometry, material);
-      lines.userData.gridId = grid.id;
-      currentGroup.add(lines);
-    }
-
-    scene.add(currentGroup);
-
-    // Fit camera to loaded geometry
-    const box    = new THREE.Box3().setFromObject(currentGroup);
-    const centre = box.getCenter(new THREE.Vector3());
-    const size   = box.getSize(new THREE.Vector3());
-    const maxDim = Math.max(size.x, size.y, size.z);
-    camera.position.copy(centre).add(new THREE.Vector3(maxDim, -maxDim, maxDim * 0.8));
-    controls.target.copy(centre);
-    controls.update();
-
-    statusEl.textContent = `${manifest.project_name} — ${meshes.length} mesh(es) loaded`;
+    _buildScene(meshes, manifest, junctions, arrays, grids);
   } catch (err) {
     if (err.name !== 'AbortError') {
       statusEl.textContent = `Error: ${err.message}`;
@@ -170,7 +174,22 @@ document.getElementById('open-dir-btn').addEventListener('click', async () => {
 });
 
 document.getElementById('open-file-btn').addEventListener('click', () => {
-  statusEl.textContent = '.oebfz loading not yet implemented (planned after Task 11 — see issue #17)';
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.oebfz';
+  input.onchange = async () => {
+    const file = input.files[0];
+    if (!file) return;
+    statusEl.textContent = 'Loading…';
+    try {
+      const result = await loadBundleZstd(file);
+      _buildScene(result.meshes, result.manifest, result.junctions, result.arrays, result.grids);
+    } catch (err) {
+      statusEl.textContent = `Error: ${err.message}`;
+      console.error(err);
+    }
+  };
+  input.click();
 });
 
 document.getElementById('edit-profiles-btn').addEventListener('click', () => {
