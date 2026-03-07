@@ -2104,49 +2104,96 @@ git commit -m "feat: IFC importer — wall/slab/beam/column to OEBF elements wit
 
 ---
 
-## Phase 4 — Remaining Tasks (Outline)
+## Phase 4 — Status (updated 2026-03-07)
 
-These tasks are defined here but implemented in subsequent sessions:
+| Task | Description | Status | GitHub |
+|------|-------------|--------|--------|
+| 14 | Profile SVG editor | **Pending** | [#21](https://github.com/Al4st41r/OpenEditableBimFormat/issues/21) |
+| 15 | Junction trim rendering | **✓ Complete** | — |
+| 16 | Array system | **✓ Complete** | — |
+| 17 | IFC exporter | **✓ Complete** | — |
+| 18 | Desktop wrapper — Tauri v2 | **Pending** | [#10](https://github.com/Al4st41r/OpenEditableBimFormat/issues/10) |
+| 19 | Slab entity type | **✓ Complete** | — |
+| 20 | OEBF-GUIDE.md test harness | **Pending** | [#22](https://github.com/Al4st41r/OpenEditableBimFormat/issues/22) |
 
-### Task 14: Profile SVG editor (2D canvas in web viewer)
-- Embedded 2D SVG drawing canvas
-- Material layer paint tool (flood fill)
-- Origin marker placement
-- Export to profile JSON + SVG
+---
 
-### Task 15: Junction authoring and trim rendering
-- Junction entity creation UI
-- Viewer: apply `junction.trim_planes` to `mesh.material.clippingPlanes` (requires `renderer.localClippingEnabled = true`) — **NOT three-bvh-csg** (see Issue #3 decision above)
-- Custom rule junctions: render `JunctionGeometry` mesh directly, no element trimming applied
-- Curved-path junctions: use `computeButtTrimPlaneFromSegment()` / `computeMitreTrimPlaneFromSegments()` from `junction-trimmer.js`
-- Trim algorithm and renderer are already implemented — this task focuses on scene wiring and UI
+### Task 14: Profile SVG editor (2D canvas in web viewer) — PENDING
+**GitHub:** [#21](https://github.com/Al4st41r/OpenEditableBimFormat/issues/21)
+
+- Embedded 2D SVG drawing canvas (panel or modal in viewer UI)
+- Material layer paint tool (flood fill by region)
+- Origin marker drag-and-drop placement
+- Export writes `profiles/<id>.json` + `profiles/<id>.svg` (absolute metre coords per Issue #6 decision)
+- Profile JSON validated against `spec/schema/profile.schema.json` on export
+
+---
+
+### Task 15: Junction authoring and trim rendering ✓ COMPLETE
+**Implemented:** commit `6c139ff`
+
+- `viewer/src/junction-trimmer.js` — `computeButtTrimPlaneFromSegment()`, `computeMitreTrimPlaneFromSegments()`
+- `viewer/src/junction-renderer.js` — `buildClippingPlaneMap()`, `applyJunctionClipping()`, `clearJunctionClipping()`, `buildCustomJunctionMesh()`
+- `viewer/src/main.js` and `viewer/demo.html` wired to call `applyJunctionClipping(sceneRoot, junctions)` after scene build
+- `loadBundle.js` loads `model.junctions[]` and returns them alongside meshes
+- `renderer.localClippingEnabled = true` set in scene setup
+- 25 unit tests — all passing
+
+---
 
 ### Task 16: Array system ✓ COMPLETE
-- Array entity loader
-- Instanced mesh rendering (THREE.InstancedMesh) — one draw call per geometry layer
-- Spacing / count / fill mode computation — arrays are **always parametric** (never expanded to instance lists)
-- Implemented: `viewer/src/array/arrayDistributor.js`, `viewer/src/array/arrayRenderer.js`
+**Implemented:** commits `62be77b`, `7be64ae`, `e189ead`, `4e66073`
 
-### Task 17: IFC exporter — OEBF sweep → IfcExtrudedAreaSolid
-- Reconstruct IFC swept solid from OEBF element+profile+path
-- Write IfcPropertySets from properties block
-- Write IfcMaterial assignments
+- `viewer/src/array/arrayDistributor.js` — spacing / count / fill mode, start/end offsets
+- `viewer/src/array/arrayRenderer.js` — `THREE.InstancedMesh`, one draw call per geometry layer
+- `viewer/src/geometry/geometryCache.js` — sweep geometry cached by `profileId:pathLength:sweepMode`
+- Arrays are **always parametric** — no expanded instance lists stored
+- Covered by unit tests in `arrayDistributor.test.js` and `arrayRenderer.test.js`
 
-### Task 18: Desktop wrapper — Tauri v2
+---
+
+### Task 17: IFC exporter — OEBF sweep → IfcExtrudedAreaSolid ✓ COMPLETE
+**Implemented:** commit `ed9f6e1`, extended by `d064c8a`
+
+- `ifc-tools/src/oebf/ifc_exporter.py`
+- `_export_element()`: `IfcExtrudedAreaSolid` — profile in YZ plane, `ExtrudedDirection=(1,0,0)`, `Depth=path_length`; `IfcMaterialLayerSetUsage`; `OEBF_Properties` pset
+- `_export_slab()`: `IfcArbitraryClosedProfileDef` from boundary polygon, `ExtrudedDirection=(0,0,-1)`, `Depth=thickness_m`
+- Full IFC4 project → site → building → storey hierarchy
+- 11 pytest tests — all passing
+
+---
+
+### Task 18: Desktop wrapper — Tauri v2 — PENDING
+**GitHub:** [#10](https://github.com/Al4st41r/OpenEditableBimFormat/issues/10)
+
 - ~~macOS SwiftUI wrapper~~ **Superseded — see Tech Stack Amendments above**
-- Tauri v2 project scaffold wrapping the Vite viewer build
-- File open/save via Tauri dialog plugin
-- File watching via Rust `notify` crate → emit event to frontend
+- Tauri v2 project scaffold in `desktop/` wrapping the Vite viewer build output
+- File open/save via Tauri dialog plugin (`@tauri-apps/plugin-dialog`)
+- File watching via Rust `notify` crate → emit `bundle-changed` event to frontend
 - Targets macOS, Windows, Linux from one codebase
 
-### Task 19: Slab entity type
-- Slab JSON schema
-- Boundary path extrusion geometry
-- IFC IfcSlab export
+---
 
-### Task 20: OEBF-GUIDE.md test harness
-- LLM accuracy benchmark test
-- Automated schema validation of LLM-generated edits
+### Task 19: Slab entity type ✓ COMPLETE
+**Implemented:** commit `d064c8a`
+
+- `spec/schema/slab.schema.json` — required: `boundary_path_id`, `thickness_m`, `ifc_type`
+- `viewer/src/loader/loadSlab.js` — closed polygon extruded geometry: 6N verts, 12N–12 indices, flat normals per face
+- `viewer/src/loader/loadBundle.js` — loads `model.slabs[]`, passes to scene builder
+- `example/terraced-house.oebf/slabs/slab-gf.json` + `paths/path-slab-gf.json`
+- `ifc_exporter._export_slab()` — `IfcArbitraryClosedProfileDef` + `IfcExtrudedAreaSolid`
+- 16 viewer unit tests + 2 IFC exporter tests — all passing
+
+---
+
+### Task 20: OEBF-GUIDE.md test harness — PENDING
+**GitHub:** [#22](https://github.com/Al4st41r/OpenEditableBimFormat/issues/22)
+
+- LLM accuracy benchmark: feed prompts, validate JSON output against all schemas
+- Runs offline with pre-recorded stub responses (CI-safe, no live API required)
+- Covers: manifest, path, profile, element, junction, array, slab, grid, materials
+- Success metric: 100% schema validity on `example/terraced-house.oebf/`
+- Inform resolution of Issue #4 (OEBF-GUIDE structure)
 
 ---
 
@@ -2173,7 +2220,7 @@ The web viewer is a static Vite build — no server required:
 cd viewer && npm run build
 ```
 
-Output in `viewer/dist/` — can be served from any static host or opened directly via the macOS wrapper's WKWebView.
+Output in `viewer/dist/` — can be served from any static host or bundled inside the Tauri v2 desktop wrapper (Task 18).
 
 The IFC CLI tool runs locally:
 
