@@ -71,6 +71,7 @@ statusEl.textContent = 'Viewer ready — open a .oebf folder to begin';
 // --- Bundle loading ---
 
 let currentGroup = null;
+let currentDirHandle = null;
 
 function _clearScene() {
   if (!currentGroup) return;
@@ -90,6 +91,8 @@ document.getElementById('open-dir-btn').addEventListener('click', async () => {
   statusEl.textContent = 'Opening…';
   try {
     const dirHandle = await window.showDirectoryPicker({ mode: 'read' });
+    currentDirHandle = dirHandle;
+    document.getElementById('edit-profiles-btn').disabled = false;
     statusEl.textContent = 'Loading…';
     _clearScene();
 
@@ -122,6 +125,16 @@ document.getElementById('open-dir-btn').addEventListener('click', async () => {
 
 document.getElementById('open-file-btn').addEventListener('click', () => {
   statusEl.textContent = '.oebfz loading not yet implemented (planned after Task 11 — see issue #17)';
+});
+
+document.getElementById('edit-profiles-btn').addEventListener('click', () => {
+  const tab = window.open('/profile-editor.html', '_blank');
+  window.addEventListener('message', function handler(e) {
+    if (e.data?.type === 'ready' && e.source === tab) {
+      tab.postMessage({ type: 'bundle-handle', handle: currentDirHandle }, window.location.origin);
+      window.removeEventListener('message', handler);
+    }
+  });
 });
 
 export { scene, renderer, camera, controls };
