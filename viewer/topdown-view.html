@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>OEBF — Top-Down Plan View</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #1a1a1a; overflow: hidden; }
+    #canvas { display: block; width: 100vw; height: 100vh; }
+    #status { position: absolute; top: 16px; left: 16px; color: #fff;
+               font-family: monospace; font-size: 13px; opacity: 0.8; }
+  </style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+  <div id="status">Loading…</div>
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls }         from 'three/addons/controls/OrbitControls.js';
+    import { loadBundle }            from '/src/loader/loadBundle.js';
+    import { buildThreeMesh }        from '/src/scene/buildMesh.js';
+    import { applyJunctionClipping } from '/src/junction-renderer.js';
+
+    function makeFetchHandle(basePath) {
+      return {
+        getDirectoryHandle: async (name) => makeFetchHandle(`${basePath}/${name}`),
+        getFileHandle: async (name) => ({
+          getFile: async () => ({
+            text: async () => {
+              const res = await fetch(`${basePath}/${name}`);
+              if (!res.ok) throw new Error(`Not found: ${basePath}/${name}`);
+              return res.text();
+            },
+          }),
+        }),
+      };
+    }
+
+    const canvas   = document.getElementById('canvas');
+    const statusEl = document.getElementById('status');
+
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.localClippingEnabled = true;
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x1a1a1a);
+    scene.add(new THREE.AmbientLight(0xffffff, 1.0));
+
+    // Orthographic top-down camera zoomed into the SW corner (x=0, y=0)
+    // The west wall runs north (along Y), south wall runs east (along X).
+    // Centre on (0, 0) with a ±1 m window so the 290mm wall thickness is clear.
+    const aspect = window.innerWidth / window.innerHeight;
+    const viewH = 1.2;  // metres half-height
+    const camera = new THREE.OrthographicCamera(
+      -viewH * aspect, viewH * aspect, viewH, -viewH, 0.01, 100
+    );
+    camera.up.set(0, 1, 0);
+    camera.position.set(0, 0, 20);
+    camera.lookAt(0, 0, 0);
+
+    const controls = new OrbitControls(camera, canvas);
+    controls.target.set(0, 0, 0);
+    controls.update();
+
+    function animate() {
+      requestAnimationFrame(animate);
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    try {
+      const dirHandle = makeFetchHandle('/terraced-house.oebf');
+      const { meshes, manifest, junctions } = await loadBundle(dirHandle);
+
+      const group = new THREE.Group();
+      for (const md of meshes) group.add(buildThreeMesh(md));
+      applyJunctionClipping(group, junctions);
+      scene.add(group);
+
+      statusEl.textContent =
+        `SW corner plan view — ${junctions.length} junction(s) active`;
+    } catch (err) {
+      statusEl.textContent = `Error: ${err.message}`;
+      console.error(err);
+    }
+  </script>
+</body>
+</html>
