@@ -55,13 +55,15 @@ export function buildSvg({ layers, originX, matMap }) {
     rects += `  <!-- Layer ${i + 1}: ${l.name} -->\n`;
     rects += `  <rect x="${x}" y="0" width="${w}" height="${heightStr}" fill="${colour}" stroke="#888" stroke-width="0.002"/>\n`;
     cursor += l.thickness;
+    cursor = Math.round(cursor * 1e6) / 1e6; // prevent float drift
   }
 
+  const roundedOrigin = Math.round(originX * 1e6) / 1e6;
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg"
      viewBox="0 0 ${totalWidth} ${heightStr}"
      width="${totalWidth * 1000}mm" height="${HEIGHT * 1000}mm">
-${rects}  <circle cx="${originX}" cy="0" r="0.005" fill="red"/>
-  <line x1="${originX}" y1="-0.020" x2="${originX}" y2="0.020" stroke="red" stroke-width="0.002"/>
+${rects}  <circle cx="${roundedOrigin}" cy="0" r="0.005" fill="red"/>
+  <line x1="${roundedOrigin}" y1="-0.020" x2="${roundedOrigin}" y2="0.020" stroke="red" stroke-width="0.002"/>
 </svg>`;
 }
