@@ -74,6 +74,37 @@ All coordinates in **metres**. Right-hand, Z-up: X = east, Y = north, Z = up.
 
 ---
 
+## Path winding convention (exterior walls)
+
+Wall profiles are swept using `binormal = cross(tangent, worldZ)`, so the
+**negative-X side of the profile** (the outer leaf — brick, cladding, etc.)
+appears to the **left of travel** along the path.
+
+For the outer perimeter of a building to show the exterior face outward, paths
+must traverse the perimeter **counter-clockwise (CCW) when viewed from above**:
+
+```
+N ▲
+  │   ← west wall (S→N)
+  │
+  ┌──────────────────────┐
+  │                      │ ← east wall (N→S)
+  │  terraced-house.oebf │
+  │                      │
+  └──────────────────────┘
+  → south wall (E→W)        north wall (W→E) →
+```
+
+- North wall: west → east  (increasing X)
+- East wall:  north → south (decreasing Y)
+- South wall: east → west  (decreasing X)
+- West wall:  south → north (increasing Y)
+
+Internal walls have no exterior face requirement — either direction is valid,
+but be consistent with any associated junction trim planes.
+
+---
+
 ## Registration in model.json
 
 After writing a new entity file, add its ID to `model.json`:
