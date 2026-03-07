@@ -6,7 +6,31 @@
 
 **Architecture:** Path-first entity model stored as a directory bundle of JSON + SVG files. Geometry computed at load time in a Web Worker using Three.js. IFC interop via IfcOpenShell (Python CLI) for import and web-ifc for export.
 
-**Tech Stack:** JSON Schema (draft-07), Three.js 0.170+, Vite 6, Vitest, Python 3.12 + IfcOpenShell via uv, Swift 6 + WKWebView.
+**Tech Stack:** JSON Schema (draft-07), Three.js 0.170+, Vite 6, Vitest, Python 3.12 + IfcOpenShell via uv, Tauri v2 (Rust backend).
+
+---
+
+## Tech Stack Amendments (2026-03-07)
+
+Three decisions were made after reviewing OpenPencil's architecture. These supersede the original choices where they conflict.
+
+### Desktop wrapper: Tauri v2 replaces SwiftUI + WKWebView
+
+**Rationale:** The web viewer (Vite + Three.js) wraps in Tauri without modification. Tauri produces a ~5 MB native binary and targets macOS, Windows, and Linux from one codebase. File watching uses Rust's `notify` crate — more reliable than bridging FSEventStream through a Swift/WKWebView boundary. Task 18 had not been started, so there is no rework cost. Swift/SwiftUI is dropped from the tech stack.
+
+**Impact:** Task 18 is rewritten. No other tasks are affected.
+
+### Bundle compression: Zstd replaces ZIP/DEFLATE for `.oebfz`
+
+**Rationale:** Zstd gives better compression ratios and significantly faster decompression than DEFLATE. The `fzstd` WASM package provides in-browser decompression. The plain-text JSON files inside the bundle are unchanged — LLM-editability is not affected. Zstd is the archive layer only.
+
+**Impact:** The `.oebfz` format specification and the viewer's bundle-open path must use `fzstd` instead of a ZIP library. Add `fzstd` to `viewer/package.json`.
+
+### Viewer regression testing: Playwright added alongside Vitest
+
+**Rationale:** Once the scene builder (Task 11) renders geometry, unit tests cannot catch rendering regressions. Playwright screenshot tests (with `--use-gl=swiftshader` for WebGL) provide a visual regression baseline. Playwright is added to the viewer dev dependencies after Task 11 is complete.
+
+**Impact:** A `viewer/tests/e2e/` directory is added in Task 11. Vitest continues to cover all unit tests.
 
 ---
 
@@ -2036,11 +2060,12 @@ These tasks are defined here but implemented in subsequent sessions:
 - Write IfcPropertySets from properties block
 - Write IfcMaterial assignments
 
-### Task 18: macOS SwiftUI wrapper
-- Xcode project: SwiftUI + WKWebView
-- Bundle web viewer as embedded resources
-- File open/save via NSOpenPanel
-- FSEventStream file watching → postMessage to WKWebView
+### Task 18: Desktop wrapper — Tauri v2
+- ~~macOS SwiftUI wrapper~~ **Superseded — see Tech Stack Amendments above**
+- Tauri v2 project scaffold wrapping the Vite viewer build
+- File open/save via Tauri dialog plugin
+- File watching via Rust `notify` crate → emit event to frontend
+- Targets macOS, Windows, Linux from one codebase
 
 ### Task 19: Slab entity type
 - Slab JSON schema
@@ -2056,8 +2081,11 @@ These tasks are defined here but implemented in subsequent sessions:
 ## Running All Tests
 
 ```bash
-# JavaScript (schema + geometry)
+# JavaScript — unit tests (Vitest)
 cd viewer && npm test
+
+# JavaScript — visual regression tests (Playwright, available after Task 11)
+cd viewer && npx playwright test
 
 # Python (IFC tools)
 cd ifc-tools && uv run pytest tests/ -v
