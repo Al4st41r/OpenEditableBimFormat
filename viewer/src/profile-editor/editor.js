@@ -200,7 +200,7 @@ async function _writeFile(path, content) {
 
 // ── postMessage handle transfer ───────────────────────────────────────────────
 if (window.opener) {
-  window.opener.postMessage({ type: 'ready' }, '*');
+  window.opener.postMessage({ type: 'ready' }, window.location.origin);
   window.addEventListener('message', async e => {
     if (e.data?.type === 'bundle-handle') {
       try {
