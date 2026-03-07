@@ -34,6 +34,74 @@ Three decisions were made after reviewing OpenPencil's architecture. These super
 
 ---
 
+## Decisions from Closed GitHub Issues (2026-03-07)
+
+These decisions were made during early development and resolve open design questions from the GitHub issue tracker. Each entry states what the plan should do and supersedes any earlier text that conflicts.
+
+### Issue #2 — Custom junction geometry: raw JSON polygon mesh
+- `custom_geometry` field in a junction entity points to a `JunctionGeometry` JSON file in `junctions/`.
+- File format defined by `junction-geometry.schema.json`: vertices array + faces (triangle indices).
+- The viewer renders this mesh **directly** — no trimming is applied to connected elements when `rule: "custom"`.
+- See: `docs/decisions/2026-03-02-custom-junction-geometry-authoring.md`
+
+### Issue #3 — Junction trim algorithm: hybrid plane-sweep (NOT three-bvh-csg)
+- **Viewer (real-time):** Use Three.js `material.clippingPlanes` populated from each junction's `trim_planes` array. Requires `renderer.localClippingEnabled = true`. Zero geometry modification — clipping handled by GPU.
+- **IFC export / geometry bake:** Use `trimMeshByPlane()` (Sutherland-Hodgman triangle-mesh clipper with cap reconstruction) to produce watertight solids for `IfcFacetedBrep`.
+- **three-bvh-csg is NOT used** in v0.1. CSG is reserved for future non-planar intersections.
+- Implemented: `viewer/src/junction-trimmer.js`, `viewer/src/junction-renderer.js`
+- See: `docs/decisions/2026-03-02-junction-trim-algorithm.md`
+
+### Issue #6 — Profile SVG coordinate space: absolute metres
+- Profile SVG files use **absolute metre coordinates**, not a normalised 0–1 space.
+- The SVG coordinate system matches OEBF world coordinates (metres, right-hand Z-up).
+- No scale parameter is needed in the profile JSON.
+- `buildProfileShape()` derives cross-section geometry from the assembly JSON for v0.1; SVG is used for visual authoring only (Task 14).
+
+### Issue #7 — IFC import tool: CLI only for v0.1
+- v0.1 distributes the IFC importer as a Python CLI (`oebf ifc import`) via uv.
+- **No WASM build** in v0.1. The 50 MB+ Pyodide + IfcOpenShell WASM bundle is not justified.
+- v0.2: evaluate `web-ifc` (JS/WASM, lightweight) for browser-side parsing.
+- See: `docs/decisions` — IFC tool distribution.
+
+### Issue #8 — Curved-path junction trim: tangent-based planes
+- Arc segments: trim plane normal derived from arc tangent at the junction endpoint (via circumscribed-circle geometry).
+- Bezier segments: tangent at endpoint from control-point direction.
+- Spline segments: return `null` and log a warning — CSG fallback deferred to v0.2.
+- Implemented: `computeButtTrimPlaneFromSegment()`, `computeMitreTrimPlaneFromSegments()` in `viewer/src/junction-trimmer.js`.
+- See: `docs/decisions/2026-03-02-curved-path-junction-trim.md`
+
+### Issue #11 — Structural grid: dedicated Grid entity type
+- Grid is a first-class entity, **not** auto-generated Path entities.
+- Schema: `spec/schema/grid.schema.json`. Entity files live in `grids/`.
+- Supports orthogonal axes (X/Y) and elevation markers (Z). Radial grids via `type: "arc"` axes.
+- IFC mapping: `IfcGrid` (orthogonal) or coordinate reference only (radial).
+- See: `docs/decisions/2026-03-02-structural-grid-data-model.md`
+
+### Issue #12 — Material library: project-level only for v0.1
+- All materials are defined in `materials/library.json` within the bundle. No external references.
+- Material `id` must match `^(?!oebf-std:)mat-[a-z0-9-]+$` — the `oebf-std:` prefix is **reserved** and invalid in v0.1 (schema must enforce this pattern).
+- v0.2: optional standard library opt-in via `"material_library": "oebf-standard-v1"` in `manifest.json`.
+- See: `docs/decisions/2026-03-02-material-library-approach.md`
+
+### Issue #14 — Viewer performance: InstancedMesh + geometry cache
+- Arrays use `THREE.InstancedMesh` — one draw call per geometry layer regardless of instance count.
+- Swept `BufferGeometry` objects are cached by `profileId:pathLength:sweepMode`.
+- Implemented: `viewer/src/array/arrayRenderer.js`, `viewer/src/geometry/geometryCache.js`.
+- See: `docs/performance.md`
+
+### Issue #15 — Schema version embedding: all three mechanisms
+- `format_version: "0.1.0"` in `manifest.json` (already in schema).
+- `"$schema": "oebf://schema/0.1/<type>"` in every entity JSON file.
+- `<!-- OEBF Format Guide v0.1.0 — YYYY-MM-DD -->` header in `OEBF-GUIDE.md` — update on every schema change.
+- Migration scripts must check `format_version` before running.
+
+### Issue #16 — Arrays: always parametric, never expanded
+- Arrays are **always parametric** at runtime. Instance positions are computed from path length and spacing at load time.
+- No expanded instance position list is stored in the JSON.
+- `arrayDistributor.js` supports `spacing`, `count`, and `fill` modes with `start_offset` / `end_offset`.
+
+---
+
 ## Phase 1 — Format Foundation
 
 ### Task 1: Project scaffold
@@ -505,7 +573,7 @@ Save to `spec/schema/array.schema.json`.
         "required": ["id", "type", "name", "category"],
         "additionalProperties": false,
         "properties": {
-          "id":                 { "type": "string" },
+          "id":                 { "type": "string", "pattern": "^(?!oebf-std:)mat-[a-z0-9-]+$" },
           "type":               { "type": "string", "const": "Material" },
           "name":               { "type": "string" },
           "category":           { "type": "string" },
@@ -1327,7 +1395,7 @@ Expected: FAIL
 
 **Step 3: Implement buildProfileShape**
 
-The initial implementation derives profile shapes from the assembly JSON only (ignoring SVG for now — SVG rendering is a Phase 3 feature).
+The initial implementation derives profile shapes from the assembly JSON only (ignoring SVG for now — SVG rendering is Task 14). SVG files use **absolute metre coordinates** (issue #6 decision — no normalised space, no scale parameter).
 
 ```javascript
 // viewer/src/loader/loadProfile.js
@@ -2047,13 +2115,16 @@ These tasks are defined here but implemented in subsequent sessions:
 
 ### Task 15: Junction authoring and trim rendering
 - Junction entity creation UI
-- Butt joint plane clip via three-bvh-csg
-- Visual feedback in viewer
+- Viewer: apply `junction.trim_planes` to `mesh.material.clippingPlanes` (requires `renderer.localClippingEnabled = true`) — **NOT three-bvh-csg** (see Issue #3 decision above)
+- Custom rule junctions: render `JunctionGeometry` mesh directly, no element trimming applied
+- Curved-path junctions: use `computeButtTrimPlaneFromSegment()` / `computeMitreTrimPlaneFromSegments()` from `junction-trimmer.js`
+- Trim algorithm and renderer are already implemented — this task focuses on scene wiring and UI
 
-### Task 16: Array system
+### Task 16: Array system ✓ COMPLETE
 - Array entity loader
-- Instanced mesh rendering (THREE.InstancedMesh)
-- Spacing / count / fill mode computation
+- Instanced mesh rendering (THREE.InstancedMesh) — one draw call per geometry layer
+- Spacing / count / fill mode computation — arrays are **always parametric** (never expanded to instance lists)
+- Implemented: `viewer/src/array/arrayDistributor.js`, `viewer/src/array/arrayRenderer.js`
 
 ### Task 17: IFC exporter — OEBF sweep → IfcExtrudedAreaSolid
 - Reconstruct IFC swept solid from OEBF element+profile+path
