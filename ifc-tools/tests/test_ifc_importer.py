@@ -64,3 +64,66 @@ def test_import_creates_materials_library(minimal_wall_ifc, tmp_path):
     lib = json.loads((out_dir / "materials" / "library.json").read_text())
     assert "materials" in lib
     assert isinstance(lib["materials"], list)
+
+
+def test_import_wallstandardcase_maps_to_ifc_wall_type(tmp_path):
+    """IfcWallStandardCase should map to ifc_type: IfcWall in the output element."""
+    import ifcopenshell
+    import ifcopenshell.api
+    import ifcopenshell.api.root
+    import ifcopenshell.api.unit
+    import ifcopenshell.api.context
+    import ifcopenshell.api.project
+
+    model = ifcopenshell.api.project.create_file(version="IFC4")
+    project = ifcopenshell.api.root.create_entity(model, ifc_class="IfcProject", name="WallStdTest")
+    ifcopenshell.api.unit.assign_unit(model)
+    ifcopenshell.api.context.add_context(model, context_type="Model")
+    # IfcWallStandardCase is a subtype of IfcWall available in IFC2x3/IFC4
+    wall = ifcopenshell.api.root.create_entity(model, ifc_class="IfcWallStandardCase", name="StdWall1")
+
+    ifc_path = tmp_path / "test_wallstd.ifc"
+    model.write(str(ifc_path))
+
+    out_dir = tmp_path / "out.oebf"
+    import_ifc(ifc_path, out_dir)
+
+    elements_dir = out_dir / "elements"
+    assert elements_dir.exists(), "elements directory should be created"
+    element_files = list(elements_dir.glob("*.json"))
+    assert len(element_files) >= 1, "at least one element should be produced"
+
+    for elem_file in element_files:
+        data = json.loads(elem_file.read_text())
+        assert data.get("ifc_type") != "IfcWallStandardCase", (
+            f"IfcWallStandardCase should be normalised to IfcWall, got {data.get('ifc_type')!r}"
+        )
+        assert data.get("ifc_type") == "IfcWall", (
+            f"Expected ifc_type 'IfcWall', got {data.get('ifc_type')!r}"
+        )
+
+
+def test_slugify_edge_cases():
+    """_slugify should handle edge cases without crashing."""
+    from oebf.ifc_importer import _slugify
+
+    # Normal ASCII text
+    assert _slugify("Brick Wall") == "brick-wall"
+
+    # Leading/trailing special characters are stripped
+    assert _slugify("---hello---") == "hello"
+
+    # Numbers preserved
+    assert _slugify("Wall 2A") == "wall-2a"
+
+    # Already clean slug-like input
+    assert _slugify("mat-concrete") == "mat-concrete"
+
+    # Long string is truncated to 40 chars
+    long_input = "a" * 60
+    result = _slugify(long_input)
+    assert len(result) <= 40
+
+    # String with only special characters returns empty or very short result without crashing
+    result = _slugify("!@#$%^&*()")
+    assert isinstance(result, str)
