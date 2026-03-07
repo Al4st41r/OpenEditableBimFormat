@@ -7,12 +7,14 @@
     "dev": "vite",
     "build": "vite build",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "three": "^0.170.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
     "vite": "^6.0.0",
     "vitest": "^2.0.0"
   }
