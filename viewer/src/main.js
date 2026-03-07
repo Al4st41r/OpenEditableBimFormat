@@ -14,6 +14,8 @@
 
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { loadBundle }    from './loader/loadBundle.js';
+import { buildThreeMesh } from './scene/buildMesh.js';
 
 // --- Renderer ---
 const canvas = document.getElementById('canvas');
@@ -65,7 +67,20 @@ animate();
 const statusEl = document.getElementById('status');
 statusEl.textContent = 'Viewer ready — open a .oebf folder to begin';
 
-// Bundle loading — wired up in Task 11
+// --- Bundle loading ---
+
+let currentGroup = null;
+
+function _clearScene() {
+  if (!currentGroup) return;
+  scene.remove(currentGroup);
+  currentGroup.traverse(child => {
+    if (child.geometry) child.geometry.dispose();
+    if (child.material) child.material.dispose();
+  });
+  currentGroup = null;
+}
+
 document.getElementById('open-dir-btn').addEventListener('click', async () => {
   if (!window.showDirectoryPicker) {
     statusEl.textContent = 'File System Access API not supported in this browser — use Open .oebfz instead';
@@ -74,11 +89,32 @@ document.getElementById('open-dir-btn').addEventListener('click', async () => {
   statusEl.textContent = 'Opening…';
   try {
     const dirHandle = await window.showDirectoryPicker({ mode: 'read' });
-    statusEl.textContent = `Opened: ${dirHandle.name} — bundle loading not yet implemented (Task 11)`;
-    // TODO Task 11: const { meshes, manifest } = await loadBundle(dirHandle); buildScene(meshes);
+    statusEl.textContent = 'Loading…';
+    _clearScene();
+
+    const { meshes, manifest } = await loadBundle(dirHandle);
+    currentGroup = new THREE.Group();
+    currentGroup.name = manifest.project_name;
+    for (const meshData of meshes) currentGroup.add(buildThreeMesh(meshData));
+    scene.add(currentGroup);
+
+    // Fit camera to loaded geometry
+    const box    = new THREE.Box3().setFromObject(currentGroup);
+    const centre = box.getCenter(new THREE.Vector3());
+    const size   = box.getSize(new THREE.Vector3());
+    const maxDim = Math.max(size.x, size.y, size.z);
+    camera.position.copy(centre).add(new THREE.Vector3(maxDim, -maxDim, maxDim * 0.8));
+    controls.target.copy(centre);
+    controls.update();
+
+    statusEl.textContent = `${manifest.project_name} — ${meshes.length} mesh(es) loaded`;
   } catch (err) {
-    if (err.name !== 'AbortError') statusEl.textContent = `Error: ${err.message}`;
-    else statusEl.textContent = 'Viewer ready — open a .oebf folder to begin';
+    if (err.name !== 'AbortError') {
+      statusEl.textContent = `Error: ${err.message}`;
+      console.error(err);
+    } else {
+      statusEl.textContent = 'Viewer ready — open a .oebf folder to begin';
+    }
   }
 });
 
