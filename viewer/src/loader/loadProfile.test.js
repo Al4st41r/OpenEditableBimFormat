@@ -171,4 +171,31 @@ describe('buildProfileShape — edge cases', () => {
     expect(pts[0].x).toBeCloseTo(-0.1);
     expect(pts[1].x).toBeCloseTo(0.1);
   });
+
+  test('zero-thickness layer is skipped or produces zero-width shape without throwing', () => {
+    const profile = {
+      id: 'p', type: 'Profile', width: 0.1,
+      origin: { x: 0.05, y: 0 },
+      assembly: [
+        { layer: 1, name: 'Brick', material_id: 'mat-a', thickness: 0.1, function: 'structure' },
+        { layer: 2, name: 'Air',   material_id: 'mat-b', thickness: 0.0, function: 'cavity' },
+      ],
+    };
+    expect(() => buildProfileShape(profile)).not.toThrow();
+    const shapes = buildProfileShape(profile);
+    // Should return at least the non-zero layer
+    expect(shapes.length).toBeGreaterThanOrEqual(1);
+  });
+
+  test('single-layer profile produces exactly one shape', () => {
+    const profile = {
+      id: 'p', type: 'Profile', width: 0.102,
+      origin: { x: 0.051, y: 0 },
+      assembly: [
+        { layer: 1, name: 'Brick', material_id: 'mat-a', thickness: 0.102, function: 'structure' },
+      ],
+    };
+    const shapes = buildProfileShape(profile);
+    expect(shapes).toHaveLength(1);
+  });
 });
