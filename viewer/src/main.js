@@ -14,8 +14,9 @@
 
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { loadBundle }    from './loader/loadBundle.js';
-import { buildThreeMesh } from './scene/buildMesh.js';
+import { loadBundle }           from './loader/loadBundle.js';
+import { buildThreeMesh }        from './scene/buildMesh.js';
+import { applyJunctionClipping } from './junction-renderer.js';
 
 // --- Renderer ---
 const canvas = document.getElementById('canvas');
@@ -92,10 +93,11 @@ document.getElementById('open-dir-btn').addEventListener('click', async () => {
     statusEl.textContent = 'Loading…';
     _clearScene();
 
-    const { meshes, manifest } = await loadBundle(dirHandle);
+    const { meshes, manifest, junctions } = await loadBundle(dirHandle);
     currentGroup = new THREE.Group();
     currentGroup.name = manifest.project_name;
     for (const meshData of meshes) currentGroup.add(buildThreeMesh(meshData));
+    applyJunctionClipping(currentGroup, junctions);
     scene.add(currentGroup);
 
     // Fit camera to loaded geometry

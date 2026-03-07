@@ -23,9 +23,10 @@
   <div id="status">Loading terraced-house.oebf…</div>
   <script type="module">
     import * as THREE from 'three';
-    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-    import { loadBundle }     from '/src/loader/loadBundle.js';
-    import { buildThreeMesh } from '/src/scene/buildMesh.js';
+    import { OrbitControls }        from 'three/addons/controls/OrbitControls.js';
+    import { loadBundle }           from '/src/loader/loadBundle.js';
+    import { buildThreeMesh }       from '/src/scene/buildMesh.js';
+    import { applyJunctionClipping } from '/src/junction-renderer.js';
 
     // --- Fetch-based mock for FileSystemDirectoryHandle ---
     // Mirrors the FSA API shape so loadBundle() works without user interaction.
@@ -86,11 +87,12 @@
     // --- Auto-load bundle ---
     try {
       const dirHandle = makeFetchHandle('/terraced-house.oebf');
-      const { meshes, manifest } = await loadBundle(dirHandle);
+      const { meshes, manifest, junctions } = await loadBundle(dirHandle);
 
       const group = new THREE.Group();
       group.name  = manifest.project_name;
       for (const md of meshes) group.add(buildThreeMesh(md));
+      applyJunctionClipping(group, junctions);
       scene.add(group);
 
       // Fit camera to geometry

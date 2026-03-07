@@ -60,7 +60,17 @@ export async function loadBundle(dirHandle) {
     }
   }
 
-  return { meshes, manifest };
+  const junctions = [];
+  for (const junctionId of (model.junctions ?? [])) {
+    try {
+      const junction = await _readJson(dirHandle, `junctions/${junctionId}.json`);
+      junctions.push(junction);
+    } catch (err) {
+      console.warn(`[OEBF] Skipping junction ${junctionId}: ${err.message}`);
+    }
+  }
+
+  return { meshes, manifest, junctions };
 }
 
 /**

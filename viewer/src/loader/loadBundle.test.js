@@ -158,6 +158,43 @@ describe('loadBundle — unknown material fallback', () => {
   });
 });
 
+describe('loadBundle — junctions', () => {
+  const JUNCTION_A = {
+    id: 'junction-ne-corner',
+    type: 'Junction',
+    rule: 'butt',
+    elements: ['element-wall-north-gf', 'element-wall-east-gf'],
+    trim_planes: [{ element_id: 'element-wall-north-gf', at_end: 'end',
+                    plane_normal: { x: -1, y: 0, z: 0 },
+                    plane_origin: { x: 5.4, y: 0, z: 0 } }],
+  };
+
+  test('returns junctions array with loaded junction objects', async () => {
+    const model = { elements: ['element-wall-a'], junctions: ['junction-ne-corner'], arrays: [] };
+    const files = bundleFiles({
+      'model.json': model,
+      'junctions/junction-ne-corner.json': JUNCTION_A,
+    });
+    const { junctions } = await loadBundle(mockDirHandle(files));
+    expect(junctions).toHaveLength(1);
+    expect(junctions[0].id).toBe('junction-ne-corner');
+    expect(junctions[0].trim_planes).toHaveLength(1);
+  });
+
+  test('returns empty junctions array when model.junctions is empty', async () => {
+    const { junctions } = await loadBundle(mockDirHandle(bundleFiles()));
+    expect(junctions).toEqual([]);
+  });
+
+  test('skips a missing junction file without throwing', async () => {
+    const model = { elements: ['element-wall-a'], junctions: ['junction-missing'], arrays: [] };
+    const files = bundleFiles({ 'model.json': model });
+    const { junctions, meshes } = await loadBundle(mockDirHandle(files));
+    expect(junctions).toHaveLength(0);  // skipped
+    expect(meshes).toHaveLength(1);     // elements still load
+  });
+});
+
 describe('loadBundle — resilience', () => {
   test('skips a missing element file and loads the rest', async () => {
     const model = { elements: ['element-wall-a', 'element-missing'], junctions: [], arrays: [] };
