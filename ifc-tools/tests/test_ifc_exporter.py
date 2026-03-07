@@ -1,3 +1,4 @@
+import json
 import ifcopenshell
 from oebf.ifc_exporter import export_ifc
 
@@ -85,6 +86,80 @@ def test_export_wall_has_property_set(minimal_oebf_bundle, tmp_path):
     props = {p.Name: p for p in psets["OEBF_Properties"].HasProperties}
     assert "fire_rating" in props
     assert "load_bearing" in props
+
+
+def test_export_slab_creates_ifc_slab(minimal_oebf_bundle, tmp_path):
+    """A bundle with one slab entry produces one IfcSlab in the output."""
+    # Patch in a slab
+    model_data = json.loads((minimal_oebf_bundle / "model.json").read_text())
+    model_data["slabs"] = ["slab-test"]
+    (minimal_oebf_bundle / "model.json").write_text(json.dumps(model_data))
+
+    slab_path = {
+        "$schema": "oebf://schema/0.1/path", "id": "path-slab-test",
+        "type": "Path", "closed": True,
+        "segments": [
+            {"type": "line", "start": {"x": 0, "y": 0, "z": 0}, "end": {"x": 5, "y": 0, "z": 0}},
+            {"type": "line", "start": {"x": 5, "y": 0, "z": 0}, "end": {"x": 5, "y": 4, "z": 0}},
+            {"type": "line", "start": {"x": 5, "y": 4, "z": 0}, "end": {"x": 0, "y": 4, "z": 0}},
+            {"type": "line", "start": {"x": 0, "y": 4, "z": 0}, "end": {"x": 0, "y": 0, "z": 0}},
+        ],
+    }
+    slab_entity = {
+        "$schema": "oebf://schema/0.1/slab", "id": "slab-test", "type": "Slab",
+        "description": "Test slab", "ifc_type": "IfcSlab",
+        "boundary_path_id": "path-slab-test", "thickness_m": 0.15,
+        "material_id": "mat-concrete-block", "elevation_m": 0.0,
+        "parent_group_id": "storey-gf", "properties": {},
+    }
+    (minimal_oebf_bundle / "slabs").mkdir(exist_ok=True)
+    (minimal_oebf_bundle / "slabs" / "slab-test.json").write_text(json.dumps(slab_entity))
+    (minimal_oebf_bundle / "paths" / "path-slab-test.json").write_text(json.dumps(slab_path))
+
+    out = tmp_path / "output.ifc"
+    export_ifc(minimal_oebf_bundle, out)
+    model = ifcopenshell.open(str(out))
+    slabs = model.by_type("IfcSlab")
+    assert len(slabs) == 1
+    assert slabs[0].Name == "Test slab"
+
+
+def test_export_slab_has_body_representation(minimal_oebf_bundle, tmp_path):
+    model_data = json.loads((minimal_oebf_bundle / "model.json").read_text())
+    model_data["slabs"] = ["slab-test"]
+    (minimal_oebf_bundle / "model.json").write_text(json.dumps(model_data))
+    slab_path = {
+        "$schema": "oebf://schema/0.1/path", "id": "path-slab-test",
+        "type": "Path", "closed": True,
+        "segments": [
+            {"type": "line", "start": {"x": 0, "y": 0, "z": 0}, "end": {"x": 5, "y": 0, "z": 0}},
+            {"type": "line", "start": {"x": 5, "y": 0, "z": 0}, "end": {"x": 5, "y": 4, "z": 0}},
+            {"type": "line", "start": {"x": 5, "y": 4, "z": 0}, "end": {"x": 0, "y": 4, "z": 0}},
+            {"type": "line", "start": {"x": 0, "y": 4, "z": 0}, "end": {"x": 0, "y": 0, "z": 0}},
+        ],
+    }
+    slab_entity = {
+        "$schema": "oebf://schema/0.1/slab", "id": "slab-test", "type": "Slab",
+        "description": "Test slab", "ifc_type": "IfcSlab",
+        "boundary_path_id": "path-slab-test", "thickness_m": 0.15,
+        "material_id": "mat-concrete-block", "elevation_m": 0.0,
+        "parent_group_id": "storey-gf", "properties": {},
+    }
+    (minimal_oebf_bundle / "slabs").mkdir(exist_ok=True)
+    (minimal_oebf_bundle / "slabs" / "slab-test.json").write_text(json.dumps(slab_entity))
+    (minimal_oebf_bundle / "paths" / "path-slab-test.json").write_text(json.dumps(slab_path))
+
+    out = tmp_path / "output.ifc"
+    export_ifc(minimal_oebf_bundle, out)
+    model = ifcopenshell.open(str(out))
+    slab = model.by_type("IfcSlab")[0]
+    assert slab.Representation is not None
+    body_reps = [r for r in slab.Representation.Representations
+                 if r.RepresentationIdentifier == "Body"]
+    assert len(body_reps) == 1
+    solid = body_reps[0].Items[0]
+    assert solid.is_a("IfcExtrudedAreaSolid")
+    assert abs(solid.Depth - 0.15) < 1e-6
 
 
 def test_export_wall_has_material_layer_set(minimal_oebf_bundle, tmp_path):

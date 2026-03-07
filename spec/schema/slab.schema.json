@@ -1,0 +1,23 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "oebf://schema/0.1/slab",
+  "title": "OEBF Slab",
+  "description": "A flat horizontal element (floor, roof, landing) defined by a closed boundary path extruded vertically by a given thickness.",
+  "type": "object",
+  "required": ["$schema", "id", "type", "ifc_type", "boundary_path_id", "thickness_m", "material_id", "parent_group_id"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema":           { "type": "string" },
+    "id":                { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+    "type":              { "type": "string", "const": "Slab" },
+    "description":       { "type": "string" },
+    "ifc_type":          { "type": "string", "enum": ["IfcSlab", "IfcRoof"] },
+    "boundary_path_id":  { "type": "string" },
+    "thickness_m":       { "type": "number", "exclusiveMinimum": 0 },
+    "material_id":       { "type": "string" },
+    "elevation_m":       { "type": "number", "description": "Z elevation of the top face in metres. Defaults to 0.0." },
+    "parent_group_id":   { "type": "string" },
+    "properties":        { "type": "object" },
+    "tags":              { "type": "array", "items": { "type": "string" } }
+  }
+}

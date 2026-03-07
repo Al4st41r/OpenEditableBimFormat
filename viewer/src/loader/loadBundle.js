@@ -19,6 +19,7 @@
 import { parsePath }         from './loadPath.js';
 import { buildProfileShape } from './loadProfile.js';
 import { sweepProfile }      from '../geometry/sweep.js';
+import { buildSlabMeshData } from './loadSlab.js';
 
 /**
  * Load an OEBF bundle from a File System Access API directory handle.
@@ -57,6 +58,21 @@ export async function loadBundle(dirHandle) {
       }
     } catch (err) {
       console.warn(`[OEBF] Skipping element ${elementId}: ${err.message}`);
+    }
+  }
+
+  for (const slabId of (model.slabs ?? [])) {
+    try {
+      const slab     = await _readJson(dirHandle, `slabs/${slabId}.json`);
+      const pathData = await _readJson(dirHandle, `paths/${slab.boundary_path_id}.json`);
+      const mat      = matMap[slab.material_id];
+      meshes.push({
+        ...buildSlabMeshData(slab, pathData),
+        colour:      mat?.colour_hex ?? '#888888',
+        description: slab.description ?? '',
+      });
+    } catch (err) {
+      console.warn(`[OEBF] Skipping slab ${slabId}: ${err.message}`);
     }
   }
 

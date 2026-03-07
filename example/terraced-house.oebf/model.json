@@ -25,6 +25,7 @@
     "element-wall-east-gf",
     "element-wall-west-gf"
   ],
+  "slabs": ["slab-gf"],
   "objects": [],
   "arrays": ["array-front-fence-posts"],
   "junctions": [

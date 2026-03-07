@@ -158,6 +158,68 @@ describe('loadBundle — unknown material fallback', () => {
   });
 });
 
+describe('loadBundle — slabs', () => {
+  const SLAB_PATH = {
+    id: 'path-slab-test',
+    type: 'Path',
+    closed: true,
+    segments: [
+      { type: 'line', start: { x: 0, y: 0, z: 0 }, end: { x: 5, y: 0, z: 0 } },
+      { type: 'line', start: { x: 5, y: 0, z: 0 }, end: { x: 5, y: 4, z: 0 } },
+      { type: 'line', start: { x: 5, y: 4, z: 0 }, end: { x: 0, y: 4, z: 0 } },
+      { type: 'line', start: { x: 0, y: 4, z: 0 }, end: { x: 0, y: 0, z: 0 } },
+    ],
+  };
+  const SLAB = {
+    $schema: 'oebf://schema/0.1/slab',
+    id: 'slab-test',
+    type: 'Slab',
+    description: 'Test slab',
+    ifc_type: 'IfcSlab',
+    boundary_path_id: 'path-slab-test',
+    thickness_m: 0.15,
+    material_id: 'mat-brick',
+    elevation_m: 0.0,
+    parent_group_id: 'storey-gf',
+    properties: {},
+  };
+
+  function slabBundleFiles() {
+    const model = { elements: ['element-wall-a'], junctions: [], slabs: ['slab-test'], arrays: [] };
+    return bundleFiles({
+      'model.json': model,
+      'slabs/slab-test.json': SLAB,
+      'paths/path-slab-test.json': SLAB_PATH,
+    });
+  }
+
+  test('slab mesh appears in returned meshes', async () => {
+    const { meshes } = await loadBundle(mockDirHandle(slabBundleFiles()));
+    const slabMesh = meshes.find(m => m.elementId === 'slab-test');
+    expect(slabMesh).toBeDefined();
+  });
+
+  test('slab mesh has correct materialId', async () => {
+    const { meshes } = await loadBundle(mockDirHandle(slabBundleFiles()));
+    const slabMesh = meshes.find(m => m.elementId === 'slab-test');
+    expect(slabMesh.materialId).toBe('mat-brick');
+  });
+
+  test('slab mesh has typed array geometry', async () => {
+    const { meshes } = await loadBundle(mockDirHandle(slabBundleFiles()));
+    const slabMesh = meshes.find(m => m.elementId === 'slab-test');
+    expect(slabMesh.vertices).toBeInstanceOf(Float32Array);
+    expect(slabMesh.indices).toBeInstanceOf(Uint32Array);
+  });
+
+  test('missing slab file is skipped without throwing', async () => {
+    const model = { elements: [], junctions: [], slabs: ['slab-missing'], arrays: [] };
+    const files = bundleFiles({ 'model.json': model });
+    const { meshes } = await loadBundle(mockDirHandle(files));
+    expect(meshes).toHaveLength(0);
+  });
+});
+
 describe('loadBundle — junctions', () => {
   const JUNCTION_A = {
     id: 'junction-ne-corner',

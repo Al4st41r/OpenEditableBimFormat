@@ -46,6 +46,9 @@ def export_ifc(oebf_dir: Path, ifc_path: Path) -> None:
     for element_id in model_data.get("elements", []):
         _export_element(ifc, oebf_dir, element_id, storey, body_context, mat_by_id)
 
+    for slab_id in model_data.get("slabs", []):
+        _export_slab(ifc, oebf_dir, slab_id, storey, body_context, mat_by_id)
+
     ifc.write(str(ifc_path))
 
 
@@ -190,6 +193,82 @@ def _assign_material_layers(ifc, entity, assembly, mat_by_id):
         RelatedObjects=[entity],
         RelatingMaterial=layer_set_usage,
     )
+
+
+def _export_slab(ifc, oebf_dir, slab_id, storey, body_context, mat_by_id):
+    """Export one OEBF Slab as IfcSlab with IfcArbitraryClosedProfileDef geometry."""
+    try:
+        slab = json.loads((oebf_dir / "slabs" / f"{slab_id}.json").read_text())
+        path_data = json.loads(
+            (oebf_dir / "paths" / f"{slab['boundary_path_id']}.json").read_text()
+        )
+    except (FileNotFoundError, KeyError) as exc:
+        print(f"  Warning: skipping slab {slab_id}: {exc}")
+        return
+
+    entity = ifcopenshell.api.root.create_entity(
+        ifc, ifc_class=slab["ifc_type"], name=slab["description"]
+    )
+
+    pts_2d = [
+        (seg["start"]["x"], seg["start"]["y"])
+        for seg in path_data["segments"]
+        if seg["type"] == "line"
+    ]
+
+    elevation = slab.get("elevation_m", 0.0)
+    thickness = slab["thickness_m"]
+
+    matrix = [
+        [1.0, 0.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0, 0.0],
+        [0.0, 0.0, 1.0, elevation],
+    ]
+    ifcopenshell.api.geometry.edit_object_placement(ifc, product=entity, matrix=matrix)
+
+    ifc_pts = [ifc.create_entity("IfcCartesianPoint", Coordinates=(float(p[0]), float(p[1]))) for p in pts_2d]
+    ifc_pts.append(ifc_pts[0])  # close the polyline
+    polyline = ifc.create_entity("IfcPolyline", Points=ifc_pts)
+    profile = ifc.create_entity(
+        "IfcArbitraryClosedProfileDef",
+        ProfileType="AREA",
+        OuterCurve=polyline,
+    )
+
+    solid = ifc.create_entity(
+        "IfcExtrudedAreaSolid",
+        SweptArea=profile,
+        Position=ifc.create_entity(
+            "IfcAxis2Placement3D",
+            Location=ifc.create_entity("IfcCartesianPoint", Coordinates=[0.0, 0.0, 0.0]),
+        ),
+        ExtrudedDirection=ifc.create_entity("IfcDirection", DirectionRatios=[0.0, 0.0, -1.0]),
+        Depth=thickness,
+    )
+
+    shape_rep = ifc.create_entity(
+        "IfcShapeRepresentation",
+        ContextOfItems=body_context,
+        RepresentationIdentifier="Body",
+        RepresentationType="SweptSolid",
+        Items=[solid],
+    )
+    entity.Representation = ifc.create_entity(
+        "IfcProductDefinitionShape", Representations=[shape_rep]
+    )
+
+    mat_info = mat_by_id.get(slab.get("material_id", ""), {})
+    if mat_info:
+        ifc_mat = ifc.create_entity("IfcMaterial", Name=mat_info.get("name", slab["material_id"]))
+        ifc.create_entity(
+            "IfcRelAssociatesMaterial",
+            GlobalId=ifcopenshell.guid.new(),
+            RelatedObjects=[entity],
+            RelatingMaterial=ifc_mat,
+        )
+
+    _assign_property_set(ifc, entity, slab.get("properties", {}))
+    ifcopenshell.api.spatial.assign_container(ifc, relating_structure=storey, products=[entity])
 
 
 def _assign_property_set(ifc, entity, properties: dict):
