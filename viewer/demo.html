@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>OEBF Viewer — Demo</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #1a1a1a; overflow: hidden; }
+    #canvas { display: block; width: 100vw; height: 100vh; }
+    #status {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      color: #fff;
+      font-family: monospace;
+      font-size: 13px;
+      opacity: 0.8;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+  <div id="status">Loading terraced-house.oebf…</div>
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { loadBundle }     from '/src/loader/loadBundle.js';
+    import { buildThreeMesh } from '/src/scene/buildMesh.js';
+
+    // --- Fetch-based mock for FileSystemDirectoryHandle ---
+    // Mirrors the FSA API shape so loadBundle() works without user interaction.
+    function makeFetchHandle(basePath) {
+      return {
+        getDirectoryHandle: async (name) => makeFetchHandle(`${basePath}/${name}`),
+        getFileHandle: async (name) => ({
+          getFile: async () => ({
+            text: async () => {
+              const res = await fetch(`${basePath}/${name}`);
+              if (!res.ok) throw new Error(`Not found: ${basePath}/${name}`);
+              return res.text();
+            },
+          }),
+        }),
+      };
+    }
+
+    // --- Scene setup ---
+    const canvas   = document.getElementById('canvas');
+    const statusEl = document.getElementById('status');
+
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.localClippingEnabled = true;
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x1a1a1a);
+    scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    dirLight.position.set(10, 20, 10);
+    scene.add(dirLight);
+
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.01, 500);
+    camera.up.set(0, 0, 1);
+
+    const controls = new OrbitControls(camera, canvas);
+
+    // Ground grid
+    const grid = new THREE.GridHelper(20, 20, 0x444444, 0x333333);
+    grid.rotation.x = Math.PI / 2;
+    scene.add(grid);
+
+    window.addEventListener('resize', () => {
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+    });
+
+    function animate() {
+      requestAnimationFrame(animate);
+      controls.update();
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    // --- Auto-load bundle ---
+    try {
+      const dirHandle = makeFetchHandle('/terraced-house.oebf');
+      const { meshes, manifest } = await loadBundle(dirHandle);
+
+      const group = new THREE.Group();
+      group.name  = manifest.project_name;
+      for (const md of meshes) group.add(buildThreeMesh(md));
+      scene.add(group);
+
+      // Fit camera to geometry
+      const box    = new THREE.Box3().setFromObject(group);
+      const centre = box.getCenter(new THREE.Vector3());
+      const size   = box.getSize(new THREE.Vector3());
+      const maxDim = Math.max(size.x, size.y, size.z);
+      camera.position.copy(centre).add(new THREE.Vector3(maxDim * 1.5, -maxDim * 2, maxDim));
+      controls.target.copy(centre);
+      controls.update();
+
+      statusEl.textContent = `${manifest.project_name} — ${meshes.length} mesh(es)`;
+      document.title = `OEBF — ${manifest.project_name}`;
+    } catch (err) {
+      statusEl.textContent = `Error: ${err.message}`;
+      console.error(err);
+    }
+  </script>
+</body>
+</html>
