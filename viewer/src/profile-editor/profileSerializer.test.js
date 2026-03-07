@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildJson } from './profileSerializer.js';
+import { buildJson, buildSvg } from './profileSerializer.js';
 
 describe('buildJson', () => {
   const layers = [
@@ -67,5 +67,67 @@ describe('buildJson', () => {
   it('rounds originX to 6 decimal places in origin.x', () => {
     const result = buildJson({ layers: [{ name: 'A', material_id: 'mat-a', thickness: 0.1, function: 'finish' }], originX: 0.1 + 0.001 + 0.0001, id: 'p', description: '' });
     expect(result.origin.x).toBe(Math.round((0.1 + 0.001 + 0.0001) * 1e6) / 1e6);
+  });
+});
+
+describe('buildSvg', () => {
+  const layers = [
+    { name: 'Brick',  material_id: 'mat-brick',  thickness: 0.102, function: 'finish'    },
+    { name: 'Block',  material_id: 'mat-block',  thickness: 0.100, function: 'structure' },
+  ];
+  const matMap = {
+    'mat-brick': { colour_hex: '#C4693A' },
+    'mat-block': { colour_hex: '#AAAAAA' },
+  };
+
+  it('returns a string starting with <?xml', () => {
+    const svg = buildSvg({ layers, originX: 0.101, matMap });
+    expect(typeof svg).toBe('string');
+    expect(svg.startsWith('<?xml')).toBe(true);
+  });
+
+  it('contains one <rect> per layer', () => {
+    const svg = buildSvg({ layers, originX: 0.101, matMap });
+    const rects = svg.match(/<rect /g) ?? [];
+    expect(rects).toHaveLength(2);
+  });
+
+  it('first rect starts at x=0', () => {
+    const svg = buildSvg({ layers, originX: 0.101, matMap });
+    expect(svg).toContain('x="0"');
+  });
+
+  it('second rect x equals first layer thickness', () => {
+    const svg = buildSvg({ layers, originX: 0.101, matMap });
+    expect(svg).toContain('x="0.102"');
+  });
+
+  it('rect widths match layer thicknesses', () => {
+    const svg = buildSvg({ layers, originX: 0.101, matMap });
+    expect(svg).toContain('width="0.102"');
+    expect(svg).toContain('width="0.1"');
+  });
+
+  it('rect fills use colour_hex from matMap', () => {
+    const svg = buildSvg({ layers, originX: 0.101, matMap });
+    expect(svg).toContain('fill="#C4693A"');
+    expect(svg).toContain('fill="#AAAAAA"');
+  });
+
+  it('uses fallback colour #888888 for unknown material', () => {
+    const svg = buildSvg({ layers, originX: 0.101, matMap: {} });
+    const fills = svg.match(/fill="(#[0-9A-Fa-f]{6})"/g) ?? [];
+    expect(fills.every(f => f.includes('#888888'))).toBe(true);
+  });
+
+  it('origin circle cx equals originX', () => {
+    const svg = buildSvg({ layers, originX: 0.051, matMap });
+    expect(svg).toContain('cx="0.051"');
+  });
+
+  it('viewBox width equals total layer thickness sum', () => {
+    const svg = buildSvg({ layers, originX: 0.101, matMap });
+    // total = 0.202
+    expect(svg).toContain('viewBox="0 0 0.202 2.700"');
   });
 });
