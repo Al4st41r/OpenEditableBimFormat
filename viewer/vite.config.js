@@ -1,6 +1,16 @@
 import { defineConfig } from 'vite';
+import { resolve } from 'path';
 
 export default defineConfig({
+  base: '/oebf/',
+  build: {
+    rollupOptions: {
+      input: {
+        main:           resolve(__dirname, 'index.html'),
+        profileEditor:  resolve(__dirname, 'profile-editor.html'),
+      },
+    },
+  },
   server: {
     fs: {
       allow: ['..'], // allow serving example/ bundle files via public/ symlink

@@ -193,7 +193,7 @@ document.getElementById('open-file-btn').addEventListener('click', () => {
 });
 
 document.getElementById('edit-profiles-btn').addEventListener('click', () => {
-  const tab = window.open('/profile-editor.html', '_blank');
+  const tab = window.open(import.meta.env.BASE_URL + 'profile-editor.html', '_blank');
   window.addEventListener('message', function handler(e) {
     if (e.data?.type === 'ready' && e.source === tab) {
       tab.postMessage({ type: 'bundle-handle', handle: currentDirHandle }, window.location.origin);
