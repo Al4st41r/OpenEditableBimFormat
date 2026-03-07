@@ -80,6 +80,12 @@ export async function loadBundle(dirHandle) {
   for (const junctionId of (model.junctions ?? [])) {
     try {
       const junction = await _readJson(dirHandle, `junctions/${junctionId}.json`);
+      if (junction.rule === 'custom' && junction.custom_geometry) {
+        junction.geomData = await _readJson(
+          dirHandle,
+          `junctions/${junction.custom_geometry}`,
+        );
+      }
       junctions.push(junction);
     } catch (err) {
       console.warn(`[OEBF] Skipping junction ${junctionId}: ${err.message}`);

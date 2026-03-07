@@ -16,7 +16,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { loadBundle }           from './loader/loadBundle.js';
 import { buildThreeMesh }        from './scene/buildMesh.js';
-import { applyJunctionClipping } from './junction-renderer.js';
+import { applyJunctionClipping, buildCustomJunctionMesh } from './junction-renderer.js';
 
 // --- Renderer ---
 const canvas = document.getElementById('canvas');
@@ -101,6 +101,24 @@ document.getElementById('open-dir-btn').addEventListener('click', async () => {
     currentGroup.name = manifest.project_name;
     for (const meshData of meshes) currentGroup.add(buildThreeMesh(meshData));
     applyJunctionClipping(currentGroup, junctions);
+
+    // Build material map for custom junction rendering
+    const matMap = new Map();
+    for (const meshData of meshes) {
+      if (meshData.materialId && !matMap.has(meshData.materialId)) {
+        matMap.set(meshData.materialId, new THREE.MeshLambertMaterial({
+          color: new THREE.Color(meshData.colour ?? '#888888'),
+          side: THREE.DoubleSide,
+        }));
+      }
+    }
+    for (const junction of junctions) {
+      if (junction.rule === 'custom' && junction.geomData) {
+        const customMesh = buildCustomJunctionMesh(junction.geomData, matMap);
+        currentGroup.add(customMesh);
+      }
+    }
+
     scene.add(currentGroup);
 
     // Fit camera to loaded geometry

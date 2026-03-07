@@ -255,6 +255,47 @@ describe('loadBundle — junctions', () => {
     expect(junctions).toHaveLength(0);  // skipped
     expect(meshes).toHaveLength(1);     // elements still load
   });
+
+  const CUSTOM_GEOM = {
+    junction_id: 'junction-custom',
+    vertices: [
+      { x: 0, y: 0, z: 0 }, { x: 1, y: 0, z: 0 },
+      { x: 1, y: 1, z: 0 }, { x: 0, y: 1, z: 0 },
+    ],
+    faces: [{ indices: [0, 1, 2, 3], material_id: 'mat-brick' }],
+  };
+
+  const CUSTOM_JUNCTION = {
+    id: 'junction-custom',
+    type: 'Junction',
+    rule: 'custom',
+    elements: ['element-wall-a'],
+    trim_planes: [],
+    custom_geometry: 'junction-custom-geometry.json',
+  };
+
+  test('custom junction has geomData attached from custom_geometry file', async () => {
+    const model = { elements: ['element-wall-a'], junctions: ['junction-custom'], arrays: [] };
+    const files = bundleFiles({
+      'model.json': model,
+      'junctions/junction-custom.json': CUSTOM_JUNCTION,
+      'junctions/junction-custom-geometry.json': CUSTOM_GEOM,
+    });
+    const { junctions } = await loadBundle(mockDirHandle(files));
+    expect(junctions[0].geomData).toBeDefined();
+    expect(junctions[0].geomData.vertices).toHaveLength(4);
+  });
+
+  test('custom junction with missing geometry file is skipped with warning', async () => {
+    const model = { elements: ['element-wall-a'], junctions: ['junction-custom'], arrays: [] };
+    const files = bundleFiles({
+      'model.json': model,
+      'junctions/junction-custom.json': CUSTOM_JUNCTION,
+      // geometry file intentionally absent
+    });
+    const { junctions } = await loadBundle(mockDirHandle(files));
+    expect(junctions).toHaveLength(0); // skipped on error
+  });
 });
 
 describe('loadBundle — resilience', () => {
