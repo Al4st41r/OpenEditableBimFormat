@@ -152,6 +152,24 @@ describe('sweepProfile — edge cases', () => {
     expect(sweepProfile(path, [])).toEqual([]);
   });
 
+  test('degenerate all-zero path throws a descriptive error or returns finite vertices', () => {
+    const points = [{ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 0 }];
+    const shapes = [{ points: [{ x: -0.05, y: 0 }, { x: 0.05, y: 0 }, { x: 0.05, y: 0.1 }, { x: -0.05, y: 0.1 }], materialId: 'mat', width: 0.1, function: 'structure' }];
+    // Should throw (zero-length path produces degenerate geometry) or return empty
+    // Either is acceptable — must not silently produce NaN vertices
+    let result;
+    try {
+      result = sweepProfile(points, shapes);
+    } catch (e) {
+      expect(e.message).toBeTruthy();
+      return;
+    }
+    // If it didn't throw, verify no NaN values in vertices
+    for (const mesh of result) {
+      expect(Array.from(mesh.vertices).every(isFinite)).toBe(true);
+    }
+  });
+
   test('real wall: terraced-house north wall, cavity-250 profile, 4 layers', () => {
     const pathPoints = [
       { x: 0.0, y: 8.5, z: 0.0 },
