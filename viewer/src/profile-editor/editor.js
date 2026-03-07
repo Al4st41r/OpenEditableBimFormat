@@ -49,8 +49,7 @@ profileSvg.addEventListener('origin-moved', e => {
   _renderCanvas();
 });
 
-layerList.addEventListener('layers-changed', e => {
-  layers = e.detail.layers;
+layerList.addEventListener('layers-changed', () => {
   _renderCanvas();
 });
 
@@ -150,7 +149,6 @@ newBtn.addEventListener('click', () => {
 // ── Add layer ─────────────────────────────────────────────────────────────────
 addLayerBtn.addEventListener('click', () => {
   addBlankLayer(layerList);
-  layers = getLayers(layerList);
   _renderCanvas();
 });
 
@@ -172,8 +170,7 @@ saveBtn.addEventListener('click', async () => {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function _renderCanvas() {
-  layers = getLayers(layerList);
-  renderCanvas(profileSvg, layers, originX, matMap, selectedLayerIndex);
+  renderCanvas(profileSvg, getLayers(layerList), originX, matMap, selectedLayerIndex);
 }
 
 function _setStatus(msg) { statusEl.textContent = msg; }
@@ -206,7 +203,11 @@ if (window.opener) {
   window.opener.postMessage({ type: 'ready' }, '*');
   window.addEventListener('message', async e => {
     if (e.data?.type === 'bundle-handle') {
-      await _loadBundle(e.data.handle);
+      try {
+        await _loadBundle(e.data.handle);
+      } catch (err) {
+        _setStatus(`Error loading bundle: ${err.message}`);
+      }
     }
   });
 }
