@@ -25,7 +25,7 @@ import { buildSlabMeshData } from './loadSlab.js';
  * Load an OEBF bundle from a File System Access API directory handle.
  *
  * @param {FileSystemDirectoryHandle} dirHandle
- * @returns {Promise<{ meshes: Array, manifest: object, junctions: Array, arrays: Array }>}
+ * @returns {Promise<{ meshes: Array, manifest: object, junctions: Array, arrays: Array, grids: Array }>}
  */
 export async function loadBundle(dirHandle) {
   const manifest  = await _readJson(dirHandle, 'manifest.json');
@@ -105,7 +105,17 @@ export async function loadBundle(dirHandle) {
     }
   }
 
-  return { meshes, manifest, junctions, arrays };
+  const grids = [];
+  for (const gridId of (model.grids ?? [])) {
+    try {
+      const grid = await _readJson(dirHandle, `grids/${gridId}.json`);
+      grids.push(grid);
+    } catch (err) {
+      console.warn(`[OEBF] Skipping grid ${gridId}: ${err.message}`);
+    }
+  }
+
+  return { meshes, manifest, junctions, arrays, grids };
 }
 
 /**

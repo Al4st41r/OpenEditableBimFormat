@@ -19,6 +19,7 @@ import { buildThreeMesh }        from './scene/buildMesh.js';
 import { applyJunctionClipping, buildCustomJunctionMesh } from './junction-renderer.js';
 import { buildArrayGroup }       from './array/arrayRenderer.js';
 import { buildSymbolGeometries } from './loader/loadSymbol.js';
+import { buildGridLineSegments } from './loader/loadGrid.js';
 
 // --- Renderer ---
 const canvas = document.getElementById('canvas');
@@ -98,7 +99,7 @@ document.getElementById('open-dir-btn').addEventListener('click', async () => {
     statusEl.textContent = 'Loading…';
     _clearScene();
 
-    const { meshes, manifest, junctions, arrays } = await loadBundle(dirHandle);
+    const { meshes, manifest, junctions, arrays, grids } = await loadBundle(dirHandle);
     currentGroup = new THREE.Group();
     currentGroup.name = manifest.project_name;
     for (const meshData of meshes) currentGroup.add(buildThreeMesh(meshData));
@@ -132,6 +133,18 @@ document.getElementById('open-dir-btn').addEventListener('click', async () => {
       } catch (err) {
         console.warn(`[OEBF] Skipping array render ${arrayDef.id}: ${err.message}`);
       }
+    }
+
+    // Render structural grids as subtle line segments
+    for (const grid of grids) {
+      const { positions } = buildGridLineSegments(grid);
+      if (positions.length === 0) continue;
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      const material = new THREE.LineBasicMaterial({ color: 0x555555, opacity: 0.5, transparent: true });
+      const lines = new THREE.LineSegments(geometry, material);
+      lines.userData.gridId = grid.id;
+      currentGroup.add(lines);
     }
 
     scene.add(currentGroup);

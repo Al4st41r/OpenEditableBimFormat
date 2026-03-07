@@ -363,6 +363,43 @@ describe('loadBundle — arrays', () => {
   });
 });
 
+const GRID_DEF = {
+  id: 'grid-structural',
+  type: 'Grid',
+  axes: [
+    { id: '1', direction: 'y', offset_m: 0 },
+    { id: '2', direction: 'y', offset_m: 5.4 },
+    { id: 'A', direction: 'x', offset_m: 0 },
+    { id: 'B', direction: 'x', offset_m: 8.5 },
+  ],
+  elevations: [],
+};
+
+describe('loadBundle — grids', () => {
+  test('returns grids array with loaded grid objects', async () => {
+    const model = { elements: [], junctions: [], arrays: [], grids: ['grid-structural'] };
+    const files = bundleFiles({
+      'model.json': model,
+      'grids/grid-structural.json': GRID_DEF,
+    });
+    const { grids } = await loadBundle(mockDirHandle(files));
+    expect(grids).toHaveLength(1);
+    expect(grids[0].id).toBe('grid-structural');
+  });
+
+  test('returns empty grids array when model.grids is absent', async () => {
+    const { grids } = await loadBundle(mockDirHandle(bundleFiles()));
+    expect(grids).toEqual([]);
+  });
+
+  test('missing grid file is skipped with warning', async () => {
+    const model = { elements: [], junctions: [], arrays: [], grids: ['grid-missing'] };
+    const files = bundleFiles({ 'model.json': model });
+    const { grids } = await loadBundle(mockDirHandle(files));
+    expect(grids).toHaveLength(0);
+  });
+});
+
 describe('loadBundle — resilience', () => {
   test('skips a missing element file and loads the rest', async () => {
     const model = { elements: ['element-wall-a', 'element-missing'], junctions: [], arrays: [] };
