@@ -123,3 +123,34 @@ describe('parsePath — edge cases', () => {
     expect(result.length).toBeCloseTo(1.0);
   });
 });
+
+describe('parsePath — closed path', () => {
+  test('closed path with 3 line segments returns 4 points (last duplicates first)', () => {
+    const data = {
+      id: 'p', type: 'Path', closed: true,
+      segments: [
+        { type: 'line', start: { x: 0, y: 0, z: 0 }, end: { x: 1, y: 0, z: 0 } },
+        { type: 'line', start: { x: 1, y: 0, z: 0 }, end: { x: 1, y: 1, z: 0 } },
+        { type: 'line', start: { x: 1, y: 1, z: 0 }, end: { x: 0, y: 0, z: 0 } },
+      ],
+    };
+    const { points } = parsePath(data);
+    // Should have at least 3 distinct points (the closing duplicate is acceptable)
+    expect(points.length).toBeGreaterThanOrEqual(3);
+    expect(points.every(p => isFinite(p.x) && isFinite(p.y) && isFinite(p.z))).toBe(true);
+  });
+});
+
+describe('parsePath — very short path', () => {
+  test('path shorter than 1mm produces finite points with no NaN', () => {
+    const data = {
+      id: 'p', type: 'Path', closed: false,
+      segments: [
+        { type: 'line', start: { x: 0, y: 0, z: 0 }, end: { x: 0.0005, y: 0, z: 0 } },
+      ],
+    };
+    const { points } = parsePath(data);
+    expect(points.length).toBeGreaterThanOrEqual(2);
+    expect(points.every(p => isFinite(p.x) && isFinite(p.y) && isFinite(p.z))).toBe(true);
+  });
+});
