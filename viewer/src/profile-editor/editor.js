@@ -202,6 +202,7 @@ async function _writeFile(path, content) {
 if (window.opener) {
   window.opener.postMessage({ type: 'ready' }, window.location.origin);
   window.addEventListener('message', async e => {
+    if (e.origin !== window.location.origin) return;
     if (e.data?.type === 'bundle-handle') {
       try {
         await _loadBundle(e.data.handle);
