@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  viewer-tests:
+    name: Viewer (Vitest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: viewer/package-lock.json
+      - run: cd viewer && npm ci
+      - run: cd viewer && npm test
+
+  ifc-tools-tests:
+    name: IFC Tools (pytest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install uv
+        run: pip install uv
+      - name: Cache uv venv
+        uses: actions/cache@v4
+        with:
+          path: ifc-tools/.venv
+          key: ifc-tools-venv-${{ hashFiles('ifc-tools/uv.lock') }}
+      - run: cd ifc-tools && uv sync
+      - run: cd ifc-tools && uv run pytest tests/ -v
