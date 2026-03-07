@@ -92,7 +92,20 @@ export async function loadBundle(dirHandle) {
     }
   }
 
-  return { meshes, manifest, junctions };
+  const arrays = [];
+  for (const arrayId of (model.arrays ?? [])) {
+    try {
+      const arrayDef   = await _readJson(dirHandle, `arrays/${arrayId}.json`);
+      const pathData   = await _readJson(dirHandle, `paths/${arrayDef.path_id}.json`);
+      const symbolDef  = await _readJson(dirHandle, `symbols/${arrayDef.source_id}.json`);
+      const parsedPath = parsePath(pathData);
+      arrays.push({ arrayDef, pathPoints: parsedPath.points, symbolDef });
+    } catch (err) {
+      console.warn(`[OEBF] Skipping array ${arrayId}: ${err.message}`);
+    }
+  }
+
+  return { meshes, manifest, junctions, arrays };
 }
 
 /**

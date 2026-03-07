@@ -17,6 +17,8 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { loadBundle }           from './loader/loadBundle.js';
 import { buildThreeMesh }        from './scene/buildMesh.js';
 import { applyJunctionClipping, buildCustomJunctionMesh } from './junction-renderer.js';
+import { buildArrayGroup }       from './array/arrayRenderer.js';
+import { buildSymbolGeometries } from './loader/loadSymbol.js';
 
 // --- Renderer ---
 const canvas = document.getElementById('canvas');
@@ -96,7 +98,7 @@ document.getElementById('open-dir-btn').addEventListener('click', async () => {
     statusEl.textContent = 'Loading…';
     _clearScene();
 
-    const { meshes, manifest, junctions } = await loadBundle(dirHandle);
+    const { meshes, manifest, junctions, arrays } = await loadBundle(dirHandle);
     currentGroup = new THREE.Group();
     currentGroup.name = manifest.project_name;
     for (const meshData of meshes) currentGroup.add(buildThreeMesh(meshData));
@@ -116,6 +118,25 @@ document.getElementById('open-dir-btn').addEventListener('click', async () => {
       if (junction.rule === 'custom' && junction.geomData) {
         const customMesh = buildCustomJunctionMesh(junction.geomData, matMap);
         currentGroup.add(customMesh);
+      }
+    }
+
+    // Render arrays (InstancedMesh per symbol layer)
+    for (const { arrayDef, pathPoints, symbolDef } of arrays) {
+      try {
+        const symMatId = symbolDef.parameters?.material;
+        const symMat = symMatId
+          ? new THREE.MeshLambertMaterial({
+              color: new THREE.Color(matMap.get(symMatId)?.color ?? 0x888888),
+              side: THREE.DoubleSide,
+            })
+          : new THREE.MeshLambertMaterial({ color: 0x888888, side: THREE.DoubleSide });
+        const symMatMap = symMatId ? new Map([[symMatId, symMat]]) : new Map();
+        const sourceGeometries = buildSymbolGeometries(symbolDef, symMatMap);
+        const arrayGroup = buildArrayGroup(arrayDef, pathPoints, sourceGeometries);
+        currentGroup.add(arrayGroup);
+      } catch (err) {
+        console.warn(`[OEBF] Skipping array render ${arrayDef.id}: ${err.message}`);
       }
     }
 

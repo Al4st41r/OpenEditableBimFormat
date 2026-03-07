@@ -298,6 +298,71 @@ describe('loadBundle — junctions', () => {
   });
 });
 
+const ARRAY_PATH = {
+  id: 'path-boundary',
+  type: 'Path',
+  closed: false,
+  segments: [{ type: 'line', start: { x: 0, y: 0, z: 0 }, end: { x: 9, y: 0, z: 0 } }],
+};
+
+const SYMBOL_DEF = {
+  id: 'symbol-post',
+  type: 'Symbol',
+  geometry_definition: 'box',
+  parameters: { width_m: 0.075, depth_m: 0.075, height_m: 1.2, material: 'mat-brick' },
+};
+
+const ARRAY_DEF = {
+  id: 'array-posts',
+  type: 'Array',
+  source_id: 'symbol-post',
+  path_id: 'path-boundary',
+  mode: 'spacing',
+  spacing: 1.8,
+  start_offset: 0,
+  end_offset: 0,
+  alignment: 'fixed',
+  offset_local: { x: 0, y: 0, z: 0 },
+  rotation_local_deg: 0,
+};
+
+describe('loadBundle — arrays', () => {
+  function arrayBundleFiles() {
+    const model = { elements: [], junctions: [], arrays: ['array-posts'] };
+    return bundleFiles({
+      'model.json': model,
+      'arrays/array-posts.json': ARRAY_DEF,
+      'paths/path-boundary.json': ARRAY_PATH,
+      'symbols/symbol-post.json': SYMBOL_DEF,
+    });
+  }
+
+  test('returns arrays with arrayDef, pathPoints, and symbolDef', async () => {
+    const { arrays } = await loadBundle(mockDirHandle(arrayBundleFiles()));
+    expect(arrays).toHaveLength(1);
+    expect(arrays[0].arrayDef.id).toBe('array-posts');
+    expect(arrays[0].pathPoints).toBeInstanceOf(Array);
+    expect(arrays[0].symbolDef.id).toBe('symbol-post');
+  });
+
+  test('array pathPoints has at least 2 points', async () => {
+    const { arrays } = await loadBundle(mockDirHandle(arrayBundleFiles()));
+    expect(arrays[0].pathPoints.length).toBeGreaterThanOrEqual(2);
+  });
+
+  test('missing array file is skipped with warning', async () => {
+    const model = { elements: [], junctions: [], arrays: ['array-missing'] };
+    const files = bundleFiles({ 'model.json': model });
+    const { arrays } = await loadBundle(mockDirHandle(files));
+    expect(arrays).toHaveLength(0);
+  });
+
+  test('returns empty arrays when model.arrays is absent', async () => {
+    const { arrays } = await loadBundle(mockDirHandle(bundleFiles()));
+    expect(arrays).toEqual([]);
+  });
+});
+
 describe('loadBundle — resilience', () => {
   test('skips a missing element file and loads the rest', async () => {
     const model = { elements: ['element-wall-a', 'element-missing'], junctions: [], arrays: [] };
