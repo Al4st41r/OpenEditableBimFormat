@@ -47,7 +47,8 @@ These decisions were made during early development and resolve open design quest
 ### Issue #3 — Junction trim algorithm: hybrid plane-sweep (NOT three-bvh-csg)
 - **Viewer (real-time):** Use Three.js `material.clippingPlanes` populated from each junction's `trim_planes` array. Requires `renderer.localClippingEnabled = true`. Zero geometry modification — clipping handled by GPU.
 - **IFC export / geometry bake:** Use `trimMeshByPlane()` (Sutherland-Hodgman triangle-mesh clipper with cap reconstruction) to produce watertight solids for `IfcFacetedBrep`.
-- **three-bvh-csg is NOT used** in v0.1. CSG is reserved for future non-planar intersections.
+- **three-bvh-csg is NOT used in v0.1 for straight or arc junctions** — `clippingPlanes` is zero-cost at load time; CSG on the CPU would add ~1 s to startup for a typical model.
+- **v0.2 plan — spline junctions only:** When a spline segment is detected, trim helpers return `null` and warn. The junction should carry `trim_method: "csg"`. Full mesh-mesh boolean via `three-bvh-csg` replaces the null fallback in v0.2.
 - Implemented: `viewer/src/junction-trimmer.js`, `viewer/src/junction-renderer.js`
 - See: `docs/decisions/2026-03-02-junction-trim-algorithm.md`
 
