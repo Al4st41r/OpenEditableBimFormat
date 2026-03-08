@@ -39,6 +39,7 @@
     #layer-list { flex: 1; overflow-y: auto; padding: 8px 12px; }
     #form-footer { padding: 8px 12px; border-top: 1px solid #333; display: flex; gap: 8px; }
     #form-footer button { padding: 5px 12px; cursor: pointer; background: #333; color: #ddd; border: 1px solid #555; border-radius: 3px; }
+    #form-footer button.icon-btn { display: flex; align-items: center; gap: 4px; }
   </style>
 </head>
 <body>
@@ -63,7 +64,9 @@
     <div id="form-panel">
       <div id="layer-list"></div>
       <div id="form-footer">
-        <button id="add-layer-btn" disabled>+ Add layer</button>
+        <button id="add-layer-btn" class="icon-btn" disabled aria-label="Add layer">
+          <img src="/oebf/icons/add.svg" width="16" height="16" alt="">
+        </button>
       </div>
     </div>
   </div>

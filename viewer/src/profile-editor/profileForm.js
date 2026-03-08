@@ -8,7 +8,9 @@
  *   'layers-changed' — detail: { layers: Array }
  */
 
-const FUNCTIONS = ['finish', 'structure', 'insulation', 'membrane', 'service'];
+import { FUNCTIONS, FUNCTION_META } from './profileConstants.js';
+
+const ICON_BASE = import.meta.env.BASE_URL + 'icons/';
 
 /**
  * @param {HTMLElement} formEl  — container element for the layer list
@@ -80,7 +82,8 @@ function _appendRow(formEl, layer, index) {
 
   const row = document.createElement('div');
   row.className = 'layer-row';
-  row.style.cssText = 'display:flex;gap:6px;align-items:center;padding:4px 0;border-bottom:1px solid #333;';
+  const fnColour = FUNCTION_META[layer.function]?.colour ?? '#555';
+  row.style.cssText = `display:flex;gap:6px;align-items:center;padding:4px 0;border-bottom:1px solid #333;border-left:3px solid ${fnColour};padding-left:6px;`;
 
   const nameInput = document.createElement('input');
   nameInput.className = 'layer-name';
@@ -108,6 +111,13 @@ function _appendRow(formEl, layer, index) {
   });
   matSelect.style.flex = '2';
 
+  const fnIcon = document.createElement('img');
+  fnIcon.src = ICON_BASE + (FUNCTION_META[layer.function]?.icon ?? 'layer-structure.svg');
+  fnIcon.width  = 16;
+  fnIcon.height = 16;
+  fnIcon.alt    = '';
+  fnIcon.style.flexShrink = '0';
+
   const fnSelect = document.createElement('select');
   fnSelect.className = 'layer-fn';
   FUNCTIONS.forEach(fn => {
@@ -118,24 +128,29 @@ function _appendRow(formEl, layer, index) {
     fnSelect.appendChild(opt);
   });
 
-  const upBtn   = _btn('↑', () => _move(formEl, index, -1));
-  const downBtn = _btn('↓', () => _move(formEl, index, +1));
-  const delBtn  = _btn('✕', () => _deleteRow(formEl, index));
-  delBtn.style.color = '#f66';
+  const upBtn   = _btn('chevron-up.svg',   'Move layer up',   () => _move(formEl, index, -1));
+  const downBtn = _btn('chevron-down.svg', 'Move layer down', () => _move(formEl, index, +1));
+  const delBtn  = _btn('bin.svg',          'Delete layer',    () => _deleteRow(formEl, index));
 
   [nameInput, thickInput, matSelect, fnSelect].forEach(el => {
     el.addEventListener('input', () => _emit(formEl));
     el.addEventListener('change', () => _emit(formEl));
   });
 
-  row.append(nameInput, thickInput, matSelect, fnSelect, upBtn, downBtn, delBtn);
+  row.append(nameInput, thickInput, matSelect, fnIcon, fnSelect, upBtn, downBtn, delBtn);
   formEl.appendChild(row);
 }
 
-function _btn(label, onClick) {
+function _btn(iconFile, ariaLabel, onClick) {
   const b = document.createElement('button');
-  b.textContent = label;
-  b.style.cssText = 'padding:2px 6px;cursor:pointer;background:#333;color:#ccc;border:1px solid #555;border-radius:2px;';
+  b.setAttribute('aria-label', ariaLabel);
+  b.style.cssText = 'padding:2px 4px;cursor:pointer;background:#333;border:1px solid #555;border-radius:2px;display:flex;align-items:center;';
+  const img = document.createElement('img');
+  img.src    = ICON_BASE + iconFile;
+  img.width  = 16;
+  img.height = 16;
+  img.alt    = '';
+  b.appendChild(img);
   b.addEventListener('click', onClick);
   return b;
 }
