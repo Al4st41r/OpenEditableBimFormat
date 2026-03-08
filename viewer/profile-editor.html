@@ -21,6 +21,7 @@
     #header button { padding: 5px 12px; cursor: pointer; background: #2a4a2a; color: #8f8; border: 1px solid #555; border-radius: 3px; }
     #header button:hover { background: #3a5a3a; }
     #header button.secondary { background: #333; color: #ddd; }
+    #header button.icon-btn { padding: 4px 8px; display: flex; align-items: center; }
     #status { margin-left: auto; opacity: 0.6; font-size: 12px; }
 
     #main { display: flex; flex: 1; overflow: hidden; }
@@ -44,9 +45,15 @@
   <div id="header">
     <span id="project-name" style="opacity:0.5">No bundle open</span>
     <select id="profile-select" disabled><option>— select profile —</option></select>
-    <button id="new-btn" class="secondary" disabled>New</button>
-    <button id="open-btn" class="secondary">Open bundle</button>
-    <button id="save-btn" disabled>Save</button>
+    <button id="new-btn" class="secondary icon-btn" disabled aria-label="New profile">
+      <img src="/oebf/icons/document.svg" width="18" height="18" alt="">
+    </button>
+    <button id="open-btn" class="secondary icon-btn" aria-label="Open bundle">
+      <img src="/oebf/icons/folder.svg" width="18" height="18" alt="">
+    </button>
+    <button id="save-btn" class="icon-btn" disabled aria-label="Save">
+      <img src="/oebf/icons/save.svg" width="18" height="18" alt="">
+    </button>
     <span id="status"></span>
   </div>
   <div id="main">
