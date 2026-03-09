@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Profile Editor', () => {
   test('page loads with correct initial state', async ({ page }) => {
-    await page.goto('/profile-editor.html');
+    await page.goto('profile-editor.html');
 
     // Key UI elements present
     await expect(page.locator('#profile-svg')).toBeVisible();
@@ -13,10 +13,10 @@ test.describe('Profile Editor', () => {
   });
 
   test('buildJson produces correct profile structure', async ({ page }) => {
-    await page.goto('/profile-editor.html');
+    await page.goto('profile-editor.html');
 
     const result = await page.evaluate(async () => {
-      const { buildJson } = await import('/src/profile-editor/profileSerializer.js');
+      const { buildJson } = await import('/oebf/src/profile-editor/profileSerializer.js');
       return buildJson({
         layers: [
           { name: 'Brick', material_id: 'mat-brick', thickness: 0.102, function: 'finish' },
@@ -38,10 +38,10 @@ test.describe('Profile Editor', () => {
   });
 
   test('buildSvg produces SVG with correct rect count and origin marker', async ({ page }) => {
-    await page.goto('/profile-editor.html');
+    await page.goto('profile-editor.html');
 
     const svg = await page.evaluate(async () => {
-      const { buildSvg } = await import('/src/profile-editor/profileSerializer.js');
+      const { buildSvg } = await import('/oebf/src/profile-editor/profileSerializer.js');
       return buildSvg({
         layers: [
           { name: 'Brick', material_id: 'mat-brick', thickness: 0.102, function: 'finish' },
