@@ -61,7 +61,7 @@ export class WallTool {
   }
 
   activate() {
-    this._drawingTool.activate();
+    this._drawingTool.activate({ closeable: false });
   }
 
   deactivate() {
@@ -126,7 +126,7 @@ export class WallTool {
 
         for (const layerData of layerMeshes) {
           const matData = this._matMap[layerData.materialId];
-          const colour  = matData?.colour ?? '#888888';
+          const colour  = matData?.colour_hex ?? '#888888';
           const mesh = buildThreeMesh({
             vertices:    layerData.vertices,
             normals:     layerData.normals,
