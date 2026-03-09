@@ -15,6 +15,7 @@
 import * as THREE from 'three';
 
 const SNAP_RADIUS = 0.1; // metres
+const Z_FIGHT_OFFSET = 0.001; // metres — lifts preview above construction plane
 
 export class DrawingTool {
   constructor(scene, getCameraFn, constructionPlane, canvas) {
@@ -53,6 +54,7 @@ export class DrawingTool {
   }
 
   activate({ closeable = false } = {}) {
+    if (this._active) return;
     this._active    = true;
     this._closeable = closeable;
     this._points    = [];
@@ -114,13 +116,16 @@ export class DrawingTool {
 
   _onDblClick(e) {
     // Browsers fire two click events before dblclick — remove both
-    if (this._points.length >= 2) {
+    // Require at least 4 points: 2 real + 2 from the double-click clicks
+    if (this._points.length >= 4) {
       this._points.splice(-2);
       this._commit(false);
     }
   }
 
   _onKeyDown(e) {
+    const tag = e.target?.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
     if (e.key === 'Enter' && this._points.length >= 2) {
       this._commit(false);
     }
@@ -147,7 +152,7 @@ export class DrawingTool {
     const allPts = [...this._points, this._cursorPos];
     if (allPts.length < 2) return;
 
-    const pts3 = allPts.map(p => new THREE.Vector3(p.x, p.y, p.z + 0.001));
+    const pts3 = allPts.map(p => new THREE.Vector3(p.x, p.y, p.z + Z_FIGHT_OFFSET));
     const geo  = new THREE.BufferGeometry().setFromPoints(pts3);
     const line = new THREE.Line(geo, new THREE.LineBasicMaterial({
       color: 0x44aaff, linewidth: 1,
@@ -156,9 +161,19 @@ export class DrawingTool {
   }
 
   _clearPreview() {
-    while (this._previewGroup.children.length) {
-      this._previewGroup.remove(this._previewGroup.children[0]);
+    for (const child of this._previewGroup.children) {
+      child.geometry.dispose();
+      child.material.dispose();
     }
+    this._previewGroup.clear();
+  }
+
+  dispose() {
+    this.deactivate();
+    this._scene.remove(this._previewGroup);
+    this._scene.remove(this._snapIndicator);
+    this._snapIndicator.geometry.dispose();
+    this._snapIndicator.material.dispose();
   }
 }
 
