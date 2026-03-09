@@ -96,8 +96,6 @@ export class DrawingTool {
   }
 
   _onClick(e) {
-    // dblclick fires click twice — ignore the second click in dblclick
-    if (this._dblClickPending) return;
     const pos = this._getWorldPos(e);
     if (!pos) return;
 
@@ -115,9 +113,9 @@ export class DrawingTool {
   }
 
   _onDblClick(e) {
+    // Browsers fire two click events before dblclick — remove both
     if (this._points.length >= 2) {
-      // Remove the last single-click point that was added before dblclick fired
-      this._points.pop();
+      this._points.splice(-2);
       this._commit(false);
     }
   }
