@@ -13,11 +13,12 @@ const GUIDE_OPACITY = 0.12;
 const GUIDE_HEIGHT  = 10;
 
 export class GuideManager {
-  constructor(overlayGroup, listEl) {
-    this._overlayGroup = overlayGroup;
-    this._listEl       = listEl;
-    this._guides       = [];
-    this._dirHandle    = null;
+  constructor(overlayGroup, listEl, onGuideAdded) {
+    this._overlayGroup  = overlayGroup;
+    this._listEl        = listEl;
+    this._onGuideAdded  = onGuideAdded ?? null;
+    this._guides        = [];
+    this._dirHandle     = null;
   }
 
   setDirHandle(h) { this._dirHandle = h; }
@@ -49,11 +50,13 @@ export class GuideManager {
     this._addGuide(id, name ?? id, segments, true);
     if (this._dirHandle) {
       await writeEntity(this._dirHandle, `paths/${id}.json`, {
+        '$schema': 'oebf://schema/0.1/path',
         id, type: 'Path', guide: true,
         description: name ?? id,
         closed: false, segments,
       });
     }
+    if (this._onGuideAdded) this._onGuideAdded(id);
     return id;
   }
 
@@ -112,6 +115,7 @@ function _buildGuideObject(segments) {
   // Collect line points from segments
   const pts3 = [];
   for (const seg of segments) {
+    // Only 'line' segments rendered; arc/bezier/spline not yet supported for guides.
     if (seg.type === 'line') {
       pts3.push(new THREE.Vector3(seg.start.x, seg.start.y, seg.start.z ?? 0));
       pts3.push(new THREE.Vector3(seg.end.x,   seg.end.y,   seg.end.z   ?? 0));

@@ -64,6 +64,9 @@ document.getElementById('add-grid-btn').addEventListener('click', () => {
 const guideManager = new GuideManager(
   editorScene.overlayGroup,
   document.getElementById('guides-list'),
+  (pathId) => {
+    if (!_modelState.paths.includes(pathId)) _modelState.paths.push(pathId);
+  },
 );
 
 document.getElementById('add-guide-btn').addEventListener('click', () => {
