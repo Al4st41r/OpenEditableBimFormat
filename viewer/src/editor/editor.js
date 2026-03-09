@@ -6,6 +6,14 @@
  */
 
 import { initEditorScene } from './editorScene.js';
+import { loadBundle }         from '../loader/loadBundle.js';
+import { buildThreeMesh }     from '../scene/buildMesh.js';
+import { applyJunctionClipping, buildCustomJunctionMesh } from '../junction-renderer.js';
+import { buildArrayGroup }    from '../array/arrayRenderer.js';
+import { buildSymbolGeometries } from '../loader/loadSymbol.js';
+import { buildGridLineSegments } from '../loader/loadGrid.js';
+import { readEntity }         from './bundleWriter.js';
+import * as THREE from 'three';
 
 // ── DOM refs ─────────────────────────────────────────────────────────────────
 const canvas      = document.getElementById('canvas');
@@ -41,14 +49,92 @@ openBtn.addEventListener('click', async () => {
     return;
   }
   try {
-    dirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
-    statusBar.textContent = `Opened: ${dirHandle.name}`;
+    const handle = await window.showDirectoryPicker({ mode: 'readwrite' });
+    dirHandle = handle;
+    statusBar.textContent = 'Loading…';
+    await _loadAndRenderBundle(handle);
+    _enableEditorTools();
+    statusBar.textContent = handle.name;
     saveBtn.disabled = false;
-    // Bundle loading wired in Task 33
   } catch (e) {
     if (e.name !== 'AbortError') statusBar.textContent = `Error: ${e.message}`;
   }
 });
+
+// ── Load and render bundle ────────────────────────────────────────────────────
+async function _loadAndRenderBundle(handle) {
+  // Clear existing model group
+  while (editorScene.modelGroup.children.length) {
+    const child = editorScene.modelGroup.children[0];
+    if (child.geometry) child.geometry.dispose();
+    if (child.material) child.material.dispose();
+    editorScene.modelGroup.remove(child);
+  }
+
+  const { meshes, manifest, junctions, arrays, grids } = await loadBundle(handle);
+
+  for (const meshData of meshes) {
+    editorScene.modelGroup.add(buildThreeMesh(meshData));
+  }
+  applyJunctionClipping(editorScene.modelGroup, junctions);
+
+  const matMap = new Map();
+  for (const meshData of meshes) {
+    if (meshData.materialId && !matMap.has(meshData.materialId)) {
+      matMap.set(meshData.materialId, new THREE.MeshLambertMaterial({
+        color: new THREE.Color(meshData.colour ?? '#888888'),
+        side: THREE.DoubleSide,
+      }));
+    }
+  }
+  for (const junction of junctions) {
+    if (junction.rule === 'custom' && junction.geomData) {
+      editorScene.modelGroup.add(buildCustomJunctionMesh(junction.geomData, matMap));
+    }
+  }
+  for (const { arrayDef, pathPoints, symbolDef } of arrays) {
+    try {
+      const symMat = new Map();
+      const sourceGeoms = buildSymbolGeometries(symbolDef, symMat);
+      editorScene.modelGroup.add(buildArrayGroup(arrayDef, pathPoints, sourceGeoms));
+    } catch { /* skip */ }
+  }
+  for (const grid of grids) {
+    const { positions } = buildGridLineSegments(grid);
+    if (!positions.length) continue;
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    editorScene.modelGroup.add(new THREE.LineSegments(
+      geo, new THREE.LineBasicMaterial({ color: 0x555555, opacity: 0.5, transparent: true })
+    ));
+  }
+
+  // Fit camera to loaded geometry
+  const box = new THREE.Box3().setFromObject(editorScene.modelGroup);
+  if (!box.isEmpty()) {
+    const centre = box.getCenter(new THREE.Vector3());
+    const size   = box.getSize(new THREE.Vector3());
+    const maxDim = Math.max(size.x, size.y, size.z);
+    editorScene.perspCamera.position.copy(centre).add(
+      new THREE.Vector3(maxDim, -maxDim, maxDim * 0.8)
+    );
+    editorScene.controls.target.copy(centre);
+    editorScene.controls.update();
+  }
+}
+
+// ── Enable editor tools after bundle load ─────────────────────────────────────
+function _enableEditorTools() {
+  document.getElementById('tool-wall').disabled  = false;
+  document.getElementById('tool-floor').disabled = false;
+  document.getElementById('tool-grid').disabled  = false;
+  document.getElementById('tool-guide').disabled = false;
+  document.getElementById('add-grid-btn').disabled  = false;
+  document.getElementById('add-guide-btn').disabled = false;
+  document.getElementById('add-detail-btn').disabled = false;
+  document.getElementById('default-wall-profile').disabled = false;
+  document.getElementById('default-slab-profile').disabled = false;
+}
 
 // ── Save ──────────────────────────────────────────────────────────────────────
 saveBtn.addEventListener('click', () => {
