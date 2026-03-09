@@ -34,7 +34,7 @@ Phases 1–5 are complete and v0.1.0 is tagged. The v0.2 editor alpha (`v0.2.0-e
 
 | Module | File | Status |
 |---|---|---|
-| Vite + Three.js app entry | `viewer/index.html`, `viewer/src/main.js` | Done |
+| Vite + Three.js app entry | `viewer/viewer.html`, `viewer/src/main.js` | Done (moved from `index.html` in v0.2) |
 | Path arc-length sampler | `viewer/src/path/pathSampler.js` | Done, 11 tests |
 | Profile SVG + JSON loader | `viewer/src/profile/profileLoader.js` | Done |
 | Sweep geometry engine | `viewer/src/geometry/sweepGeometry.js` | Done |
@@ -112,7 +112,7 @@ New entry point: `viewer/editor.html`. All editor modules in `viewer/src/editor/
 |---|---|---|
 | #10 | Desktop wrapper: file watching for live LLM editing (Tauri v2) | Design plan written; not started |
 | #22 | OEBF-GUIDE.md test harness — LLM accuracy benchmark | Not started |
-| #27 | Playwright visual regression screenshot baseline | Not started |
+| #27 | Playwright visual regression screenshot baseline — base path fixed in Task 30 | Partially resolved — base path fixed; visual regression baselines not yet created |
 | #29 | Opening entity — schema example, loader, viewer rendering | Not started |
 | #31 | edit-profiles-btn state incorrect after .oebfz load | Known bug; post-release fix |
 | #32 | Profile editor UX polish + graphical assets | Not started |
@@ -130,10 +130,11 @@ New entry point: `viewer/editor.html`. All editor modules in `viewer/src/editor/
 | #17 | Viewer bundle loading: File System Access API vs .oebfz archive upload | Open |
 | #18 | v0.2: CSG fallback for spline-path junctions via three-bvh-csg | Open — v0.2 item |
 | #22 | OEBF-GUIDE.md test harness — LLM accuracy benchmark | Open — post-v0.1 |
-| #27 | Playwright visual regression screenshot baseline | Open — post-v0.1 |
+| #27 | Playwright visual regression screenshot baseline | Open — base path fixed; baselines not yet created |
 | #29 | Opening entity — schema example, loader, viewer rendering | Open — post-v0.1 |
 | #31 | edit-profiles-btn state incorrect after .oebfz load | Open — known bug |
 | #32 | Profile editor UX polish + graphical assets | Open |
+| #33–#42 | OEBF editor (homepage, layout, storeys, grids, guides, wall, floor, junctions, details, save) | Closed — v0.2.0-editor-alpha |
 
 ---
 
