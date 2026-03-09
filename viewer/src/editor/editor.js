@@ -156,6 +156,16 @@ async function _loadAndRenderBundle(handle) {
 
   if (junctionEditor) junctionEditor.clear();
 
+  // Reset session state for this bundle
+  _modelState.elements.length  = 0;
+  _modelState.slabs.length     = 0;
+  _modelState.junctions.length = 0;
+  _modelState.arrays.length    = 0;
+  _modelState.grids.length     = 0;
+  _modelState.paths.length     = 0;
+  _modelState.groups.length    = 0;
+  _modelState.storeys.length   = 0;
+
   const { meshes, junctions, arrays, grids } = await loadBundle(handle);
 
   for (const meshData of meshes) {
