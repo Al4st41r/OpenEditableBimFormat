@@ -98,14 +98,18 @@ export class WallTool {
 
     // Build element entity
     const elementData = {
-      id:          elementId,
-      type:        'Element',
-      path_id:     pathId,
-      profile_id:  profileId,
-      ifc_type:    'IfcWall',
-      description: 'Wall',
+      '$schema':        'oebf://schema/0.1/element',
+      id:               elementId,
+      type:             'Element',
+      ifc_type:         'IfcWall',
+      path_id:          pathId,
+      profile_id:       profileId,
+      sweep_mode:       'perpendicular',
+      cap_start:        'flat',
+      cap_end:          'flat',
+      parent_group_id:  storeyId || '',
+      description:      'Wall',
     };
-    if (storeyId) elementData.storey_id = storeyId;
 
     // Write entities to bundle
     try {
