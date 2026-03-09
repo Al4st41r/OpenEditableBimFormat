@@ -15,7 +15,8 @@ import { buildGridLineSegments } from '../loader/loadGrid.js';
 import { StoreyManager } from './storeyManager.js';
 import { GridOverlayManager } from './gridOverlayManager.js';
 import { GuideManager } from './guideManager.js';
-import { readEntity }    from './bundleWriter.js';
+import { readEntity, writeEntity } from './bundleWriter.js';
+import { WallTool } from './wallTool.js';
 import * as THREE from 'three';
 
 // ── DOM refs ─────────────────────────────────────────────────────────────────
@@ -78,8 +79,21 @@ document.getElementById('tool-guide').addEventListener('click', () => {
   statusBar.textContent = 'Guide tool: drawing integration in Task 37';
 });
 
+document.getElementById('tool-select').addEventListener('click', () => {
+  _setActiveTool(null, document.getElementById('tool-select'));
+});
+
+document.getElementById('tool-wall').addEventListener('click', () => {
+  if (!wallTool) return;
+  _setActiveTool(wallTool, document.getElementById('tool-wall'));
+  wallTool.activate();
+});
+
 // ── State ────────────────────────────────────────────────────────────────────
 let dirHandle = null;
+let activeProfileMap = {}; // materialId → material data
+let wallTool = null;
+let activeTool = null;
 
 // ── View toggle ───────────────────────────────────────────────────────────────
 view3dBtn.addEventListener('click', () => {
@@ -112,6 +126,14 @@ openBtn.addEventListener('click', async () => {
     if (e.name !== 'AbortError') statusBar.textContent = `Error: ${e.message}`;
   }
 });
+
+// ── Tool management ───────────────────────────────────────────────────────────
+function _setActiveTool(tool, buttonEl) {
+  if (activeTool && activeTool !== tool) activeTool.deactivate?.();
+  activeTool = tool;
+  document.querySelectorAll('#toolbar button').forEach(b => b.classList.remove('active'));
+  if (buttonEl) buttonEl.classList.add('active');
+}
 
 // ── Load and render bundle ────────────────────────────────────────────────────
 async function _loadAndRenderBundle(handle) {
@@ -204,6 +226,58 @@ async function _loadAndRenderBundle(handle) {
     }
     guideManager.loadFromBundle(guidePaths);
   } catch { /* ignore */ }
+
+  // Load materials map
+  activeProfileMap = {};
+  try {
+    const matsData = await readEntity(handle, 'materials/library.json');
+    for (const m of (matsData.materials ?? [])) activeProfileMap[m.id] = m;
+  } catch { /* ignore — bundle may have no materials */ }
+
+  // Populate profile dropdowns
+  const wallSel = document.getElementById('default-wall-profile');
+  const slabSel = document.getElementById('default-slab-profile');
+  wallSel.innerHTML = '';
+  slabSel.innerHTML = '';
+  try {
+    const profilesDir = await handle.getDirectoryHandle('profiles');
+    for await (const [name] of profilesDir) {
+      if (!name.endsWith('.json')) continue;
+      const id = name.replace('.json', '');
+      const data = await readEntity(handle, `profiles/${id}.json`);
+      if (data.detail) continue;
+      const opt = document.createElement('option');
+      opt.value = id; opt.textContent = id;
+      wallSel.appendChild(opt.cloneNode(true));
+      slabSel.appendChild(opt);
+    }
+  } catch { /* no profiles dir */ }
+
+  // Create wall tool bound to this bundle
+  wallTool = new WallTool({
+    scene:             editorScene.scene,
+    getCamera:         editorScene.getActiveCamera,
+    constructionPlane: editorScene.constructionPlane,
+    canvas,
+    modelGroup:        editorScene.modelGroup,
+    dirHandle:         handle,
+    getDefaultProfile: () => document.getElementById('default-wall-profile').value,
+    getStoreyZ:        () => storeyManager.getActive()?.z_m ?? 0,
+    getStoreyId:       () => storeyManager.getActive()?.id ?? null,
+    readProfile:       (path) => readEntity(handle, path),
+    matMap:            activeProfileMap,
+    onElementCreated:  (info) => {
+      _modelState.elements.push(info.id);
+      _modelState.paths.push(info.pathId);
+      const el = document.createElement('div');
+      el.className = 'tree-item';
+      const span = document.createElement('span');
+      span.className = 'tree-item-name';
+      span.textContent = `Wall (${info.id.slice(-6)})`;
+      el.appendChild(span);
+      document.getElementById('elements-list').appendChild(el);
+    },
+  });
 
   // Fit camera to loaded geometry
   const box = new THREE.Box3().setFromObject(editorScene.modelGroup);
