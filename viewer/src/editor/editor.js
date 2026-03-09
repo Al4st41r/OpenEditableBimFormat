@@ -18,6 +18,7 @@ import { GuideManager } from './guideManager.js';
 import { readEntity, writeEntity } from './bundleWriter.js';
 import { WallTool } from './wallTool.js';
 import { FloorTool } from './floorTool.js';
+import { JunctionEditor } from './junctionEditor.js';
 import * as THREE from 'three';
 
 // ── DOM refs ─────────────────────────────────────────────────────────────────
@@ -102,6 +103,7 @@ let activeProfileMap = {}; // materialId → material data
 let wallTool = null;
 let floorTool = null;
 let activeTool = null;
+let junctionEditor = null;
 
 // ── View toggle ───────────────────────────────────────────────────────────────
 view3dBtn.addEventListener('click', () => {
@@ -151,6 +153,8 @@ async function _loadAndRenderBundle(handle) {
     if (child.material) child.material.dispose();
   });
   editorScene.modelGroup.clear();
+
+  if (junctionEditor) junctionEditor.clear();
 
   const { meshes, junctions, arrays, grids } = await loadBundle(handle);
 
@@ -277,6 +281,7 @@ async function _loadAndRenderBundle(handle) {
     onElementCreated:  (info) => {
       _modelState.elements.push(info.id);
       _modelState.paths.push(info.pathId);
+      if (junctionEditor) junctionEditor.addElement(info.id, info.pathData);
       const el = document.createElement('div');
       el.className = 'tree-item';
       const span = document.createElement('span');
@@ -286,6 +291,13 @@ async function _loadAndRenderBundle(handle) {
       document.getElementById('elements-list').appendChild(el);
     },
   });
+
+  // Create junction editor bound to this bundle
+  junctionEditor = new JunctionEditor(
+    editorScene.overlayGroup,
+    document.getElementById('props-panel'),
+    handle,
+  );
 
   // Create floor tool bound to this bundle
   floorTool = new FloorTool({
@@ -343,6 +355,20 @@ function _enableEditorTools() {
   document.getElementById('default-wall-profile').disabled = false;
   document.getElementById('default-slab-profile').disabled = false;
 }
+
+// ── Junction selection via canvas click (Select mode only) ────────────────────
+canvas.addEventListener('click', (e) => {
+  if (activeTool) return; // drawing tool active
+  if (!junctionEditor) return;
+  const rect = canvas.getBoundingClientRect();
+  const mouse = new THREE.Vector2(
+    ((e.clientX - rect.left) / rect.width)  * 2 - 1,
+    -((e.clientY - rect.top)  / rect.height) * 2 + 1,
+  );
+  const ray = new THREE.Raycaster();
+  ray.setFromCamera(mouse, editorScene.getActiveCamera());
+  junctionEditor.trySelectJunction(ray);
+});
 
 // ── Save ──────────────────────────────────────────────────────────────────────
 saveBtn.addEventListener('click', () => {
