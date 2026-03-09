@@ -40,6 +40,15 @@ export class StoreyManager {
 
   /** Load storeys from an already-parsed bundle (from model.json). */
   loadFromBundle(storeyGroups) {
+    // Clear existing storeys (supports bundle re-open)
+    for (const s of this._storeys) {
+      this._overlayGroup.remove(s.plane);
+      s.plane.geometry.dispose();
+      s.plane.material.dispose();
+    }
+    this._storeys = [];
+    this._activeId = null;
+
     for (const g of storeyGroups) {
       this._addStorey(g.id, g.name, g.z_m ?? 0, true);
     }
@@ -52,8 +61,13 @@ export class StoreyManager {
     if (!name) return;
     const zStr = window.prompt('Floor level Z (metres):', '0');
     if (zStr === null) return;
-    const z = parseFloat(zStr) || 0;
-    const id = `storey-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`;
+    const zParsed = parseFloat(zStr);
+    const z = Number.isNaN(zParsed) ? 0 : zParsed;
+    let id = `storey-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`;
+    let counter = 2;
+    while (this._storeys.some(x => x.id === id)) {
+      id = `storey-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}-${counter++}`;
+    }
     this._addStorey(id, name, z, true);
     this._setActive(id);
     if (this._dirHandle) await this._writeStorey(id);
@@ -95,8 +109,10 @@ export class StoreyManager {
     const mat  = new THREE.MeshBasicMaterial({
       color: STOREY_PLANE_COLOUR, transparent: true,
       opacity: STOREY_PLANE_OPACITY, side: THREE.DoubleSide,
+      depthWrite: false,
     });
     const plane = new THREE.Mesh(geo, mat);
+    plane.rotation.x = Math.PI / 2; // Z-up: rotate XY plane to horizontal
     plane.position.z = z_m;
     plane.visible = visible;
     this._overlayGroup.add(plane);
@@ -116,15 +132,23 @@ export class StoreyManager {
     for (const s of this._storeys) {
       const item = document.createElement('div');
       item.className = 'tree-item' + (s.id === this._activeId ? ' active' : '');
-      item.innerHTML = `
-        <span class="tree-item-name">${s.name} <small style="opacity:0.5">${s.z_m}m</small></span>
-        <button class="tree-item-eye" title="Toggle visibility">${s.visible ? '👁' : '○'}</button>
-      `;
-      item.querySelector('.tree-item-name').addEventListener('click', () => this._setActive(s.id));
-      item.querySelector('.tree-item-eye').addEventListener('click', e => {
+
+      const nameSpan = document.createElement('span');
+      nameSpan.className = 'tree-item-name';
+      nameSpan.textContent = `${s.name} (${s.z_m}m)`;
+
+      const eyeBtn = document.createElement('button');
+      eyeBtn.className = 'tree-item-eye';
+      eyeBtn.title = 'Toggle visibility';
+      eyeBtn.textContent = s.visible ? '●' : '○';
+
+      nameSpan.addEventListener('click', () => this._setActive(s.id));
+      eyeBtn.addEventListener('click', e => {
         e.stopPropagation();
         this.toggleVisibility(s.id);
       });
+
+      item.append(nameSpan, eyeBtn);
       this._listEl.appendChild(item);
     }
   }
