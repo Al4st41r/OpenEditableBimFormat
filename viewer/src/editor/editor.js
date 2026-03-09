@@ -251,6 +251,7 @@ async function _loadAndRenderBundle(handle) {
   const slabSel = document.getElementById('default-slab-profile');
   wallSel.innerHTML = '';
   slabSel.innerHTML = '';
+  document.getElementById('details-list').innerHTML = '';
   try {
     const profilesDir = await handle.getDirectoryHandle('profiles');
     for await (const [name] of profilesDir) {
@@ -372,7 +373,10 @@ function _addDetailToTree(id) {
 function _openDetailInProfileEditor(id) {
   if (!dirHandle) return;
   const tab = window.open(import.meta.env.BASE_URL + 'profile-editor.html', '_blank');
-  if (!tab) return;
+  if (!tab) {
+    document.getElementById('status-bar').textContent = 'Profile created — open it from the Details list.';
+    return;
+  }
   window.addEventListener('message', function handler(e) {
     if (e.origin !== window.location.origin) return;
     if (e.data?.type === 'ready' && e.source === tab) {
@@ -390,6 +394,17 @@ document.getElementById('add-detail-btn').addEventListener('click', async () => 
   if (!/^[a-z0-9][a-z0-9-]*$/.test(id)) {
     alert('Id must use lowercase letters, numbers, and hyphens.');
     return;
+  }
+
+  // Check for duplicate id
+  try {
+    const profilesDir = await dirHandle.getDirectoryHandle('profiles');
+    await profilesDir.getFileHandle(`${id}.json`);
+    // If we get here, the file already exists
+    alert(`A detail profile named "${id}" already exists.`);
+    return;
+  } catch {
+    // File does not exist — safe to create
   }
 
   await writeEntity(dirHandle, `profiles/${id}.json`, {
