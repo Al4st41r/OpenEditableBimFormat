@@ -257,7 +257,7 @@ async function _loadAndRenderBundle(handle) {
       if (!name.endsWith('.json')) continue;
       const id = name.replace('.json', '');
       const data = await readEntity(handle, `profiles/${id}.json`);
-      if (data.detail) continue;
+      if (data.detail) { _addDetailToTree(id); continue; }
       const opt = document.createElement('option');
       opt.value = id; opt.textContent = id;
       wallSel.appendChild(opt.cloneNode(true));
@@ -356,6 +356,60 @@ function _enableEditorTools() {
   document.getElementById('default-wall-profile').disabled = false;
   document.getElementById('default-slab-profile').disabled = false;
 }
+
+// ── Detail profile helpers ────────────────────────────────────────────────────
+function _addDetailToTree(id) {
+  const el = document.createElement('div');
+  el.className = 'tree-item';
+  const span = document.createElement('span');
+  span.className = 'tree-item-name';
+  span.textContent = id;
+  el.appendChild(span);
+  el.addEventListener('click', () => _openDetailInProfileEditor(id));
+  document.getElementById('details-list').appendChild(el);
+}
+
+function _openDetailInProfileEditor(id) {
+  if (!dirHandle) return;
+  const tab = window.open(import.meta.env.BASE_URL + 'profile-editor.html', '_blank');
+  if (!tab) return;
+  window.addEventListener('message', function handler(e) {
+    if (e.origin !== window.location.origin) return;
+    if (e.data?.type === 'ready' && e.source === tab) {
+      tab.postMessage({ type: 'bundle-handle', handle: dirHandle }, window.location.origin);
+      window.removeEventListener('message', handler);
+    }
+  });
+}
+
+document.getElementById('add-detail-btn').addEventListener('click', async () => {
+  if (!dirHandle) return;
+  const raw = window.prompt('Detail name (e.g. "eaves-standard"):');
+  if (!raw) return;
+  const id = raw.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  if (!/^[a-z0-9][a-z0-9-]*$/.test(id)) {
+    alert('Id must use lowercase letters, numbers, and hyphens.');
+    return;
+  }
+
+  await writeEntity(dirHandle, `profiles/${id}.json`, {
+    $schema:   'oebf://schema/0.1/profile',
+    id,
+    type:      'Profile',
+    detail:    true,
+    svg_file:  `profiles/${id}.svg`,
+    width:     0.001,
+    height:    null,
+    origin:    { x: 0, y: 0 },
+    alignment: 'center',
+    assembly:  [
+      { layer: 1, name: 'Stub layer', material_id: 'mat-unset', thickness: 0.001, function: 'structure' },
+    ],
+  });
+
+  _addDetailToTree(id);
+  _openDetailInProfileEditor(id);
+});
 
 // ── Junction selection via canvas click (Select mode only) ────────────────────
 canvas.addEventListener('click', (e) => {

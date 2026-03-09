@@ -25,6 +25,7 @@
       "type": "string",
       "enum": ["center", "left-face", "right-face", "top-face", "bottom-face"]
     },
+    "detail":   { "type": "boolean" },
     "assembly": {
       "type": "array",
       "minItems": 1,
