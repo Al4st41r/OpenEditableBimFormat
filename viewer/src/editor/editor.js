@@ -17,6 +17,7 @@ import { GridOverlayManager } from './gridOverlayManager.js';
 import { GuideManager } from './guideManager.js';
 import { readEntity, writeEntity } from './bundleWriter.js';
 import { WallTool } from './wallTool.js';
+import { FloorTool } from './floorTool.js';
 import * as THREE from 'three';
 
 // ── DOM refs ─────────────────────────────────────────────────────────────────
@@ -89,10 +90,17 @@ document.getElementById('tool-wall').addEventListener('click', () => {
   wallTool.activate();
 });
 
+document.getElementById('tool-floor').addEventListener('click', () => {
+  if (!floorTool) return;
+  _setActiveTool(floorTool, document.getElementById('tool-floor'));
+  floorTool.activate();
+});
+
 // ── State ────────────────────────────────────────────────────────────────────
 let dirHandle = null;
 let activeProfileMap = {}; // materialId → material data
 let wallTool = null;
+let floorTool = null;
 let activeTool = null;
 
 // ── View toggle ───────────────────────────────────────────────────────────────
@@ -274,6 +282,36 @@ async function _loadAndRenderBundle(handle) {
       const span = document.createElement('span');
       span.className = 'tree-item-name';
       span.textContent = `Wall (${info.id.slice(-6)})`;
+      el.appendChild(span);
+      document.getElementById('elements-list').appendChild(el);
+    },
+  });
+
+  // Create floor tool bound to this bundle
+  floorTool = new FloorTool({
+    scene:               editorScene.scene,
+    getCamera:           editorScene.getActiveCamera,
+    constructionPlane:   editorScene.constructionPlane,
+    canvas,
+    modelGroup:          editorScene.modelGroup,
+    dirHandle:           handle,
+    getDefaultSlabProfile: () => document.getElementById('default-slab-profile').value,
+    getStoreyZ:          () => storeyManager.getActive()?.z_m ?? 0,
+    getStoreyId:         () => storeyManager.getActive()?.id ?? null,
+    readProfile:         (path) => readEntity(handle, path),
+    matMap:              activeProfileMap,
+    onElementCreated:    (info) => {
+      if (info.type === 'slab') {
+        _modelState.slabs.push(info.id);
+      } else {
+        _modelState.elements.push(info.id);
+      }
+      _modelState.paths.push(info.pathId);
+      const el = document.createElement('div');
+      el.className = 'tree-item';
+      const span = document.createElement('span');
+      span.className = 'tree-item-name';
+      span.textContent = `Floor (${info.id.slice(-6)})`;
       el.appendChild(span);
       document.getElementById('elements-list').appendChild(el);
     },
