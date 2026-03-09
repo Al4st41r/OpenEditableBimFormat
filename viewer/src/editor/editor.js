@@ -14,6 +14,7 @@ import { buildSymbolGeometries } from '../loader/loadSymbol.js';
 import { buildGridLineSegments } from '../loader/loadGrid.js';
 import { StoreyManager } from './storeyManager.js';
 import { GridOverlayManager } from './gridOverlayManager.js';
+import { GuideManager } from './guideManager.js';
 import { readEntity }    from './bundleWriter.js';
 import * as THREE from 'three';
 
@@ -57,6 +58,21 @@ const gridManager = new GridOverlayManager(
 
 document.getElementById('add-grid-btn').addEventListener('click', () => {
   gridManager.addAxisNumeric();
+});
+
+// ── Guide manager ─────────────────────────────────────────────────────────────
+const guideManager = new GuideManager(
+  editorScene.overlayGroup,
+  document.getElementById('guides-list'),
+);
+
+document.getElementById('add-guide-btn').addEventListener('click', () => {
+  // Drawing tool integration in Task 37
+  statusBar.textContent = 'Guide drawing: activate the Guide tool in the toolbar';
+});
+
+document.getElementById('tool-guide').addEventListener('click', () => {
+  statusBar.textContent = 'Guide tool: drawing integration in Task 37';
 });
 
 // ── State ────────────────────────────────────────────────────────────────────
@@ -171,6 +187,19 @@ async function _loadAndRenderBundle(handle) {
       catch { /* skip */ }
     }
     gridManager.loadFromBundle(gridEntities);
+  } catch { /* ignore */ }
+
+  // Load guide paths
+  guideManager.setDirHandle(handle);
+  try {
+    const guidePaths = [];
+    for (const pathId of (model.paths ?? [])) {
+      try {
+        const path = await readEntity(handle, `paths/${pathId}.json`);
+        if (path.guide) guidePaths.push(path);
+      } catch { /* skip */ }
+    }
+    guideManager.loadFromBundle(guidePaths);
   } catch { /* ignore */ }
 
   // Fit camera to loaded geometry
