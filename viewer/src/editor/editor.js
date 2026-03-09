@@ -12,6 +12,8 @@ import { applyJunctionClipping, buildCustomJunctionMesh } from '../junction-rend
 import { buildArrayGroup }    from '../array/arrayRenderer.js';
 import { buildSymbolGeometries } from '../loader/loadSymbol.js';
 import { buildGridLineSegments } from '../loader/loadGrid.js';
+import { StoreyManager } from './storeyManager.js';
+import { readEntity }    from './bundleWriter.js';
 import * as THREE from 'three';
 
 // ── DOM refs ─────────────────────────────────────────────────────────────────
@@ -24,6 +26,17 @@ const viewPlanBtn = document.getElementById('view-plan');
 
 // ── Scene ────────────────────────────────────────────────────────────────────
 const editorScene = initEditorScene(canvas);
+
+// ── Storey manager ────────────────────────────────────────────────────────────
+const storeyManager = new StoreyManager(
+  editorScene.overlayGroup,
+  document.getElementById('storeys-list'),
+  (z) => editorScene.setStoreyZ(z),
+);
+
+document.getElementById('add-storey-btn').addEventListener('click', () => {
+  storeyManager.createStorey();
+});
 
 // ── State ────────────────────────────────────────────────────────────────────
 let dirHandle = null;
@@ -108,6 +121,20 @@ async function _loadAndRenderBundle(handle) {
     lines.userData.gridId = grid.id;
     editorScene.modelGroup.add(lines);
   }
+
+  // Load storeys from bundle model.json
+  try {
+    const model = await readEntity(handle, 'model.json');
+    storeyManager.setDirHandle(handle);
+    const storeyIds = model.storeys ?? [];
+    const storeyGroups = [];
+    for (const id of storeyIds) {
+      try {
+        storeyGroups.push(await readEntity(handle, `groups/${id}.json`));
+      } catch { /* skip missing */ }
+    }
+    storeyManager.loadFromBundle(storeyGroups);
+  } catch { /* model.json might not have storeys key */ }
 
   // Fit camera to loaded geometry
   const box = new THREE.Box3().setFromObject(editorScene.modelGroup);
