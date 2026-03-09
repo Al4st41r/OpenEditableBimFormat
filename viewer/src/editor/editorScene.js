@@ -14,6 +14,7 @@ export function initEditorScene(canvas) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   renderer.setPixelRatio(window.devicePixelRatio);
   renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+  renderer.localClippingEnabled = true;
 
   // ── Scene ─────────────────────────────────────────────────────────────────
   const scene = new THREE.Scene();
@@ -73,10 +74,16 @@ export function initEditorScene(canvas) {
 
   // ── State ─────────────────────────────────────────────────────────────────
   let isPlanView = false;
+  let activeStoreyZ = 0;
 
   function setStoreyZ(z) {
+    activeStoreyZ = z;
     constructionGrid.position.z = z;
     constructionPlane.position.z = z;
+  }
+
+  function getStoreyZ() {
+    return activeStoreyZ;
   }
 
   function setPlanView(enabled) {
@@ -114,6 +121,6 @@ export function initEditorScene(canvas) {
   return {
     renderer, scene, perspCamera, orthoCamera, controls,
     constructionPlane, constructionGrid, modelGroup, overlayGroup,
-    setStoreyZ, setPlanView, getActiveCamera,
+    setStoreyZ, getStoreyZ, setPlanView, getActiveCamera,
   };
 }

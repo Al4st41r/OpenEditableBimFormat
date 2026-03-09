@@ -55,4 +55,4 @@ saveBtn.addEventListener('click', () => {
   statusBar.textContent = 'Save — not yet wired';
 });
 
-export { editorScene, dirHandle };
+export { editorScene };
