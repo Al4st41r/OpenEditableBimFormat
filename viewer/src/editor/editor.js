@@ -441,8 +441,33 @@ canvas.addEventListener('click', (e) => {
 });
 
 // ── Save ──────────────────────────────────────────────────────────────────────
-saveBtn.addEventListener('click', () => {
-  statusBar.textContent = 'Save — not yet wired';
+saveBtn.addEventListener('click', async () => {
+  if (!dirHandle) return;
+  saveBtn.disabled = true;
+  statusBar.textContent = 'Saving…';
+  try {
+    let existingModel = {};
+    try { existingModel = await readEntity(dirHandle, 'model.json'); }
+    catch { /* new bundle */ }
+
+    const newModel = {
+      ...existingModel,
+      elements:  [...new Set([...(existingModel.elements  ?? []), ..._modelState.elements])],
+      slabs:     [...new Set([...(existingModel.slabs     ?? []), ..._modelState.slabs])],
+      junctions: [...new Set([...(existingModel.junctions ?? []), ..._modelState.junctions])],
+      grids:     [...new Set([...(existingModel.grids     ?? []), ..._modelState.grids])],
+      paths:     [...new Set([...(existingModel.paths     ?? []), ..._modelState.paths])],
+      storeys:   storeyManager.getAll().map(s => s.id),
+    };
+
+    await writeEntity(dirHandle, 'model.json', newModel);
+    const now = new Date();
+    statusBar.textContent = `Saved ${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`;
+  } catch (e) {
+    statusBar.textContent = `Save failed: ${e.message}`;
+  } finally {
+    saveBtn.disabled = false;
+  }
 });
 
 export { editorScene };

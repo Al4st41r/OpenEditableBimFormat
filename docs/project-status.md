@@ -1,14 +1,14 @@
 # OEBF Project Status
 
-**Date:** 2026-03-07
+**Date:** 2026-03-09
 **Branch:** main
-**Tests:** 261 passing — 237 JS (Vitest, 16 test files) + 21 Python (pytest) + 3 Playwright e2e
+**Tests:** 265 passing — 237 JS (Vitest, 16 test files) + 21 Python (pytest) + 7 Playwright e2e
 
 ---
 
 ## Summary
 
-Phases 1–4 are complete. Phase 5 (Scene Completeness & Release) is in progress with eight of nine tasks done. The viewer now loads both `.oebf` directory bundles and `.oebfz` Zstd-compressed archives, renders sweeps, junctions (plane-clipped and custom polygon-mesh), parametric arrays (InstancedMesh), structural grids, symbols, and the profile SVG editor. The IFC tools pipeline (import and export) is complete. A GitHub Actions CI pipeline runs both the JS and Python test suites on every push to main. The only remaining task is the v0.1 release tag and release notes.
+Phases 1–5 are complete and v0.1.0 is tagged. The v0.2 editor alpha (`v0.2.0-editor-alpha`) adds a full browser-based OEBF bundle editor: homepage, editor layout with Three.js viewport, storey management, reference grids, reference lines/guides, wall drawing tool, floor/slab drawing tool, junction rule editor, detail sub-assembly profile authoring, and save to `model.json`. The viewer continues to load both `.oebf` directory bundles and `.oebfz` Zstd-compressed archives.
 
 ---
 
@@ -50,8 +50,27 @@ Phases 1–4 are complete. Phase 5 (Scene Completeness & Release) is in progress
 | Scene builder | `viewer/src/scene/sceneBuilder.js` | Done — wires all modules; parametric arrays, custom junctions, grids all in scene |
 | .oebf bundle loader | `viewer/src/loader/bundleLoader.js` | Done |
 | .oebfz archive loader | `viewer/src/loader/oebfzLoader.js` | Done — fzstd + tar parser; `_buildScene` helper refactored |
-| Profile SVG editor | `viewer/profile-editor/` | Done — 2D canvas editor, postMessage handle transfer from main viewer |
+| Profile SVG editor | `viewer/profile-editor.html`, `viewer/src/profile-editor/` | Done — 2D canvas editor, postMessage handle transfer from main viewer |
 | Edit-profiles button | `viewer/src/ui/editProfilesBtn.js` | Done — opens editor panel, postMessage wired |
+
+### Editor — v0.2 alpha complete
+
+New entry point: `viewer/editor.html`. All editor modules in `viewer/src/editor/`.
+
+| Feature | File | Status |
+|---|---|---|
+| Homepage with viewer and editor cards | `viewer/index.html` | Done |
+| Editor page layout + Three.js viewport | `viewer/editor.html`, `viewer/src/editor/editorScene.js` | Done |
+| Bundle open (FSA API, readwrite) | `viewer/src/editor/editor.js` | Done |
+| Storey management — create, rename, Z level, visibility | `viewer/src/editor/storeyManager.js` | Done |
+| Reference grid overlay (axis-numeric) | `viewer/src/editor/gridOverlayManager.js` | Done |
+| Reference lines / guides | `viewer/src/editor/guideManager.js` | Done |
+| Wall drawing tool (click-to-place, element + path write) | `viewer/src/editor/wallTool.js` | Done |
+| Floor / slab drawing tool | `viewer/src/editor/floorTool.js` | Done |
+| Junction rule editor (properties panel, write to bundle) | `viewer/src/editor/junctionEditor.js` | Done |
+| Detail sub-assembly profiles (create, open in profile editor) | `viewer/src/editor/editor.js` | Done |
+| Save model.json (merge `_modelState` + existing, write storeys) | `viewer/src/editor/editor.js` | Done |
+| Bundle writer + reader | `viewer/src/editor/bundleWriter.js` | Done |
 
 ### IFC tools — `ifc-tools/`
 
@@ -87,12 +106,7 @@ Phases 1–4 are complete. Phase 5 (Scene Completeness & Release) is in progress
 
 ## What Remains
 
-### Task 29 — v0.1 release (blocked on nothing now)
-
-- Tag `v0.1.0` on main
-- Write GitHub release notes summarising format, viewer, and IFC tools
-
-### Post-v0.1 work (open issues)
+### Open issues
 
 | Issue | Title | Notes |
 |---|---|---|
@@ -101,6 +115,8 @@ Phases 1–4 are complete. Phase 5 (Scene Completeness & Release) is in progress
 | #27 | Playwright visual regression screenshot baseline | Not started |
 | #29 | Opening entity — schema example, loader, viewer rendering | Not started |
 | #31 | edit-profiles-btn state incorrect after .oebfz load | Known bug; post-release fix |
+| #32 | Profile editor UX polish + graphical assets | Not started |
+| #18 | v0.2: CSG spline junction trim via three-bvh-csg | Not started |
 
 ---
 
@@ -108,18 +124,16 @@ Phases 1–4 are complete. Phase 5 (Scene Completeness & Release) is in progress
 
 | # | Title | State |
 |---|---|---|
-| #4 | OEBF-GUIDE.md structure for LLM editing accuracy | Open — Guide exists; test harness (Task 20) not built |
+| #4 | OEBF-GUIDE.md structure for LLM editing accuracy | Open — Guide exists; test harness not built |
 | #9 | Clash detection: shared material boundary vs overlap | Open — not planned for v0.1 |
 | #10 | Desktop wrapper: file watching for live LLM editing (Tauri v2) | Open — design plan written; awaiting implementation |
 | #17 | Viewer bundle loading: File System Access API vs .oebfz archive upload | Open |
 | #18 | v0.2: CSG fallback for spline-path junctions via three-bvh-csg | Open — v0.2 item |
-| #19 | docs: write project README | Open — README now written; can be closed |
-| #20 | Test coverage review | Open — review complete; can be closed |
-| #22 | Task 20: OEBF-GUIDE.md test harness — LLM accuracy benchmark | Open — post-v0.1 |
+| #22 | OEBF-GUIDE.md test harness — LLM accuracy benchmark | Open — post-v0.1 |
 | #27 | Playwright visual regression screenshot baseline | Open — post-v0.1 |
 | #29 | Opening entity — schema example, loader, viewer rendering | Open — post-v0.1 |
-| #30 | v0.1 release: update project-status.md, tag v0.1.0, write release notes | Open — this task; in progress |
 | #31 | edit-profiles-btn state incorrect after .oebfz load | Open — known bug |
+| #32 | Profile editor UX polish + graphical assets | Open |
 
 ---
 
@@ -131,4 +145,5 @@ Phases 1–4 are complete. Phase 5 (Scene Completeness & Release) is in progress
 | Phase 2 — Three.js viewer | Tasks 7–11 | Complete |
 | Phase 3 — IFC tools | Tasks 12–13 | Complete |
 | Phase 4 — Extended features | Tasks 14–20 | Complete |
-| Phase 5 — Scene completeness & release | Tasks 21–29 | In progress (8/9 done; Task 29 pending) |
+| Phase 5 — Scene completeness & release | Tasks 21–29 | Complete — v0.1.0 tagged |
+| Phase 6 — Browser editor (v0.2 alpha) | Tasks 30–42 | Complete — v0.2.0-editor-alpha tagged |
