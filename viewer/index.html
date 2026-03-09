@@ -3,44 +3,47 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>OEBF Viewer</title>
+  <title>OEBF — Open Editable BIM Format</title>
   <link rel="icon" href="/oebf/icons/favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;700&display=swap" rel="stylesheet">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: #1a1a1a; overflow: hidden; }
-    #canvas { display: block; width: 100vw; height: 100vh; }
-    #ui {
-      position: absolute;
-      top: 16px;
-      left: 16px;
-      color: #fff;
+    body {
+      background: #1a1a1a; color: #ddd;
       font-family: 'Barlow', sans-serif;
-      font-size: 13px;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      height: 100vh; gap: 48px;
     }
-    #ui button {
-      padding: 6px 12px;
-      cursor: pointer;
-      background: #333;
-      color: #fff;
-      border: 1px solid #555;
-      border-radius: 3px;
-      margin-right: 8px;
+    h1 { font-size: 24px; font-weight: 700; letter-spacing: 0.05em; opacity: 0.9; }
+    .cards { display: flex; gap: 24px; }
+    .card {
+      display: flex; flex-direction: column; align-items: center; gap: 16px;
+      padding: 32px 40px; background: #222; border: 1px solid #333;
+      border-radius: 6px; cursor: pointer; text-decoration: none; color: inherit;
+      width: 200px; transition: background 0.15s, border-color 0.15s;
     }
-    #ui button:hover { background: #444; }
-    #status { margin-top: 8px; opacity: 0.6; }
+    .card:hover { background: #2a2a2a; border-color: #555; }
+    .card img { width: 40px; height: 40px; opacity: 0.8; }
+    .card-title { font-weight: 700; font-size: 16px; }
+    .card-desc { font-size: 12px; opacity: 0.55; text-align: center; line-height: 1.5; }
   </style>
 </head>
 <body>
-  <canvas id="canvas"></canvas>
-  <div id="ui">
-    <button id="open-dir-btn">Open .oebf folder</button>
-    <button id="open-file-btn">Open .oebfz</button>
-    <button id="edit-profiles-btn" disabled>Edit profiles</button>
-    <p id="status">No project loaded</p>
+  <h1>OEBF</h1>
+  <div class="cards">
+    <a href="viewer.html" class="card">
+      <img src="/oebf/icons/folder.svg" alt="">
+      <span class="card-title">Viewer</span>
+      <span class="card-desc">Open and inspect OEBF bundles</span>
+    </a>
+    <a href="editor.html" class="card">
+      <img src="/oebf/icons/document.svg" alt="">
+      <span class="card-title">Editor</span>
+      <span class="card-desc">Create and edit OEBF models</span>
+    </a>
   </div>
-  <script type="module" src="/src/main.js"></script>
 </body>
 </html>

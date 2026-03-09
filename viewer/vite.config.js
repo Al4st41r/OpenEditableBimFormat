@@ -6,8 +6,10 @@ export default defineConfig({
   build: {
     rollupOptions: {
       input: {
-        main:           resolve(__dirname, 'index.html'),
-        profileEditor:  resolve(__dirname, 'profile-editor.html'),
+        main:          resolve(__dirname, 'index.html'),
+        viewer:        resolve(__dirname, 'viewer.html'),
+        editor:        resolve(__dirname, 'editor.html'),
+        profileEditor: resolve(__dirname, 'profile-editor.html'),
       },
     },
   },
