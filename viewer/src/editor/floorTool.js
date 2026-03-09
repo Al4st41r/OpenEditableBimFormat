@@ -85,18 +85,23 @@ export class FloorTool {
     this._drawingTool.deactivate();
   }
 
+  dispose() {
+    this.deactivate();
+    this._drawingTool.dispose();
+  }
+
   // ── Private ─────────────────────────────────────────────────────────────────
 
   _onKeyDown(e) {
     const tag = e.target?.tagName;
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
 
-    if (e.key === 'Shift') {
-      // Toggle path mode; re-activate DrawingTool with appropriate closeable flag
-      this._pathMode = !this._pathMode;
-      this._drawingTool.deactivate();
-      this._drawingTool.activate({ closeable: !this._pathMode });
-    }
+    if (e.key !== 'Shift') return;
+    if (this._drawingTool._points.length > 0) return; // don't discard placed points
+    // Toggle path mode; re-activate DrawingTool with appropriate closeable flag
+    this._pathMode = !this._pathMode;
+    this._drawingTool.deactivate();
+    this._drawingTool.activate({ closeable: !this._pathMode });
   }
 
   async _onCommit(points, closed) {
@@ -135,20 +140,25 @@ export class FloorTool {
     }
 
     const pathData = {
-      id:       pathId,
-      type:     'Path',
-      closed:   true,
+      '$schema':  'oebf://schema/0.1/path',
+      id:         pathId,
+      type:       'Path',
+      closed:     true,
       segments,
     };
 
     const slabData = {
+      '$schema':         'oebf://schema/0.1/slab',
       id:                slabId,
       type:              'Slab',
+      ifc_type:          'IfcSlab',
       boundary_path_id:  pathId,
-      thickness:         0.2,
+      thickness_m:       0.2,
+      elevation_m:       storeyZ,
+      material_id:       '',
+      parent_group_id:   storeyId || '',
       description:       'Floor slab',
     };
-    if (storeyId) slabData.storey_id = storeyId;
 
     // Write entities to bundle
     try {
@@ -161,10 +171,7 @@ export class FloorTool {
 
     // Attempt slab mesh rendering
     try {
-      const meshData = buildSlabMeshData(
-        { ...slabData, elevation_m: storeyZ, thickness_m: slabData.thickness },
-        pathData,
-      );
+      const meshData = buildSlabMeshData(slabData, pathData);
       const colour = '#c8a96e'; // default finish colour from style guide
       const mesh = buildThreeMesh({
         vertices:    meshData.vertices,
@@ -203,9 +210,10 @@ export class FloorTool {
     }
 
     const pathData = {
-      id:       pathId,
-      type:     'Path',
-      closed:   false,
+      '$schema':  'oebf://schema/0.1/path',
+      id:         pathId,
+      type:       'Path',
+      closed:     false,
       segments,
     };
 
