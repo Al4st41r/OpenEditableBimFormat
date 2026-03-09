@@ -13,6 +13,7 @@ import { buildArrayGroup }    from '../array/arrayRenderer.js';
 import { buildSymbolGeometries } from '../loader/loadSymbol.js';
 import { buildGridLineSegments } from '../loader/loadGrid.js';
 import { StoreyManager } from './storeyManager.js';
+import { GridOverlayManager } from './gridOverlayManager.js';
 import { readEntity }    from './bundleWriter.js';
 import * as THREE from 'three';
 
@@ -36,6 +37,16 @@ const storeyManager = new StoreyManager(
 
 document.getElementById('add-storey-btn').addEventListener('click', () => {
   storeyManager.createStorey();
+});
+
+// ── Grid manager ──────────────────────────────────────────────────────────────
+const gridManager = new GridOverlayManager(
+  editorScene.overlayGroup,
+  document.getElementById('grids-list'),
+);
+
+document.getElementById('add-grid-btn').addEventListener('click', () => {
+  gridManager.addAxisNumeric();
 });
 
 // ── State ────────────────────────────────────────────────────────────────────
@@ -135,6 +146,19 @@ async function _loadAndRenderBundle(handle) {
     }
     storeyManager.loadFromBundle(storeyGroups);
   } catch { /* model.json might not have storeys key */ }
+
+  // Load reference grids
+  gridManager.setDirHandle(handle);
+  try {
+    const model = await readEntity(handle, 'model.json');
+    const gridIds = model.grids ?? [];
+    const gridEntities = [];
+    for (const id of gridIds) {
+      try { gridEntities.push(await readEntity(handle, `grids/${id}.json`)); }
+      catch { /* skip */ }
+    }
+    gridManager.loadFromBundle(gridEntities);
+  } catch { /* ignore */ }
 
   // Fit camera to loaded geometry
   const box = new THREE.Box3().setFromObject(editorScene.modelGroup);
