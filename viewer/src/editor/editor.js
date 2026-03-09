@@ -12,7 +12,6 @@ import { applyJunctionClipping, buildCustomJunctionMesh } from '../junction-rend
 import { buildArrayGroup }    from '../array/arrayRenderer.js';
 import { buildSymbolGeometries } from '../loader/loadSymbol.js';
 import { buildGridLineSegments } from '../loader/loadGrid.js';
-import { readEntity }         from './bundleWriter.js';
 import * as THREE from 'three';
 
 // ── DOM refs ─────────────────────────────────────────────────────────────────
@@ -64,14 +63,13 @@ openBtn.addEventListener('click', async () => {
 // ── Load and render bundle ────────────────────────────────────────────────────
 async function _loadAndRenderBundle(handle) {
   // Clear existing model group
-  while (editorScene.modelGroup.children.length) {
-    const child = editorScene.modelGroup.children[0];
+  editorScene.modelGroup.traverse(child => {
     if (child.geometry) child.geometry.dispose();
     if (child.material) child.material.dispose();
-    editorScene.modelGroup.remove(child);
-  }
+  });
+  editorScene.modelGroup.clear();
 
-  const { meshes, manifest, junctions, arrays, grids } = await loadBundle(handle);
+  const { meshes, junctions, arrays, grids } = await loadBundle(handle);
 
   for (const meshData of meshes) {
     editorScene.modelGroup.add(buildThreeMesh(meshData));
@@ -104,9 +102,11 @@ async function _loadAndRenderBundle(handle) {
     if (!positions.length) continue;
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    editorScene.modelGroup.add(new THREE.LineSegments(
+    const lines = new THREE.LineSegments(
       geo, new THREE.LineBasicMaterial({ color: 0x555555, opacity: 0.5, transparent: true })
-    ));
+    );
+    lines.userData.gridId = grid.id;
+    editorScene.modelGroup.add(lines);
   }
 
   // Fit camera to loaded geometry
