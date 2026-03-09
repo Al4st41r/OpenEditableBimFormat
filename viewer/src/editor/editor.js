@@ -292,13 +292,6 @@ async function _loadAndRenderBundle(handle) {
     },
   });
 
-  // Create junction editor bound to this bundle
-  junctionEditor = new JunctionEditor(
-    editorScene.overlayGroup,
-    document.getElementById('props-panel'),
-    handle,
-  );
-
   // Create floor tool bound to this bundle
   floorTool = new FloorTool({
     scene:               editorScene.scene,
@@ -328,6 +321,14 @@ async function _loadAndRenderBundle(handle) {
       document.getElementById('elements-list').appendChild(el);
     },
   });
+
+  // Create junction editor bound to this bundle
+  junctionEditor = new JunctionEditor(
+    editorScene.overlayGroup,
+    document.getElementById('props-panel'),
+    handle,
+  );
+  junctionEditor.loadJunctions(junctions);
 
   // Fit camera to loaded geometry
   const box = new THREE.Box3().setFromObject(editorScene.modelGroup);

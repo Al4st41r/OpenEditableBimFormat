@@ -30,6 +30,7 @@ export class JunctionEditor {
   /** Load junctions from bundle. */
   loadJunctions(junctionEntities) {
     for (const j of junctionEntities) {
+      // TODO: Resolve actual position from element path endpoints once paths are registered
       const pt = new THREE.Vector3(0, 0, 0);
       this._addJunctionSprite(j.id, j.elements, pt, j.rule ?? 'butt');
     }
@@ -125,7 +126,7 @@ export class JunctionEditor {
     const applyBtn = document.createElement('button');
     applyBtn.textContent = 'Apply';
     applyBtn.addEventListener('click', async () => {
-      const rule = document.getElementById('junction-rule').value;
+      const rule = ruleSel.value;
       if (junc) {
         junc.rule = rule;
         junc.sprite.userData.rule = rule;
