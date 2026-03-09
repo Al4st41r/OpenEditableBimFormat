@@ -39,10 +39,20 @@ document.getElementById('add-storey-btn').addEventListener('click', () => {
   storeyManager.createStorey();
 });
 
+// ── In-memory model state ─────────────────────────────────────────────────────
+// Tracks entity IDs created this session
+const _modelState = {
+  elements: [], slabs: [], junctions: [], arrays: [],
+  grids: [], paths: [], groups: [], storeys: [],
+};
+
 // ── Grid manager ──────────────────────────────────────────────────────────────
 const gridManager = new GridOverlayManager(
   editorScene.overlayGroup,
   document.getElementById('grids-list'),
+  (gridId) => {
+    if (!_modelState.grids.includes(gridId)) _modelState.grids.push(gridId);
+  },
 );
 
 document.getElementById('add-grid-btn').addEventListener('click', () => {
@@ -133,24 +143,27 @@ async function _loadAndRenderBundle(handle) {
     editorScene.modelGroup.add(lines);
   }
 
-  // Load storeys from bundle model.json
+  // Load storeys and grids from model.json
+  let model = {};
   try {
-    const model = await readEntity(handle, 'model.json');
-    storeyManager.setDirHandle(handle);
+    model = await readEntity(handle, 'model.json');
+  } catch { /* new or minimal bundle */ }
+
+  // Load storeys
+  storeyManager.setDirHandle(handle);
+  try {
     const storeyIds = model.storeys ?? [];
     const storeyGroups = [];
     for (const id of storeyIds) {
-      try {
-        storeyGroups.push(await readEntity(handle, `groups/${id}.json`));
-      } catch { /* skip missing */ }
+      try { storeyGroups.push(await readEntity(handle, `groups/${id}.json`)); }
+      catch { /* skip missing */ }
     }
     storeyManager.loadFromBundle(storeyGroups);
-  } catch { /* model.json might not have storeys key */ }
+  } catch { /* ignore */ }
 
   // Load reference grids
   gridManager.setDirHandle(handle);
   try {
-    const model = await readEntity(handle, 'model.json');
     const gridIds = model.grids ?? [];
     const gridEntities = [];
     for (const id of gridIds) {

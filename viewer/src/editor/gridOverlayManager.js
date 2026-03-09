@@ -24,9 +24,10 @@ const GRID_HEIGHT   = 10; // metres tall in 3D
  */
 
 export class GridOverlayManager {
-  constructor(overlayGroup, listEl) {
+  constructor(overlayGroup, listEl, onGridRegistered) {
     this._overlayGroup = overlayGroup;
     this._listEl       = listEl;
+    this._onGridRegistered = onGridRegistered ?? null;
     /** @type {GridAxis[]} */
     this._axes = [];
     this._dirHandle = null;
@@ -42,6 +43,7 @@ export class GridOverlayManager {
       this._overlayGroup.remove(a.object3d);
     }
     this._axes = [];
+    this._gridId = 'grid-reference';
 
     for (const grid of gridEntities) {
       this._gridId = grid.id;
@@ -158,11 +160,16 @@ export class GridOverlayManager {
   async _saveGrid() {
     if (!this._dirHandle) return;
     await writeEntity(this._dirHandle, `grids/${this._gridId}.json`, {
+      '$schema': 'oebf://schema/0.1/grid',
       id: this._gridId, type: 'Grid',
+      description: 'Reference grid',
+      ifc_type: 'IfcGrid',
       axes: this._axes.map(a => ({
-        id: a.id, label: a.label, direction: a.direction, offset_m: a.offset_m,
+        id: a.id, direction: a.direction, offset_m: a.offset_m,
       })),
       elevations: [],
     });
+    // Notify editor to register this grid id in model.json
+    if (this._onGridRegistered) this._onGridRegistered(this._gridId);
   }
 }
