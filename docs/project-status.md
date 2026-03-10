@@ -1,6 +1,6 @@
 # OEBF Project Status
 
-**Date:** 2026-03-09
+**Date:** 2026-03-10
 **Branch:** main
 **Tests:** 265 passing — 237 JS (Vitest, 16 test files) + 21 Python (pytest) + 7 Playwright e2e
 
@@ -118,6 +118,16 @@ New entry point: `viewer/editor.html`. All editor modules in `viewer/src/editor/
 | #32 | Profile editor UX polish + graphical assets | Not started |
 | #18 | v0.2: CSG spline junction trim via three-bvh-csg | Not started |
 
+### Known limitations — v0.2 alpha
+
+| Limitation | Location | Notes |
+|---|---|---|
+| Junction sprites for pre-existing junctions placed at world origin | `junctionEditor.js` — `loadJunctions` | Position requires path data to be registered; tracked as TODO in source |
+| Mesh does not appear after drawing until a default profile is selected | Editor toolbar dropdowns | Entities are written to disk correctly; visual requires profile selection |
+| Input via `window.prompt` / `alert` | `storeyManager.js`, `editor.js` add-detail-btn | To be replaced with inline panel UI in a future task |
+| Guide drawing not wired to DrawingTool | `editor.js` | Guide tool button sets status bar message only; click-to-place not yet connected |
+| `v0.2.0-editor-alpha` tag is local only | — | Not yet pushed to GitHub |
+
 ---
 
 ## GitHub Issues — Current Open
@@ -147,4 +157,4 @@ New entry point: `viewer/editor.html`. All editor modules in `viewer/src/editor/
 | Phase 3 — IFC tools | Tasks 12–13 | Complete |
 | Phase 4 — Extended features | Tasks 14–20 | Complete |
 | Phase 5 — Scene completeness & release | Tasks 21–29 | Complete — v0.1.0 tagged |
-| Phase 6 — Browser editor (v0.2 alpha) | Tasks 30–42 | Complete — v0.2.0-editor-alpha tagged |
+| Phase 6 — Browser editor (v0.2 alpha) | Tasks 30–42 | Complete — v0.2.0-editor-alpha tagged locally (not pushed) |
