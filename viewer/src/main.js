@@ -180,6 +180,21 @@ document.getElementById('open-dir-btn').addEventListener('click', async () => {
   }
 });
 
+document.getElementById('load-demo-btn').addEventListener('click', async () => {
+  statusEl.textContent = 'Loading demo…';
+  try {
+    const resp = await fetch(import.meta.env.BASE_URL + 'terraced-house.oebfz');
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const blob = await resp.blob();
+    const file = new File([blob], 'terraced-house.oebfz');
+    const result = await loadBundleZstd(file);
+    _buildScene(result.meshes, result.manifest, result.junctions, result.arrays, result.grids);
+  } catch (err) {
+    statusEl.textContent = `Error: ${err.message}`;
+    console.error(err);
+  }
+});
+
 document.getElementById('open-file-btn').addEventListener('click', () => {
   const input = document.createElement('input');
   input.type = 'file';
