@@ -94,7 +94,7 @@ function _clearScene() {
   currentGroup = null;
 }
 
-function _buildScene(meshes, manifest, junctions, arrays, grids) {
+function _buildScene(meshes, manifest, junctions, arrays, grids, openings = []) {
   _clearScene();
 
   currentGroup = new THREE.Group();
@@ -143,6 +143,18 @@ function _buildScene(meshes, manifest, junctions, arrays, grids) {
     currentGroup.add(lines);
   }
 
+  // Render opening outlines (yellow, v0.1 — boolean cut deferred to v0.2)
+  for (const { positions, openingId } of openings) {
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    const lines = new THREE.LineSegments(
+      geometry,
+      new THREE.LineBasicMaterial({ color: 0xddaa44, linewidth: 2 }),
+    );
+    lines.userData.openingId = openingId;
+    currentGroup.add(lines);
+  }
+
   scene.add(currentGroup);
 
   // Fit camera to loaded geometry
@@ -168,8 +180,8 @@ document.getElementById('open-dir-btn').addEventListener('click', async () => {
     currentDirHandle = dirHandle;
     document.getElementById('edit-profiles-btn').disabled = false;
     statusEl.textContent = 'Loading…';
-    const { meshes, manifest, junctions, arrays, grids } = await loadBundle(dirHandle);
-    _buildScene(meshes, manifest, junctions, arrays, grids);
+    const { meshes, manifest, junctions, arrays, grids, openings } = await loadBundle(dirHandle);
+    _buildScene(meshes, manifest, junctions, arrays, grids, openings);
   } catch (err) {
     if (err.name !== 'AbortError') {
       statusEl.textContent = `Error: ${err.message}`;
@@ -188,7 +200,7 @@ document.getElementById('load-demo-btn').addEventListener('click', async () => {
     const blob = await resp.blob();
     const file = new File([blob], 'terraced-house.oebfz');
     const result = await loadBundleZstd(file);
-    _buildScene(result.meshes, result.manifest, result.junctions, result.arrays, result.grids);
+    _buildScene(result.meshes, result.manifest, result.junctions, result.arrays, result.grids, result.openings);
   } catch (err) {
     statusEl.textContent = `Error: ${err.message}`;
     console.error(err);
@@ -205,7 +217,7 @@ document.getElementById('open-file-btn').addEventListener('click', () => {
     statusEl.textContent = 'Loading…';
     try {
       const result = await loadBundleZstd(file);
-      _buildScene(result.meshes, result.manifest, result.junctions, result.arrays, result.grids);
+      _buildScene(result.meshes, result.manifest, result.junctions, result.arrays, result.grids, result.openings);
       currentDirHandle = null;
       document.getElementById('edit-profiles-btn').disabled = true;
     } catch (err) {

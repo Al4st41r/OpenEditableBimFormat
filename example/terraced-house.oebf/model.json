@@ -35,5 +35,6 @@
     "junction-ne-corner",
     "junction-ne-padstone"
   ],
-  "grids": ["grid-structural"]
+  "grids": ["grid-structural"],
+  "openings": ["opening-door-south-gf"]
 }

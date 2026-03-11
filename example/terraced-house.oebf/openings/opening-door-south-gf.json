@@ -1,0 +1,13 @@
+{
+  "$schema": "oebf://schema/0.1/opening",
+  "id": "opening-door-south-gf",
+  "type": "Opening",
+  "description": "Front door opening — south wall, ground floor",
+  "host_element_id": "element-wall-south-gf",
+  "path_id": "path-wall-south-gf",
+  "path_position": 2.25,
+  "width_m": 0.9,
+  "height_m": 2.1,
+  "sill_height_m": 0,
+  "ifc_type": "IfcDoor"
+}

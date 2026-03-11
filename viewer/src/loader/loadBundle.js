@@ -16,10 +16,11 @@
  *      github.com issues #17 (bundle loading strategy)
  */
 
-import { parsePath }         from './loadPath.js';
-import { buildProfileShape } from './loadProfile.js';
-import { sweepProfile }      from '../geometry/sweep.js';
-import { buildSlabMeshData } from './loadSlab.js';
+import { parsePath }           from './loadPath.js';
+import { buildProfileShape }   from './loadProfile.js';
+import { sweepProfile }        from '../geometry/sweep.js';
+import { buildSlabMeshData }   from './loadSlab.js';
+import { buildOpeningOutline } from './loadOpening.js';
 
 /**
  * Load an OEBF bundle from a File System Access API directory handle.
@@ -115,7 +116,18 @@ export async function loadBundle(dirHandle) {
     }
   }
 
-  return { meshes, manifest, junctions, arrays, grids };
+  const openings = [];
+  for (const openingId of (model.openings ?? [])) {
+    try {
+      const opening  = await _readJson(dirHandle, `openings/${openingId}.json`);
+      const pathData = await _readJson(dirHandle, `paths/${opening.path_id}.json`);
+      openings.push(buildOpeningOutline(opening, pathData));
+    } catch (err) {
+      console.warn(`[OEBF] Skipping opening ${openingId}: ${err.message}`);
+    }
+  }
+
+  return { meshes, manifest, junctions, arrays, grids, openings };
 }
 
 /**

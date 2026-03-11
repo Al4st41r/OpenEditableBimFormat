@@ -10,10 +10,11 @@
  */
 
 import { decompress } from 'fzstd';
-import { parsePath }         from './loadPath.js';
-import { buildProfileShape } from './loadProfile.js';
-import { sweepProfile }      from '../geometry/sweep.js';
-import { buildSlabMeshData } from './loadSlab.js';
+import { parsePath }           from './loadPath.js';
+import { buildProfileShape }   from './loadProfile.js';
+import { sweepProfile }        from '../geometry/sweep.js';
+import { buildSlabMeshData }   from './loadSlab.js';
+import { buildOpeningOutline } from './loadOpening.js';
 
 // ── Tar extraction ──────────────────────────────────────────────────────────
 
@@ -153,5 +154,16 @@ export async function loadBundleZstd(file) {
     }
   }
 
-  return { meshes, manifest, junctions, arrays, grids };
+  const openings = [];
+  for (const openingId of (model.openings ?? [])) {
+    try {
+      const opening  = readJson(`openings/${openingId}.json`);
+      const pathData = readJson(`paths/${opening.path_id}.json`);
+      openings.push(buildOpeningOutline(opening, pathData));
+    } catch (err) {
+      console.warn(`[OEBF] Skipping opening ${openingId}: ${err.message}`);
+    }
+  }
+
+  return { meshes, manifest, junctions, arrays, grids, openings };
 }
