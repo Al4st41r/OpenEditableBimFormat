@@ -30,11 +30,11 @@ export class GridOverlayManager {
     this._onGridRegistered = onGridRegistered ?? null;
     /** @type {GridAxis[]} */
     this._axes = [];
-    this._dirHandle = null;
+    this._adapter = null;
     this._gridId = 'grid-reference';
   }
 
-  setDirHandle(h) { this._dirHandle = h; }
+  setAdapter(a) { this._adapter = a; }
 
   /** Load axes from existing Grid entities. */
   loadFromBundle(gridEntities) {
@@ -158,8 +158,8 @@ export class GridOverlayManager {
   }
 
   async _saveGrid() {
-    if (!this._dirHandle) return;
-    await writeEntity(this._dirHandle, `grids/${this._gridId}.json`, {
+    if (!this._adapter) return;
+    await writeEntity(this._adapter, `grids/${this._gridId}.json`, {
       '$schema': 'oebf://schema/0.1/grid',
       id: this._gridId, type: 'Grid',
       description: 'Reference grid',

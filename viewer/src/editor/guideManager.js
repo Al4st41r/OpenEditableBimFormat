@@ -18,10 +18,10 @@ export class GuideManager {
     this._listEl        = listEl;
     this._onGuideAdded  = onGuideAdded ?? null;
     this._guides        = [];
-    this._dirHandle     = null;
+    this._adapter     = null;
   }
 
-  setDirHandle(h) { this._dirHandle = h; }
+  setAdapter(a) { this._adapter = a; }
 
   /** Idempotent load from bundle — clears before populating. */
   loadFromBundle(guidePaths) {
@@ -48,8 +48,8 @@ export class GuideManager {
     const id       = `guide-${(name ?? 'guide').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}-${Date.now()}`;
     const segments = _pointsToSegments(points);
     this._addGuide(id, name ?? id, segments, true);
-    if (this._dirHandle) {
-      await writeEntity(this._dirHandle, `paths/${id}.json`, {
+    if (this._adapter) {
+      await writeEntity(this._adapter, `paths/${id}.json`, {
         '$schema': 'oebf://schema/0.1/path',
         id, type: 'Path', guide: true,
         description: name ?? id,

@@ -31,11 +31,11 @@ export class StoreyManager {
     /** @type {StoreyState[]} */
     this._storeys         = [];
     this._activeId        = null;
-    this._dirHandle       = null;
+    this._adapter       = null;
   }
 
-  setDirHandle(dirHandle) {
-    this._dirHandle = dirHandle;
+  setAdapter(adapter) {
+    this._adapter = adapter;
   }
 
   /** Load storeys from an already-parsed bundle (from model.json). */
@@ -70,7 +70,7 @@ export class StoreyManager {
     }
     this._addStorey(id, name, z, true);
     this._setActive(id);
-    if (this._dirHandle) await this._writeStorey(id);
+    if (this._adapter) await this._writeStorey(id);
   }
 
   /** Update storey name or Z in properties panel. */
@@ -84,7 +84,7 @@ export class StoreyManager {
     }
     this._renderList();
     if (id === this._activeId) this._onActiveChange(s.z_m);
-    if (this._dirHandle) await this._writeStorey(id);
+    if (this._adapter) await this._writeStorey(id);
   }
 
   /** Toggle visibility of a storey plane. */
@@ -156,7 +156,7 @@ export class StoreyManager {
   async _writeStorey(id) {
     const s = this._storeys.find(x => x.id === id);
     if (!s) return;
-    await writeEntity(this._dirHandle, `groups/${s.id}.json`, {
+    await writeEntity(this._adapter, `groups/${s.id}.json`, {
       id: s.id, type: 'Group', ifc_type: 'IfcBuildingStorey',
       name: s.name, z_m: s.z_m, description: '',
     });
