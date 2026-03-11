@@ -112,7 +112,7 @@ export class StoreyManager {
       depthWrite: false,
     });
     const plane = new THREE.Mesh(geo, mat);
-    plane.rotation.x = Math.PI / 2; // Z-up: rotate XY plane to horizontal
+    // PlaneGeometry is in the XY plane by default — no rotation needed for Z-up
     plane.position.z = z_m;
     plane.visible = visible;
     this._overlayGroup.add(plane);
