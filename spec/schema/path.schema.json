@@ -11,6 +11,7 @@
     "type":        { "type": "string", "const": "Path" },
     "description": { "type": "string" },
     "closed":      { "type": "boolean" },
+    "guide":       { "type": "boolean" },
     "tags":        { "type": "array", "items": { "type": "string" } },
     "segments": {
       "type": "array",

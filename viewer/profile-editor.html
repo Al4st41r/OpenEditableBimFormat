@@ -2,10 +2,15 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>OEBF Profile Editor</title>
+  <link rel="icon" href="/oebf/icons/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;700&display=swap" rel="stylesheet">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: #1a1a1a; color: #ddd; font-family: monospace; font-size: 13px; display: flex; flex-direction: column; height: 100vh; }
+    body { background: #1a1a1a; color: #ddd; font-family: 'Barlow', sans-serif; font-size: 13px; display: flex; flex-direction: column; height: 100vh; }
 
     #header {
       display: flex; align-items: center; gap: 12px;
@@ -16,6 +21,7 @@
     #header button { padding: 5px 12px; cursor: pointer; background: #2a4a2a; color: #8f8; border: 1px solid #555; border-radius: 3px; }
     #header button:hover { background: #3a5a3a; }
     #header button.secondary { background: #333; color: #ddd; }
+    #header button.icon-btn { padding: 4px 8px; display: flex; align-items: center; }
     #status { margin-left: auto; opacity: 0.6; font-size: 12px; }
 
     #main { display: flex; flex: 1; overflow: hidden; }
@@ -25,7 +31,8 @@
       padding: 24px; background: #111; border-right: 1px solid #333;
     }
     #profile-svg {
-      border: 1px solid #333; background: #fff; max-height: 100%;
+      border: 1px solid #333; background: #fff;
+      height: 100%; width: auto; max-width: 100%;
       overflow: visible;
     }
 
@@ -33,25 +40,34 @@
     #layer-list { flex: 1; overflow-y: auto; padding: 8px 12px; }
     #form-footer { padding: 8px 12px; border-top: 1px solid #333; display: flex; gap: 8px; }
     #form-footer button { padding: 5px 12px; cursor: pointer; background: #333; color: #ddd; border: 1px solid #555; border-radius: 3px; }
+    #form-footer button.icon-btn { display: flex; align-items: center; gap: 4px; }
   </style>
 </head>
 <body>
   <div id="header">
     <span id="project-name" style="opacity:0.5">No bundle open</span>
     <select id="profile-select" disabled><option>— select profile —</option></select>
-    <button id="new-btn" class="secondary" disabled>New</button>
-    <button id="open-btn" class="secondary">Open bundle</button>
-    <button id="save-btn" disabled>Save</button>
+    <button id="new-btn" class="secondary icon-btn" disabled aria-label="New profile">
+      <img src="/oebf/icons/document.svg" width="18" height="18" alt="">
+    </button>
+    <button id="open-btn" class="secondary icon-btn" aria-label="Open bundle">
+      <img src="/oebf/icons/folder.svg" width="18" height="18" alt="">
+    </button>
+    <button id="save-btn" class="icon-btn" disabled aria-label="Save">
+      <img src="/oebf/icons/save.svg" width="18" height="18" alt="">
+    </button>
     <span id="status"></span>
   </div>
   <div id="main">
     <div id="canvas-panel">
-      <svg id="profile-svg" viewBox="0 0 0.3 2.7" width="300" height="900" overflow="visible"></svg>
+      <svg id="profile-svg" viewBox="0 0 0.3 2.7" overflow="visible"></svg>
     </div>
     <div id="form-panel">
       <div id="layer-list"></div>
       <div id="form-footer">
-        <button id="add-layer-btn" disabled>+ Add layer</button>
+        <button id="add-layer-btn" class="icon-btn" disabled aria-label="Add layer">
+          <img src="/oebf/icons/add.svg" width="16" height="16" alt="">
+        </button>
       </div>
     </div>
   </div>
