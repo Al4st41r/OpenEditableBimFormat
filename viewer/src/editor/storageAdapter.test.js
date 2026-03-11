@@ -1,5 +1,6 @@
 import { describe, test, expect } from 'vitest';
 import { MemoryAdapter } from './storageAdapter.js';
+import { writeEntity, readEntity, writeModelJson } from './bundleWriter.js';
 
 describe('MemoryAdapter', () => {
   test('readJson returns parsed object', async () => {
@@ -43,5 +44,21 @@ describe('MemoryAdapter', () => {
   test('type is memory', () => {
     const adapter = new MemoryAdapter(new Map(), 'test-bundle');
     expect(adapter.type).toBe('memory');
+  });
+});
+
+describe('bundleWriter with MemoryAdapter', () => {
+  test('writeEntity then readEntity round-trips', async () => {
+    const adapter = new MemoryAdapter(new Map(), 'bundle');
+    await writeEntity(adapter, 'elements/el-a.json', { id: 'el-a', type: 'Element' });
+    const result = await readEntity(adapter, 'elements/el-a.json');
+    expect(result.id).toBe('el-a');
+  });
+
+  test('writeModelJson writes to model.json', async () => {
+    const adapter = new MemoryAdapter(new Map(), 'bundle');
+    await writeModelJson(adapter, { elements: ['el-a'] });
+    const model = await readEntity(adapter, 'model.json');
+    expect(model.elements).toContain('el-a');
   });
 });
