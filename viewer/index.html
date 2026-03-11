@@ -10,40 +10,265 @@
   <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;700&display=swap" rel="stylesheet">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
+
     body {
       background: #1a1a1a; color: #ddd;
       font-family: 'Barlow', sans-serif;
-      display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
-      height: 100vh; gap: 48px;
+      font-size: 14px; line-height: 1.6;
     }
-    h1 { font-size: 24px; font-weight: 700; letter-spacing: 0.05em; opacity: 0.9; }
-    .cards { display: flex; gap: 24px; }
+
+    a { color: inherit; text-decoration: none; }
+
+    /* ── Layout ── */
+    .page {
+      max-width: 860px; margin: 0 auto;
+      padding: 64px 32px 80px;
+      display: flex; flex-direction: column; gap: 64px;
+    }
+
+    /* ── Hero ── */
+    .hero { display: flex; flex-direction: column; gap: 12px; }
+    .hero-label {
+      font-size: 11px; font-weight: 700; letter-spacing: 0.12em;
+      text-transform: uppercase; opacity: 0.4;
+    }
+    .hero h1 {
+      font-size: 36px; font-weight: 700; letter-spacing: 0.03em;
+      line-height: 1.15;
+    }
+    .hero-sub {
+      font-size: 16px; opacity: 0.55; max-width: 560px; line-height: 1.55;
+    }
+
+    /* ── Apps ── */
+    .apps { display: flex; flex-direction: column; gap: 16px; }
+    .apps h2 { font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; opacity: 0.4; }
+    .cards { display: flex; gap: 16px; flex-wrap: wrap; }
+
     .card {
-      display: flex; flex-direction: column; align-items: center; gap: 16px;
-      padding: 32px 40px; background: #222; border: 1px solid #333;
-      border-radius: 6px; cursor: pointer; text-decoration: none; color: inherit;
-      width: 200px; transition: background 0.15s, border-color 0.15s;
+      flex: 1; min-width: 240px;
+      display: flex; flex-direction: column; gap: 12px;
+      padding: 24px 28px; background: #222; border: 1px solid #333;
+      border-radius: 6px; cursor: pointer; color: inherit;
+      transition: background 0.15s, border-color 0.15s;
     }
-    .card:hover { background: #2a2a2a; border-color: #555; }
-    .card img { width: 40px; height: 40px; opacity: 0.8; }
-    .card-title { font-weight: 700; font-size: 16px; }
-    .card-desc { font-size: 12px; opacity: 0.55; text-align: center; line-height: 1.5; }
+    .card:hover { background: #262626; border-color: #4a4a4a; }
+
+    .card-header { display: flex; align-items: center; gap: 12px; }
+    .card-header img { width: 28px; height: 28px; opacity: 0.7; flex-shrink: 0; }
+    .card-title { font-weight: 700; font-size: 15px; }
+    .card-desc { font-size: 13px; opacity: 0.55; line-height: 1.55; }
+
+    .card-steps {
+      list-style: none; display: flex; flex-direction: column; gap: 6px;
+      border-top: 1px solid #2e2e2e; padding-top: 14px; margin-top: 4px;
+    }
+    .card-steps li {
+      font-size: 12px; opacity: 0.5; padding-left: 16px; position: relative;
+    }
+    .card-steps li::before {
+      content: '→'; position: absolute; left: 0; opacity: 0.6;
+    }
+
+    /* ── How it works ── */
+    .how { display: flex; flex-direction: column; gap: 16px; }
+    .how h2 { font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; opacity: 0.4; }
+    .steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+
+    .step {
+      display: flex; flex-direction: column; gap: 8px;
+      padding: 20px 22px; background: #1e1e1e; border: 1px solid #2a2a2a;
+      border-radius: 6px;
+    }
+    .step-num {
+      font-size: 11px; font-weight: 700; letter-spacing: 0.08em;
+      color: #6a8aaa; text-transform: uppercase;
+    }
+    .step-title { font-size: 13px; font-weight: 700; }
+    .step-body { font-size: 12px; opacity: 0.5; line-height: 1.55; }
+
+    /* ── Future ── */
+    .future { display: flex; flex-direction: column; gap: 16px; }
+    .future-header { display: flex; align-items: baseline; gap: 12px; }
+    .future h2 { font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; opacity: 0.4; }
+    .future-badge {
+      font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+      background: #2a3a2a; color: #8f8; border: 1px solid #3a5a3a;
+      padding: 2px 7px; border-radius: 3px;
+    }
+    .future-intro { font-size: 13px; opacity: 0.55; max-width: 620px; line-height: 1.6; }
+
+    .pipeline {
+      display: flex; align-items: stretch; gap: 0; flex-wrap: wrap;
+      border: 1px solid #2a2a2a; border-radius: 6px; overflow: hidden;
+    }
+    .pipeline-step {
+      flex: 1; min-width: 160px;
+      display: flex; flex-direction: column; gap: 6px;
+      padding: 20px 22px; background: #1e1e1e;
+      border-right: 1px solid #2a2a2a;
+    }
+    .pipeline-step:last-child { border-right: none; }
+    .pipeline-step-num {
+      font-size: 10px; font-weight: 700; letter-spacing: 0.08em;
+      text-transform: uppercase; opacity: 0.35;
+    }
+    .pipeline-step-title { font-size: 13px; font-weight: 700; }
+    .pipeline-step-body { font-size: 12px; opacity: 0.5; line-height: 1.55; }
+
+    .future-note {
+      font-size: 12px; opacity: 0.4; line-height: 1.6; max-width: 620px;
+    }
+
+    /* ── Footer ── */
+    .footer {
+      display: flex; align-items: center; gap: 16px;
+      padding-top: 16px; border-top: 1px solid #252525;
+      font-size: 12px; opacity: 0.35;
+    }
+    .footer a:hover { opacity: 0.7; }
   </style>
 </head>
 <body>
-  <h1>OEBF</h1>
-  <div class="cards">
-    <a href="viewer.html" class="card">
-      <img src="/oebf/icons/folder.svg" alt="">
-      <span class="card-title">Viewer</span>
-      <span class="card-desc">Open and inspect OEBF bundles</span>
-    </a>
-    <a href="editor.html" class="card">
-      <img src="/oebf/icons/document.svg" alt="">
-      <span class="card-title">Editor</span>
-      <span class="card-desc">Create and edit OEBF models</span>
-    </a>
+  <div class="page">
+
+    <!-- Hero -->
+    <div class="hero">
+      <p class="hero-label">Open Editable BIM Format</p>
+      <h1>OEBF</h1>
+      <p class="hero-sub">
+        A path-first, human-readable building model format designed for direct editing
+        by people and language models alike. All geometry is stored as plain JSON —
+        paths, profiles, elements, junctions — in a structured directory bundle.
+      </p>
+    </div>
+
+    <!-- Apps -->
+    <div class="apps">
+      <h2>Applications</h2>
+      <div class="cards">
+
+        <a href="viewer.html" class="card">
+          <div class="card-header">
+            <img src="/oebf/icons/folder.svg" alt="">
+            <span class="card-title">Viewer</span>
+          </div>
+          <p class="card-desc">
+            Inspect OEBF bundles and compressed archives in 3D. Includes a
+            sample model you can load immediately.
+          </p>
+          <ul class="card-steps">
+            <li>Click <strong>Load demo</strong> to open the sample model</li>
+            <li>Open any <code>.oebf</code> folder (Chrome/Edge) or <code>.oebfz</code> file (all browsers)</li>
+            <li>Use <strong>View profiles</strong> to inspect wall and slab cross-sections</li>
+          </ul>
+        </a>
+
+        <a href="editor.html" class="card">
+          <div class="card-header">
+            <img src="/oebf/icons/document.svg" alt="">
+            <span class="card-title">Editor</span>
+          </div>
+          <p class="card-desc">
+            Draw walls and slabs, manage storeys, add reference grids and guides.
+            Saves directly to an <code>.oebf</code> folder or downloads as a
+            <code>.oebfz</code> archive.
+          </p>
+          <ul class="card-steps">
+            <li>Open an existing <code>.oebf</code> folder or <code>.oebfz</code> file</li>
+            <li>Select a wall profile and use the Wall tool to draw</li>
+            <li>Save to write changes back to the bundle</li>
+          </ul>
+        </a>
+
+      </div>
+    </div>
+
+    <!-- How it works -->
+    <div class="how">
+      <h2>How it works</h2>
+      <div class="steps">
+        <div class="step">
+          <span class="step-num">Format</span>
+          <span class="step-title">Plain JSON, one file per entity</span>
+          <p class="step-body">
+            Every wall, path, profile, junction, and storey is a separate JSON file.
+            No binary, no proprietary encoding — open a bundle in any text editor.
+          </p>
+        </div>
+        <div class="step">
+          <span class="step-num">Geometry</span>
+          <span class="step-title">Profile swept along a path</span>
+          <p class="step-body">
+            All solid geometry derives from sweeping a cross-section profile along
+            a polyline path. Junctions and slabs are first-class entities, not
+            auto-computed.
+          </p>
+        </div>
+        <div class="step">
+          <span class="step-num">Portability</span>
+          <span class="step-title">Folder or compressed archive</span>
+          <p class="step-body">
+            Bundles live as a plain <code>.oebf</code> directory for editing, or are
+            compressed to a single <code>.oebfz</code> file (Zstd) for sharing.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Future: IFC round-trip -->
+    <div class="future">
+      <div class="future-header">
+        <h2>Coming soon</h2>
+        <span class="future-badge">Roadmap</span>
+      </div>
+      <p class="future-intro">
+        The long-term goal is a full round-trip between IFC and OEBF, with an LLM
+        acting as an intelligent editing layer. Because every entity is a readable
+        JSON file, a language model can add walls, change profiles, or restructure
+        storeys without specialised BIM tooling.
+      </p>
+      <div class="pipeline">
+        <div class="pipeline-step">
+          <span class="pipeline-step-num">Step 1</span>
+          <span class="pipeline-step-title">Import IFC</span>
+          <p class="pipeline-step-body">
+            Convert an IFC 4x3 file to an OEBF bundle using the included Python
+            tools. Walls, slabs, storeys, and materials are mapped to OEBF entities.
+          </p>
+        </div>
+        <div class="pipeline-step">
+          <span class="pipeline-step-num">Step 2</span>
+          <span class="pipeline-step-title">Edit with an LLM</span>
+          <p class="pipeline-step-body">
+            Point a language model at the bundle directory. Because files are
+            plain JSON, the model can read, modify, and write entities directly —
+            changing geometry, profiles, or metadata with natural-language instructions.
+          </p>
+        </div>
+        <div class="pipeline-step">
+          <span class="pipeline-step-num">Step 3</span>
+          <span class="pipeline-step-title">Export to IFC</span>
+          <p class="pipeline-step-body">
+            Convert the modified OEBF bundle back to IFC using the same Python
+            tools. The result opens in Revit, FreeCAD, or any IFC-compatible viewer.
+          </p>
+        </div>
+      </div>
+      <p class="future-note">
+        IFC import and export tools are in development. The OEBF format specification
+        is designed to map cleanly to IFC 4x3 entity types including IfcWall,
+        IfcSlab, IfcBuildingStorey, and IfcMaterialLayerSet.
+      </p>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+      <span>OEBF v0.2-alpha</span>
+      <span>·</span>
+      <a href="https://github.com/Al4st41r/OpenEditableBimFormat" target="_blank" rel="noopener">GitHub</a>
+    </div>
+
   </div>
 </body>
 </html>
