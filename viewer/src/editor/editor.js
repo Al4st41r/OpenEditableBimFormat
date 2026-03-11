@@ -87,6 +87,8 @@ let guideTool = null;
 let activeTool = null;
 let junctionEditor = null;
 let _pendingGuideName = null;
+/** elementId → { pathData, profileId, description } */
+const _elementRegistry = new Map();
 
 // ── Hidden file input for .oebfz loading (all browsers) ───────────────────────
 const _fileInput = document.createElement('input');
@@ -245,6 +247,10 @@ document.getElementById('tool-select').addEventListener('click', () => {
 
 document.getElementById('tool-wall').addEventListener('click', () => {
   if (!wallTool) return;
+  if (!document.getElementById('default-wall-profile').value) {
+    statusBar.textContent = 'No wall profile — open a bundle that contains profiles first.';
+    return;
+  }
   _setActiveTool(wallTool, document.getElementById('tool-wall'));
   wallTool.activate();
 });
@@ -267,6 +273,7 @@ async function _loadAndRenderBundle(adapter) {
   if (junctionEditor) junctionEditor.clear();
 
   // Reset session state for this bundle
+  _elementRegistry.clear();
   _modelState.elements.length  = 0;
   _modelState.slabs.length     = 0;
   _modelState.junctions.length = 0;
@@ -392,6 +399,25 @@ async function _loadAndRenderBundle(adapter) {
     }
   } catch { /* no profiles dir */ }
 
+  // Populate elements-list from loaded bundle
+  document.getElementById('elements-list').innerHTML = '';
+  for (const elementId of (model.elements ?? [])) {
+    try {
+      const el   = await readEntity(adapter, `elements/${elementId}.json`);
+      const path = await readEntity(adapter, `paths/${el.path_id}.json`);
+      _elementRegistry.set(elementId, { pathData: path, profileId: el.profile_id, description: el.description ?? 'Wall' });
+      _addElementToTree(elementId, 'Wall');
+    } catch { /* skip missing */ }
+  }
+  for (const slabId of (model.slabs ?? [])) {
+    try {
+      const slab = await readEntity(adapter, `slabs/${slabId}.json`);
+      const path = await readEntity(adapter, `paths/${slab.boundary_path_id}.json`);
+      _elementRegistry.set(slabId, { pathData: path, profileId: slab.profile_id, description: slab.description ?? 'Slab' });
+      _addElementToTree(slabId, 'Slab');
+    } catch { /* skip missing */ }
+  }
+
   // Create wall tool bound to this bundle
   wallTool = new WallTool({
     scene:             editorScene.scene,
@@ -409,13 +435,9 @@ async function _loadAndRenderBundle(adapter) {
       _modelState.elements.push(info.id);
       _modelState.paths.push(info.pathId);
       if (junctionEditor) junctionEditor.addElement(info.id, info.pathData);
-      const el = document.createElement('div');
-      el.className = 'tree-item';
-      const span = document.createElement('span');
-      span.className = 'tree-item-name';
-      span.textContent = `Wall (${info.id.slice(-6)})`;
-      el.appendChild(span);
-      document.getElementById('elements-list').appendChild(el);
+      _elementRegistry.set(info.id, { pathData: info.pathData, profileId: info.profileId, description: 'Wall' });
+      _addElementToTree(info.id, 'Wall');
+      _selectElement(info.id);
     },
   });
 
@@ -439,13 +461,10 @@ async function _loadAndRenderBundle(adapter) {
         _modelState.elements.push(info.id);
       }
       _modelState.paths.push(info.pathId);
-      const el = document.createElement('div');
-      el.className = 'tree-item';
-      const span = document.createElement('span');
-      span.className = 'tree-item-name';
-      span.textContent = `Floor (${info.id.slice(-6)})`;
-      el.appendChild(span);
-      document.getElementById('elements-list').appendChild(el);
+      const label = info.type === 'slab' ? 'Slab' : 'Floor';
+      _elementRegistry.set(info.id, { pathData: info.pathData, profileId: info.profileId, description: label });
+      _addElementToTree(info.id, label);
+      _selectElement(info.id);
     },
   });
 
@@ -648,6 +667,151 @@ canvas.addEventListener('click', (e) => {
   ray.setFromCamera(mouse, editorScene.getActiveCamera());
   junctionEditor.trySelectJunction(ray);
 });
+
+// ── Element tree and properties ───────────────────────────────────────────────
+
+function _addElementToTree(id, label) {
+  const el = document.createElement('div');
+  el.className = 'tree-item';
+  el.dataset.elementId = id;
+  const span = document.createElement('span');
+  span.className = 'tree-item-name';
+  span.textContent = `${label} (${id.slice(-6)})`;
+  el.appendChild(span);
+  el.addEventListener('click', () => _selectElement(id));
+  document.getElementById('elements-list').appendChild(el);
+}
+
+function _selectElement(id) {
+  document.querySelectorAll('#elements-list .tree-item').forEach(item => {
+    item.classList.toggle('active', item.dataset.elementId === id);
+  });
+  _showElementProps(id);
+}
+
+async function _showElementProps(id) {
+  const panel = document.getElementById('props-panel');
+  const reg = _elementRegistry.get(id);
+  if (!reg) { panel.innerHTML = '<p id="props-empty">Element not found.</p>'; return; }
+
+  panel.innerHTML = '';
+  const h3 = document.createElement('h3');
+  h3.textContent = 'Element';
+  panel.appendChild(h3);
+
+  // ID (read-only)
+  _propRow(panel, 'ID', id, true);
+
+  // Profile picker
+  const profileSel = document.createElement('select');
+  profileSel.style.cssText = 'background:#2a2a2a;color:#ddd;border:1px solid #444;padding:4px 8px;border-radius:3px;font-size:12px;width:100%';
+  try {
+    const profileNames = await adapter.listDir('profiles');
+    for (const name of profileNames) {
+      if (!name.endsWith('.json')) continue;
+      const pid = name.replace('.json', '');
+      try {
+        const data = await readEntity(adapter, `profiles/${pid}.json`);
+        if (data.detail) continue;
+        const opt = document.createElement('option');
+        opt.value = pid; opt.textContent = pid;
+        if (pid === reg.profileId) opt.selected = true;
+        profileSel.appendChild(opt);
+      } catch { /* skip */ }
+    }
+  } catch { /* no profiles dir */ }
+  profileSel.addEventListener('change', () => _changeElementProfile(id, profileSel.value));
+  _propRowWidget(panel, 'Profile', profileSel);
+
+  // Description
+  const descInp = document.createElement('input');
+  descInp.type = 'text'; descInp.value = reg.description ?? '';
+  descInp.style.cssText = 'background:#2a2a2a;color:#ddd;border:1px solid #444;padding:4px 8px;border-radius:3px;font-size:12px;width:100%';
+  descInp.addEventListener('change', () => { reg.description = descInp.value; });
+  _propRowWidget(panel, 'Description', descInp);
+
+  // Edit profile button (FSA only)
+  if (adapter?.type === 'fsa' && reg.profileId) {
+    const btn = document.createElement('button');
+    btn.textContent = 'Edit profile';
+    btn.style.cssText = 'padding:5px 10px;cursor:pointer;background:#2a4a2a;color:#8f8;border:1px solid #555;border-radius:3px;font-size:12px;margin-top:8px;width:100%';
+    btn.addEventListener('click', () => _openDetailInProfileEditor(reg.profileId));
+    panel.appendChild(btn);
+  }
+}
+
+function _propRow(panel, label, value, readOnly = false) {
+  const row = document.createElement('div');
+  row.className = 'prop-row';
+  const lbl = document.createElement('label');
+  lbl.textContent = label;
+  const inp = document.createElement('input');
+  inp.type = 'text'; inp.value = value;
+  inp.style.cssText = 'background:#2a2a2a;color:#ddd;border:1px solid #444;padding:4px 8px;border-radius:3px;font-size:12px;width:100%';
+  if (readOnly) inp.readOnly = true;
+  row.append(lbl, inp);
+  panel.appendChild(row);
+}
+
+function _propRowWidget(panel, label, widget) {
+  const row = document.createElement('div');
+  row.className = 'prop-row';
+  const lbl = document.createElement('label');
+  lbl.textContent = label;
+  row.append(lbl, widget);
+  panel.appendChild(row);
+}
+
+async function _changeElementProfile(elementId, newProfileId) {
+  if (!adapter || !newProfileId) return;
+  const reg = _elementRegistry.get(elementId);
+  if (!reg) return;
+
+  // Remove existing meshes for this element
+  const toRemove = editorScene.modelGroup.children.filter(
+    c => c.userData?.elementId === elementId
+  );
+  for (const m of toRemove) {
+    editorScene.modelGroup.remove(m);
+    if (m.geometry) m.geometry.dispose();
+    if (m.material) m.material.dispose();
+  }
+
+  try {
+    const { parsePath }         = await import('../loader/loadPath.js');
+    const { buildProfileShape } = await import('../loader/loadProfile.js');
+    const { sweepProfile }      = await import('../geometry/sweep.js');
+
+    const profData      = await readEntity(adapter, `profiles/${newProfileId}.json`);
+    const profileShapes = buildProfileShape(profData);
+    const { points: pathPoints } = parsePath(reg.pathData);
+    const layerMeshes   = sweepProfile(pathPoints, profileShapes);
+
+    for (const layerData of layerMeshes) {
+      const matData = activeProfileMap[layerData.materialId];
+      const colour  = matData?.colour_hex ?? '#888888';
+      editorScene.modelGroup.add(buildThreeMesh({
+        vertices:    layerData.vertices,
+        normals:     layerData.normals,
+        indices:     layerData.indices,
+        colour,
+        elementId,
+        description: reg.description,
+      }));
+    }
+
+    reg.profileId = newProfileId;
+    try {
+      const existing = await readEntity(adapter, `elements/${elementId}.json`);
+      await writeEntity(adapter, `elements/${elementId}.json`, { ...existing, profile_id: newProfileId });
+    } catch { /* element not in bundle yet */ }
+
+    statusBar.textContent = `Profile updated: ${newProfileId}`;
+  } catch (e) {
+    statusBar.textContent = `Profile change failed: ${e.message}`;
+    console.error('[OEBF] _changeElementProfile:', e);
+  }
+}
 
 // ── Save ──────────────────────────────────────────────────────────────────────
 saveBtn.addEventListener('click', async () => {
