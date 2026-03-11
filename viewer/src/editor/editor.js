@@ -257,6 +257,9 @@ document.getElementById('tool-wall').addEventListener('click', () => {
 
 document.getElementById('tool-floor').addEventListener('click', () => {
   if (!floorTool) return;
+  if (!document.getElementById('default-slab-profile').value) {
+    statusBar.textContent = 'No slab profile selected — floor tool works without a profile (polygon mode draws a flat slab).';
+  }
   _setActiveTool(floorTool, document.getElementById('tool-floor'));
   floorTool.activate();
 });

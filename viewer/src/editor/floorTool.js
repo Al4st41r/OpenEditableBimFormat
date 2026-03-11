@@ -187,7 +187,7 @@ export class FloorTool {
     }
 
     if (this._onElementCreated) {
-      this._onElementCreated({ id: slabId, pathId, type: 'slab' });
+      this._onElementCreated({ id: slabId, pathId, pathData, profileId: null, type: 'slab' });
     }
   }
 
@@ -267,7 +267,7 @@ export class FloorTool {
     }
 
     if (this._onElementCreated) {
-      this._onElementCreated({ id: elementId, pathId, type: 'element' });
+      this._onElementCreated({ id: elementId, pathId, pathData, profileId, type: 'element' });
     }
   }
 }
