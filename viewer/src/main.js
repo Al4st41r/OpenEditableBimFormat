@@ -191,6 +191,7 @@ document.getElementById('open-file-btn').addEventListener('click', () => {
     try {
       const result = await loadBundleZstd(file);
       _buildScene(result.meshes, result.manifest, result.junctions, result.arrays, result.grids);
+      document.getElementById('edit-profiles-btn').disabled = false;
     } catch (err) {
       statusEl.textContent = `Error: ${err.message}`;
       console.error(err);
@@ -200,6 +201,10 @@ document.getElementById('open-file-btn').addEventListener('click', () => {
 });
 
 document.getElementById('edit-profiles-btn').addEventListener('click', () => {
+  if (!currentDirHandle) {
+    statusEl.textContent = 'Profile editor requires an .oebf folder — not available for .oebfz files.';
+    return;
+  }
   const tab = window.open(import.meta.env.BASE_URL + 'profile-editor.html', '_blank');
   window.addEventListener('message', function handler(e) {
     if (e.data?.type === 'ready' && e.source === tab) {
