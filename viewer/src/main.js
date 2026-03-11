@@ -206,7 +206,8 @@ document.getElementById('open-file-btn').addEventListener('click', () => {
     try {
       const result = await loadBundleZstd(file);
       _buildScene(result.meshes, result.manifest, result.junctions, result.arrays, result.grids);
-      document.getElementById('edit-profiles-btn').disabled = false;
+      currentDirHandle = null;
+      document.getElementById('edit-profiles-btn').disabled = true;
     } catch (err) {
       statusEl.textContent = `Error: ${err.message}`;
       console.error(err);
