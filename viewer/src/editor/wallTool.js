@@ -10,7 +10,7 @@
  *
  * Constructor opts:
  *   scene, getCamera, constructionPlane, canvas, modelGroup,
- *   dirHandle, getDefaultProfile, getStoreyZ, getStoreyId,
+ *   adapter, getDefaultProfile, getStoreyZ, getStoreyId,
  *   readProfile, matMap, onElementCreated
  */
 
@@ -30,7 +30,7 @@ export class WallTool {
    * @param {THREE.Mesh}                    opts.constructionPlane
    * @param {HTMLCanvasElement}             opts.canvas
    * @param {THREE.Group}                   opts.modelGroup
-   * @param {FileSystemDirectoryHandle}     opts.dirHandle
+   * @param {FsaAdapter|MemoryAdapter}      opts.adapter
    * @param {() => string}                  opts.getDefaultProfile
    * @param {() => number}                  opts.getStoreyZ
    * @param {() => string|null}             opts.getStoreyId
@@ -41,7 +41,7 @@ export class WallTool {
   constructor(opts) {
     this._scene            = opts.scene;
     this._modelGroup       = opts.modelGroup;
-    this._dirHandle        = opts.dirHandle;
+    this._adapter        = opts.adapter;
     this._getDefaultProfile = opts.getDefaultProfile;
     this._getStoreyZ       = opts.getStoreyZ;
     this._getStoreyId      = opts.getStoreyId;
@@ -113,8 +113,8 @@ export class WallTool {
 
     // Write entities to bundle
     try {
-      await writeEntity(this._dirHandle, `paths/${pathId}.json`,       pathData);
-      await writeEntity(this._dirHandle, `elements/${elementId}.json`, elementData);
+      await writeEntity(this._adapter, `paths/${pathId}.json`,       pathData);
+      await writeEntity(this._adapter, `elements/${elementId}.json`, elementData);
     } catch (e) {
       console.error('[WallTool] Failed to write entities:', e);
       return;

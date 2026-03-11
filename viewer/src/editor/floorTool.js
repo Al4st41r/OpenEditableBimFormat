@@ -15,7 +15,7 @@
  *
  * Constructor opts:
  *   scene, getCamera, constructionPlane, canvas, modelGroup,
- *   dirHandle, getDefaultSlabProfile, getStoreyZ, getStoreyId,
+ *   adapter, getDefaultSlabProfile, getStoreyZ, getStoreyId,
  *   readProfile, matMap, onElementCreated
  *
  * onElementCreated is called with { id, pathId, type: 'slab'|'element' }.
@@ -38,7 +38,7 @@ export class FloorTool {
    * @param {THREE.Mesh}                        opts.constructionPlane
    * @param {HTMLCanvasElement}                 opts.canvas
    * @param {THREE.Group}                       opts.modelGroup
-   * @param {FileSystemDirectoryHandle}         opts.dirHandle
+   * @param {FsaAdapter|MemoryAdapter}          opts.adapter
    * @param {() => string}                      opts.getDefaultSlabProfile
    * @param {() => number}                      opts.getStoreyZ
    * @param {() => string|null}                 opts.getStoreyId
@@ -49,7 +49,7 @@ export class FloorTool {
   constructor(opts) {
     this._scene                 = opts.scene;
     this._modelGroup            = opts.modelGroup;
-    this._dirHandle             = opts.dirHandle;
+    this._adapter             = opts.adapter;
     this._getDefaultSlabProfile = opts.getDefaultSlabProfile;
     this._getStoreyZ            = opts.getStoreyZ;
     this._getStoreyId           = opts.getStoreyId;
@@ -162,8 +162,8 @@ export class FloorTool {
 
     // Write entities to bundle
     try {
-      await writeEntity(this._dirHandle, `paths/${pathId}.json`, pathData);
-      await writeEntity(this._dirHandle, `slabs/${slabId}.json`, slabData);
+      await writeEntity(this._adapter, `paths/${pathId}.json`, pathData);
+      await writeEntity(this._adapter, `slabs/${slabId}.json`, slabData);
     } catch (e) {
       console.error('[FloorTool] Failed to write entities:', e);
       return;
@@ -233,8 +233,8 @@ export class FloorTool {
 
     // Write entities to bundle
     try {
-      await writeEntity(this._dirHandle, `paths/${pathId}.json`,       pathData);
-      await writeEntity(this._dirHandle, `elements/${elementId}.json`, elementData);
+      await writeEntity(this._adapter, `paths/${pathId}.json`,       pathData);
+      await writeEntity(this._adapter, `elements/${elementId}.json`, elementData);
     } catch (e) {
       console.error('[FloorTool] Failed to write entities:', e);
       return;

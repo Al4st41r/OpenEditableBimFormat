@@ -11,15 +11,15 @@ const JUNCTION_RULES = ['butt', 'mitre', 'lap', 'halving', 'notch', 'custom'];
 function _uuid() { return Math.random().toString(36).slice(2, 10); }
 
 export class JunctionEditor {
-  constructor(overlayGroup, propsPanel, dirHandle) {
+  constructor(overlayGroup, propsPanel, adapter) {
     this._overlayGroup = overlayGroup;
     this._propsPanel   = propsPanel;
-    this._dirHandle    = dirHandle;
+    this._adapter    = adapter;
     this._elements     = []; // { id, pathData }
     this._junctions    = []; // { id, elementIds, point, rule, sprite }
   }
 
-  setDirHandle(h) { this._dirHandle = h; }
+  setAdapter(a) { this._adapter = a; }
 
   /** Register an element path for junction detection. */
   addElement(elementId, pathData) {
@@ -131,8 +131,8 @@ export class JunctionEditor {
         junc.rule = rule;
         junc.sprite.userData.rule = rule;
       }
-      if (this._dirHandle) {
-        await writeEntity(this._dirHandle, `junctions/${id}.json`, {
+      if (this._adapter) {
+        await writeEntity(this._adapter, `junctions/${id}.json`, {
           $schema:  'oebf://schema/0.1/junction',
           id,
           type:     'Junction',
