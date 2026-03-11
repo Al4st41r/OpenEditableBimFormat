@@ -108,7 +108,12 @@ export function initEditorScene(canvas) {
     orthoCamera.updateProjectionMatrix();
   }
 
-  window.addEventListener('resize', handleResize);
+  // ResizeObserver ensures correct canvas dimensions on first layout and
+  // on every subsequent resize, preventing the WebGL drawArraysInstanced
+  // viewport warning caused by a drawingBuffer/viewport size mismatch.
+  const resizeObserver = new ResizeObserver(() => handleResize());
+  resizeObserver.observe(canvas);
+  handleResize(); // ensure correct size on first frame
 
   // ── Render loop ───────────────────────────────────────────────────────────
   function animate() {

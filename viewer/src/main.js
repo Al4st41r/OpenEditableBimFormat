@@ -26,7 +26,7 @@ import { buildGridLineSegments } from './loader/loadGrid.js';
 const canvas = document.getElementById('canvas');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setPixelRatio(window.devicePixelRatio);
-renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setSize(canvas.clientWidth || window.innerWidth, canvas.clientHeight || window.innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.localClippingEnabled = true; // required for junction trim planes
 
@@ -39,7 +39,7 @@ dirLight.position.set(10, 20, 10);
 scene.add(dirLight);
 
 // --- Camera (Z-up) ---
-const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.01, 500);
+const camera = new THREE.PerspectiveCamera(45, (canvas.clientWidth || window.innerWidth) / (canvas.clientHeight || window.innerHeight), 0.01, 500);
 camera.position.set(10, -10, 8);
 camera.up.set(0, 0, 1);
 
@@ -54,11 +54,18 @@ grid.rotation.x = Math.PI / 2;
 scene.add(grid);
 
 // --- Resize ---
-window.addEventListener('resize', () => {
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  camera.aspect = window.innerWidth / window.innerHeight;
+// ResizeObserver prevents the WebGL drawArraysInstanced viewport warning
+// caused by a mismatch between canvas drawingBuffer and viewport size.
+function _handleResize() {
+  const w = canvas.clientWidth;
+  const h = canvas.clientHeight;
+  if (w === 0 || h === 0) return;
+  renderer.setSize(w, h);
+  camera.aspect = w / h;
   camera.updateProjectionMatrix();
-});
+}
+new ResizeObserver(() => _handleResize()).observe(canvas);
+_handleResize(); // ensure correct size on first frame
 
 // --- Render loop ---
 function animate() {
