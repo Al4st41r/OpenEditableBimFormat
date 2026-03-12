@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg width="100%" height="100%" viewBox="0 0 680 300" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:serif="http://www.serif.com/" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2;">
+    <g transform="matrix(1,0,0,1,0,-574)">
+        <g id="Logo" transform="matrix(1.21429,0,0,0.833333,1068.57,-1701)">
+            <rect x="-880" y="2730" width="560" height="360" style="fill:none;"/>
+            <g transform="matrix(0.823529,0,0,1.2,-921.906,-570.463)">
+                <g transform="matrix(257.143,0,0,257.143,693.286,2990)">
+                </g>
+                <text x="80px" y="2990px" style="font-family:'Barlow-Bold', 'Barlow';font-weight:700;font-size:257.143px;">OEBF</text>
+            </g>
+        </g>
+    </g>
+</svg>
