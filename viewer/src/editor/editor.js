@@ -25,6 +25,7 @@ import { FloorTool } from './floorTool.js';
 import { JunctionEditor } from './junctionEditor.js';
 import { DrawingTool } from './drawingTool.js';
 import { FsaAdapter, MemoryAdapter } from './storageAdapter.js';
+import { createNewBundle } from './newBundle.js';
 import * as THREE from 'three';
 
 // ── DOM refs ─────────────────────────────────────────────────────────────────
@@ -136,6 +137,15 @@ openBtn.addEventListener('click', async () => {
     // Firefox and other non-FSA browsers: go straight to .oebfz file picker
     _fileInput.click();
   }
+});
+
+document.getElementById('new-btn').addEventListener('click', async () => {
+  const name = window.prompt('Project name:', 'New Project')?.trim() || 'New Project';
+  adapter = createNewBundle(name);
+  await _loadAndRenderBundle(adapter);
+  _enableEditorTools();
+  saveBtn.disabled = false;
+  statusBar.textContent = `${adapter.name} (memory mode — Save to download zip)`;
 });
 
 function _showOpenMenu() {
