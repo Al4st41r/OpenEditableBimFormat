@@ -598,6 +598,7 @@ function _enableEditorTools() {
 
 // ── Default profile creation ───────────────────────────────────────────────────
 async function _ensureDefaultProfile() {
+  if (!adapter) return false;
   // adapter.listDir returns [] when the directory does not exist (both FsaAdapter and MemoryAdapter)
   const names = await adapter.listDir('profiles');
   // Any .json file in profiles/ means at least one profile exists — skip auto-creation.
@@ -622,8 +623,8 @@ async function _ensureDefaultProfile() {
   const opt = document.createElement('option');
   opt.value = 'default-wall';
   opt.textContent = 'default-wall';
-  document.getElementById('default-wall-profile').appendChild(opt.cloneNode(true));
-  document.getElementById('default-slab-profile').appendChild(opt);
+  document.getElementById('default-wall-profile').appendChild(opt);
+  document.getElementById('default-slab-profile').appendChild(opt.cloneNode(true));
 
   return true;
 }
