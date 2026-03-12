@@ -45,6 +45,12 @@ describe('MemoryAdapter', () => {
     const adapter = new MemoryAdapter(new Map(), 'test-bundle');
     expect(adapter.type).toBe('memory');
   });
+
+  test('writeRaw stores raw string without JSON parsing', async () => {
+    const adapter = new MemoryAdapter(new Map(), 'test-bundle');
+    await adapter.writeRaw('profiles/wall.svg', '<svg><rect/></svg>');
+    expect(adapter._map.get('profiles/wall.svg')).toBe('<svg><rect/></svg>');
+  });
 });
 
 describe('bundleWriter with MemoryAdapter', () => {

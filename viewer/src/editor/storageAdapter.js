@@ -96,6 +96,10 @@ export class MemoryAdapter {
     this._map.set(path, JSON.stringify(data, null, 2));
   }
 
+  async writeRaw(path, text) {
+    this._map.set(path, text);
+  }
+
   async listDir(path) {
     const prefix = path.endsWith('/') ? path : path + '/';
     const names  = [];
