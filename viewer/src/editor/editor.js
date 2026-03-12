@@ -255,21 +255,18 @@ document.getElementById('tool-select').addEventListener('click', () => {
   _setActiveTool(null, document.getElementById('tool-select'));
 });
 
-document.getElementById('tool-wall').addEventListener('click', () => {
+document.getElementById('tool-wall').addEventListener('click', async () => {
   if (!wallTool) return;
-  if (!document.getElementById('default-wall-profile').value) {
-    statusBar.textContent = 'No wall profile — open a bundle that contains profiles first.';
-    return;
-  }
+  const created = await _ensureDefaultProfile();
+  if (created) statusBar.textContent = 'Default profile created — edit it in the Details panel.';
   _setActiveTool(wallTool, document.getElementById('tool-wall'));
   wallTool.activate();
 });
 
-document.getElementById('tool-floor').addEventListener('click', () => {
+document.getElementById('tool-floor').addEventListener('click', async () => {
   if (!floorTool) return;
-  if (!document.getElementById('default-slab-profile').value) {
-    statusBar.textContent = 'No slab profile selected — floor tool works without a profile (polygon mode draws a flat slab).';
-  }
+  const created = await _ensureDefaultProfile();
+  if (created) statusBar.textContent = 'Default profile created — edit it in the Details panel.';
   _setActiveTool(floorTool, document.getElementById('tool-floor'));
   floorTool.activate();
 });
@@ -597,6 +594,38 @@ function _enableEditorTools() {
   document.getElementById('add-detail-btn').disabled = false;
   document.getElementById('default-wall-profile').disabled = false;
   document.getElementById('default-slab-profile').disabled = false;
+}
+
+// ── Default profile creation ───────────────────────────────────────────────────
+async function _ensureDefaultProfile() {
+  // adapter.listDir returns [] when the directory does not exist (both FsaAdapter and MemoryAdapter)
+  const names = await adapter.listDir('profiles');
+  // Any .json file in profiles/ means at least one profile exists — skip auto-creation.
+  // We do not read each file to check detail:true; any profile is sufficient.
+  const existingProfiles = names.filter(n => n.endsWith('.json'));
+  if (existingProfiles.length > 0) return false;
+
+  const profile = {
+    $schema:   'oebf://schema/0.1/profile',
+    id:        'default-wall',
+    type:      'Profile',
+    width:     0.2,
+    height:    null,
+    origin:    { x: 0, y: 0 },
+    alignment: 'center',
+    assembly:  [
+      { layer: 1, name: 'Structure', material_id: 'mat-unset', thickness: 0.2, function: 'structure' },
+    ],
+  };
+  await writeEntity(adapter, 'profiles/default-wall.json', profile);
+
+  const opt = document.createElement('option');
+  opt.value = 'default-wall';
+  opt.textContent = 'default-wall';
+  document.getElementById('default-wall-profile').appendChild(opt.cloneNode(true));
+  document.getElementById('default-slab-profile').appendChild(opt);
+
+  return true;
 }
 
 // ── Detail profile helpers ────────────────────────────────────────────────────
