@@ -91,7 +91,7 @@ Note: `guides` is not a top-level key in `model.json`. Guide paths are stored in
 ```js
 document.getElementById('new-btn').addEventListener('click', async () => {
   const name = window.prompt('Project name:', 'New Project')?.trim() || 'New Project';
-  const adapter = createNewBundle(name);
+  adapter = createNewBundle(name);  // module-level — no const
   await _loadAndRenderBundle(adapter);
   _enableEditorTools();
   saveBtn.disabled = false;
