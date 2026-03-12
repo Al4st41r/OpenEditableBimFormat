@@ -25,7 +25,7 @@ Single exported function:
 createNewBundle(projectName: string): MemoryAdapter
 ```
 
-Pure function — no DOM, no side effects. Builds a `Map<string, string>` containing four files and returns a `new MemoryAdapter(map, projectName)`.
+Pure function — no DOM, no side effects. Builds a `Map<string, string>` where each value is a `JSON.stringify`-ed string (matching what `MemoryAdapter.readJson` expects), then returns `new MemoryAdapter(map, projectName)`.
 
 **Scaffolded files:**
 
@@ -43,7 +43,11 @@ Pure function — no DOM, no side effects. Builds a `Map<string, string>` contai
   "format_version": "0.1.0",
   "project_name": "<projectName>",
   "units": "metres",
-  "coordinate_system": "right_hand_z_up"
+  "coordinate_system": "right_hand_z_up",
+  "files": {
+    "model": "model.json",
+    "materials": "materials/library.json"
+  }
 }
 ```
 
@@ -55,12 +59,13 @@ Pure function — no DOM, no side effects. Builds a `Map<string, string>` contai
   "slabs": [],
   "paths": [],
   "grids": [],
-  "guides": [],
   "junctions": [],
   "arrays": [],
   "openings": []
 }
 ```
+
+Note: `guides` is not a top-level key in `model.json`. Guide paths are stored in the `paths/` directory and identified by `path.guide === true`; the loader reads `model.paths`, not a `guides` key.
 
 **`groups/storey-ground.json` shape:**
 ```json
@@ -88,6 +93,8 @@ document.getElementById('new-btn').addEventListener('click', async () => {
   const name = window.prompt('Project name:', 'New Project')?.trim() || 'New Project';
   const adapter = createNewBundle(name);
   await _loadAndRenderBundle(adapter);
+  _enableEditorTools();
+  saveBtn.disabled = false;
   statusBar.textContent = `${adapter.name} (memory mode — Save to download zip)`;
 });
 ```
