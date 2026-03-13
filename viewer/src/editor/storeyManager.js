@@ -112,6 +112,7 @@ export class StoreyManager {
       depthWrite: false,
     });
     const plane = new THREE.Mesh(geo, mat);
+    plane.renderOrder = -1;
     // PlaneGeometry is in the XY plane by default — no rotation needed for Z-up
     plane.position.z = z_m;
     plane.visible = visible;

@@ -123,9 +123,10 @@ export class GridOverlayManager {
       : [new THREE.Vector3(-50, offset_m, 0), new THREE.Vector3(50, offset_m, 0)];
     const lineGeo = new THREE.BufferGeometry().setFromPoints(points);
     const lineMat = new THREE.LineDashedMaterial({
-      color: GRID_COLOUR, dashSize: 0.5, gapSize: 0.25,
+      color: GRID_COLOUR, dashSize: 0.5, gapSize: 0.25, depthTest: false,
     });
     const line = new THREE.Line(lineGeo, lineMat);
+    line.renderOrder = 1;
     line.computeLineDistances();
     group.add(line);
 

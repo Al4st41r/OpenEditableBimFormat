@@ -126,9 +126,10 @@ function _buildGuideObject(segments) {
     // Dashed line in plan view
     const lineGeo = new THREE.BufferGeometry().setFromPoints(pts3);
     const lineMat = new THREE.LineDashedMaterial({
-      color: GUIDE_COLOUR, dashSize: 0.4, gapSize: 0.2,
+      color: GUIDE_COLOUR, dashSize: 0.4, gapSize: 0.2, depthTest: false,
     });
     const line = new THREE.LineSegments(lineGeo, lineMat);
+    line.renderOrder = 1;
     line.computeLineDistances();
     group.add(line);
 

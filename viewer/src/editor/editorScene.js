@@ -48,6 +48,13 @@ export function initEditorScene(canvas) {
   controls.target.set(0, 0, 0);
   controls.update();
 
+  // Orthographic pan controls (plan view only — no rotation)
+  const orthoControls = new OrbitControls(orthoCamera, canvas);
+  orthoControls.enableRotate = false;
+  orthoControls.enablePan   = true;
+  orthoControls.enabled     = false;
+  orthoControls.update();
+
   // ── Construction grid (visual) ────────────────────────────────────────────
   const constructionGrid = new THREE.GridHelper(50, 50, 0x333333, 0x2a2a2a);
   constructionGrid.rotation.x = Math.PI / 2; // XY plane (Z-up)
@@ -88,7 +95,8 @@ export function initEditorScene(canvas) {
 
   function setPlanView(enabled) {
     isPlanView = enabled;
-    controls.enabled = !enabled;
+    controls.enabled      = !enabled;
+    orthoControls.enabled =  enabled;
   }
 
   function getActiveCamera() {
@@ -119,6 +127,7 @@ export function initEditorScene(canvas) {
   function animate() {
     requestAnimationFrame(animate);
     controls.update();
+    orthoControls.update();
     renderer.render(scene, getActiveCamera());
   }
   animate();

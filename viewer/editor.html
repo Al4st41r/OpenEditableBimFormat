@@ -65,8 +65,21 @@
     #props-panel {
       width: 280px; flex-shrink: 0; background: #1e1e1e;
       border-left: 1px solid #333; overflow-y: auto; padding: 12px;
+      transition: width 0.15s ease, padding 0.15s ease;
+      position: relative;
     }
-    #props-panel h3 { font-size: 12px; font-weight: 700; text-transform: uppercase; opacity: 0.5; margin-bottom: 10px; letter-spacing: 0.08em; }
+    #props-panel.collapsed {
+      width: 28px; padding: 0; overflow: hidden;
+    }
+    #props-panel.collapsed > *:not(#props-toggle) { display: none; }
+    #props-toggle {
+      position: absolute; top: 6px; left: 4px;
+      background: none; border: none; color: #888; cursor: pointer;
+      font-size: 14px; padding: 2px 4px; line-height: 1;
+    }
+    #props-toggle:hover { color: #ddd; }
+    #props-panel:not(.collapsed) #props-toggle { left: unset; right: 4px; }
+    #props-panel h3 { font-size: 12px; font-weight: 700; text-transform: uppercase; opacity: 0.5; margin-bottom: 10px; margin-top: 18px; letter-spacing: 0.08em; }
     .prop-row { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
     .prop-row label { font-size: 11px; opacity: 0.6; }
     .prop-row input, .prop-row select {
@@ -145,10 +158,19 @@
     </div>
 
     <div id="props-panel">
+      <button id="props-toggle" title="Toggle properties panel">›</button>
       <p id="props-empty">Select an element to see properties.</p>
     </div>
   </div>
 
   <script type="module" src="/src/editor/editor.js"></script>
+  <script>
+    const propsPanel  = document.getElementById('props-panel');
+    const propsToggle = document.getElementById('props-toggle');
+    propsToggle.addEventListener('click', () => {
+      const collapsed = propsPanel.classList.toggle('collapsed');
+      propsToggle.textContent = collapsed ? '‹' : '›';
+    });
+  </script>
 </body>
 </html>
