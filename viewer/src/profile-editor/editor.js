@@ -34,6 +34,8 @@ let currentDesc = '';
 let layers     = [];
 let originX    = 0;
 let selectedLayerIndex = null;
+let memoryMode      = false;
+let _memoryProfiles = {};  // profileId → parsed profile object (memory mode only)
 
 // ── Initialise canvas ─────────────────────────────────────────────────────────
 initCanvas(profileSvg);
@@ -85,6 +87,14 @@ async function _loadBundle(handle) {
 }
 
 async function _listProfiles() {
+  if (memoryMode) {
+    _listProfilesFromMemory(_memoryProfiles);
+  } else {
+    await _listProfilesFromFsa();
+  }
+}
+
+async function _listProfilesFromFsa() {
   profileSelect.innerHTML = '<option value="">— select profile —</option>';
   try {
     const profilesDir = await dirHandle.getDirectoryHandle('profiles');
@@ -98,6 +108,16 @@ async function _listProfiles() {
       }
     }
   } catch { /* no profiles dir yet */ }
+}
+
+function _listProfilesFromMemory(profiles) {
+  profileSelect.innerHTML = '<option value="">— select profile —</option>';
+  for (const id of Object.keys(profiles)) {
+    const opt = document.createElement('option');
+    opt.value = id;
+    opt.textContent = id;
+    profileSelect.appendChild(opt);
+  }
 }
 
 profileSelect.addEventListener('change', async () => {
@@ -154,15 +174,27 @@ addLayerBtn.addEventListener('click', () => {
 
 // ── Save ──────────────────────────────────────────────────────────────────────
 saveBtn.addEventListener('click', async () => {
-  if (!dirHandle || !currentId) return;
+  if (!currentId) return;
   layers = getLayers(layerList);
   try {
     const json = buildJson({ layers, originX, id: currentId, description: currentDesc });
     const svg  = buildSvg({ layers, originX, matMap });
 
-    await _writeFile(`profiles/${currentId}.json`, JSON.stringify(json, null, 2));
-    await _writeFile(`profiles/${currentId}.svg`,  svg);
-    _setStatus('Saved');
+    if (memoryMode) {
+      if (window.opener) {
+        window.opener.postMessage(
+          { type: 'profile-saved', id: currentId, json, svg },
+          window.location.origin,
+        );
+        _setStatus('Saved');
+      } else {
+        _setStatus('Save failed: editor window closed.');
+      }
+    } else {
+      await _writeFile(`profiles/${currentId}.json`, JSON.stringify(json, null, 2));
+      await _writeFile(`profiles/${currentId}.svg`,  svg);
+      _setStatus('Saved');
+    }
   } catch (e) {
     _setStatus(`Save failed: ${e.message}`);
   }
@@ -176,6 +208,13 @@ function _renderCanvas() {
 function _setStatus(msg) { statusEl.textContent = msg; }
 
 async function _readJson(path) {
+  if (memoryMode) {
+    // path is always 'profiles/<id>.json' in memory mode
+    const id = path.replace('profiles/', '').replace('.json', '');
+    const data = _memoryProfiles[id];
+    if (!data) throw new Error(`Profile not found in memory bundle: ${id}`);
+    return data;  // already a parsed object
+  }
   const parts = path.split('/');
   let handle = dirHandle;
   for (let i = 0; i < parts.length - 1; i++) {
@@ -203,11 +242,37 @@ if (window.opener) {
   window.opener.postMessage({ type: 'ready' }, window.location.origin);
   window.addEventListener('message', async e => {
     if (e.origin !== window.location.origin) return;
+
     if (e.data?.type === 'bundle-handle') {
       try {
         await _loadBundle(e.data.handle);
       } catch (err) {
         _setStatus(`Error loading bundle: ${err.message}`);
+      }
+    }
+
+    if (e.data?.type === 'memory-bundle') {
+      try {
+        const { profiles, matMap: incomingMatMap, activeProfileId, projectName: pName } = e.data;
+        memoryMode      = true;
+        _memoryProfiles = profiles ?? {};
+        matMap  = incomingMatMap ?? {};
+        matIds  = Object.keys(matMap);
+
+        if (pName) projectName.textContent = pName;
+        initForm(layerList, matIds, matMap);
+        _listProfilesFromMemory(_memoryProfiles);
+
+        profileSelect.disabled = false;
+        newBtn.disabled        = false;
+        addLayerBtn.disabled   = false;
+
+        if (activeProfileId && _memoryProfiles[activeProfileId]) {
+          profileSelect.value = activeProfileId;
+          profileSelect.dispatchEvent(new Event('change'));
+        }
+      } catch (err) {
+        _setStatus(`Error loading memory bundle: ${err.message}`);
       }
     }
   });

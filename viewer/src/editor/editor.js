@@ -643,19 +643,48 @@ function _addDetailToTree(id) {
 
 function _openDetailInProfileEditor(id) {
   if (!adapter) return;
-  if (adapter.type !== 'fsa') {
-    statusBar.textContent = 'Profile editor requires .oebf folder mode (Chrome/Edge)';
-    return;
-  }
   const tab = window.open(import.meta.env.BASE_URL + 'profile-editor.html', '_blank');
   if (!tab) {
-    statusBar.textContent = 'Profile created — open it from the Details list.';
+    statusBar.textContent = 'Pop-up blocked — allow pop-ups for this site.';
     return;
+  }
+  if (adapter.type === 'fsa') {
+    window.addEventListener('message', function handler(e) {
+      if (e.origin !== window.location.origin) return;
+      if (e.data?.type === 'ready' && e.source === tab) {
+        tab.postMessage({ type: 'bundle-handle', handle: adapter.dirHandle }, window.location.origin);
+        window.removeEventListener('message', handler);
+      }
+    });
+  } else {
+    // Note: MemoryAdapter resolves via microtasks, so the listener in
+    // _sendMemoryBundleToTab is always registered before the profile editor
+    // tab can send 'ready' (which requires the tab to fully load — a macrotask).
+    _sendMemoryBundleToTab(tab, id).catch(err => {
+      statusBar.textContent = `Profile editor load failed: ${err.message}`;
+    });
+  }
+}
+
+async function _sendMemoryBundleToTab(tab, activeProfileId) {
+  const profileNames = await adapter.listDir('profiles');
+  const profiles = {};
+  for (const name of profileNames) {
+    if (!name.endsWith('.json')) continue;
+    const id = name.replace('.json', '');
+    try { profiles[id] = await adapter.readJson(`profiles/${id}.json`); }
+    catch { /* skip unreadable */ }
   }
   window.addEventListener('message', function handler(e) {
     if (e.origin !== window.location.origin) return;
     if (e.data?.type === 'ready' && e.source === tab) {
-      tab.postMessage({ type: 'bundle-handle', handle: adapter.dirHandle }, window.location.origin);
+      tab.postMessage({
+        type:            'memory-bundle',
+        profiles,
+        matMap:          activeProfileMap,
+        activeProfileId,
+        projectName:     adapter.name,
+      }, window.location.origin);
       window.removeEventListener('message', handler);
     }
   });
@@ -773,8 +802,8 @@ async function _showElementProps(id) {
   descInp.addEventListener('change', () => { reg.description = descInp.value; });
   _propRowWidget(panel, 'Description', descInp);
 
-  // Edit profile button (FSA only)
-  if (adapter?.type === 'fsa' && reg.profileId) {
+  // Edit profile button
+  if (adapter && reg.profileId) {
     const btn = document.createElement('button');
     btn.textContent = 'Edit profile';
     btn.style.cssText = 'padding:5px 10px;cursor:pointer;background:#2a4a2a;color:#8f8;border:1px solid #555;border-radius:3px;font-size:12px;margin-top:8px;width:100%';
@@ -855,6 +884,27 @@ async function _changeElementProfile(elementId, newProfileId) {
     console.error('[OEBF] _changeElementProfile:', e);
   }
 }
+
+// ── Profile-saved message from profile editor tab (memory mode) ───────────────
+window.addEventListener('message', async (e) => {
+  if (e.origin !== window.location.origin) return;
+  if (e.data?.type !== 'profile-saved') return;
+  if (!adapter) return;
+  const { id, json, svg } = e.data;
+  await adapter.writeJson(`profiles/${id}.json`, json);
+  if (adapter.writeRaw) await adapter.writeRaw(`profiles/${id}.svg`, svg);
+  statusBar.textContent = `Profile saved: ${id}`;
+
+  // Add to dropdowns if this is a new profile id
+  const wallSel = document.getElementById('default-wall-profile');
+  const slabSel = document.getElementById('default-slab-profile');
+  if (![...wallSel.options].some(o => o.value === id)) {
+    const opt = document.createElement('option');
+    opt.value = id; opt.textContent = id;
+    wallSel.appendChild(opt.cloneNode(true));
+    slabSel.appendChild(opt);
+  }
+});
 
 // ── Save ──────────────────────────────────────────────────────────────────────
 saveBtn.addEventListener('click', async () => {
