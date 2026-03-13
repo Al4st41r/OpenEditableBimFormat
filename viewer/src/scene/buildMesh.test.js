@@ -53,6 +53,18 @@ describe('buildThreeMesh — userData', () => {
   });
 });
 
+describe('buildThreeMesh — edge cases', () => {
+  test('empty indices array: does not throw', () => {
+    expect(() => buildThreeMesh(minimalMeshData({ indices: new Uint32Array(0) }))).not.toThrow();
+  });
+
+  test('boundingBox is computable after computeBoundingBox()', () => {
+    const mesh = buildThreeMesh(minimalMeshData());
+    expect(() => mesh.geometry.computeBoundingBox()).not.toThrow();
+    expect(mesh.geometry.boundingBox).not.toBeNull();
+  });
+});
+
 describe('buildThreeMesh — material', () => {
   test('material colour matches input hex', () => {
     const mesh = buildThreeMesh(minimalMeshData({ colour: '#ff0000' }));

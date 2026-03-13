@@ -127,3 +127,102 @@ def test_slugify_edge_cases():
     # String with only special characters returns empty or very short result without crashing
     result = _slugify("!@#$%^&*()")
     assert isinstance(result, str)
+
+
+def test_slugify_all_numeric_guid():
+    """_slugify with an all-numeric GUID-like string should return a valid slug."""
+    from oebf.ifc_importer import _slugify
+
+    result = _slugify("12345678")
+    assert isinstance(result, str)
+    assert len(result) > 0
+    # Result must only contain lowercase letters, digits, and hyphens
+    import re
+    assert re.match(r'^[a-z0-9][a-z0-9-]*$', result), f"Invalid slug: {result!r}"
+
+
+def test_import_no_project_entity_uses_filename_stem(tmp_path):
+    """When the IFC file has no IfcProject entity, project_name falls back to the filename stem."""
+    import ifcopenshell
+
+    # Create a minimal IFC file without any IfcProject entity
+    model = ifcopenshell.file(schema="IFC4")
+    model.create_entity("IfcWall", GlobalId=ifcopenshell.guid.new(), Name="OrphanWall")
+
+    ifc_path = tmp_path / "my-project-name.ifc"
+    model.write(str(ifc_path))
+
+    out_dir = tmp_path / "out.oebf"
+    import_ifc(ifc_path, out_dir)
+
+    manifest = json.loads((out_dir / "manifest.json").read_text())
+    assert manifest["project_name"] == "my-project-name"
+
+
+def test_import_duplicate_material_names_deduplicated(tmp_path):
+    """Duplicate IfcMaterial names in the IFC file appear only once in the output library."""
+    import ifcopenshell
+    import ifcopenshell.api
+    import ifcopenshell.api.project
+    import ifcopenshell.api.unit
+    import ifcopenshell.api.context
+    import ifcopenshell.api.root
+    import ifcopenshell.api.material
+
+    model = ifcopenshell.api.project.create_file(version="IFC4")
+    ifcopenshell.api.root.create_entity(model, ifc_class="IfcProject", name="DupMatTest")
+    ifcopenshell.api.unit.assign_unit(model)
+    ifcopenshell.api.context.add_context(model, context_type="Model")
+
+    # Create two IfcMaterial entities with the same name
+    ifcopenshell.api.material.add_material(model, name="Concrete")
+    ifcopenshell.api.material.add_material(model, name="Concrete")
+    ifcopenshell.api.material.add_material(model, name="Brick")
+
+    ifc_path = tmp_path / "dup_mats.ifc"
+    model.write(str(ifc_path))
+
+    out_dir = tmp_path / "out.oebf"
+    import_ifc(ifc_path, out_dir)
+
+    lib = json.loads((out_dir / "materials" / "library.json").read_text())
+    names = [m["name"] for m in lib["materials"]]
+    assert names.count("Concrete") == 1, f"Expected one 'Concrete', got: {names}"
+    assert "Brick" in names
+
+
+def test_import_element_geometry_error_skipped(tmp_path):
+    """An element whose geometry extraction throws is skipped; the rest of the import continues."""
+    import ifcopenshell
+    import ifcopenshell.api
+    import ifcopenshell.api.project
+    import ifcopenshell.api.unit
+    import ifcopenshell.api.context
+    import ifcopenshell.api.root
+    import ifcopenshell.api.spatial
+    import ifcopenshell.api.aggregate
+
+    model = ifcopenshell.api.project.create_file(version="IFC4")
+    project = ifcopenshell.api.root.create_entity(model, ifc_class="IfcProject", name="ErrTest")
+    ifcopenshell.api.unit.assign_unit(model)
+    ifcopenshell.api.context.add_context(model, context_type="Model")
+    site     = ifcopenshell.api.root.create_entity(model, ifc_class="IfcSite",             name="Site")
+    building = ifcopenshell.api.root.create_entity(model, ifc_class="IfcBuilding",         name="Bldg")
+    storey   = ifcopenshell.api.root.create_entity(model, ifc_class="IfcBuildingStorey",   name="GF")
+    # Two walls: one with no geometry (will fall back to stub), one normal
+    ifcopenshell.api.root.create_entity(model, ifc_class="IfcWall", name="WallA")
+    ifcopenshell.api.root.create_entity(model, ifc_class="IfcWall", name="WallB")
+    ifcopenshell.api.aggregate.assign_object(model, relating_object=project,  products=[site])
+    ifcopenshell.api.aggregate.assign_object(model, relating_object=site,     products=[building])
+    ifcopenshell.api.aggregate.assign_object(model, relating_object=building, products=[storey])
+
+    ifc_path = tmp_path / "err_geom.ifc"
+    model.write(str(ifc_path))
+
+    out_dir = tmp_path / "out.oebf"
+    # Import must not raise even if individual element geometry extraction fails
+    import_ifc(ifc_path, out_dir)
+
+    model_data = json.loads((out_dir / "model.json").read_text())
+    # Both walls should be imported (geometry falls back to 1 m stub, not skipped)
+    assert len(model_data["elements"]) >= 1

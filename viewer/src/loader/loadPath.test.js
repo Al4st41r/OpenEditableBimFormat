@@ -98,6 +98,25 @@ describe('parsePath — arc segments', () => {
     const result = parsePath(pathData);
     expect(result.length).toBeCloseTo(2.0, 1);
   });
+
+  test('degenerate arc — mid-point collinear with start/end: does not throw, produces finite points', () => {
+    // mid falls exactly on the chord → infinite radius arc; should degrade gracefully
+    const pathData = {
+      id: 'path-arc-degenerate',
+      type: 'Path',
+      closed: false,
+      segments: [{
+        type: 'arc',
+        start: { x: 0, y: 0, z: 0 },
+        mid:   { x: 1, y: 0, z: 0 },  // lies on the line from start to end
+        end:   { x: 2, y: 0, z: 0 },
+      }]
+    };
+    expect(() => parsePath(pathData)).not.toThrow();
+    const result = parsePath(pathData);
+    expect(result.points.length).toBeGreaterThanOrEqual(2);
+    expect(result.points.every(p => isFinite(p.x) && isFinite(p.y) && isFinite(p.z))).toBe(true);
+  });
 });
 
 describe('parsePath — edge cases', () => {

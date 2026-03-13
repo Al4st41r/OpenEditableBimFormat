@@ -187,6 +187,23 @@ describe('buildProfileShape — edge cases', () => {
     expect(shapes.length).toBeGreaterThanOrEqual(1);
   });
 
+  test('origin.x outside total width: produces finite vertex positions without throwing', () => {
+    // origin.x = 0.5 but total profile width = 0.2 — origin overshoots the profile
+    const profile = {
+      id: 'p', type: 'Profile', width: 0.2,
+      origin: { x: 0.5, y: 0 },
+      assembly: [
+        { layer: 1, name: 'Brick', material_id: 'mat-a', thickness: 0.2, function: 'structure' },
+      ],
+    };
+    expect(() => buildProfileShape(profile)).not.toThrow();
+    const shapes = buildProfileShape(profile);
+    expect(shapes.length).toBeGreaterThanOrEqual(1);
+    for (const s of shapes) {
+      expect(s.points.every(p => isFinite(p.x) && isFinite(p.y))).toBe(true);
+    }
+  });
+
   test('single-layer profile produces exactly one shape', () => {
     const profile = {
       id: 'p', type: 'Profile', width: 0.102,

@@ -170,6 +170,33 @@ describe('sweepProfile — edge cases', () => {
     }
   });
 
+  test('closed path (first point == last): does not throw, produces finite vertices', () => {
+    // Closed rectangular path — start and end coincide
+    const path = [
+      { x: 0, y: 0, z: 0 },
+      { x: 4, y: 0, z: 0 },
+      { x: 4, y: 3, z: 0 },
+      { x: 0, y: 3, z: 0 },
+      { x: 0, y: 0, z: 0 },  // same as first
+    ];
+    expect(() => sweepProfile(path, [layerFrom(rect(-0.1, 0.1))])).not.toThrow();
+    const [mesh] = sweepProfile(path, [layerFrom(rect(-0.1, 0.1))]);
+    expect(Array.from(mesh.vertices).every(isFinite)).toBe(true);
+    expect(Array.from(mesh.normals).every(isFinite)).toBe(true);
+  });
+
+  test('path with sharp corner (~170° turn): all normals are finite', () => {
+    // Nearly-reverse path — tangent almost reverses at the second point
+    const path = [
+      { x: 0,   y: 0,    z: 0 },
+      { x: 5,   y: 0,    z: 0 },
+      { x: 5.1, y: 0.05, z: 0 },  // sharp ~170° turn
+    ];
+    expect(() => sweepProfile(path, [layerFrom(rect(-0.1, 0.1))])).not.toThrow();
+    const [mesh] = sweepProfile(path, [layerFrom(rect(-0.1, 0.1))]);
+    expect(Array.from(mesh.normals).every(isFinite)).toBe(true);
+  });
+
   test('real wall: terraced-house north wall, cavity-250 profile, 4 layers', () => {
     const pathPoints = [
       { x: 0.0, y: 8.5, z: 0.0 },
