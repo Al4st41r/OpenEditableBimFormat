@@ -1,14 +1,22 @@
 /**
- * libraryBrowser.js — Library material browser modal for the OEBF editor.
+ * libraryBrowser.js — Library browser modal for the OEBF editor.
  *
- * Fetches /oebf/library/materials/library.json, displays materials by category,
- * and allows importing into the open bundle.
+ * Fetches /oebf/library/materials/library.json for materials and
+ * known profile JSON files from /oebf/library/profiles/ for profiles.
+ * Displays items by category/type and allows importing into the open bundle.
  */
 
 import { writeEntity } from './bundleWriter.js';
 
 let _adapter    = null;
 let _library    = null; // { version, materials[] } — cached after first fetch
+let _profiles   = null; // Profile[] — cached after first fetch
+
+const PROFILE_FILENAMES = [
+  'cavity-wall.json',
+  'solid-wall.json',
+  'concrete-slab.json',
+];
 
 export function setAdapter(a) { _adapter = a; }
 
@@ -23,7 +31,17 @@ export async function openLibraryBrowser() {
       return;
     }
   }
-  _renderModal(_library);
+  if (!_profiles) {
+    const loaded = [];
+    for (const filename of PROFILE_FILENAMES) {
+      try {
+        const res = await fetch(`/oebf/library/profiles/${filename}`);
+        if (res.ok) loaded.push(await res.json());
+      } catch { /* skip on network error */ }
+    }
+    _profiles = loaded;
+  }
+  _renderModal(_library, _profiles);
 }
 
 /** Filter materials by category and search query. Exported for unit testing. */
@@ -37,7 +55,7 @@ export function filterMaterials(materials, query, cat) {
 
 // ── Modal ────────────────────────────────────────────────────────────────────
 
-async function _renderModal(library) {
+async function _renderModal(library, profiles) {
   // Remove existing modal
   document.getElementById('lib-modal')?.remove();
 
@@ -60,7 +78,7 @@ async function _renderModal(library) {
   const header = document.createElement('div');
   header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #333;flex-shrink:0';
   const title = document.createElement('span');
-  title.textContent = 'Material Library';
+  title.textContent = 'Library';
   title.style.cssText = 'font-size:13px;font-weight:bold;color:#ddd;';
   const closeBtn = document.createElement('button');
   closeBtn.textContent = '×';
@@ -68,7 +86,32 @@ async function _renderModal(library) {
   closeBtn.addEventListener('click', () => modal.remove());
   header.appendChild(title); header.appendChild(closeBtn);
 
-  // Search + category filter
+  // Tab switcher
+  const tabs = document.createElement('div');
+  tabs.style.cssText = 'display:flex;gap:0;padding:8px 14px 0;border-bottom:1px solid #333;flex-shrink:0;';
+
+  let activeTab = 'materials';
+
+  const tabStyle = (active) => [
+    'font-size:12px', 'padding:4px 14px', 'cursor:pointer',
+    'border:1px solid #444', 'border-bottom:none', 'border-radius:4px 4px 0 0',
+    'background:' + (active ? '#2a2a2a' : '#1a1a1a'),
+    'color:' + (active ? '#ddd' : '#888'),
+    'margin-right:4px',
+  ].join(';');
+
+  const matTab = document.createElement('button');
+  matTab.textContent = 'Materials';
+  matTab.style.cssText = tabStyle(true);
+
+  const profTab = document.createElement('button');
+  profTab.textContent = 'Profiles';
+  profTab.style.cssText = tabStyle(false);
+
+  tabs.appendChild(matTab);
+  tabs.appendChild(profTab);
+
+  // Controls area (search + category filter — materials only)
   const controls = document.createElement('div');
   controls.style.cssText = 'display:flex;gap:8px;padding:8px 14px;border-bottom:1px solid #333;flex-shrink:0';
 
@@ -90,7 +133,7 @@ async function _renderModal(library) {
   const list = document.createElement('div');
   list.style.cssText = 'overflow-y:auto;flex:1;padding:6px 0;';
 
-  async function _renderList() {
+  async function _renderMaterialList() {
     list.innerHTML = '';
     const query = searchInp.value;
     const cat   = catSel.value;
@@ -137,7 +180,7 @@ async function _renderModal(library) {
         useBtn.style.cssText = 'font-size:11px;padding:3px 8px;cursor:pointer;background:#2a4a6a;color:#ddd;border:1px solid #4a8aaa;border-radius:3px;';
         useBtn.addEventListener('click', async () => {
           await _importMaterial(mat);
-          await _renderList(); // refresh to show "In project"
+          await _renderMaterialList(); // refresh to show "In project"
         });
         actionEl.appendChild(useBtn);
       }
@@ -154,10 +197,89 @@ async function _renderModal(library) {
     }
   }
 
-  searchInp.addEventListener('input', _renderList);
-  catSel.addEventListener('change', _renderList);
+  async function _renderProfileList() {
+    list.innerHTML = '';
+
+    // Determine which profiles are already in the bundle
+    const inProject = new Set();
+    if (_adapter) {
+      for (const prof of profiles) {
+        try {
+          await _adapter.readJson(`profiles/${prof.id}.json`);
+          inProject.add(prof.id);
+        } catch { /* not in bundle */ }
+      }
+    }
+
+    for (const prof of profiles) {
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:6px 14px;border-bottom:1px solid #2a2a2a;';
+
+      const info = document.createElement('div');
+      info.style.cssText = 'flex:1;min-width:0;';
+      const nameEl = document.createElement('div');
+      nameEl.textContent = prof.description ?? prof.id;
+      nameEl.style.cssText = 'font-size:12px;color:#ddd;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
+      const metaEl = document.createElement('div');
+      metaEl.textContent = prof.profile_type
+        ? prof.profile_type.charAt(0).toUpperCase() + prof.profile_type.slice(1)
+        : 'Profile';
+      metaEl.style.cssText = 'font-size:10px;color:#888;';
+      info.appendChild(nameEl); info.appendChild(metaEl);
+
+      const actionEl = document.createElement('div');
+      actionEl.style.cssText = 'flex-shrink:0;';
+
+      if (inProject.has(prof.id)) {
+        const badge = document.createElement('span');
+        badge.textContent = 'In project';
+        badge.style.cssText = 'font-size:10px;color:#4a8;padding:2px 6px;border:1px solid #4a8;border-radius:3px;';
+        actionEl.appendChild(badge);
+      } else {
+        const useBtn = document.createElement('button');
+        useBtn.textContent = 'Use';
+        useBtn.style.cssText = 'font-size:11px;padding:3px 8px;cursor:pointer;background:#2a4a6a;color:#ddd;border:1px solid #4a8aaa;border-radius:3px;';
+        useBtn.addEventListener('click', async () => {
+          if (_adapter) {
+            await writeEntity(_adapter, `profiles/${prof.id}.json`, prof);
+          }
+          await _renderProfileList(); // refresh to show "In project"
+        });
+        actionEl.appendChild(useBtn);
+      }
+
+      row.appendChild(info); row.appendChild(actionEl);
+      list.appendChild(row);
+    }
+
+    if (profiles.length === 0) {
+      const empty = document.createElement('div');
+      empty.textContent = 'No profiles found.';
+      empty.style.cssText = 'padding:16px 14px;color:#666;font-size:12px;';
+      list.appendChild(empty);
+    }
+  }
+
+  function _switchTab(tab) {
+    activeTab = tab;
+    matTab.style.cssText = tabStyle(tab === 'materials');
+    profTab.style.cssText = tabStyle(tab === 'profiles');
+    controls.style.display = tab === 'materials' ? 'flex' : 'none';
+    if (tab === 'materials') {
+      _renderMaterialList();
+    } else {
+      _renderProfileList();
+    }
+  }
+
+  matTab.addEventListener('click', () => _switchTab('materials'));
+  profTab.addEventListener('click', () => _switchTab('profiles'));
+
+  searchInp.addEventListener('input', _renderMaterialList);
+  catSel.addEventListener('change', _renderMaterialList);
 
   panel.appendChild(header);
+  panel.appendChild(tabs);
   panel.appendChild(controls);
   panel.appendChild(list);
   modal.appendChild(panel);
@@ -166,7 +288,7 @@ async function _renderModal(library) {
   // Close on backdrop click
   modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
 
-  await _renderList();
+  await _renderMaterialList();
 }
 
 async function _importMaterial(mat) {
