@@ -7,6 +7,7 @@
 
 import * as THREE from 'three';
 import { writeEntity } from './bundleWriter.js';
+import { toDisplay, unitLabel } from './units.js';
 
 const GUIDE_COLOUR  = 0x7090e8;
 const GUIDE_OPACITY = 0.12;
@@ -36,8 +37,32 @@ export class GuideManager {
     this._guides = [];
 
     for (const path of guidePaths) {
-      this._addGuide(path.id, path.description ?? path.id, path.segments ?? [], true);
+      if (path.guide_axis === 'z') {
+        this._addZGuideInternal(path.id, path.description ?? path.id, path.z_m ?? 0, true);
+      } else {
+        this._addGuide(path.id, path.description ?? path.id, path.segments ?? [], true);
+      }
     }
+  }
+
+  /**
+   * Add a horizontal guide plane at a specific Z height.
+   * @param {string} name
+   * @param {number} z_m — height in metres
+   */
+  async addZGuide(name, z_m) {
+    const id = `guide-z-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}-${Date.now()}`;
+    this._addZGuideInternal(id, name, z_m, true);
+    if (this._adapter) {
+      await writeEntity(this._adapter, `paths/${id}.json`, {
+        '$schema': 'oebf://schema/0.1/path',
+        id, type: 'Path', guide: true, guide_axis: 'z', z_m,
+        description: name,
+        closed: false, segments: [],
+      });
+    }
+    if (this._onGuideAdded) this._onGuideAdded(id);
+    return id;
   }
 
   /**
@@ -80,6 +105,14 @@ export class GuideManager {
     this._renderList();
   }
 
+  _addZGuideInternal(id, name, z_m, visible) {
+    const object3d = _buildZGuideObject(z_m);
+    object3d.visible = visible;
+    this._overlayGroup.add(object3d);
+    this._guides.push({ id, name, z_m, visible, object3d, isZGuide: true });
+    this._renderList();
+  }
+
   _renderList() {
     this._listEl.innerHTML = '';
     for (const g of this._guides) {
@@ -88,7 +121,9 @@ export class GuideManager {
 
       const nameSpan = document.createElement('span');
       nameSpan.className = 'tree-item-name';
-      nameSpan.textContent = g.name;
+      nameSpan.textContent = g.isZGuide
+        ? `${g.name} (Z=${toDisplay(g.z_m)} ${unitLabel()})`
+        : g.name;
 
       const eyeBtn = document.createElement('button');
       eyeBtn.className = 'tree-item-eye';
@@ -162,6 +197,21 @@ function _buildGuideObject(segments) {
     group.add(plane);
   }
 
+  return group;
+}
+
+function _buildZGuideObject(z_m) {
+  const group = new THREE.Group();
+  const SIZE  = 50; // metres — large enough to span any typical floor plan
+  const mat   = new THREE.MeshBasicMaterial({
+    color: GUIDE_COLOUR, transparent: true,
+    opacity: GUIDE_OPACITY, side: THREE.DoubleSide, depthWrite: false,
+  });
+  const geo   = new THREE.PlaneGeometry(SIZE, SIZE);
+  const plane = new THREE.Mesh(geo, mat);
+  plane.position.set(0, 0, z_m);
+  // PlaneGeometry is in XY (horizontal) by default in Z-up — no rotation needed
+  group.add(plane);
   return group;
 }
 

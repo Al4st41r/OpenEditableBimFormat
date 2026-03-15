@@ -230,6 +230,19 @@ document.getElementById('add-guide-btn').addEventListener('click', () => {
   statusBar.textContent = 'Click to place guide points. Double-click or Enter to finish.';
 });
 
+document.getElementById('add-height-guide-btn').addEventListener('click', async () => {
+  if (!adapter) return;
+  const name = window.prompt('Height guide name:', 'Height Guide');
+  if (!name) return;
+  const zDisplay = window.prompt(`Z height (${unitLabel()}):`, '0');
+  if (zDisplay === null) return;
+  const z_m = fromDisplay(parseFloat(zDisplay));
+  if (!Number.isFinite(z_m)) { statusBar.textContent = 'Invalid height'; return; }
+  const id = await guideManager.addZGuide(name, z_m);
+  if (!_modelState.paths.includes(id)) _modelState.paths.push(id);
+  statusBar.textContent = `Height guide added: ${name}`;
+});
+
 document.getElementById('tool-guide').addEventListener('click', () => {
   if (!adapter) return;
   if (!guideTool) {
@@ -606,6 +619,7 @@ function _enableEditorTools() {
   document.getElementById('tool-guide').disabled = false;
   document.getElementById('add-grid-btn').disabled  = false;
   document.getElementById('add-guide-btn').disabled = false;
+  document.getElementById('add-height-guide-btn').disabled = false;
   document.getElementById('add-detail-btn').disabled = false;
   document.getElementById('default-wall-profile').disabled = false;
   document.getElementById('default-slab-profile').disabled = false;
