@@ -52,6 +52,7 @@ export class DrawingTool {
     this._boundClick     = this._onClick.bind(this);
     this._boundDblClick  = this._onDblClick.bind(this);
     this._boundKeyDown   = this._onKeyDown.bind(this);
+    this._boundCoordKeyDown = this._onCoordKeyDown.bind(this);
 
     // Coordinate HUD
     this._hudEl = document.createElement('div');
@@ -169,8 +170,20 @@ export class DrawingTool {
     }
   }
 
+  _onCoordKeyDown(e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      this._commitCoordInput();
+    }
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      this._hideCoordOverlay();
+    }
+    e.stopPropagation();
+  }
+
   _isCoordOverlayVisible() {
-    return this._coordOverlay && this._coordOverlay.style.display !== 'none';
+    return !!(this._coordOverlay && this._coordOverlay.style.display !== 'none');
   }
 
   _showCoordOverlay(initialChar) {
@@ -195,20 +208,9 @@ export class DrawingTool {
       this._coordOverlay.appendChild(label);
       this._coordOverlay.appendChild(this._coordInputEl);
       document.body.appendChild(this._coordOverlay);
-
-      this._coordInputEl.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          this._commitCoordInput();
-        }
-        if (e.key === 'Escape') {
-          e.preventDefault();
-          this._hideCoordOverlay();
-        }
-        e.stopPropagation(); // prevent drawingTool keydown from also firing
-      });
     }
     this._coordOverlay.style.display = 'flex';
+    this._coordInputEl.addEventListener('keydown', this._boundCoordKeyDown);
     this._coordInputEl.value = initialChar;
     this._coordInputEl.focus();
   }
@@ -228,6 +230,7 @@ export class DrawingTool {
 
     if (!xMatch && !yMatch) return; // nothing parseable
 
+    // If mouse hasn't moved since activate(), cursor defaults to world origin for the omitted axis.
     const cursorX = this._cursorPos?.x ?? 0;
     const cursorY = this._cursorPos?.y ?? 0;
     const z       = this._cursorPos?.z ?? 0;
@@ -281,6 +284,9 @@ export class DrawingTool {
     this._snapIndicator.material.dispose();
     this._hudEl.remove();
     if (this._coordOverlay) this._coordOverlay.remove();
+    if (this._coordInputEl) {
+      this._coordInputEl.removeEventListener('keydown', this._boundCoordKeyDown);
+    }
   }
 }
 
