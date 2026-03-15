@@ -529,6 +529,10 @@ async function _loadAndRenderBundle(adapter) {
     (nodeInfo) => _onPathNodeSelected(nodeInfo),
   );
   pathEditTool.setAdapter(adapter);
+  pathEditTool.onEditCommitted = () => {
+    const elementId = pathEditTool._elementId;
+    if (elementId) _reRenderElement(elementId, pathEditTool._pathData);
+  };
 
   // Create junction editor bound to this bundle
   junctionEditor = new JunctionEditor(
@@ -819,8 +823,79 @@ function _selectElement(id) {
 }
 
 function _onPathNodeSelected(nodeInfo) {
-  // Node position editing wired in pathEditTool properties panel (Task 19)
   // nodeInfo: { segIdx, role, pos } or null
+  // TODO (Task 19): populate properties panel with node position inputs when nodeInfo is not null
+}
+
+/**
+ * Rebuild the Three.js mesh(es) for one element after its path has been edited.
+ * Uses the in-memory pathData supplied by PathEditTool so the visual updates
+ * immediately without a round-trip through the adapter.
+ *
+ * @param {string} elementId
+ * @param {object} updatedPathData — the mutated path JSON from pathEditTool._pathData
+ */
+async function _reRenderElement(elementId, updatedPathData) {
+  const reg = _elementRegistry.get(elementId);
+  if (!reg || !updatedPathData) return;
+
+  // Remove existing meshes for this element
+  const toRemove = editorScene.modelGroup.children.filter(
+    c => c.userData?.elementId === elementId
+  );
+  for (const m of toRemove) {
+    editorScene.modelGroup.remove(m);
+    if (m.geometry) m.geometry.dispose();
+    if (m.material) m.material.dispose();
+  }
+
+  // Update the registry so future calls use the latest path
+  reg.pathData = updatedPathData;
+
+  try {
+    const { parsePath }         = await import('../loader/loadPath.js');
+    const { buildProfileShape } = await import('../loader/loadProfile.js');
+    const { sweepProfile }      = await import('../geometry/sweep.js');
+    const { buildSlabMeshData } = await import('../loader/loadSlab.js');
+
+    const profileId = reg.profileId;
+    if (!profileId) return;
+
+    const profData = await readEntity(adapter, `profiles/${profileId}.json`);
+
+    if (reg.description === 'Slab') {
+      // Slab: re-build from boundary path
+      try {
+        const slabJson = await readEntity(adapter, `slabs/${elementId}.json`);
+        const matData  = activeProfileMap[slabJson.material_id];
+        const colour   = matData?.colour_hex ?? '#888888';
+        const { buildSlabMeshData: bsm } = await import('../loader/loadSlab.js');
+        const meshData = bsm(slabJson, updatedPathData);
+        editorScene.modelGroup.add(buildThreeMesh({ ...meshData, colour, elementId, description: reg.description }));
+      } catch (err) {
+        console.warn(`[OEBF] _reRenderElement slab ${elementId}:`, err.message);
+      }
+    } else {
+      // Wall / element: sweep profile along path
+      const profileShapes = buildProfileShape(profData);
+      const { points: pathPoints } = parsePath(updatedPathData);
+      const layerMeshes = sweepProfile(pathPoints, profileShapes);
+      for (const layerData of layerMeshes) {
+        const matData = activeProfileMap[layerData.materialId];
+        const colour  = matData?.colour_hex ?? '#888888';
+        editorScene.modelGroup.add(buildThreeMesh({
+          vertices:    layerData.vertices,
+          normals:     layerData.normals,
+          indices:     layerData.indices,
+          colour,
+          elementId,
+          description: reg.description,
+        }));
+      }
+    }
+  } catch (err) {
+    console.warn(`[OEBF] _reRenderElement ${elementId}:`, err.message);
+  }
 }
 
 async function _showElementProps(id) {

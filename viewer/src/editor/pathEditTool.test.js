@@ -32,6 +32,63 @@ function makeSeg(x1, y1, x2, y2) {
   return { type: 'line', start: { x: x1, y: y1, z: 0 }, end: { x: x2, y: y2, z: 0 } };
 }
 
+// ── Minimal stub replicating PathEditTool's onEditCommitted wiring ────────────
+// PathEditTool cannot be imported directly in node environment (Three.js
+// requires DOM/WebGL), so we replicate only the relevant callback logic.
+class PathEditToolStub {
+  constructor() {
+    this.onEditCommitted = null;
+    this._pathData = null;
+    this._adapter  = null;
+    this._pathId   = null;
+  }
+  _buildHandles() {}
+  async _save() { /* no-op for tests */ }
+  async _insertNode(midIdx) {
+    const { segIdx, midPos } = this._midHandles[midIdx];
+    const seg = this._pathData.segments[segIdx];
+    const newSeg = { type: 'line', start: { ...midPos }, end: { ...seg.end } };
+    seg.end = { ...midPos };
+    this._pathData.segments.splice(segIdx + 1, 0, newSeg);
+    this._buildHandles();
+    await this._save();
+    this.onEditCommitted?.();
+  }
+}
+
+describe('pathEditTool — onEditCommitted callback', () => {
+  test('onEditCommitted is called after _insertNode', async () => {
+    const tool = new PathEditToolStub();
+    let callCount = 0;
+    tool.onEditCommitted = () => { callCount += 1; };
+    tool._pathData = {
+      segments: [
+        { type: 'line', start: { x: 0, y: 0, z: 0 }, end: { x: 4, y: 0, z: 0 } },
+      ],
+    };
+    tool._midHandles = [
+      { segIdx: 0, midPos: { x: 2, y: 0, z: 0 } },
+    ];
+    await tool._insertNode(0);
+    expect(callCount).toBe(1);
+    expect(tool._pathData.segments.length).toBe(2); // confirms insert happened
+  });
+
+  test('onEditCommitted is not required (null is safe)', async () => {
+    const tool = new PathEditToolStub();
+    tool._pathData = {
+      segments: [
+        { type: 'line', start: { x: 0, y: 0, z: 0 }, end: { x: 4, y: 0, z: 0 } },
+      ],
+    };
+    tool._midHandles = [
+      { segIdx: 0, midPos: { x: 2, y: 0, z: 0 } },
+    ];
+    // Should not throw when onEditCommitted is null
+    await expect(tool._insertNode(0)).resolves.toBeUndefined();
+  });
+});
+
 describe('pathEditTool — node manipulation', () => {
   test('insertNode splits segment at midpoint', () => {
     const segs = [makeSeg(0, 0, 4, 0)];

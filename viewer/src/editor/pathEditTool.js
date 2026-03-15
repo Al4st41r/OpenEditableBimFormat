@@ -29,6 +29,8 @@ export class PathEditTool {
     this._canvas         = canvas;
     this._getCamera      = getCameraFn;
     this._onNodeSelected = onNodeSelected ?? (() => {});
+    /** Called after every committed edit (mouseup, insert, delete). */
+    this.onEditCommitted = null;
     this._raycaster      = new THREE.Raycaster();
 
     this._pathId     = null; // current path id
@@ -197,6 +199,7 @@ export class PathEditTool {
     window.removeEventListener('mousemove', this._boundMouseMove);
     window.removeEventListener('mouseup',   this._boundMouseUp);
     this._save();
+    this.onEditCommitted?.();
   }
 
   _onKeyDown(e) {
@@ -238,6 +241,7 @@ export class PathEditTool {
     this._pathData.segments.splice(segIdx + 1, 0, newSeg);
     this._buildHandles();
     this._save();
+    this.onEditCommitted?.();
   }
 
   _deleteSelectedNode() {
@@ -270,6 +274,7 @@ export class PathEditTool {
     this._onNodeSelected(null);
     this._buildHandles();
     this._save();
+    this.onEditCommitted?.();
   }
 
   async _save() {
