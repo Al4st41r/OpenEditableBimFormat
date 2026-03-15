@@ -26,18 +26,45 @@
       "enum": ["center", "left-face", "right-face", "top-face", "bottom-face"]
     },
     "detail":   { "type": "boolean" },
+    "profile_type": {
+      "type": "string",
+      "enum": ["wall", "slab"]
+    },
+    "ffl_m": {
+      "type": "number",
+      "minimum": 0
+    },
+    "height_limit_m": {
+      "type": "number",
+      "minimum": 0
+    },
     "assembly": {
       "type": "array",
       "minItems": 1,
       "items": {
         "type": "object",
-        "required": ["layer", "name", "material_id", "thickness", "function"],
+        "required": ["layer", "name", "material_id", "function"],
         "properties": {
           "layer":       { "type": "integer", "minimum": 1 },
           "name":        { "type": "string" },
           "material_id": { "type": "string" },
           "thickness":   { "type": "number", "exclusiveMinimum": 0 },
-          "function":    { "type": "string", "enum": ["finish", "structure", "insulation", "membrane", "service"] }
+          "function":    { "type": "string", "enum": ["finish", "structure", "insulation", "membrane", "service"] },
+          "type": {
+            "type": "string",
+            "enum": ["band", "region"]
+          },
+          "vertices": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["x", "y"],
+              "properties": {
+                "x": { "type": "number" },
+                "y": { "type": "number" }
+              }
+            }
+          }
         }
       }
     }

@@ -8,11 +8,11 @@
 /**
  * Build a profile JSON object from editor state.
  *
- * @param {{ layers: Array, originX: number, id: string, description: string }} opts
+ * @param {{ layers: Array, originX: number, id: string, description: string, profileType?: string, ffl_m?: number, height_limit_m?: number }} opts
  * @returns {object} OEBF profile JSON
  */
-export function buildJson({ layers, originX, id, description }) {
-  const width = layers.reduce((sum, l) => sum + l.thickness, 0);
+export function buildJson({ layers, originX, id, description, profileType, ffl_m, height_limit_m }) {
+  const width = layers.reduce((sum, l) => sum + (l.thickness ?? 0), 0);
   return {
     $schema:     'oebf://schema/0.1/profile',
     id,
@@ -23,13 +23,24 @@ export function buildJson({ layers, originX, id, description }) {
     height:      null,
     origin:      { x: Math.round(originX * 1e6) / 1e6, y: 0.0 },
     alignment:   'center',
-    assembly:    layers.map((l, i) => ({
-      layer:       i + 1,
-      name:        l.name,
-      material_id: l.material_id,
-      thickness:   Math.round(l.thickness * 1e6) / 1e6,
-      function:    l.function,
-    })),
+    ...(profileType    !== undefined && { profile_type:    profileType }),
+    ...(ffl_m          !== undefined && { ffl_m }),
+    ...(height_limit_m !== undefined && { height_limit_m }),
+    assembly: layers.map((l, i) => {
+      const item = {
+        layer:       i + 1,
+        name:        l.name,
+        material_id: l.material_id,
+        function:    l.function,
+      };
+      if (l.type === 'region') {
+        item.type     = 'region';
+        item.vertices = l.vertices ?? [];
+      } else {
+        item.thickness = Math.round((l.thickness ?? 0) * 1e6) / 1e6;
+      }
+      return item;
+    }),
   };
 }
 
@@ -41,7 +52,7 @@ export function buildJson({ layers, originX, id, description }) {
  * @returns {string} SVG file content
  */
 export function buildSvg({ layers, originX, matMap }) {
-  const totalWidth = Math.round(layers.reduce((s, l) => s + l.thickness, 0) * 1e6) / 1e6;
+  const totalWidth = Math.round(layers.reduce((s, l) => s + (l.thickness ?? 0), 0) * 1e6) / 1e6;
   const HEIGHT = 2.700;
   const heightStr = HEIGHT.toFixed(3);
 
@@ -51,10 +62,10 @@ export function buildSvg({ layers, originX, matMap }) {
     const l = layers[i];
     const colour = matMap[l.material_id]?.colour_hex ?? '#888888';
     const x = Math.round(cursor * 1e6) / 1e6;
-    const w = Math.round(l.thickness * 1e6) / 1e6;
+    const w = Math.round((l.thickness ?? 0) * 1e6) / 1e6;
     rects += `  <!-- Layer ${i + 1}: ${l.name} -->\n`;
     rects += `  <rect x="${x}" y="0" width="${w}" height="${heightStr}" fill="${colour}" stroke="#888" stroke-width="0.002"/>\n`;
-    cursor += l.thickness;
+    cursor += (l.thickness ?? 0);
     cursor = Math.round(cursor * 1e6) / 1e6; // prevent float drift
   }
 
