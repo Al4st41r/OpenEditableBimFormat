@@ -1,14 +1,14 @@
 # OEBF Project Status
 
-**Date:** 2026-03-10
+**Date:** 2026-03-15
 **Branch:** main
-**Tests:** 265 passing — 237 JS (Vitest, 16 test files) + 21 Python (pytest) + 7 Playwright e2e
+**Tests:** 364 passing — 364 JS (Vitest, 30 test files) + 21 Python (pytest)
 
 ---
 
 ## Summary
 
-Phases 1–5 are complete and v0.1.0 is tagged. The v0.2 editor alpha (`v0.2.0-editor-alpha`) adds a full browser-based OEBF bundle editor: homepage, editor layout with Three.js viewport, storey management, reference grids, reference lines/guides, wall drawing tool, floor/slab drawing tool, junction rule editor, detail sub-assembly profile authoring, and save to `model.json`. The viewer continues to load both `.oebf` directory bundles and `.oebfz` Zstd-compressed archives.
+Phases 1–6 are complete. v0.1.0 is tagged and published. The v0.2 editor alpha (`v0.2.0-editor-alpha`) adds a full browser-based OEBF bundle editor. PR #68 (review batch 1) extended the editor with 7 additional features: unit toggle, coordinate HUD, guide bugfixes, Z-axis guides, material/profile library browser, path node editing, and properties panel node position. The build is deployed at `architools.drawingtable.net/oebf/`.
 
 ---
 
@@ -16,135 +16,87 @@ Phases 1–5 are complete and v0.1.0 is tagged. The v0.2 editor alpha (`v0.2.0-e
 
 ### Format specification
 
-- All JSON Schemas authored and in `spec/schema/` and embedded in `example/terraced-house.oebf/schema/`:
-  `manifest`, `path`, `profile`, `element`, `junction`, `junction-geometry`, `array`, `material`, `group`, `opening`, `symbol`, `grid`
-- All schemas also bundled inside the example at `example/terraced-house.oebf/schema/oebf-schema.json`
+- All JSON schemas in `spec/schema/` and embedded in `example/terraced-house.oebf/schema/`
+- Schemas: `manifest`, `path`, `profile`, `element`, `junction`, `junction-geometry`, `array`, `material`, `group`, `opening`, `symbol`, `grid`
+- `model.json` now supports `units` field (`"mm"` or `"m"`, default `"mm"`)
 
 ### Example bundle — `terraced-house.oebf`
 
-- Ground-floor walls: 4 elements, 4 paths, 1 cavity-wall profile (`profile-cavity-250`)
-- Junctions: 4 corner junctions + 1 custom rule junction (`junction-ne-padstone`) with a JSON polygon-mesh geometry file
-- Arrays: 1 array (`array-front-fence-posts`) — fence posts rendered as InstancedMesh along a boundary path
-- Materials library with project-level materials
-- Structural grid entity (`grid-structural.json`)
-- Symbol entity (`symbol-fence-post.json`) with box geometry definition
-- `OEBF-GUIDE.md` — LLM editing guide embedded in the bundle
+- Ground-floor walls: 4 elements, 4 paths, 1 cavity-wall profile
+- Junctions: 4 corner junctions + 1 custom rule junction with JSON polygon-mesh geometry
+- Arrays: 1 array (`array-front-fence-posts`) — InstancedMesh
+- Materials library, structural grid entity, symbol entity, `OEBF-GUIDE.md`
 
-### Viewer — all modules complete
+### Viewer — complete
 
 | Module | File | Status |
 |---|---|---|
-| Vite + Three.js app entry | `viewer/viewer.html`, `viewer/src/main.js` | Done (moved from `index.html` in v0.2) |
 | Path arc-length sampler | `viewer/src/path/pathSampler.js` | Done, 11 tests |
-| Profile SVG + JSON loader | `viewer/src/profile/profileLoader.js` | Done |
 | Sweep geometry engine | `viewer/src/geometry/sweepGeometry.js` | Done |
 | Junction trim algorithm | `viewer/src/junction-trimmer.js` | Done, 50+ tests |
-| Curved-path junction trim | `viewer/src/junction-trimmer.js` | Done — arc and bezier tangent planes; spline falls back to null with warning |
-| Junction renderer (plane-clip) | `viewer/src/junction-renderer.js` | Done |
-| Custom junction mesh renderer | `viewer/src/junction-renderer.js` | Done — `buildCustomJunctionMesh` wired into scene |
-| Geometry cache | `viewer/src/geometry/geometryCache.js` | Done, 9 tests |
-| Array distributor | `viewer/src/array/arrayDistributor.js` | Done, 22 tests (fill and count modes) |
-| Array renderer | `viewer/src/array/arrayRenderer.js` | Done — InstancedMesh (one draw call per geometry layer) |
-| Symbol geometry builder | `viewer/src/symbol/symbolGeometry.js` | Done — box `geometry_definition` supported |
-| Grid renderer | `viewer/src/grid/gridRenderer.js` | Done — LineSegments |
-| Scene builder | `viewer/src/scene/sceneBuilder.js` | Done — wires all modules; parametric arrays, custom junctions, grids all in scene |
-| .oebf bundle loader | `viewer/src/loader/bundleLoader.js` | Done |
-| .oebfz archive loader | `viewer/src/loader/oebfzLoader.js` | Done — fzstd + tar parser; `_buildScene` helper refactored |
-| Profile SVG editor | `viewer/profile-editor.html`, `viewer/src/profile-editor/` | Done — 2D canvas editor, postMessage handle transfer from main viewer |
-| Edit-profiles button | `viewer/src/ui/editProfilesBtn.js` | Done — opens editor panel, postMessage wired |
+| Array distributor + renderer | `viewer/src/array/` | Done — InstancedMesh |
+| Grid renderer | `viewer/src/grid/gridRenderer.js` | Done |
+| .oebf + .oebfz loaders | `viewer/src/loader/` | Done |
+| Profile SVG editor | `viewer/profile-editor.html` | Done — 2D canvas editor |
 
-### Editor — v0.2 alpha complete
-
-New entry point: `viewer/editor.html`. All editor modules in `viewer/src/editor/`.
+### Editor — v0.2 alpha + review batch 1
 
 | Feature | File | Status |
 |---|---|---|
-| Homepage with viewer and editor cards | `viewer/index.html` | Done |
-| Editor page layout + Three.js viewport | `viewer/editor.html`, `viewer/src/editor/editorScene.js` | Done |
-| Bundle open (FSA API, readwrite) | `viewer/src/editor/editor.js` | Done |
-| Storey management — create, rename, Z level, visibility | `viewer/src/editor/storeyManager.js` | Done |
-| Reference grid overlay (axis-numeric) | `viewer/src/editor/gridOverlayManager.js` | Done |
-| Reference lines / guides | `viewer/src/editor/guideManager.js` | Done |
-| Wall drawing tool (click-to-place, element + path write) | `viewer/src/editor/wallTool.js` | Done |
-| Floor / slab drawing tool | `viewer/src/editor/floorTool.js` | Done |
-| Junction rule editor (properties panel, write to bundle) | `viewer/src/editor/junctionEditor.js` | Done |
-| Detail sub-assembly profiles (create, open in profile editor) | `viewer/src/editor/editor.js` | Done |
-| Save model.json (merge `_modelState` + existing, write storeys) | `viewer/src/editor/editor.js` | Done |
-| Bundle writer + reader | `viewer/src/editor/bundleWriter.js` | Done |
+| Homepage, layout, Three.js viewport | `viewer/editor.html`, `viewer/src/editor/editorScene.js` | Done |
+| Bundle open/save (FSA API) | `viewer/src/editor/editor.js` | Done |
+| Storey management | `viewer/src/editor/storeyManager.js` | Done |
+| Reference grid overlay | `viewer/src/editor/gridOverlayManager.js` | Done |
+| Guide lines (vertical + Z-axis horizontal) | `viewer/src/editor/guideManager.js` | Done — #59 #60 |
+| Wall drawing tool | `viewer/src/editor/wallTool.js` | Done |
+| Floor/slab drawing tool | `viewer/src/editor/floorTool.js` | Done |
+| Junction rule editor | `viewer/src/editor/junctionEditor.js` | Done |
+| Detail sub-assembly profiles | `viewer/src/editor/editor.js` | Done |
+| Bundle writer/reader | `viewer/src/editor/bundleWriter.js` | Done |
+| **User-configurable units (mm/m)** | `viewer/src/editor/units.js` | Done — #62 |
+| **Drawing tool coordinate HUD + keyboard entry** | `viewer/src/editor/drawingTool.js` | Done — #63 |
+| **Material + profile library browser** | `viewer/src/editor/libraryBrowser.js` | Done — #61 |
+| **Default material/profile library** | `viewer/public/library/` | Done — 46 materials, 3 profiles |
+| **Path node editing (move, insert, delete)** | `viewer/src/editor/pathEditTool.js` | Done — #64 |
+| **Properties panel — node position (X/Y/Z)** | `viewer/src/editor/editor.js` | Done — #65 |
 
 ### IFC tools — `ifc-tools/`
 
-| Module | File | Status |
-|---|---|---|
-| Python project scaffold | `ifc-tools/pyproject.toml`, `ifc-tools/src/` | Done (uv) |
-| IFC importer CLI | `ifc-tools/src/ifc_importer.py` | Done — `IfcWall` etc. → OEBF Element; 21 pytest tests |
-| IFC exporter | `ifc-tools/src/ifc_exporter.py` | Done — OEBF sweep → `IfcExtrudedAreaSolid` |
+| Module | Status |
+|---|---|
+| IFC importer CLI | Done — `IfcWall` → OEBF Element; 21 pytest tests |
+| IFC exporter | Done — OEBF sweep → `IfcExtrudedAreaSolid` |
 
 ### CI / tooling
 
-- GitHub Actions pipeline: `.github/workflows/ci.yml` — viewer (Vitest + Playwright) and ifc-tools (pytest) jobs; passing on push to main
-- Full project README: `README.md`
-
-### Decision documents (all accepted)
-
-| Decision | File | Resolves |
-|---|---|---|
-| Junction trim: hybrid plane-sweep | `docs/decisions/2026-03-02-junction-trim-algorithm.md` | Issue #3 |
-| Custom junction geometry: raw JSON mesh | `docs/decisions/2026-03-02-custom-junction-geometry-authoring.md` | Issue #2 |
-| Material library: project-level for v0.1 | `docs/decisions/2026-03-02-material-library-approach.md` | Issue #12 |
-| IFC minimum entity set | `docs/decisions/2026-03-02-ifc-minimum-entity-set.md` | Issue #5 |
-| Curved-path junction trim | `docs/decisions/2026-03-02-curved-path-junction-trim.md` | Issue #8 |
-| Structural grid data model | `docs/decisions/2026-03-02-structural-grid-data-model.md` | Issue #11 |
-
-### Performance
-
-- Draw-call budget documented in `docs/performance.md`
-- InstancedMesh array rendering implemented (reduces 200 fence posts from 200 draw calls to 1)
-- LOD, Web Worker geometry, and material batching planned but not implemented (post-v0.1)
+- GitHub Actions: Vitest + Playwright (viewer) and pytest (ifc-tools); passing on push to main
+- Library build script: `scripts/build-library.mjs` — CSV → `library.json`
 
 ---
 
-## What Remains
+## Open Issues
 
-### Open issues
-
-| Issue | Title | Notes |
-|---|---|---|
-| #10 | Desktop wrapper: file watching for live LLM editing (Tauri v2) | Design plan written; not started |
-| #22 | OEBF-GUIDE.md test harness — LLM accuracy benchmark | Not started |
-| #27 | Playwright visual regression screenshot baseline — base path fixed in Task 30 | Partially resolved — base path fixed; visual regression baselines not yet created |
-| #29 | Opening entity — schema example, loader, viewer rendering | Not started |
-| #31 | edit-profiles-btn state incorrect after .oebfz load | Known bug; post-release fix |
-| #32 | Profile editor UX polish + graphical assets | Not started |
-| #18 | v0.2: CSG spline junction trim via three-bvh-csg | Not started |
-
-### Known limitations — v0.2 alpha
-
-| Limitation | Location | Notes |
-|---|---|---|
-| Junction sprites for pre-existing junctions placed at world origin | `junctionEditor.js` — `loadJunctions` | Position requires path data to be registered; tracked as TODO in source |
-| Mesh does not appear after drawing until a default profile is selected | Editor toolbar dropdowns | Entities are written to disk correctly; visual requires profile selection |
-| Input via `window.prompt` / `alert` | `storeyManager.js`, `editor.js` add-detail-btn | To be replaced with inline panel UI in a future task |
-| Guide drawing not wired to DrawingTool | `editor.js` | Guide tool button sets status bar message only; click-to-place not yet connected |
-| `v0.2.0-editor-alpha` tag is local only | — | Not yet pushed to GitHub |
+| # | Title | Priority | Notes |
+|---|---|---|---|
+| #66 | Profile editor improvements (guidelines, FFL, type, material, polygon) | High | Completes review batch 1 plan; 5 sub-features |
+| #67 | AI integration research and plan | High | Research task; plan to be committed as `docs/ai-integration-plan.md` |
+| #58 | V0.3: IFC importer/exporter integrated into editor UI | Medium | Accessible from editor, not just CLI |
+| #18 | CSG fallback for spline-path junctions (three-bvh-csg) | Medium | Geometry correctness for curved paths |
+| #10 | Tauri v2 desktop wrapper + file-watching for LLM editing | Medium | Design plan written; not started |
+| #45 | Project/marketing website | Low | Roadmap item |
+| #44 | Surface IFC converter tools on homepage | Low | Roadmap item |
 
 ---
 
-## GitHub Issues — Current Open
+## Known Limitations — v0.2 alpha
 
-| # | Title | State |
-|---|---|---|
-| #4 | OEBF-GUIDE.md structure for LLM editing accuracy | Open — Guide exists; test harness not built |
-| #9 | Clash detection: shared material boundary vs overlap | Open — not planned for v0.1 |
-| #10 | Desktop wrapper: file watching for live LLM editing (Tauri v2) | Open — design plan written; awaiting implementation |
-| #17 | Viewer bundle loading: File System Access API vs .oebfz archive upload | Open |
-| #18 | v0.2: CSG fallback for spline-path junctions via three-bvh-csg | Open — v0.2 item |
-| #22 | OEBF-GUIDE.md test harness — LLM accuracy benchmark | Open — post-v0.1 |
-| #27 | Playwright visual regression screenshot baseline | Open — base path fixed; baselines not yet created |
-| #29 | Opening entity — schema example, loader, viewer rendering | Open — post-v0.1 |
-| #31 | edit-profiles-btn state incorrect after .oebfz load | Open — known bug |
-| #32 | Profile editor UX polish + graphical assets | Open |
-| #33–#42 | OEBF editor (homepage, layout, storeys, grids, guides, wall, floor, junctions, details, save) | Closed — v0.2.0-editor-alpha |
+| Limitation | Notes |
+|---|---|
+| Storey and guide creation still uses `window.prompt` / `alert` | To be replaced with inline panel UI |
+| Junction sprites placed at world origin for pre-existing junctions | Requires path data registration at load time |
+| Mesh does not appear after drawing until a default profile is selected | Entities written correctly; visual requires profile |
+| Profile editor lacks guidelines, FFL marker, material picker (#66) | Next planned work item |
+| `v0.2.0-editor-alpha` tag not pushed to GitHub | Tag only exists locally |
 
 ---
 
@@ -157,4 +109,6 @@ New entry point: `viewer/editor.html`. All editor modules in `viewer/src/editor/
 | Phase 3 — IFC tools | Tasks 12–13 | Complete |
 | Phase 4 — Extended features | Tasks 14–20 | Complete |
 | Phase 5 — Scene completeness & release | Tasks 21–29 | Complete — v0.1.0 tagged |
-| Phase 6 — Browser editor (v0.2 alpha) | Tasks 30–42 | Complete — v0.2.0-editor-alpha tagged locally (not pushed) |
+| Phase 6 — Browser editor (v0.2 alpha) | Tasks 30–42 | Complete — v0.2.0-editor-alpha |
+| Phase 7 — Editor review batch 1 | PR #68 | Complete — #59 #60 #61 #62 #63 #64 #65 |
+| Phase 8 — Profile editor + AI integration | #66 #67 | Next |
