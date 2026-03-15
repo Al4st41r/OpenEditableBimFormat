@@ -29,6 +29,7 @@ import { FsaAdapter, MemoryAdapter } from './storageAdapter.js';
 import { createNewBundle } from './newBundle.js';
 import { openLibraryBrowser, setAdapter as setLibraryAdapter } from './libraryBrowser.js';
 import { setUnit, getUnit, toDisplay, fromDisplay, unitLabel } from './units.js';
+import { updateNodeAxis } from './nodeUtils.js';
 import * as THREE from 'three';
 
 // ── DOM refs ─────────────────────────────────────────────────────────────────
@@ -93,6 +94,8 @@ let activeTool = null;
 let junctionEditor = null;
 let pathEditTool = null;
 let _pendingGuideName = null;
+/** The element id currently selected in the elements tree. */
+let _selectedElementId = null;
 /** elementId → { pathData, profileId, description } */
 const _elementRegistry = new Map();
 /** Monotonic counter — guards against stale async renders in _reRenderElement */
@@ -812,6 +815,7 @@ function _addElementToTree(id, label) {
 }
 
 function _selectElement(id) {
+  _selectedElementId = id;
   document.querySelectorAll('#elements-list .tree-item').forEach(item => {
     item.classList.toggle('active', item.dataset.elementId === id);
   });
@@ -826,7 +830,44 @@ function _selectElement(id) {
 
 function _onPathNodeSelected(nodeInfo) {
   // nodeInfo: { segIdx, role, pos } or null
-  // TODO (Task 19): populate properties panel with node position inputs when nodeInfo is not null
+  if (!nodeInfo) {
+    _showElementProps(_selectedElementId);
+    return;
+  }
+
+  const panel = document.getElementById('props-panel');
+  panel.innerHTML = '';
+
+  const h3 = document.createElement('h3');
+  h3.textContent = 'Selected Node';
+  panel.appendChild(h3);
+
+  const roleLabel = nodeInfo.role === 'start' ? 'Start node' : 'End node';
+  _propRow(panel, 'Role', roleLabel, true);
+
+  const ul = unitLabel();
+
+  function _makeAxisInput(axis) {
+    const rawVal = nodeInfo.pos[axis] ?? 0;
+    const inp = document.createElement('input');
+    inp.type = 'number';
+    inp.value = toDisplay(rawVal);
+    inp.style.cssText = 'background:#2a2a2a;color:#ddd;border:1px solid #444;padding:4px 8px;border-radius:3px;font-size:12px;width:100%';
+    inp.addEventListener('change', () => {
+      const parsed = parseFloat(inp.value);
+      if (!Number.isFinite(parsed)) return;
+      const metres = fromDisplay(parsed);
+      updateNodeAxis(pathEditTool._pathData.segments, nodeInfo.segIdx, nodeInfo.role, axis, metres);
+      pathEditTool._buildHandles();
+      writeEntity(adapter, `paths/${pathEditTool._pathId}.json`, pathEditTool._pathData)
+        .catch(err => console.warn('[OEBF] node axis save failed:', err));
+    });
+    return inp;
+  }
+
+  _propRowWidget(panel, `X (${ul})`, _makeAxisInput('x'));
+  _propRowWidget(panel, `Y (${ul})`, _makeAxisInput('y'));
+  _propRowWidget(panel, `Z (${ul})`, _makeAxisInput('z'));
 }
 
 /**
