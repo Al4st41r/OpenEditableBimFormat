@@ -26,6 +26,7 @@ import { JunctionEditor } from './junctionEditor.js';
 import { DrawingTool } from './drawingTool.js';
 import { FsaAdapter, MemoryAdapter } from './storageAdapter.js';
 import { createNewBundle } from './newBundle.js';
+import { setUnit, getUnit, toDisplay, fromDisplay, unitLabel } from './units.js';
 import * as THREE from 'three';
 
 // ── DOM refs ─────────────────────────────────────────────────────────────────
@@ -35,6 +36,7 @@ const openBtn     = document.getElementById('open-btn');
 const saveBtn     = document.getElementById('save-btn');
 const view3dBtn   = document.getElementById('view-3d');
 const viewPlanBtn = document.getElementById('view-plan');
+const unitsSelect = document.getElementById('units-select');
 
 // ── Scene ────────────────────────────────────────────────────────────────────
 const editorScene = initEditorScene(canvas);
@@ -125,6 +127,13 @@ viewPlanBtn.addEventListener('click', () => {
   editorScene.setPlanView(true);
   viewPlanBtn.classList.add('active');
   view3dBtn.classList.remove('active');
+});
+
+// ── Units selector ────────────────────────────────────────────────────────────
+unitsSelect.addEventListener('change', () => {
+  setUnit(unitsSelect.value);
+  storeyManager.refreshList();
+  gridManager.refreshList();
 });
 
 // ── Open bundle ───────────────────────────────────────────────────────────────
@@ -344,6 +353,12 @@ async function _loadAndRenderBundle(adapter) {
   try {
     model = await readEntity(adapter, 'model.json');
   } catch { /* new or minimal bundle */ }
+
+  // Load units setting from model
+  if (model.units === 'mm' || model.units === 'm') {
+    setUnit(model.units);
+    unitsSelect.value = model.units;
+  }
 
   // Load storeys
   storeyManager.setAdapter(adapter);
@@ -924,6 +939,7 @@ saveBtn.addEventListener('click', async () => {
       grids:     [...new Set([...(existingModel.grids     ?? []), ..._modelState.grids])],
       paths:     [...new Set([...(existingModel.paths     ?? []), ..._modelState.paths])],
       storeys:   storeyManager.getAll().map(s => s.id),
+      units:     getUnit(),
     };
 
     await writeEntity(adapter, 'model.json', newModel);

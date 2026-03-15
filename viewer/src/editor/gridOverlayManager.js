@@ -8,6 +8,7 @@
 
 import * as THREE from 'three';
 import { writeEntity } from './bundleWriter.js';
+import { toDisplay, unitLabel } from './units.js';
 
 const GRID_COLOUR   = 0xe87070;
 const GRID_OPACITY  = 0.12;
@@ -141,7 +142,7 @@ export class GridOverlayManager {
 
       const nameSpan = document.createElement('span');
       nameSpan.className = 'tree-item-name';
-      nameSpan.textContent = `${a.label} (${a.direction.toUpperCase()}=${a.offset_m}m)`;
+      nameSpan.textContent = `${a.label} (${a.direction.toUpperCase()}=${toDisplay(a.offset_m)} ${unitLabel()})`;
 
       const eyeBtn = document.createElement('button');
       eyeBtn.className = 'tree-item-eye';
@@ -173,4 +174,6 @@ export class GridOverlayManager {
     // Notify editor to register this grid id in model.json
     if (this._onGridRegistered) this._onGridRegistered(this._gridId);
   }
+
+  refreshList() { this._renderList(); }
 }
