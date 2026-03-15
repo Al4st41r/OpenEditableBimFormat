@@ -127,4 +127,12 @@ describe('GuideManager — plane orientation', () => {
     const normalZ = basisCall.elements[10];
     expect(Math.abs(normalZ)).toBeLessThan(0.01);
   });
+
+  test('zero-length guide: no plane rendered', () => {
+    const gm = new GuideManager(makeGroup(), makeListEl());
+    gm._addGuide('g4', 'test', [makeSegment(2, 3, 2, 3)], true); // same start and end
+    const guide = gm.getGuides()[0];
+    const mesh  = guide.object3d.children.find(c => c instanceof THREE.Mesh);
+    expect(mesh).toBeUndefined();
+  });
 });

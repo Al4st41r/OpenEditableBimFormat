@@ -150,6 +150,7 @@ function _buildGuideObject(segments) {
     const plane    = new THREE.Mesh(planeGeo, planeMat);
     const dx = pts3.at(-1).x - pts3[0].x;
     const dy = pts3.at(-1).y - pts3[0].y;
+    if (Math.hypot(dx, dy) < 1e-9) return group; // zero-length guide: skip plane
     // Quaternion-based orientation — avoids Euler gimbal lock at angle=π/2 (Y-axis guide)
     const right  = new THREE.Vector3(dx, dy, 0).normalize();
     const up     = new THREE.Vector3(0, 0, 1);
