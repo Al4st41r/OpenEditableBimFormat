@@ -854,6 +854,7 @@ function _onPathNodeSelected(nodeInfo) {
     inp.value = toDisplay(rawVal);
     inp.style.cssText = 'background:#2a2a2a;color:#ddd;border:1px solid #444;padding:4px 8px;border-radius:3px;font-size:12px;width:100%';
     inp.addEventListener('change', () => {
+      if (!pathEditTool) return;
       const parsed = parseFloat(inp.value);
       if (!Number.isFinite(parsed)) return;
       const metres = fromDisplay(parsed);

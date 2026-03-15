@@ -54,4 +54,11 @@ describe('updateNodeAxis', () => {
     // segs[0] should be untouched
     expect(segs[0].end.y).toBe(0);
   });
+
+  test('updateNodeAxis on single-segment (segIdx=0, role=end) does not throw', () => {
+    const segs = [makeSeg(0, 0, 0, 1, 0, 0)];
+    updateNodeAxis(segs, 0, 'end', 'x', 2);
+    expect(segs[0].end.x).toBe(2);
+    // no next segment to update — should not throw
+  });
 });
