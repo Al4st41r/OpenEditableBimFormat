@@ -24,8 +24,12 @@ import { WallTool } from './wallTool.js';
 import { FloorTool } from './floorTool.js';
 import { JunctionEditor } from './junctionEditor.js';
 import { DrawingTool } from './drawingTool.js';
+import { PathEditTool } from './pathEditTool.js';
 import { FsaAdapter, MemoryAdapter } from './storageAdapter.js';
 import { createNewBundle } from './newBundle.js';
+import { openLibraryBrowser, setAdapter as setLibraryAdapter } from './libraryBrowser.js';
+import { setUnit, getUnit, toDisplay, fromDisplay, unitLabel } from './units.js';
+import { updateNodeAxis } from './nodeUtils.js';
 import * as THREE from 'three';
 
 // ── DOM refs ─────────────────────────────────────────────────────────────────
@@ -35,6 +39,7 @@ const openBtn     = document.getElementById('open-btn');
 const saveBtn     = document.getElementById('save-btn');
 const view3dBtn   = document.getElementById('view-3d');
 const viewPlanBtn = document.getElementById('view-plan');
+const unitsSelect = document.getElementById('units-select');
 
 // ── Scene ────────────────────────────────────────────────────────────────────
 const editorScene = initEditorScene(canvas);
@@ -87,9 +92,14 @@ let floorTool = null;
 let guideTool = null;
 let activeTool = null;
 let junctionEditor = null;
+let pathEditTool = null;
 let _pendingGuideName = null;
+/** The element id currently selected in the elements tree. */
+let _selectedElementId = null;
 /** elementId → { pathData, profileId, description } */
 const _elementRegistry = new Map();
+/** Monotonic counter — guards against stale async renders in _reRenderElement */
+let _renderGen = 0;
 
 // ── Hidden file input for .oebfz loading (all browsers) ───────────────────────
 const _fileInput = document.createElement('input');
@@ -114,6 +124,9 @@ _fileInput.addEventListener('change', async () => {
   _fileInput.value = '';
 });
 
+// ── Library browser ───────────────────────────────────────────────────────────
+document.getElementById('lib-btn').addEventListener('click', () => openLibraryBrowser());
+
 // ── View toggle ───────────────────────────────────────────────────────────────
 view3dBtn.addEventListener('click', () => {
   editorScene.setPlanView(false);
@@ -125,6 +138,13 @@ viewPlanBtn.addEventListener('click', () => {
   editorScene.setPlanView(true);
   viewPlanBtn.classList.add('active');
   view3dBtn.classList.remove('active');
+});
+
+// ── Units selector ────────────────────────────────────────────────────────────
+unitsSelect.addEventListener('change', () => {
+  setUnit(unitsSelect.value);
+  storeyManager.refreshList();
+  gridManager.refreshList();
 });
 
 // ── Open bundle ───────────────────────────────────────────────────────────────
@@ -221,6 +241,18 @@ document.getElementById('add-guide-btn').addEventListener('click', () => {
   statusBar.textContent = 'Click to place guide points. Double-click or Enter to finish.';
 });
 
+document.getElementById('add-height-guide-btn').addEventListener('click', async () => {
+  if (!adapter) return;
+  const name = window.prompt('Height guide name:', 'Height Guide');
+  if (!name) return;
+  const zDisplay = window.prompt(`Z height (${unitLabel()}):`, '0');
+  if (zDisplay === null) return;
+  const z_m = fromDisplay(parseFloat(zDisplay));
+  if (!Number.isFinite(z_m)) { statusBar.textContent = 'Invalid height'; return; }
+  const id = await guideManager.addZGuide(name, z_m);
+  statusBar.textContent = `Height guide added: ${name}`;
+});
+
 document.getElementById('tool-guide').addEventListener('click', () => {
   if (!adapter) return;
   if (!guideTool) {
@@ -253,6 +285,10 @@ document.getElementById('tool-grid').addEventListener('click', () => {
 
 document.getElementById('tool-select').addEventListener('click', () => {
   _setActiveTool(null, document.getElementById('tool-select'));
+});
+
+document.getElementById('tool-path-edit').addEventListener('click', () => {
+  statusBar.textContent = 'Select an element from the scene tree to edit its path nodes';
 });
 
 document.getElementById('tool-wall').addEventListener('click', async () => {
@@ -345,8 +381,15 @@ async function _loadAndRenderBundle(adapter) {
     model = await readEntity(adapter, 'model.json');
   } catch { /* new or minimal bundle */ }
 
+  // Load units setting from model
+  if (model.units === 'mm' || model.units === 'm') {
+    setUnit(model.units);
+    unitsSelect.value = model.units;
+  }
+
   // Load storeys
   storeyManager.setAdapter(adapter);
+  setLibraryAdapter(adapter);
   try {
     const storeyIds = model.storeys ?? [];
     const storeyGroups = [];
@@ -481,6 +524,21 @@ async function _loadAndRenderBundle(adapter) {
   // Reset guide tool (re-created on next use with current adapter context)
   guideTool = null;
 
+  // Create path edit tool bound to this bundle
+  if (pathEditTool) pathEditTool.dispose();
+  pathEditTool = new PathEditTool(
+    editorScene.overlayGroup,
+    editorScene.scene,
+    canvas,
+    () => editorScene.getActiveCamera(),
+    (nodeInfo) => _onPathNodeSelected(nodeInfo),
+  );
+  pathEditTool.setAdapter(adapter);
+  pathEditTool.onEditCommitted = () => {
+    const elementId = pathEditTool._elementId;
+    if (elementId) _reRenderElement(elementId, pathEditTool._pathData);
+  };
+
   // Create junction editor bound to this bundle
   junctionEditor = new JunctionEditor(
     editorScene.overlayGroup,
@@ -589,8 +647,10 @@ function _enableEditorTools() {
   document.getElementById('tool-floor').disabled = false;
   document.getElementById('tool-grid').disabled  = false;
   document.getElementById('tool-guide').disabled = false;
+  document.getElementById('tool-path-edit').disabled = false;
   document.getElementById('add-grid-btn').disabled  = false;
   document.getElementById('add-guide-btn').disabled = false;
+  document.getElementById('add-height-guide-btn').disabled = false;
   document.getElementById('add-detail-btn').disabled = false;
   document.getElementById('default-wall-profile').disabled = false;
   document.getElementById('default-slab-profile').disabled = false;
@@ -755,10 +815,140 @@ function _addElementToTree(id, label) {
 }
 
 function _selectElement(id) {
+  _selectedElementId = id;
   document.querySelectorAll('#elements-list .tree-item').forEach(item => {
     item.classList.toggle('active', item.dataset.elementId === id);
   });
   _showElementProps(id);
+  // Activate path node editing for this element
+  if (pathEditTool && _elementRegistry.has(id)) {
+    const reg = _elementRegistry.get(id);
+    const pathId = reg.pathData?.id;
+    if (pathId) pathEditTool.activate(pathId, reg.pathData, id);
+  }
+}
+
+function _onPathNodeSelected(nodeInfo) {
+  // nodeInfo: { segIdx, role, pos } or null
+  if (!nodeInfo) {
+    _showElementProps(_selectedElementId);
+    return;
+  }
+
+  const panel = document.getElementById('props-panel');
+  panel.innerHTML = '';
+
+  const h3 = document.createElement('h3');
+  h3.textContent = 'Selected Node';
+  panel.appendChild(h3);
+
+  const roleLabel = nodeInfo.role === 'start' ? 'Start node' : 'End node';
+  _propRow(panel, 'Role', roleLabel, true);
+
+  const ul = unitLabel();
+
+  function _makeAxisInput(axis) {
+    const rawVal = nodeInfo.pos[axis] ?? 0;
+    const inp = document.createElement('input');
+    inp.type = 'number';
+    inp.value = toDisplay(rawVal);
+    inp.style.cssText = 'background:#2a2a2a;color:#ddd;border:1px solid #444;padding:4px 8px;border-radius:3px;font-size:12px;width:100%';
+    inp.addEventListener('change', () => {
+      if (!pathEditTool) return;
+      const parsed = parseFloat(inp.value);
+      if (!Number.isFinite(parsed)) return;
+      const metres = fromDisplay(parsed);
+      updateNodeAxis(pathEditTool._pathData.segments, nodeInfo.segIdx, nodeInfo.role, axis, metres);
+      pathEditTool._buildHandles();
+      writeEntity(adapter, `paths/${pathEditTool._pathId}.json`, pathEditTool._pathData)
+        .catch(err => console.warn('[OEBF] node axis save failed:', err));
+    });
+    return inp;
+  }
+
+  _propRowWidget(panel, `X (${ul})`, _makeAxisInput('x'));
+  _propRowWidget(panel, `Y (${ul})`, _makeAxisInput('y'));
+  _propRowWidget(panel, `Z (${ul})`, _makeAxisInput('z'));
+}
+
+/**
+ * Rebuild the Three.js mesh(es) for one element after its path has been edited.
+ * Uses the in-memory pathData supplied by PathEditTool so the visual updates
+ * immediately without a round-trip through the adapter.
+ *
+ * @param {string} elementId
+ * @param {object} updatedPathData — the mutated path JSON from pathEditTool._pathData
+ */
+async function _reRenderElement(elementId, updatedPathData) {
+  const reg = _elementRegistry.get(elementId);
+  if (!reg || !updatedPathData) return;
+
+  const gen = ++_renderGen;
+
+  // Remove existing meshes for this element
+  const toRemove = editorScene.modelGroup.children.filter(
+    c => c.userData?.elementId === elementId
+  );
+  for (const m of toRemove) {
+    editorScene.modelGroup.remove(m);
+    if (m.geometry) m.geometry.dispose();
+    if (m.material) m.material.dispose();
+  }
+
+  // Update the registry so future calls use the latest path
+  reg.pathData = updatedPathData;
+
+  try {
+    const { parsePath }         = await import('../loader/loadPath.js');
+    const { buildProfileShape } = await import('../loader/loadProfile.js');
+    const { sweepProfile }      = await import('../geometry/sweep.js');
+
+    if (gen !== _renderGen) return;
+
+    const profileId = reg.profileId;
+    if (!profileId) return;
+
+    const profData = await readEntity(adapter, `profiles/${profileId}.json`);
+
+    if (gen !== _renderGen) return;
+
+    if (reg.description === 'Slab') {
+      // Slab: re-build from boundary path
+      try {
+        const slabJson = await readEntity(adapter, `slabs/${elementId}.json`);
+        if (gen !== _renderGen) return;
+        const matData  = activeProfileMap[slabJson.material_id];
+        const colour   = matData?.colour_hex ?? '#888888';
+        const { buildSlabMeshData: bsm } = await import('../loader/loadSlab.js');
+        if (gen !== _renderGen) return;
+        const meshData = bsm(slabJson, updatedPathData);
+        if (gen !== _renderGen) return;
+        editorScene.modelGroup.add(buildThreeMesh({ ...meshData, colour, elementId, description: reg.description }));
+      } catch (err) {
+        console.warn(`[OEBF] _reRenderElement slab ${elementId}:`, err.message);
+      }
+    } else {
+      // Wall / element: sweep profile along path
+      const profileShapes = buildProfileShape(profData);
+      const { points: pathPoints } = parsePath(updatedPathData);
+      const layerMeshes = sweepProfile(pathPoints, profileShapes);
+      if (gen !== _renderGen) return;
+      for (const layerData of layerMeshes) {
+        const matData = activeProfileMap[layerData.materialId];
+        const colour  = matData?.colour_hex ?? '#888888';
+        editorScene.modelGroup.add(buildThreeMesh({
+          vertices:    layerData.vertices,
+          normals:     layerData.normals,
+          indices:     layerData.indices,
+          colour,
+          elementId,
+          description: reg.description,
+        }));
+      }
+    }
+  } catch (err) {
+    console.warn(`[OEBF] _reRenderElement ${elementId}:`, err.message);
+  }
 }
 
 async function _showElementProps(id) {
@@ -924,6 +1114,7 @@ saveBtn.addEventListener('click', async () => {
       grids:     [...new Set([...(existingModel.grids     ?? []), ..._modelState.grids])],
       paths:     [...new Set([...(existingModel.paths     ?? []), ..._modelState.paths])],
       storeys:   storeyManager.getAll().map(s => s.id),
+      units:     getUnit(),
     };
 
     await writeEntity(adapter, 'model.json', newModel);

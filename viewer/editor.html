@@ -109,6 +109,7 @@
     <button id="tool-storey" aria-label="Add storey"><img src="/oebf/icons/storey.svg" width="16" height="16" alt=""> Storey</button>
     <button id="tool-grid" disabled aria-label="Add grid axis"><img src="/oebf/icons/grid.svg" width="16" height="16" alt=""> Grid</button>
     <button id="tool-guide" disabled aria-label="Add guide"><img src="/oebf/icons/align.svg" width="16" height="16" alt=""> Guide</button>
+    <button id="tool-path-edit" disabled aria-label="Edit path nodes"><img src="/oebf/icons/select.svg" width="16" height="16" alt=""> Edit path</button>
     <div class="toolbar-sep"></div>
     <button id="view-3d" class="active" aria-label="3D view"><img src="/oebf/icons/plane-vertical.svg" width="16" height="16" alt=""> 3D</button>
     <button id="view-plan" aria-label="Plan view"><img src="/oebf/icons/plane-horizontal.svg" width="16" height="16" alt=""> Plan</button>
@@ -117,6 +118,14 @@
     <select id="default-wall-profile" disabled><option>— none —</option></select>
     <label>Slab profile:</label>
     <select id="default-slab-profile" disabled><option>— none —</option></select>
+    <div class="toolbar-sep"></div>
+    <button id="lib-btn" title="Material library">Library</button>
+    <div class="toolbar-sep"></div>
+    <label for="units-select" style="font-size:11px;opacity:0.6;">Units:</label>
+    <select id="units-select" title="Display units">
+      <option value="mm" selected>mm</option>
+      <option value="m">m</option>
+    </select>
     <span id="status-bar">No bundle open</span>
   </div>
 
@@ -136,7 +145,8 @@
 
       <div class="tree-section-header">
         Reference Lines
-        <button class="tree-section-add" id="add-guide-btn" disabled title="Add guide">+</button>
+        <button class="tree-section-add" id="add-guide-btn" disabled title="Add vertical guide">+</button>
+        <button class="tree-section-add" id="add-height-guide-btn" disabled title="Add horizontal height guide">H</button>
       </div>
       <div class="tree-items" id="guides-list"></div>
 

@@ -1,0 +1,15 @@
+{
+  "$schema": "oebf://schema/0.1/profile",
+  "id": "cavity-wall",
+  "type": "Profile",
+  "description": "Standard cavity wall",
+  "profile_type": "wall",
+  "origin_x": 0.0,
+  "layers": [
+    { "id": "outer-brick", "name": "Outer Leaf (Brick)", "thickness_m": 0.102, "material_id": "clay-brick-general", "function": "structure" },
+    { "id": "cavity", "name": "Cavity (50mm)", "thickness_m": 0.05, "material_id": null, "function": "insulation" },
+    { "id": "insulation", "name": "Mineral Wool", "thickness_m": 0.05, "material_id": "mineral-wool", "function": "insulation" },
+    { "id": "block", "name": "Inner Leaf (Block)", "thickness_m": 0.1, "material_id": "concrete-block-lightweight", "function": "structure" },
+    { "id": "plaster", "name": "Plaster", "thickness_m": 0.013, "material_id": "gypsum-plaster", "function": "finish" }
+  ]
+}

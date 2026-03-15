@@ -7,10 +7,12 @@
 
 import * as THREE from 'three';
 import { writeEntity } from './bundleWriter.js';
+import { toDisplay, unitLabel } from './units.js';
 
-const GUIDE_COLOUR  = 0x7090e8;
-const GUIDE_OPACITY = 0.12;
-const GUIDE_HEIGHT  = 10;
+const GUIDE_COLOUR       = 0x7090e8;
+const GUIDE_OPACITY      = 0.12;
+const GUIDE_HEIGHT       = 10;
+const GUIDE_PLANE_SIZE   = 50; // metres — horizontal Z-guide plane extent
 
 export class GuideManager {
   constructor(overlayGroup, listEl, onGuideAdded) {
@@ -36,8 +38,32 @@ export class GuideManager {
     this._guides = [];
 
     for (const path of guidePaths) {
-      this._addGuide(path.id, path.description ?? path.id, path.segments ?? [], true);
+      if (path.guide_axis === 'z') {
+        this._addZGuideInternal(path.id, path.description ?? path.id, path.z_m ?? 0, true);
+      } else {
+        this._addGuide(path.id, path.description ?? path.id, path.segments ?? [], true);
+      }
     }
+  }
+
+  /**
+   * Add a horizontal guide plane at a specific Z height.
+   * @param {string} name
+   * @param {number} z_m — height in metres
+   */
+  async addZGuide(name, z_m) {
+    const id = `guide-z-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}-${Date.now()}`;
+    this._addZGuideInternal(id, name, z_m, true);
+    if (this._adapter) {
+      await writeEntity(this._adapter, `paths/${id}.json`, {
+        '$schema': 'oebf://schema/0.1/path',
+        id, type: 'Path', guide: true, guide_axis: 'z', z_m,
+        description: name,
+        closed: false, segments: [],
+      });
+    }
+    if (this._onGuideAdded) this._onGuideAdded(id);
+    return id;
   }
 
   /**
@@ -80,6 +106,14 @@ export class GuideManager {
     this._renderList();
   }
 
+  _addZGuideInternal(id, name, z_m, visible) {
+    const object3d = _buildZGuideObject(z_m);
+    object3d.visible = visible;
+    this._overlayGroup.add(object3d);
+    this._guides.push({ id, name, z_m, visible, object3d, isZGuide: true });
+    this._renderList();
+  }
+
   _renderList() {
     this._listEl.innerHTML = '';
     for (const g of this._guides) {
@@ -88,7 +122,9 @@ export class GuideManager {
 
       const nameSpan = document.createElement('span');
       nameSpan.className = 'tree-item-name';
-      nameSpan.textContent = g.name;
+      nameSpan.textContent = g.isZGuide
+        ? `${g.name} (Z=${toDisplay(g.z_m)} ${unitLabel()})`
+        : g.name;
 
       const eyeBtn = document.createElement('button');
       eyeBtn.className = 'tree-item-eye';
@@ -150,14 +186,32 @@ function _buildGuideObject(segments) {
     const plane    = new THREE.Mesh(planeGeo, planeMat);
     const dx = pts3.at(-1).x - pts3[0].x;
     const dy = pts3.at(-1).y - pts3[0].y;
-    const angle = Math.atan2(dy, dx);
+    if (Math.hypot(dx, dy) < 1e-9) return group; // zero-length guide: skip plane
+    // Quaternion-based orientation — avoids Euler gimbal lock at angle=π/2 (Y-axis guide)
+    const right  = new THREE.Vector3(dx, dy, 0).normalize();
+    const up     = new THREE.Vector3(0, 0, 1);
+    const normal = new THREE.Vector3().crossVectors(right, up);
+    const m      = new THREE.Matrix4().makeBasis(right, up, normal);
+    plane.quaternion.setFromRotationMatrix(m);
     // Position plane centred on the guide, standing vertically at mid-height
     plane.position.set(cx, cy, GUIDE_HEIGHT / 2);
-    plane.rotation.x = Math.PI / 2; // Make it stand vertically (Z-up)
-    plane.rotation.z = angle;       // Align with guide direction
     group.add(plane);
   }
 
+  return group;
+}
+
+function _buildZGuideObject(z_m) {
+  const group = new THREE.Group();
+  const mat   = new THREE.MeshBasicMaterial({
+    color: GUIDE_COLOUR, transparent: true,
+    opacity: GUIDE_OPACITY, side: THREE.DoubleSide, depthWrite: false,
+  });
+  const geo   = new THREE.PlaneGeometry(GUIDE_PLANE_SIZE, GUIDE_PLANE_SIZE);
+  const plane = new THREE.Mesh(geo, mat);
+  plane.position.set(0, 0, z_m);
+  // PlaneGeometry is in XY (horizontal) by default in Z-up — no rotation needed
+  group.add(plane);
   return group;
 }
 
