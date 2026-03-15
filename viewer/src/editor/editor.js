@@ -26,6 +26,7 @@ import { JunctionEditor } from './junctionEditor.js';
 import { DrawingTool } from './drawingTool.js';
 import { FsaAdapter, MemoryAdapter } from './storageAdapter.js';
 import { createNewBundle } from './newBundle.js';
+import { openLibraryBrowser, setAdapter as setLibraryAdapter } from './libraryBrowser.js';
 import { setUnit, getUnit, toDisplay, fromDisplay, unitLabel } from './units.js';
 import * as THREE from 'three';
 
@@ -115,6 +116,9 @@ _fileInput.addEventListener('change', async () => {
   }
   _fileInput.value = '';
 });
+
+// ── Library browser ───────────────────────────────────────────────────────────
+document.getElementById('lib-btn').addEventListener('click', () => openLibraryBrowser());
 
 // ── View toggle ───────────────────────────────────────────────────────────────
 view3dBtn.addEventListener('click', () => {
@@ -374,6 +378,7 @@ async function _loadAndRenderBundle(adapter) {
 
   // Load storeys
   storeyManager.setAdapter(adapter);
+  setLibraryAdapter(adapter);
   try {
     const storeyIds = model.storeys ?? [];
     const storeyGroups = [];
