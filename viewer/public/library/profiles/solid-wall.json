@@ -1,0 +1,11 @@
+{
+  "$schema": "oebf://schema/0.1/profile",
+  "id": "solid-wall",
+  "type": "Profile",
+  "description": "Solid brick wall (215mm)",
+  "profile_type": "wall",
+  "origin_x": 0.0,
+  "layers": [
+    { "id": "brick", "name": "Solid Brick", "thickness_m": 0.215, "material_id": "clay-brick-general", "function": "structure" }
+  ]
+}

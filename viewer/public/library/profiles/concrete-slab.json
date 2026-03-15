@@ -1,0 +1,11 @@
+{
+  "$schema": "oebf://schema/0.1/profile",
+  "id": "concrete-slab",
+  "type": "Profile",
+  "description": "Concrete suspended slab (150mm)",
+  "profile_type": "slab",
+  "origin_x": 0.0,
+  "layers": [
+    { "id": "concrete", "name": "Reinforced Concrete", "thickness_m": 0.15, "material_id": "concrete-ready-mix-gen-purpose", "function": "structure" }
+  ]
+}
