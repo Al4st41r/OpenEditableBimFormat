@@ -6,7 +6,7 @@ function insertNode(segments, segIdx) {
   const mid = {
     x: (seg.start.x + seg.end.x) / 2,
     y: (seg.start.y + seg.end.y) / 2,
-    z: (seg.start.z ?? 0 + (seg.end.z ?? 0)) / 2,
+    z: ((seg.start.z ?? 0) + (seg.end.z ?? 0)) / 2,
   };
   const newSeg = { type: 'line', start: { ...mid }, end: { ...seg.end } };
   seg.end = { ...mid };
@@ -132,5 +132,13 @@ describe('pathEditTool — node manipulation', () => {
     deleteNode(segs, 1, 'end'); // remove end of seg 1 (middle node at x=4,y=0)
     expect(segs.length).toBe(2);
     expect(segs[1].start.x).toBe(2);
+  });
+
+  test('deleteNode removes a middle segment via start role', () => {
+    const segs = [makeSeg(0,0, 1,0), makeSeg(1,0, 2,0), makeSeg(2,0, 3,0)];
+    deleteNode(segs, 1, 'start');
+    expect(segs.length).toBe(2);
+    expect(segs[0].start).toEqual({ x:0, y:0, z:0 });
+    expect(segs[0].end).toEqual({ x:2, y:0, z:0 });
   });
 });

@@ -95,6 +95,8 @@ let pathEditTool = null;
 let _pendingGuideName = null;
 /** elementId → { pathData, profileId, description } */
 const _elementRegistry = new Map();
+/** Monotonic counter — guards against stale async renders in _reRenderElement */
+let _renderGen = 0;
 
 // ── Hidden file input for .oebfz loading (all browsers) ───────────────────────
 const _fileInput = document.createElement('input');
@@ -839,6 +841,8 @@ async function _reRenderElement(elementId, updatedPathData) {
   const reg = _elementRegistry.get(elementId);
   if (!reg || !updatedPathData) return;
 
+  const gen = ++_renderGen;
+
   // Remove existing meshes for this element
   const toRemove = editorScene.modelGroup.children.filter(
     c => c.userData?.elementId === elementId
@@ -856,21 +860,27 @@ async function _reRenderElement(elementId, updatedPathData) {
     const { parsePath }         = await import('../loader/loadPath.js');
     const { buildProfileShape } = await import('../loader/loadProfile.js');
     const { sweepProfile }      = await import('../geometry/sweep.js');
-    const { buildSlabMeshData } = await import('../loader/loadSlab.js');
+
+    if (gen !== _renderGen) return;
 
     const profileId = reg.profileId;
     if (!profileId) return;
 
     const profData = await readEntity(adapter, `profiles/${profileId}.json`);
 
+    if (gen !== _renderGen) return;
+
     if (reg.description === 'Slab') {
       // Slab: re-build from boundary path
       try {
         const slabJson = await readEntity(adapter, `slabs/${elementId}.json`);
+        if (gen !== _renderGen) return;
         const matData  = activeProfileMap[slabJson.material_id];
         const colour   = matData?.colour_hex ?? '#888888';
         const { buildSlabMeshData: bsm } = await import('../loader/loadSlab.js');
+        if (gen !== _renderGen) return;
         const meshData = bsm(slabJson, updatedPathData);
+        if (gen !== _renderGen) return;
         editorScene.modelGroup.add(buildThreeMesh({ ...meshData, colour, elementId, description: reg.description }));
       } catch (err) {
         console.warn(`[OEBF] _reRenderElement slab ${elementId}:`, err.message);
@@ -880,6 +890,7 @@ async function _reRenderElement(elementId, updatedPathData) {
       const profileShapes = buildProfileShape(profData);
       const { points: pathPoints } = parsePath(updatedPathData);
       const layerMeshes = sweepProfile(pathPoints, profileShapes);
+      if (gen !== _renderGen) return;
       for (const layerData of layerMeshes) {
         const matData = activeProfileMap[layerData.materialId];
         const colour  = matData?.colour_hex ?? '#888888';

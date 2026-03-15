@@ -184,9 +184,10 @@ export class PathEditTool {
         next.start.x = pos.x; next.start.y = pos.y; next.start.z = pos.z ?? 0;
       }
     }
-    this._buildHandles(); // refresh handles
+    // Move existing handle meshes in-place — no dispose/recreate during drag
+    this._updateHandlePositions(segIdx);
 
-    // Update selected handle after rebuild
+    // Update selected handle after position refresh
     const newPos = role === 'start' ? seg.start : seg.end;
     this._onNodeSelected({ segIdx, role, pos: newPos });
   }
@@ -198,8 +199,42 @@ export class PathEditTool {
     this._canvas.style.cursor = '';
     window.removeEventListener('mousemove', this._boundMouseMove);
     window.removeEventListener('mouseup',   this._boundMouseUp);
+    // Full handle rebuild once drag ends
+    this._buildHandles();
     this._save();
     this.onEditCommitted?.();
+  }
+
+  /**
+   * Update handle mesh positions in-place for `segIdx` and its neighbours,
+   * without disposing or recreating any geometry. Called on every mousemove
+   * during drag to avoid the cost of _buildHandles().
+   */
+  _updateHandlePositions(segIdx) {
+    const segs = this._pathData.segments ?? [];
+
+    // Update node handles whose segIdx or adjacency covers the moved point
+    for (const h of this._handles) {
+      const s = segs[h.segIdx];
+      if (!s) continue;
+      const p = h.role === 'start' ? s.start : s.end;
+      h.mesh.position.set(p.x, p.y, p.z ?? 0);
+      h.pos = { ...p };
+    }
+
+    // Update midpoint handles adjacent to the dragged segment
+    for (const m of this._midHandles) {
+      if (m.segIdx !== segIdx && m.segIdx !== segIdx - 1 && m.segIdx !== segIdx + 1) continue;
+      const s = segs[m.segIdx];
+      if (!s) continue;
+      const mid = {
+        x: (s.start.x + s.end.x) / 2,
+        y: (s.start.y + s.end.y) / 2,
+        z: (s.start.z + s.end.z) / 2,
+      };
+      m.mesh.position.set(mid.x, mid.y, mid.z);
+      m.midPos = mid;
+    }
   }
 
   _onKeyDown(e) {
@@ -318,8 +353,8 @@ export class PathEditTool {
     // Use a horizontal plane at z=0 (or current storey z)
     const plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
     this._raycaster.setFromCamera(mouse, this._getCamera());
-    const pt = new THREE.Vector3();
-    this._raycaster.ray.intersectPlane(plane, pt);
-    return pt.x !== undefined ? pt : null;
+    const pt   = new THREE.Vector3();
+    const hit  = this._raycaster.ray.intersectPlane(plane, pt);
+    return hit ? pt : null;
   }
 }
