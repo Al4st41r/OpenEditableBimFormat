@@ -32,4 +32,9 @@ describe('libraryBrowser filter logic', () => {
   test('no match returns empty array', () => {
     expect(filterMaterials(MATS, 'xyz', 'all').length).toBe(0);
   });
+
+  test('intersection of query and category returns matching items only', () => {
+    const filtered = filterMaterials(MATS, 'clay', 'insulation');
+    expect(filtered).toHaveLength(0); // 'Clay Brick' is masonry, not insulation
+  });
 });

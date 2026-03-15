@@ -18,13 +18,18 @@ const PROFILE_FILENAMES = [
   'concrete-slab.json',
 ];
 
-export function setAdapter(a) { _adapter = a; }
+export function setAdapter(a) {
+  _adapter  = a;
+  _library  = null; // invalidate on bundle change
+  _profiles = null;
+}
 
 /** Open the library browser modal. */
 export async function openLibraryBrowser() {
   if (!_library) {
     try {
       const res  = await fetch('/oebf/library/materials/library.json');
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       _library   = await res.json();
     } catch (e) {
       alert('Could not load material library: ' + e.message);
@@ -51,6 +56,20 @@ export function filterMaterials(materials, query, cat) {
     (cat === 'all' || m.category === cat) &&
     (!q || m.name.toLowerCase().includes(q) || m.category.toLowerCase().includes(q))
   );
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+/** Load the set of material IDs already in the open bundle. */
+async function _loadInProject() {
+  const s = new Set();
+  if (_adapter) {
+    try {
+      const existing = await _adapter.readJson('materials/library.json');
+      (existing.materials ?? []).forEach(m => s.add(m.id));
+    } catch { /* no library yet */ }
+  }
+  return s;
 }
 
 // ── Modal ────────────────────────────────────────────────────────────────────
@@ -133,19 +152,10 @@ async function _renderModal(library, profiles) {
   const list = document.createElement('div');
   list.style.cssText = 'overflow-y:auto;flex:1;padding:6px 0;';
 
-  async function _renderMaterialList() {
+  function _renderMaterialList(inProject) {
     list.innerHTML = '';
     const query = searchInp.value;
     const cat   = catSel.value;
-
-    // Read current bundle materials to mark "in project" items
-    let inProject = new Set();
-    if (_adapter) {
-      try {
-        const existing = await _adapter.readJson('materials/library.json');
-        (existing.materials ?? []).forEach(m => inProject.add(m.id));
-      } catch { /* no library yet */ }
-    }
 
     const filtered = filterMaterials(library.materials, query, cat);
 
@@ -180,7 +190,8 @@ async function _renderModal(library, profiles) {
         useBtn.style.cssText = 'font-size:11px;padding:3px 8px;cursor:pointer;background:#2a4a6a;color:#ddd;border:1px solid #4a8aaa;border-radius:3px;';
         useBtn.addEventListener('click', async () => {
           await _importMaterial(mat);
-          await _renderMaterialList(); // refresh to show "In project"
+          inProject.add(mat.id); // update in-place — no extra readJson needed
+          _renderMaterialList(inProject); // refresh to show "In project"
         });
         actionEl.appendChild(useBtn);
       }
@@ -197,19 +208,8 @@ async function _renderModal(library, profiles) {
     }
   }
 
-  async function _renderProfileList() {
+  function _renderProfileList(inProject) {
     list.innerHTML = '';
-
-    // Determine which profiles are already in the bundle
-    const inProject = new Set();
-    if (_adapter) {
-      for (const prof of profiles) {
-        try {
-          await _adapter.readJson(`profiles/${prof.id}.json`);
-          inProject.add(prof.id);
-        } catch { /* not in bundle */ }
-      }
-    }
 
     for (const prof of profiles) {
       const row = document.createElement('div');
@@ -243,7 +243,8 @@ async function _renderModal(library, profiles) {
           if (_adapter) {
             await writeEntity(_adapter, `profiles/${prof.id}.json`, prof);
           }
-          await _renderProfileList(); // refresh to show "In project"
+          inProject.add(prof.id); // update in-place — no extra readJson needed
+          _renderProfileList(inProject); // refresh to show "In project"
         });
         actionEl.appendChild(useBtn);
       }
@@ -260,23 +261,26 @@ async function _renderModal(library, profiles) {
     }
   }
 
+  // Load inProject once; shared across both tabs and all re-renders.
+  const inProject = await _loadInProject();
+
   function _switchTab(tab) {
     activeTab = tab;
     matTab.style.cssText = tabStyle(tab === 'materials');
     profTab.style.cssText = tabStyle(tab === 'profiles');
     controls.style.display = tab === 'materials' ? 'flex' : 'none';
     if (tab === 'materials') {
-      _renderMaterialList();
+      _renderMaterialList(inProject);
     } else {
-      _renderProfileList();
+      _renderProfileList(inProject);
     }
   }
 
   matTab.addEventListener('click', () => _switchTab('materials'));
   profTab.addEventListener('click', () => _switchTab('profiles'));
 
-  searchInp.addEventListener('input', _renderMaterialList);
-  catSel.addEventListener('change', _renderMaterialList);
+  searchInp.addEventListener('input', () => _renderMaterialList(inProject));
+  catSel.addEventListener('change', () => _renderMaterialList(inProject));
 
   panel.appendChild(header);
   panel.appendChild(tabs);
@@ -288,7 +292,7 @@ async function _renderModal(library, profiles) {
   // Close on backdrop click
   modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
 
-  await _renderMaterialList();
+  _renderMaterialList(inProject);
 }
 
 async function _importMaterial(mat) {
