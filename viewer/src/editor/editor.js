@@ -239,7 +239,6 @@ document.getElementById('add-height-guide-btn').addEventListener('click', async 
   const z_m = fromDisplay(parseFloat(zDisplay));
   if (!Number.isFinite(z_m)) { statusBar.textContent = 'Invalid height'; return; }
   const id = await guideManager.addZGuide(name, z_m);
-  if (!_modelState.paths.includes(id)) _modelState.paths.push(id);
   statusBar.textContent = `Height guide added: ${name}`;
 });
 

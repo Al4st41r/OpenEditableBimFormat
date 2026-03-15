@@ -9,9 +9,10 @@ import * as THREE from 'three';
 import { writeEntity } from './bundleWriter.js';
 import { toDisplay, unitLabel } from './units.js';
 
-const GUIDE_COLOUR  = 0x7090e8;
-const GUIDE_OPACITY = 0.12;
-const GUIDE_HEIGHT  = 10;
+const GUIDE_COLOUR       = 0x7090e8;
+const GUIDE_OPACITY      = 0.12;
+const GUIDE_HEIGHT       = 10;
+const GUIDE_PLANE_SIZE   = 50; // metres — horizontal Z-guide plane extent
 
 export class GuideManager {
   constructor(overlayGroup, listEl, onGuideAdded) {
@@ -202,12 +203,11 @@ function _buildGuideObject(segments) {
 
 function _buildZGuideObject(z_m) {
   const group = new THREE.Group();
-  const SIZE  = 50; // metres — large enough to span any typical floor plan
   const mat   = new THREE.MeshBasicMaterial({
     color: GUIDE_COLOUR, transparent: true,
     opacity: GUIDE_OPACITY, side: THREE.DoubleSide, depthWrite: false,
   });
-  const geo   = new THREE.PlaneGeometry(SIZE, SIZE);
+  const geo   = new THREE.PlaneGeometry(GUIDE_PLANE_SIZE, GUIDE_PLANE_SIZE);
   const plane = new THREE.Mesh(geo, mat);
   plane.position.set(0, 0, z_m);
   // PlaneGeometry is in XY (horizontal) by default in Z-up — no rotation needed
