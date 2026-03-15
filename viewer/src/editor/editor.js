@@ -24,6 +24,7 @@ import { WallTool } from './wallTool.js';
 import { FloorTool } from './floorTool.js';
 import { JunctionEditor } from './junctionEditor.js';
 import { DrawingTool } from './drawingTool.js';
+import { PathEditTool } from './pathEditTool.js';
 import { FsaAdapter, MemoryAdapter } from './storageAdapter.js';
 import { createNewBundle } from './newBundle.js';
 import { openLibraryBrowser, setAdapter as setLibraryAdapter } from './libraryBrowser.js';
@@ -90,6 +91,7 @@ let floorTool = null;
 let guideTool = null;
 let activeTool = null;
 let junctionEditor = null;
+let pathEditTool = null;
 let _pendingGuideName = null;
 /** elementId → { pathData, profileId, description } */
 const _elementRegistry = new Map();
@@ -278,6 +280,10 @@ document.getElementById('tool-grid').addEventListener('click', () => {
 
 document.getElementById('tool-select').addEventListener('click', () => {
   _setActiveTool(null, document.getElementById('tool-select'));
+});
+
+document.getElementById('tool-path-edit').addEventListener('click', () => {
+  statusBar.textContent = 'Select an element from the scene tree to edit its path nodes';
 });
 
 document.getElementById('tool-wall').addEventListener('click', async () => {
@@ -513,6 +519,17 @@ async function _loadAndRenderBundle(adapter) {
   // Reset guide tool (re-created on next use with current adapter context)
   guideTool = null;
 
+  // Create path edit tool bound to this bundle
+  if (pathEditTool) pathEditTool.dispose();
+  pathEditTool = new PathEditTool(
+    editorScene.overlayGroup,
+    editorScene.scene,
+    canvas,
+    () => editorScene.getActiveCamera(),
+    (nodeInfo) => _onPathNodeSelected(nodeInfo),
+  );
+  pathEditTool.setAdapter(adapter);
+
   // Create junction editor bound to this bundle
   junctionEditor = new JunctionEditor(
     editorScene.overlayGroup,
@@ -621,6 +638,7 @@ function _enableEditorTools() {
   document.getElementById('tool-floor').disabled = false;
   document.getElementById('tool-grid').disabled  = false;
   document.getElementById('tool-guide').disabled = false;
+  document.getElementById('tool-path-edit').disabled = false;
   document.getElementById('add-grid-btn').disabled  = false;
   document.getElementById('add-guide-btn').disabled = false;
   document.getElementById('add-height-guide-btn').disabled = false;
@@ -792,6 +810,17 @@ function _selectElement(id) {
     item.classList.toggle('active', item.dataset.elementId === id);
   });
   _showElementProps(id);
+  // Activate path node editing for this element
+  if (pathEditTool && _elementRegistry.has(id)) {
+    const reg = _elementRegistry.get(id);
+    const pathId = reg.pathData?.id;
+    if (pathId) pathEditTool.activate(pathId, reg.pathData, id);
+  }
+}
+
+function _onPathNodeSelected(nodeInfo) {
+  // Node position editing wired in pathEditTool properties panel (Task 19)
+  // nodeInfo: { segIdx, role, pos } or null
 }
 
 async function _showElementProps(id) {
