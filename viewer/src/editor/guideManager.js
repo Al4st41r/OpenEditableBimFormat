@@ -150,11 +150,14 @@ function _buildGuideObject(segments) {
     const plane    = new THREE.Mesh(planeGeo, planeMat);
     const dx = pts3.at(-1).x - pts3[0].x;
     const dy = pts3.at(-1).y - pts3[0].y;
-    const angle = Math.atan2(dy, dx);
+    // Quaternion-based orientation — avoids Euler gimbal lock at angle=π/2 (Y-axis guide)
+    const right  = new THREE.Vector3(dx, dy, 0).normalize();
+    const up     = new THREE.Vector3(0, 0, 1);
+    const normal = new THREE.Vector3().crossVectors(right, up);
+    const m      = new THREE.Matrix4().makeBasis(right, up, normal);
+    plane.quaternion.setFromRotationMatrix(m);
     // Position plane centred on the guide, standing vertically at mid-height
     plane.position.set(cx, cy, GUIDE_HEIGHT / 2);
-    plane.rotation.x = Math.PI / 2; // Make it stand vertically (Z-up)
-    plane.rotation.z = angle;       // Align with guide direction
     group.add(plane);
   }
 
