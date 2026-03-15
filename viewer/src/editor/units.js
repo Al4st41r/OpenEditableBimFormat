@@ -17,7 +17,11 @@ export function getUnit() { return _unit; }
 
 /** Convert metres to display value. */
 export function toDisplay(metres) {
-  return _unit === 'mm' ? metres * 1000 : metres;
+  if (_unit === 'mm') {
+    const raw = metres * 1000;
+    return Math.round(raw * 1e6) / 1e6;
+  }
+  return metres;
 }
 
 /** Convert display value to metres. */
