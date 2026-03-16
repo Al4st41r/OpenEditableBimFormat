@@ -176,9 +176,16 @@ renderSolidEdgesBtn.addEventListener('click', () => _setRenderMode('solid+edges'
 // ── Units selector ────────────────────────────────────────────────────────────
 unitsSelect.addEventListener('change', () => {
   setUnit(unitsSelect.value);
+  localStorage.setItem('oebf-units', unitsSelect.value);
   storeyManager.refreshList();
   gridManager.refreshList();
 });
+
+const _storedUnit = localStorage.getItem('oebf-units');
+if (_storedUnit === 'mm' || _storedUnit === 'm') {
+  setUnit(_storedUnit);
+  unitsSelect.value = _storedUnit;
+}
 
 // ── Open bundle ───────────────────────────────────────────────────────────────
 const fsaSupported = typeof window.showDirectoryPicker === 'function';
