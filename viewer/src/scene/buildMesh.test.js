@@ -74,13 +74,31 @@ describe('buildThreeMesh — material', () => {
     expect(col.b).toBeCloseTo(0, 3);
   });
 
-  test('material is MeshLambertMaterial', () => {
+  test('material is MeshStandardMaterial', () => {
     const mesh = buildThreeMesh(minimalMeshData());
-    expect(mesh.material).toBeInstanceOf(THREE.MeshLambertMaterial);
+    expect(mesh.material).toBeInstanceOf(THREE.MeshStandardMaterial);
   });
 
   test('material uses DoubleSide so interior faces are visible', () => {
     const mesh = buildThreeMesh(minimalMeshData());
     expect(mesh.material.side).toBe(THREE.DoubleSide);
+  });
+
+  test('material has polygonOffset enabled', () => {
+    const mesh = buildThreeMesh(minimalMeshData());
+    expect(mesh.material.polygonOffset).toBe(true);
+  });
+
+  test('mesh has an edges child named "edges"', () => {
+    const mesh = buildThreeMesh(minimalMeshData());
+    const edges = mesh.getObjectByName('edges');
+    expect(edges).toBeDefined();
+    expect(edges).toBeInstanceOf(THREE.LineSegments);
+  });
+
+  test('edges child is hidden by default', () => {
+    const mesh = buildThreeMesh(minimalMeshData());
+    const edges = mesh.getObjectByName('edges');
+    expect(edges.visible).toBe(false);
   });
 });
