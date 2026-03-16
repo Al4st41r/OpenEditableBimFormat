@@ -403,6 +403,10 @@ async function _loadAndRenderBundle(adapter) {
     editorScene.modelGroup.add(lines);
   }
 
+  // Apply current render mode to all just-loaded meshes (edges hidden by
+  // default in buildThreeMesh; setRenderMode makes them visible if needed)
+  editorScene.setRenderMode(editorScene.getRenderMode());
+
   // Load storeys and grids from model.json
   let model = {};
   try {
@@ -976,6 +980,7 @@ async function _reRenderElement(elementId, updatedPathData) {
         }));
       }
     }
+    editorScene.setRenderMode(editorScene.getRenderMode());
   } catch (err) {
     console.warn(`[OEBF] _reRenderElement ${elementId}:`, err.message);
   }
@@ -1093,6 +1098,7 @@ async function _changeElementProfile(elementId, newProfileId) {
         description: reg.description,
       }));
     }
+    editorScene.setRenderMode(editorScene.getRenderMode());
 
     reg.profileId = newProfileId;
     try {

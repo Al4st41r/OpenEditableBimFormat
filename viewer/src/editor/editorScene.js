@@ -106,7 +106,7 @@ export function initEditorScene(canvas) {
   }
 
   // ── Render mode ───────────────────────────────────────────────────────────
-  let _renderMode = 'solid';
+  let _renderMode = 'solid+edges';
 
   function setRenderMode(mode) {
     _renderMode = mode;
