@@ -162,7 +162,12 @@ function _setRenderMode(mode) {
   renderSolidBtn     .classList.toggle('active', mode === 'solid');
   renderLinesBtn     .classList.toggle('active', mode === 'lines');
   renderSolidEdgesBtn.classList.toggle('active', mode === 'solid+edges');
+  localStorage.setItem('oebf-render-mode', mode);
 }
+
+const _validModes = ['solid', 'lines', 'solid+edges'];
+const _storedMode = localStorage.getItem('oebf-render-mode');
+_setRenderMode(_validModes.includes(_storedMode) ? _storedMode : 'solid+edges');
 
 renderSolidBtn     .addEventListener('click', () => _setRenderMode('solid'));
 renderLinesBtn     .addEventListener('click', () => _setRenderMode('lines'));
