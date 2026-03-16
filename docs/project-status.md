@@ -1,14 +1,14 @@
 # OEBF Project Status
 
-**Date:** 2026-03-15
+**Date:** 2026-03-16
 **Branch:** main
-**Tests:** 364 passing — 364 JS (Vitest, 30 test files) + 21 Python (pytest)
+**Tests:** 399 passing — 399 JS (Vitest, 34 test files) + 21 Python (pytest)
 
 ---
 
 ## Summary
 
-Phases 1–6 are complete. v0.1.0 is tagged and published. The v0.2 editor alpha (`v0.2.0-editor-alpha`) adds a full browser-based OEBF bundle editor. PR #68 (review batch 1) extended the editor with 7 additional features: unit toggle, coordinate HUD, guide bugfixes, Z-axis guides, material/profile library browser, path node editing, and properties panel node position. The build is deployed at `architools.drawingtable.net/oebf/`.
+Phases 1–6 are complete. v0.1.0 is tagged and published. The v0.2 editor alpha (`v0.2.0-editor-alpha`) adds a full browser-based OEBF bundle editor. PR #68 (review batch 1) extended the editor with 7 additional features. Issue #66 (profile editor improvements) added 6 more features to the profile editor: profile type/FFL/height-limit metadata, FFL and height-limit dashed lines on canvas, session-only draggable guide lines, material colour-swatch picker, and rect/polygon drawing tools producing region layers. The build is deployed at `architools.drawingtable.net/oebf/`.
 
 ---
 
@@ -37,7 +37,7 @@ Phases 1–6 are complete. v0.1.0 is tagged and published. The v0.2 editor alpha
 | Array distributor + renderer | `viewer/src/array/` | Done — InstancedMesh |
 | Grid renderer | `viewer/src/grid/gridRenderer.js` | Done |
 | .oebf + .oebfz loaders | `viewer/src/loader/` | Done |
-| Profile SVG editor | `viewer/profile-editor.html` | Done — 2D canvas editor |
+| Profile SVG editor | `viewer/profile-editor.html` | Done — 2D canvas editor + guidelines + FFL + material picker + draw tools (#66) |
 
 ### Editor — v0.2 alpha + review batch 1
 
@@ -59,6 +59,7 @@ Phases 1–6 are complete. v0.1.0 is tagged and published. The v0.2 editor alpha
 | **Default material/profile library** | `viewer/public/library/` | Done — 46 materials, 3 profiles |
 | **Path node editing (move, insert, delete)** | `viewer/src/editor/pathEditTool.js` | Done — #64 |
 | **Properties panel — node position (X/Y/Z)** | `viewer/src/editor/editor.js` | Done — #65 |
+| **Profile editor — type, FFL, height limit, guidelines, material picker, draw tools** | `viewer/src/profile-editor/` | Done — #66 |
 
 ### IFC tools — `ifc-tools/`
 
@@ -78,7 +79,6 @@ Phases 1–6 are complete. v0.1.0 is tagged and published. The v0.2 editor alpha
 
 | # | Title | Priority | Notes |
 |---|---|---|---|
-| #66 | Profile editor improvements (guidelines, FFL, type, material, polygon) | High | Completes review batch 1 plan; 5 sub-features |
 | #67 | AI integration research and plan | High | Research task; plan to be committed as `docs/ai-integration-plan.md` |
 | #58 | V0.3: IFC importer/exporter integrated into editor UI | Medium | Accessible from editor, not just CLI |
 | #18 | CSG fallback for spline-path junctions (three-bvh-csg) | Medium | Geometry correctness for curved paths |
@@ -95,7 +95,6 @@ Phases 1–6 are complete. v0.1.0 is tagged and published. The v0.2 editor alpha
 | Storey and guide creation still uses `window.prompt` / `alert` | To be replaced with inline panel UI |
 | Junction sprites placed at world origin for pre-existing junctions | Requires path data registration at load time |
 | Mesh does not appear after drawing until a default profile is selected | Entities written correctly; visual requires profile |
-| Profile editor lacks guidelines, FFL marker, material picker (#66) | Next planned work item |
 | `v0.2.0-editor-alpha` tag not pushed to GitHub | Tag only exists locally |
 
 ---
@@ -111,4 +110,4 @@ Phases 1–6 are complete. v0.1.0 is tagged and published. The v0.2 editor alpha
 | Phase 5 — Scene completeness & release | Tasks 21–29 | Complete — v0.1.0 tagged |
 | Phase 6 — Browser editor (v0.2 alpha) | Tasks 30–42 | Complete — v0.2.0-editor-alpha |
 | Phase 7 — Editor review batch 1 | PR #68 | Complete — #59 #60 #61 #62 #63 #64 #65 |
-| Phase 8 — Profile editor + AI integration | #66 #67 | Next |
+| Phase 8 — Profile editor + AI integration | #66 #67 | #66 complete; #67 next |
