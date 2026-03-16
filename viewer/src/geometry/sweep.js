@@ -55,9 +55,22 @@ function _computeFrames(points) {
   const worldUp = { x: 0, y: 0, z: 1 };
 
   for (let i = 0; i < n; i++) {
-    const tangent = i < n - 1
-      ? _normalize(_sub(points[i + 1], points[i]))
-      : _normalize(_sub(points[i], points[i - 1]));
+    let tangent;
+    if (i === 0) {
+      tangent = _normalize(_sub(points[1], points[0]));
+    } else if (i === n - 1) {
+      tangent = _normalize(_sub(points[n - 1], points[n - 2]));
+    } else {
+      // Miter: average the incoming and outgoing unit tangents so the
+      // cross-section ring at this node bisects the corner angle.
+      // Without this, the ring is oriented to the outgoing segment only,
+      // which makes both wall sides converge onto the path centreline.
+      const tIn  = _normalize(_sub(points[i],     points[i - 1]));
+      const tOut = _normalize(_sub(points[i + 1], points[i]));
+      const avg  = { x: tIn.x + tOut.x, y: tIn.y + tOut.y, z: tIn.z + tOut.z };
+      // Fall back to incoming tangent for near-180° U-turns (avg ≈ zero vector)
+      tangent = _len(avg) > 1e-6 ? _normalize(avg) : tIn;
+    }
 
     let binormal = _normalize(_cross(tangent, worldUp));
     if (_len(binormal) < 1e-6) binormal = { x: 1, y: 0, z: 0 }; // vertical path fallback

@@ -185,6 +185,30 @@ describe('sweepProfile — edge cases', () => {
     expect(Array.from(mesh.normals).every(isFinite)).toBe(true);
   });
 
+  test('L-shaped path: intermediate node is mitered, not collapsed to centreline', () => {
+    // Without miter tangents the ring at the corner node is oriented to the
+    // outgoing segment, making both wall sides lie on the path centreline (y=0).
+    // With miter tangents the ring sits on the angle bisector so each side is
+    // offset from the centreline in Y.
+    const path = [
+      { x: 0, y: 0, z: 0 },
+      { x: 2, y: 0, z: 0 },  // 90° corner — turns north
+      { x: 2, y: 2, z: 0 },
+    ];
+    const [mesh] = sweepProfile(path, [layerFrom(rect(-0.1, 0.1))]);
+
+    // Tube vertices at frame 1 (4 verts, starting at index 4 in the grid)
+    // Expected miter binormal = normalize(cross(normalize((1,1,0)), (0,0,1)))
+    //   = (0.707, -0.707, 0)
+    // p.x=-0.1 → y offset = (-0.1)×(-0.707) = +0.0707
+    // p.x= 0.1 → y offset = ( 0.1)×(-0.707) = -0.0707
+    const ys = [];
+    for (let vi = 4; vi < 8; vi++) ys.push(mesh.vertices[vi * 3 + 1]);
+
+    expect(Math.max(...ys)).toBeCloseTo( 0.0707, 2);
+    expect(Math.min(...ys)).toBeCloseTo(-0.0707, 2);
+  });
+
   test('path with sharp corner (~170° turn): all normals are finite', () => {
     // Nearly-reverse path — tangent almost reverses at the second point
     const path = [
