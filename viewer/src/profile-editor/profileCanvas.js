@@ -19,6 +19,7 @@ const WALL_HEIGHT = 2.7; // metres — fixed for v0.1
  */
 export function initCanvas(svgEl) {
   svgEl.setAttribute('xmlns', SVG_NS);
+  svgEl.setAttribute('overflow', 'visible');
   svgEl.style.width  = '100%';
   svgEl.style.height = '100%';
   _setupOriginDrag(svgEl);
@@ -104,7 +105,7 @@ export function renderCanvas(svgEl, layers, originX, matMap, selectedIndex = nul
     const yFfl = Math.round((WALL_HEIGHT - ffl) * 1e6) / 1e6;
     const fflLine = document.createElementNS(SVG_NS, 'line');
     fflLine.setAttribute('x1', '0'); fflLine.setAttribute('y1', String(yFfl));
-    fflLine.setAttribute('x2', String(totalWidth)); fflLine.setAttribute('y2', String(yFfl));
+    fflLine.setAttribute('x2', String(totalWidth * 10)); fflLine.setAttribute('y2', String(yFfl));
     fflLine.setAttribute('stroke', '#22bb66');
     fflLine.setAttribute('stroke-width', '0.003');
     fflLine.setAttribute('stroke-dasharray', '0.02 0.015');
@@ -121,7 +122,7 @@ export function renderCanvas(svgEl, layers, originX, matMap, selectedIndex = nul
     const yLimit = Math.round((WALL_HEIGHT - hlimit) * 1e6) / 1e6;
     const limitLine = document.createElementNS(SVG_NS, 'line');
     limitLine.setAttribute('x1', '0'); limitLine.setAttribute('y1', String(yLimit));
-    limitLine.setAttribute('x2', String(totalWidth)); limitLine.setAttribute('y2', String(yLimit));
+    limitLine.setAttribute('x2', String(totalWidth * 10)); limitLine.setAttribute('y2', String(yLimit));
     limitLine.setAttribute('stroke', '#cc8800');
     limitLine.setAttribute('stroke-width', '0.003');
     limitLine.setAttribute('stroke-dasharray', '0.02 0.015');
