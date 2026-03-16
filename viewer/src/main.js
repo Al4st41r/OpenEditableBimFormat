@@ -18,6 +18,7 @@ import { loadBundle }           from './loader/loadBundle.js';
 import { loadBundleZstd }       from './loader/loadBundleZstd.js';
 import { buildThreeMesh }        from './scene/buildMesh.js';
 import { applyJunctionClipping, buildCustomJunctionMesh } from './junction-renderer.js';
+import { applyCsgJunctions } from './junction-csg.js';
 import { buildArrayGroup }       from './array/arrayRenderer.js';
 import { buildSymbolGeometries } from './loader/loadSymbol.js';
 import { buildGridLineSegments } from './loader/loadGrid.js';
@@ -101,6 +102,7 @@ function _buildScene(meshes, manifest, junctions, arrays, grids, openings = []) 
   currentGroup.name = manifest.project_name;
   for (const meshData of meshes) currentGroup.add(buildThreeMesh(meshData));
   applyJunctionClipping(currentGroup, junctions);
+  applyCsgJunctions(currentGroup, junctions);
 
   // Build material map for custom junction rendering
   const matMap = new Map();
