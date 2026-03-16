@@ -904,8 +904,10 @@ async function _reRenderElement(elementId, updatedPathData) {
   );
   for (const m of toRemove) {
     editorScene.modelGroup.remove(m);
-    if (m.geometry) m.geometry.dispose();
-    if (m.material) m.material.dispose();
+    m.traverse(child => {
+      if (child.geometry) child.geometry.dispose();
+      if (child.material) child.material.dispose();
+    });
   }
 
   // Update the registry so future calls use the latest path
@@ -1048,8 +1050,10 @@ async function _changeElementProfile(elementId, newProfileId) {
   );
   for (const m of toRemove) {
     editorScene.modelGroup.remove(m);
-    if (m.geometry) m.geometry.dispose();
-    if (m.material) m.material.dispose();
+    m.traverse(child => {
+      if (child.geometry) child.geometry.dispose();
+      if (child.material) child.material.dispose();
+    });
   }
 
   try {
