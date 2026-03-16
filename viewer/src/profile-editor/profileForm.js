@@ -9,6 +9,7 @@
  */
 
 import { FUNCTIONS, FUNCTION_META } from './profileConstants.js';
+import { openMaterialPicker } from './materialPicker.js';
 
 const ICON_BASE = import.meta.env.BASE_URL + 'icons/';
 
@@ -111,6 +112,25 @@ function _appendRow(formEl, layer, index) {
   });
   matSelect.style.flex = '2';
 
+  const swatchBtn = document.createElement('button');
+  const swatchColour = matMap[layer.material_id]?.colour_hex ?? '#888888';
+  swatchBtn.style.width = '20px';
+  swatchBtn.style.height = '20px';
+  swatchBtn.style.background = swatchColour;
+  swatchBtn.style.border = '1px solid #666';
+  swatchBtn.style.borderRadius = '2px';
+  swatchBtn.style.cursor = 'pointer';
+  swatchBtn.style.flexShrink = '0';
+  swatchBtn.style.padding = '0';
+  swatchBtn.title = 'Pick material';
+  swatchBtn.addEventListener('click', async () => {
+    const id = await openMaterialPicker(matMap);
+    if (!id) return;
+    matSelect.value = id;
+    swatchBtn.style.background = matMap[id]?.colour_hex ?? '#888888';
+    _emit(formEl);
+  });
+
   const fnIcon = document.createElement('img');
   fnIcon.src = ICON_BASE + (FUNCTION_META[layer.function]?.icon ?? 'layer-structure.svg');
   fnIcon.width  = 16;
@@ -137,7 +157,7 @@ function _appendRow(formEl, layer, index) {
     el.addEventListener('change', () => _emit(formEl));
   });
 
-  row.append(nameInput, thickInput, matSelect, fnIcon, fnSelect, upBtn, downBtn, delBtn);
+  row.append(nameInput, thickInput, swatchBtn, matSelect, fnIcon, fnSelect, upBtn, downBtn, delBtn);
   formEl.appendChild(row);
 }
 
