@@ -77,8 +77,8 @@ export function applyCsgJunctions(sceneRoot, junctions) {
  */
 function _applyOneCsgJunction(evaluator, junction, meshMap) {
   const prioritySet = new Set(junction.priority ?? []);
-  const dominantIds = junction.elements.filter(id => prioritySet.has(id));
-  const subordinateIds = junction.elements.filter(id => !prioritySet.has(id));
+  const dominantIds = (junction.elements ?? []).filter(id => prioritySet.has(id));
+  const subordinateIds = (junction.elements ?? []).filter(id => !prioritySet.has(id));
 
   if (subordinateIds.length === 0) {
     console.warn(
@@ -126,8 +126,9 @@ function _applyOneCsgJunction(evaluator, junction, meshMap) {
 
       const resultBrush = evaluator.evaluate(brushA, brushB, SUBTRACTION);
 
-      subMesh.geometry.dispose();
+      const oldGeo = subMesh.geometry;
       subMesh.geometry = resultBrush.geometry;
+      oldGeo.dispose();
     }
   }
 }

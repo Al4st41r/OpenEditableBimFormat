@@ -180,6 +180,44 @@ describe('applyCsgJunctions', () => {
     warnSpy.mockRestore();
   });
 
+  it('applies multiple dominant subtractions sequentially', () => {
+    const group = new THREE.Group();
+    // element-a (subordinate): box spanning x=[0,4], y=[0,0.3], z=[0,2]
+    const meshA = makeBoxMesh(0, 0, 0, 4, 0.3, 2, 'element-a');
+    // element-b (dominant 1): box spanning x=[3,6], y=[-5,5], z=[0,2]
+    // Overlaps element-a for x in [3, 4]
+    const meshB = makeBoxMesh(3, -5, 0, 6, 5, 2, 'element-b');
+    // element-c (dominant 2): box spanning x=[-2,1], y=[-5,5], z=[0,2]
+    // Overlaps element-a for x in [0, 1]
+    const meshC = makeBoxMesh(-2, -5, 0, 1, 5, 2, 'element-c');
+    group.add(meshA);
+    group.add(meshB);
+    group.add(meshC);
+
+    const originalGeoA = meshA.geometry;
+
+    const junction = {
+      id: 'junction-two-dominants',
+      type: 'Junction',
+      elements: ['element-a', 'element-b', 'element-c'],
+      rule: 'butt',
+      priority: ['element-b', 'element-c'],
+      trim_method: 'csg',
+      trim_planes: [],
+    };
+
+    // Should not throw
+    expect(() => applyCsgJunctions(group, [junction])).not.toThrow();
+
+    // Geometry should have been replaced
+    expect(meshA.geometry).not.toBe(originalGeoA);
+
+    // After subtracting both dominants, element-a should not extend past x=3 or below x=1
+    const bb = geoBoundingBox(meshA);
+    expect(bb.max.x).toBeLessThanOrEqual(3 + 0.01);
+    expect(bb.min.x).toBeGreaterThanOrEqual(1 - 0.01);
+  });
+
   it('logs CSG timing for each junction', () => {
     const group = new THREE.Group();
     const meshA = makeBoxMesh(0, 0, 0, 2, 0.3, 2.4, 'element-a');

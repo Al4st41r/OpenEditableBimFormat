@@ -17,11 +17,11 @@ export default defineConfig({
   build: {
     rollupOptions: {
       input: {
-        main:          resolve(__dirname, 'index.html'),
-        launch:        resolve(__dirname, 'launch.html'),
-        viewer:        resolve(__dirname, 'viewer.html'),
-        editor:        resolve(__dirname, 'editor.html'),
-        profileEditor: resolve(__dirname, 'profile-editor.html'),
+        main:          resolve(__dirname2, 'index.html'),
+        launch:        resolve(__dirname2, 'launch.html'),
+        viewer:        resolve(__dirname2, 'viewer.html'),
+        editor:        resolve(__dirname2, 'editor.html'),
+        profileEditor: resolve(__dirname2, 'profile-editor.html'),
       },
     },
   },
