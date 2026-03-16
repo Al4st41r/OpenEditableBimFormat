@@ -476,9 +476,13 @@ async function _loadAndRenderBundle(adapter) {
 
   // Load materials map
   activeProfileMap = {};
+  document.getElementById('materials-list').innerHTML = '';
   try {
     const matsData = await readEntity(adapter, 'materials/library.json');
-    for (const m of (matsData.materials ?? [])) activeProfileMap[m.id] = m;
+    for (const m of (matsData.materials ?? [])) {
+      activeProfileMap[m.id] = m;
+      _addMaterialToTree(m);
+    }
   } catch { /* ignore — bundle may have no materials */ }
 
   // Populate profile dropdowns
@@ -703,6 +707,7 @@ function _enableEditorTools() {
   document.getElementById('add-guide-btn').disabled = false;
   document.getElementById('add-height-guide-btn').disabled = false;
   document.getElementById('add-detail-btn').disabled = false;
+  document.getElementById('add-material-btn').disabled = false;
   document.getElementById('default-wall-profile').disabled = false;
   document.getElementById('default-slab-profile').disabled = false;
 }
@@ -837,6 +842,27 @@ document.getElementById('add-detail-btn').addEventListener('click', async () => 
   _openDetailInProfileEditor(id);
 });
 
+document.getElementById('add-material-btn').addEventListener('click', async () => {
+  if (!adapter) return;
+  const name = window.prompt('Material name:')?.trim();
+  if (!name) return;
+  const colour = window.prompt('Colour hex (e.g. #C4693A):', '#888888')?.trim() || '#888888';
+  const id = 'mat-' + name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+
+  // Read existing library (or start fresh)
+  let lib = { '$schema': 'oebf://schema/0.1/materials', materials: [] };
+  try { lib = await readEntity(adapter, 'materials/library.json'); } catch { /* new bundle */ }
+  if (!Array.isArray(lib.materials)) lib.materials = [];
+
+  const mat = { id, type: 'Material', name, colour_hex: colour, interactions: {} };
+  lib.materials.push(mat);
+  await writeEntity(adapter, 'materials/library.json', lib);
+
+  activeProfileMap[id] = mat;
+  _addMaterialToTree(mat);
+  statusBar.textContent = `Material added: ${name}`;
+});
+
 // ── Junction selection via canvas click (Select mode only) ────────────────────
 canvas.addEventListener('click', (e) => {
   if (activeTool) return; // drawing tool active
@@ -863,6 +889,18 @@ function _addElementToTree(id, label) {
   el.appendChild(span);
   el.addEventListener('click', () => _selectElement(id));
   document.getElementById('elements-list').appendChild(el);
+}
+
+function _addMaterialToTree(mat) {
+  const list = document.getElementById('materials-list');
+  const item = document.createElement('div');
+  item.className = 'tree-item';
+  item.dataset.id = mat.id;
+  item.innerHTML = `
+    <span class="mat-swatch" style="background:${mat.colour_hex ?? '#888'}"></span>
+    <span class="tree-item-name">${mat.name ?? mat.id}</span>
+  `;
+  list.appendChild(item);
 }
 
 function _selectElement(id) {

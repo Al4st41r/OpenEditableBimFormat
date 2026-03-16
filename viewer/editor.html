@@ -102,6 +102,11 @@
       border: 1px solid #555; border-radius: 3px; font-size: 12px;
     }
     #props-empty { opacity: 0.4; font-size: 12px; padding: 8px 0; }
+
+    .mat-swatch {
+      width: 12px; height: 12px; border-radius: 2px; flex-shrink: 0;
+      border: 1px solid rgba(255,255,255,0.15);
+    }
   </style>
 </head>
 <body>
@@ -176,6 +181,12 @@
           <button class="tree-section-add" id="add-detail-btn" disabled title="Add detail">+</button>
         </div>
         <div class="tree-items" id="details-list"></div>
+
+        <div class="tree-section-header">
+          Materials
+          <button class="tree-section-add" id="add-material-btn" disabled title="Add material">+</button>
+        </div>
+        <div class="tree-items" id="materials-list"></div>
       </div>
       <div id="scene-tree-footer">
         <div id="scene-tree-filename">No bundle open</div>
