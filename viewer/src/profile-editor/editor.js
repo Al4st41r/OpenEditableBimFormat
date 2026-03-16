@@ -49,7 +49,7 @@ const heightLimitInput  = document.getElementById('height-limit-input');
 
 profileTypeSelect.addEventListener('change', () => { profileType    = profileTypeSelect.value;                      _renderCanvas(); });
 fflInput.addEventListener('change',          () => { ffl_m          = parseFloat(fflInput.value)          || 0;    _renderCanvas(); });
-heightLimitInput.addEventListener('change',  () => { height_limit_m = parseFloat(heightLimitInput.value) || 0;     _renderCanvas(); });
+heightLimitInput.addEventListener('change',  () => { const parsed = parseFloat(heightLimitInput.value); height_limit_m = isNaN(parsed) ? undefined : parsed; _renderCanvas(); });
 
 profileSvg.addEventListener('layer-selected', e => {
   selectedLayerIndex = e.detail.index;
@@ -222,7 +222,8 @@ saveBtn.addEventListener('click', async () => {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function _renderCanvas() {
-  renderCanvas(profileSvg, getLayers(layerList), originX, matMap, selectedLayerIndex);
+  renderCanvas(profileSvg, getLayers(layerList), originX, matMap, selectedLayerIndex,
+               { ffl_m, height_limit_m });
 }
 
 function _setStatus(msg) { statusEl.textContent = msg; }
