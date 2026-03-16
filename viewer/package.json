@@ -13,7 +13,8 @@
   "dependencies": {
     "fflate": "^0.8.2",
     "fzstd": "^0.1.1",
-    "three": "^0.170.0"
+    "three": "^0.170.0",
+    "three-bvh-csg": "^0.0.17"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",
