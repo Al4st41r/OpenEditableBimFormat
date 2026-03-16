@@ -46,6 +46,11 @@ const renderLinesBtn      = document.getElementById('render-lines');
 const renderSolidEdgesBtn = document.getElementById('render-solid-edges');
 const unitsSelect = document.getElementById('units-select');
 
+// ── Welcome dialogue ──────────────────────────────────────────────────────────
+function _dismissWelcome() {
+  document.getElementById('welcome-overlay').classList.add('hidden');
+}
+
 // ── Version footer ────────────────────────────────────────────────────────────
 /* global __APP_VERSION__ */
 treeVersion.textContent = `v${__APP_VERSION__}`;
@@ -208,6 +213,28 @@ document.getElementById('new-btn').addEventListener('click', async () => {
   _setBundleOpen(adapter.name, true);
 });
 
+document.getElementById('welcome-new').addEventListener('click', async () => {
+  _dismissWelcome();
+  const name = window.prompt('Project name:', 'New Project')?.trim() || 'New Project';
+  adapter = createNewBundle(name);
+  await _loadAndRenderBundle(adapter);
+  _enableEditorTools();
+  saveBtn.disabled = false;
+  _setBundleOpen(adapter.name, true);
+});
+
+document.getElementById('welcome-open').addEventListener('click', () => {
+  _dismissWelcome();
+  openBtn.click();
+});
+
+document.addEventListener('keydown', e => {
+  const overlay = document.getElementById('welcome-overlay');
+  if (overlay.classList.contains('hidden')) return;
+  if (e.key === 'Enter') document.getElementById('welcome-new').click();
+  if (e.key === 'Escape') _dismissWelcome();
+});
+
 function _showOpenMenu() {
   document.getElementById('_open-menu')?.remove();
 
@@ -349,6 +376,7 @@ document.getElementById('tool-floor').addEventListener('click', async () => {
 
 // ── Load and render bundle ────────────────────────────────────────────────────
 async function _loadAndRenderBundle(adapter) {
+  _dismissWelcome();
   // Clear existing model group
   editorScene.modelGroup.traverse(child => {
     if (child.geometry) child.geometry.dispose();
