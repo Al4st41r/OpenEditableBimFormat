@@ -26,7 +26,9 @@ export function initEditorScene(canvas) {
 
   // RoomEnvironment provides realistic indirect (IBL) lighting — replaces AmbientLight
   const pmremGenerator = new THREE.PMREMGenerator(renderer);
-  scene.environment = pmremGenerator.fromScene(new RoomEnvironment()).texture;
+  const roomEnv = new RoomEnvironment();
+  scene.environment = pmremGenerator.fromScene(roomEnv).texture;
+  roomEnv.dispose();
   pmremGenerator.dispose();
 
   // Single directional light — warm tint complements the IBL
@@ -108,7 +110,7 @@ export function initEditorScene(canvas) {
 
   function setRenderMode(mode) {
     _renderMode = mode;
-    scene.background = new THREE.Color(mode === 'lines' ? 0xf5f5f0 : 0x1a1a1a);
+    scene.background.setHex(mode === 'lines' ? 0xf5f5f0 : 0x1a1a1a);
 
     // modelGroup contains only wall/floor geometry — construction plane is on
     // `scene` directly, overlays are in `overlayGroup`, so isMesh check is safe.
