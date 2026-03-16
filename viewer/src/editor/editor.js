@@ -153,6 +153,18 @@ viewPlanBtn.addEventListener('click', () => {
   view3dBtn.classList.remove('active');
 });
 
+// ── Render mode buttons ───────────────────────────────────────────────────────
+function _setRenderMode(mode) {
+  editorScene.setRenderMode(mode);
+  document.getElementById('render-solid')      .classList.toggle('active', mode === 'solid');
+  document.getElementById('render-lines')      .classList.toggle('active', mode === 'lines');
+  document.getElementById('render-solid-edges').classList.toggle('active', mode === 'solid+edges');
+}
+
+document.getElementById('render-solid')      .addEventListener('click', () => _setRenderMode('solid'));
+document.getElementById('render-lines')      .addEventListener('click', () => _setRenderMode('lines'));
+document.getElementById('render-solid-edges').addEventListener('click', () => _setRenderMode('solid+edges'));
+
 // ── Units selector ────────────────────────────────────────────────────────────
 unitsSelect.addEventListener('change', () => {
   setUnit(unitsSelect.value);
