@@ -53,12 +53,21 @@ export function highlightRow(formEl, index) {
  * @returns {Array}
  */
 export function getLayers(formEl) {
-  return [...formEl.querySelectorAll('.layer-row')].map(row => ({
-    name:        row.querySelector('.layer-name').value,
-    material_id: row.querySelector('.layer-mat').value,
-    thickness:   parseFloat(row.querySelector('.layer-thick').value) || 0,
-    function:    row.querySelector('.layer-fn').value,
-  }));
+  return [...formEl.querySelectorAll('.layer-row')].map(row => {
+    const isRegion = row.dataset.layerType === 'region';
+    const base = {
+      name:        row.querySelector('.layer-name').value,
+      material_id: row.querySelector('.layer-mat').value,
+      function:    row.querySelector('.layer-fn').value,
+    };
+    if (isRegion) {
+      base.type     = 'region';
+      base.vertices = JSON.parse(row.dataset.vertices || '[]');
+    } else {
+      base.thickness = parseFloat(row.querySelector('.layer-thick').value) || 0;
+    }
+    return base;
+  });
 }
 
 /**
@@ -83,6 +92,9 @@ function _appendRow(formEl, layer, index) {
 
   const row = document.createElement('div');
   row.className = 'layer-row';
+  const isRegion = layer.type === 'region';
+  row.dataset.layerType = isRegion ? 'region' : 'band';
+  if (isRegion) row.dataset.vertices = JSON.stringify(layer.vertices ?? []);
   const fnColour = FUNCTION_META[layer.function]?.colour ?? '#555';
   row.style.cssText = `display:flex;gap:6px;align-items:center;padding:4px 0;border-bottom:1px solid #333;border-left:3px solid ${fnColour};padding-left:6px;`;
 
@@ -95,11 +107,12 @@ function _appendRow(formEl, layer, index) {
 
   const thickInput = document.createElement('input');
   thickInput.className = 'layer-thick';
-  thickInput.type = 'number';
-  thickInput.value = layer.thickness;
-  thickInput.min = '0.001';
-  thickInput.step = '0.001';
-  thickInput.style.width = '70px';
+  if (isRegion) {
+    thickInput.type = 'hidden'; thickInput.value = '0';
+  } else {
+    thickInput.type = 'number'; thickInput.value = layer.thickness;
+    thickInput.min = '0.001'; thickInput.step = '0.001'; thickInput.style.width = '70px';
+  }
 
   const matSelect = document.createElement('select');
   matSelect.className = 'layer-mat';

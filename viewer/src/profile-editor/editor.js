@@ -14,6 +14,7 @@ import { initCanvas, renderCanvas } from './profileCanvas.js';
 import { initForm, setLayers, getLayers, highlightRow, addBlankLayer } from './profileForm.js';
 import { buildJson, buildSvg } from './profileSerializer.js';
 import { addGuide, getGuides, clearGuides, renderGuidelines, setupGuideDrag } from './profileGuidelines.js';
+import { activateRectTool, activatePolygonTool, deactivateTool } from './canvasDrawTools.js';
 
 // ── DOM refs ─────────────────────────────────────────────────────────────────
 const profileSvg    = document.getElementById('profile-svg');
@@ -158,6 +159,7 @@ profileSelect.addEventListener('change', async () => {
     material_id: l.material_id,
     thickness:   l.thickness,
     function:    l.function,
+    ...(l.type === 'region' ? { type: 'region', vertices: l.vertices ?? [] } : {}),
   }));
   profileType    = data.profile_type    ?? 'wall';
   ffl_m          = data.ffl_m           ?? 0.0;
@@ -205,6 +207,25 @@ newBtn.addEventListener('click', () => {
 addLayerBtn.addEventListener('click', () => {
   addBlankLayer(layerList);
   _renderCanvas();
+});
+
+// ── Draw tools ────────────────────────────────────────────────────────────────
+document.getElementById('tool-rect-btn').addEventListener('click', () => {
+  activateRectTool(profileSvg, vertices => {
+    layers = getLayers(layerList);
+    layers.push({ name: 'Region', material_id: matIds[0] ?? '', type: 'region', function: 'structure', vertices });
+    setLayers(layerList, layers);
+    _renderCanvas();
+  });
+});
+
+document.getElementById('tool-poly-btn').addEventListener('click', () => {
+  activatePolygonTool(profileSvg, vertices => {
+    layers = getLayers(layerList);
+    layers.push({ name: 'Region', material_id: matIds[0] ?? '', type: 'region', function: 'structure', vertices });
+    setLayers(layerList, layers);
+    _renderCanvas();
+  });
 });
 
 // ── Save ──────────────────────────────────────────────────────────────────────

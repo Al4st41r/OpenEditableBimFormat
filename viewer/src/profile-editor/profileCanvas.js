@@ -45,10 +45,26 @@ export function renderCanvas(svgEl, layers, originX, matMap, selectedIndex = nul
   let cursor = 0;
   layers.forEach((layer, i) => {
     const colour = matMap[layer.material_id]?.colour_hex ?? '#888888';
+
+    if (layer.type === 'region' && Array.isArray(layer.vertices) && layer.vertices.length >= 3) {
+      const poly = document.createElementNS(SVG_NS, 'polygon');
+      poly.setAttribute('points', layer.vertices.map(v => `${v.x},${v.y}`).join(' '));
+      poly.setAttribute('fill', colour);
+      poly.setAttribute('stroke', i === selectedIndex ? '#0080ff' : '#888');
+      poly.setAttribute('stroke-width', '0.002');
+      poly.style.cursor = 'pointer';
+      poly.addEventListener('click', () => {
+        svgEl.dispatchEvent(new CustomEvent('layer-selected', { detail: { index: i } }));
+      });
+      svgEl.appendChild(poly);
+      return;
+    }
+
+    // Band layer (rect) — existing code
     const rect = document.createElementNS(SVG_NS, 'rect');
     rect.setAttribute('x',      String(Math.round(cursor * 1e6) / 1e6));
     rect.setAttribute('y',      '0');
-    rect.setAttribute('width',  String(Math.round(layer.thickness * 1e6) / 1e6));
+    rect.setAttribute('width',  String(Math.round((layer.thickness ?? 0) * 1e6) / 1e6));
     rect.setAttribute('height', String(WALL_HEIGHT));
     rect.setAttribute('fill',   colour);
     rect.setAttribute('stroke', i === selectedIndex ? '#0080ff' : '#888');
@@ -58,7 +74,7 @@ export function renderCanvas(svgEl, layers, originX, matMap, selectedIndex = nul
       svgEl.dispatchEvent(new CustomEvent('layer-selected', { detail: { index: i } }));
     });
     svgEl.appendChild(rect);
-    cursor += layer.thickness;
+    cursor += layer.thickness ?? 0;
     cursor = Math.round(cursor * 1e6) / 1e6; // prevent float drift
   });
 
