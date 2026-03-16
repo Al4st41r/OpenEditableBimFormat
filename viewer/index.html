@@ -7,268 +7,365 @@
   <link rel="icon" href="/oebf/icons/favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
+    :root {
+      --bg: #0c0c0c;
+      --fg: #e0e0e0;
+      --fg-muted: #808080;
+      --accent: #3a86ff;
+      --border: #222;
+      --card-bg: #141414;
+      --code-bg: #1a1a1a;
+      --font-sans: 'Barlow', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
     body {
-      background: #1a1a1a; color: #ddd;
-      font-family: 'Barlow', sans-serif;
-      font-size: 14px; line-height: 1.6;
+      background: var(--bg);
+      color: var(--fg);
+      font-family: var(--font-sans);
+      font-size: 16px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
     }
 
-    a { color: inherit; text-decoration: none; }
+    a { color: var(--accent); text-decoration: none; transition: opacity 0.2s; }
+    a:hover { opacity: 0.8; }
 
     /* ── Layout ── */
-    .page {
-      max-width: 860px; margin: 0 auto;
-      padding: 64px 32px 80px;
-      display: flex; flex-direction: column; gap: 64px;
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 0 40px;
     }
+
+    section { padding: 80px 0; }
+    .border-bottom { border-bottom: 1px solid var(--border); }
+
+    /* ── Header ── */
+    header {
+      padding: 40px 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 700;
+      font-size: 20px;
+      letter-spacing: 0.05em;
+    }
+    .logo img { width: 32px; height: 32px; }
+
+    nav { display: flex; gap: 32px; font-size: 14px; font-weight: 500; }
+    nav a { color: var(--fg-muted); }
+    nav a:hover { color: var(--fg); }
 
     /* ── Hero ── */
-    .hero { display: flex; flex-direction: column; gap: 12px; }
+    .hero {
+      padding: 120px 0 80px;
+      text-align: left;
+    }
     .hero-label {
-      font-size: 11px; font-weight: 700; letter-spacing: 0.12em;
-      text-transform: uppercase; opacity: 0.4;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 16px;
     }
     .hero h1 {
-      font-size: 36px; font-weight: 700; letter-spacing: 0.03em;
-      line-height: 1.15;
+      font-size: 72px;
+      line-height: 1;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 32px;
+      max-width: 800px;
     }
     .hero-sub {
-      font-size: 16px; opacity: 0.55; max-width: 560px; line-height: 1.55;
+      font-size: 22px;
+      color: var(--fg-muted);
+      max-width: 680px;
+      line-height: 1.5;
     }
 
-    /* ── Apps ── */
-    .apps { display: flex; flex-direction: column; gap: 16px; }
-    .apps h2 { font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; opacity: 0.4; }
-    .cards { display: flex; gap: 16px; flex-wrap: wrap; }
+    .cta-group {
+      margin-top: 48px;
+      display: flex;
+      gap: 16px;
+    }
+    .btn {
+      display: inline-block;
+      padding: 14px 28px;
+      border-radius: 4px;
+      font-weight: 600;
+      font-size: 15px;
+      transition: all 0.2s;
+    }
+    .btn-primary { background: var(--accent); color: white; }
+    .btn-secondary { background: var(--card-bg); color: var(--fg); border: 1px solid var(--border); }
+    .btn:hover { transform: translateY(-2px); opacity: 1; }
 
-    .card {
-      flex: 1; min-width: 240px;
-      display: flex; flex-direction: column; gap: 12px;
-      padding: 24px 28px; background: #222; border: 1px solid #333;
-      border-radius: 6px; cursor: pointer; color: inherit;
-      transition: background 0.15s, border-color 0.15s;
+    /* ── Features ── */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 40px;
     }
-    .card:hover { background: #262626; border-color: #4a4a4a; }
-
-    .card-header { display: flex; align-items: center; gap: 12px; }
-    .card-header img { width: 28px; height: 28px; opacity: 0.7; flex-shrink: 0; }
-    .card-title { font-weight: 700; font-size: 15px; }
-    .card-desc { font-size: 13px; opacity: 0.55; line-height: 1.55; }
-
-    .card-steps {
-      list-style: none; display: flex; flex-direction: column; gap: 6px;
-      border-top: 1px solid #2e2e2e; padding-top: 14px; margin-top: 4px;
+    .feature h3 {
+      font-size: 18px;
+      margin-bottom: 12px;
+      font-weight: 700;
     }
-    .card-steps li {
-      font-size: 12px; opacity: 0.5; padding-left: 16px; position: relative;
-    }
-    .card-steps li::before {
-      content: '→'; position: absolute; left: 0; opacity: 0.6;
+    .feature p {
+      color: var(--fg-muted);
+      font-size: 15px;
     }
 
-    /* ── How it works ── */
-    .how { display: flex; flex-direction: column; gap: 16px; }
-    .how h2 { font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; opacity: 0.4; }
-    .steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+    /* ── Tech Stack / Format ── */
+    .split {
+      display: flex;
+      gap: 80px;
+      align-items: flex-start;
+    }
+    .split-content { flex: 1; }
+    .split-visual { flex: 1; }
 
-    .step {
-      display: flex; flex-direction: column; gap: 8px;
-      padding: 20px 22px; background: #1e1e1e; border: 1px solid #2a2a2a;
-      border-radius: 6px;
-    }
-    .step-num {
-      font-size: 11px; font-weight: 700; letter-spacing: 0.08em;
-      color: #6a8aaa; text-transform: uppercase;
-    }
-    .step-title { font-size: 13px; font-weight: 700; }
-    .step-body { font-size: 12px; opacity: 0.5; line-height: 1.55; }
+    h2 { font-size: 32px; margin-bottom: 24px; font-weight: 700; }
 
-    /* ── Future ── */
-    .future { display: flex; flex-direction: column; gap: 16px; }
-    .future-header { display: flex; align-items: baseline; gap: 12px; }
-    .future h2 { font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; opacity: 0.4; }
-    .future-badge {
-      font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
-      background: #2a3a2a; color: #8f8; border: 1px solid #3a5a3a;
-      padding: 2px 7px; border-radius: 3px;
+    .code-block {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 24px;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      line-height: 1.5;
+      color: #aaa;
+      overflow-x: auto;
     }
-    .future-intro { font-size: 13px; opacity: 0.55; max-width: 620px; line-height: 1.6; }
+    .code-block .key { color: #88c0d0; }
+    .code-block .string { color: #a3be8c; }
+    .code-block .number { color: #b48ead; }
 
-    .pipeline {
-      display: flex; align-items: stretch; gap: 0; flex-wrap: wrap;
-      border: 1px solid #2a2a2a; border-radius: 6px; overflow: hidden;
+    /* ── Why OEBF ── */
+    .why-list {
+      list-style: none;
+      display: grid;
+      gap: 32px;
     }
-    .pipeline-step {
-      flex: 1; min-width: 160px;
-      display: flex; flex-direction: column; gap: 6px;
-      padding: 20px 22px; background: #1e1e1e;
-      border-right: 1px solid #2a2a2a;
+    .why-item {
+      display: flex;
+      gap: 24px;
     }
-    .pipeline-step:last-child { border-right: none; }
-    .pipeline-step-num {
-      font-size: 10px; font-weight: 700; letter-spacing: 0.08em;
-      text-transform: uppercase; opacity: 0.35;
+    .why-num {
+      font-weight: 700;
+      color: var(--accent);
+      font-size: 24px;
+      line-height: 1;
     }
-    .pipeline-step-title { font-size: 13px; font-weight: 700; }
-    .pipeline-step-body { font-size: 12px; opacity: 0.5; line-height: 1.55; }
-
-    .future-note {
-      font-size: 12px; opacity: 0.4; line-height: 1.6; max-width: 620px;
-    }
+    .why-text h4 { margin-bottom: 8px; font-size: 18px; }
+    .why-text p { color: var(--fg-muted); font-size: 15px; }
 
     /* ── Footer ── */
-    .footer {
-      display: flex; align-items: center; gap: 16px;
-      padding-top: 16px; border-top: 1px solid #252525;
-      font-size: 12px; opacity: 0.35;
+    footer {
+      padding: 80px 0 40px;
+      color: var(--fg-muted);
+      font-size: 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
     }
-    .footer a:hover { opacity: 0.7; }
+
+    @media (max-width: 768px) {
+      .hero h1 { font-size: 48px; }
+      .split { flex-direction: column; gap: 40px; }
+      header { flex-direction: column; gap: 24px; align-items: flex-start; }
+      nav { flex-wrap: wrap; gap: 16px; }
+    }
   </style>
 </head>
 <body>
-  <div class="page">
 
-    <!-- Hero -->
-    <div class="hero">
+  <div class="container">
+    <header>
+      <div class="logo">
+        <img src="icons/logo.svg" alt="OEBF Logo">
+        <span>OEBF</span>
+      </div>
+      <nav>
+        <a href="#what">What is OEBF</a>
+        <a href="#why">Why use it</a>
+        <a href="#use-cases">Use cases</a>
+        <a href="#tech">Tech stack</a>
+        <a href="#format">Format</a>
+        <a href="https://github.com/Al4st41r/OpenEditableBimFormat" target="_blank">GitHub</a>
+        <a href="https://github.com/Al4st41r/OpenEditableBimFormat/tree/main/docs" target="_blank">Documentation</a>
+      </nav>
+    </header>
+
+    <section class="hero">
       <p class="hero-label">Open Editable BIM Format</p>
-      <h1>OEBF</h1>
+      <h1>A path-first, human-readable building model format.</h1>
       <p class="hero-sub">
-        A path-first, human-readable building model format designed for direct editing
-        by people and language models alike. All geometry is stored as plain JSON —
-        paths, profiles, elements, junctions — in a structured directory bundle.
+        OEBF is a schematised JSON directory bundle designed for direct editing by people and language models. 
+        It prioritises detailed 3D junctions, interoperability, and version control.
       </p>
-    </div>
+      <div class="cta-group">
+        <a href="launch.html" class="btn btn-primary">Launch Applications</a>
+        <a href="https://github.com/Al4st41r/OpenEditableBimFormat" class="btn btn-secondary">View Source</a>
+      </div>
+    </section>
 
-    <!-- Apps -->
-    <div class="apps">
-      <h2>Applications</h2>
-      <div class="cards">
+    <section id="what" class="border-bottom">
+      <div class="grid">
+        <div class="feature">
+          <h3>Directory bundle</h3>
+          <p>Models live as a <code>.oebf</code> directory. One JSON file per entity. Git-friendly, diffable, and perfect for targeted LLM edits without loading the entire project.</p>
+        </div>
+        <div class="feature">
+          <h3>Path-first geometry</h3>
+          <p>All solid geometry derives from sweeping a 2D profile along a 3D path. Paths, profiles, and junctions are first-class entities, not derived meshes.</p>
+        </div>
+        <div class="feature">
+          <h3>Human-readable</h3>
+          <p>No binary blobs or proprietary encoding. Open any entity in a text editor to understand the geometry, materials, and properties immediately.</p>
+        </div>
+      </div>
+    </section>
 
-        <a href="viewer.html" class="card">
-          <div class="card-header">
-            <img src="/oebf/icons/folder.svg" alt="">
-            <span class="card-title">Viewer</span>
-          </div>
-          <p class="card-desc">
-            Inspect OEBF bundles and compressed archives in 3D. Includes a
-            sample model you can load immediately.
-          </p>
-          <ul class="card-steps">
-            <li>Click <strong>Load demo</strong> to open the sample model</li>
-            <li>Open any <code>.oebf</code> folder (Chrome/Edge) or <code>.oebfz</code> file (all browsers)</li>
-            <li>Use <strong>View profiles</strong> to inspect wall and slab cross-sections</li>
+    <section id="why" class="border-bottom">
+      <h2>Why use OEBF</h2>
+      <div class="split">
+        <div class="split-content">
+          <ul class="why-list">
+            <li class="why-item">
+              <span class="why-num">01</span>
+              <div class="why-text">
+                <h4>LLM Native</h4>
+                <p>Because every entity is a bounded JSON file, a language model can read, reason about, and modify specific walls or slabs with natural-language instructions.</p>
+              </div>
+            </li>
+            <li class="why-item">
+              <span class="why-num">02</span>
+              <div class="why-text">
+                <h4>Detailed 3D Junctions</h4>
+                <p>Junctions are explicitly authored, not auto-computed. They define precise trimming rules (butt, mitre, lap) that map to real construction details.</p>
+              </div>
+            </li>
+            <li class="why-item">
+              <span class="why-num">03</span>
+              <div class="why-text">
+                <h4>IFC Interoperability</h4>
+                <p>Designed for lossless round-trip with IFC 4x3. Every entity carries its IFC class mapping, ensuring compatibility with standard BIM tools.</p>
+              </div>
+            </li>
           </ul>
-        </a>
-
-        <a href="editor.html" class="card">
-          <div class="card-header">
-            <img src="/oebf/icons/document.svg" alt="">
-            <span class="card-title">Editor</span>
-          </div>
-          <p class="card-desc">
-            Draw walls and slabs, manage storeys, add reference grids and guides.
-            Saves directly to an <code>.oebf</code> folder or downloads as a
-            <code>.oebfz</code> archive.
-          </p>
-          <ul class="card-steps">
-            <li>Open an existing <code>.oebf</code> folder or <code>.oebfz</code> file</li>
-            <li>Select a wall profile and use the Wall tool to draw</li>
-            <li>Save to write changes back to the bundle</li>
-          </ul>
-        </a>
-
-      </div>
-    </div>
-
-    <!-- How it works -->
-    <div class="how">
-      <h2>How it works</h2>
-      <div class="steps">
-        <div class="step">
-          <span class="step-num">Format</span>
-          <span class="step-title">Plain JSON, one file per entity</span>
-          <p class="step-body">
-            Every wall, path, profile, junction, and storey is a separate JSON file.
-            No binary, no proprietary encoding — open a bundle in any text editor.
-          </p>
         </div>
-        <div class="step">
-          <span class="step-num">Geometry</span>
-          <span class="step-title">Profile swept along a path</span>
-          <p class="step-body">
-            All solid geometry derives from sweeping a cross-section profile along
-            a polyline path. Junctions and slabs are first-class entities, not
-            auto-computed.
-          </p>
-        </div>
-        <div class="step">
-          <span class="step-num">Portability</span>
-          <span class="step-title">Folder or compressed archive</span>
-          <p class="step-body">
-            Bundles live as a plain <code>.oebf</code> directory for editing, or are
-            compressed to a single <code>.oebfz</code> file (Zstd) for sharing.
-          </p>
+        <div class="split-visual">
+          <div class="code-block">
+<span class="key">"id"</span>: <span class="string">"element-wall-south-gf"</span>,
+<span class="key">"type"</span>: <span class="string">"Element"</span>,
+<span class="key">"ifc_type"</span>: <span class="string">"IfcWall"</span>,
+<span class="key">"path_id"</span>: <span class="string">"path-wall-south-gf"</span>,
+<span class="key">"profile_id"</span>: <span class="string">"profile-cavity-250"</span>,
+<span class="key">"cap_start"</span>: <span class="string">"junction"</span>,
+<span class="key">"cap_end"</span>: <span class="string">"junction"</span>,
+<span class="key">"properties"</span>: {
+  <span class="key">"load_bearing"</span>: <span class="number">true</span>,
+  <span class="key">"fire_rating"</span>: <span class="string">"REI 60"</span>
+}</div>
         </div>
       </div>
-    </div>
+    </section>
 
-    <!-- Future: IFC round-trip -->
-    <div class="future">
-      <div class="future-header">
-        <h2>Coming soon</h2>
-        <span class="future-badge">Roadmap</span>
-      </div>
-      <p class="future-intro">
-        The long-term goal is a full round-trip between IFC and OEBF, with an LLM
-        acting as an intelligent editing layer. Because every entity is a readable
-        JSON file, a language model can add walls, change profiles, or restructure
-        storeys without specialised BIM tooling.
-      </p>
-      <div class="pipeline">
-        <div class="pipeline-step">
-          <span class="pipeline-step-num">Step 1</span>
-          <span class="pipeline-step-title">Import IFC</span>
-          <p class="pipeline-step-body">
-            Convert an IFC 4x3 file to an OEBF bundle using the included Python
-            tools. Walls, slabs, storeys, and materials are mapped to OEBF entities.
-          </p>
+    <section id="use-cases" class="border-bottom">
+      <h2>Use cases</h2>
+      <div class="grid">
+        <div class="feature">
+          <h3>Architectural Sketching</h3>
+          <p>Rapidly iterate on building forms and spatial layouts using path-first modelling. Perfect for early-stage design where geometry is fluid and relationships matter more than precise meshes.</p>
         </div>
-        <div class="pipeline-step">
-          <span class="pipeline-step-num">Step 2</span>
-          <span class="pipeline-step-title">Edit with an LLM</span>
-          <p class="pipeline-step-body">
-            Point a language model at the bundle directory. Because files are
-            plain JSON, the model can read, modify, and write entities directly —
-            changing geometry, profiles, or metadata with natural-language instructions.
-          </p>
+        <div class="feature">
+          <h3>AI-Assisted Design</h3>
+          <p>Leverage language models to automate repetitive tasks: generating wall layouts from text descriptions, swapping material profiles across a whole storey, or restructuring model hierarchies.</p>
         </div>
-        <div class="pipeline-step">
-          <span class="pipeline-step-num">Step 3</span>
-          <span class="pipeline-step-title">Export to IFC</span>
-          <p class="pipeline-step-body">
-            Convert the modified OEBF bundle back to IFC using the same Python
-            tools. The result opens in Revit, FreeCAD, or any IFC-compatible viewer.
-          </p>
+        <div class="feature">
+          <h3>Construction Detailing</h3>
+          <p>Define precise construction junctions that map directly to physical assembly rules. Export detailed trimmed geometry to IFC for coordination in standard BIM environments.</p>
+        </div>
+        <div class="feature">
+          <h3>Open Data & Archiving</h3>
+          <p>Ensure long-term model accessibility with a format that requires no proprietary software to read. Perfect for open-source building projects and public asset data.</p>
         </div>
       </div>
-      <p class="future-note">
-        IFC import and export tools are in development. The OEBF format specification
-        is designed to map cleanly to IFC 4x3 entity types including IfcWall,
-        IfcSlab, IfcBuildingStorey, and IfcMaterialLayerSet.
-      </p>
-    </div>
+    </section>
 
-    <!-- Footer -->
-    <div class="footer">
-      <span>OEBF v0.2-alpha</span>
-      <span>·</span>
-      <a href="https://github.com/Al4st41r/OpenEditableBimFormat" target="_blank" rel="noopener">GitHub</a>
-    </div>
+    <section id="tech" class="border-bottom">
+      <h2>Technology stack</h2>
+      <div class="grid">
+        <div class="feature">
+          <h3>Three.js</h3>
+          <p>High-performance 3D rendering in the browser. The custom geometry engine handles complex profile sweeps and junction trims in real time.</p>
+        </div>
+        <div class="feature">
+          <h3>JSON Schema</h3>
+          <p>Every entity type is defined by a strict schema, ensuring format integrity and providing immediate validation for human and AI editors.</p>
+        </div>
+        <div class="feature">
+          <h3>IfcOpenShell</h3>
+          <p>A Python-based toolchain manages the bridge between OEBF and IFC, leveraging industry-standard libraries for geometric analysis.</p>
+        </div>
+      </div>
+    </section>
 
+    <section id="format">
+      <h2>Format overview</h2>
+      <div class="grid">
+        <div class="feature">
+          <h3>Path</h3>
+          <p>A 1D curve in 3D space. Supports straight lines, circular arcs, and Bézier curves. Paths define the spine for all physical elements.</p>
+        </div>
+        <div class="feature">
+          <h3>Profile</h3>
+          <p>A 2D cross-section defined as an SVG path. Includes material assembly data (e.g., cavity wall layers) and alignment markers.</p>
+        </div>
+        <div class="feature">
+          <h3>Element</h3>
+          <p>The primary physical entity. Elements sweep a Profile along a Path to produce a solid 3D body with IFC properties.</p>
+        </div>
+        <div class="feature">
+          <h3>Junction</h3>
+          <p>A rule-based entity that resolves how two elements meet. Includes mitre, butt, and lap rules with precise trim plane calculation.</p>
+        </div>
+        <div class="feature">
+          <h3>Array</h3>
+          <p>Distributes elements or symbols along a path using count, spacing, or fill modes. Perfect for rafters, studs, or cladding panels.</p>
+        </div>
+        <div class="feature">
+          <h3>Spatial Hierarchy</h3>
+          <p>A strict tree structure (Project > Site > Building > Storey > Space) that maps directly to the IFC spatial hierarchy.</p>
+        </div>
+      </div>
+    </section>
+
+    <footer class="border-top">
+      <div class="logo">
+        <img src="icons/logo.svg" alt="OEBF Logo">
+        <span>OEBF</span>
+      </div>
+      <div>
+        <span>v0.2-alpha</span>
+        <span style="margin: 0 16px;">·</span>
+        <a href="https://github.com/Al4st41r/OpenEditableBimFormat" target="_blank">GitHub</a>
+      </div>
+    </footer>
   </div>
+
 </body>
 </html>
