@@ -39,8 +39,11 @@ const treeFilename = document.getElementById('scene-tree-filename');
 const treeVersion  = document.getElementById('scene-tree-version');
 const openBtn     = document.getElementById('open-btn');
 const saveBtn     = document.getElementById('save-btn');
-const view3dBtn   = document.getElementById('view-3d');
-const viewPlanBtn = document.getElementById('view-plan');
+const view3dBtn         = document.getElementById('view-3d');
+const viewPlanBtn       = document.getElementById('view-plan');
+const renderSolidBtn      = document.getElementById('render-solid');
+const renderLinesBtn      = document.getElementById('render-lines');
+const renderSolidEdgesBtn = document.getElementById('render-solid-edges');
 const unitsSelect = document.getElementById('units-select');
 
 // ── Version footer ────────────────────────────────────────────────────────────
@@ -156,14 +159,14 @@ viewPlanBtn.addEventListener('click', () => {
 // ── Render mode buttons ───────────────────────────────────────────────────────
 function _setRenderMode(mode) {
   editorScene.setRenderMode(mode);
-  document.getElementById('render-solid')      .classList.toggle('active', mode === 'solid');
-  document.getElementById('render-lines')      .classList.toggle('active', mode === 'lines');
-  document.getElementById('render-solid-edges').classList.toggle('active', mode === 'solid+edges');
+  renderSolidBtn     .classList.toggle('active', mode === 'solid');
+  renderLinesBtn     .classList.toggle('active', mode === 'lines');
+  renderSolidEdgesBtn.classList.toggle('active', mode === 'solid+edges');
 }
 
-document.getElementById('render-solid')      .addEventListener('click', () => _setRenderMode('solid'));
-document.getElementById('render-lines')      .addEventListener('click', () => _setRenderMode('lines'));
-document.getElementById('render-solid-edges').addEventListener('click', () => _setRenderMode('solid+edges'));
+renderSolidBtn     .addEventListener('click', () => _setRenderMode('solid'));
+renderLinesBtn     .addEventListener('click', () => _setRenderMode('lines'));
+renderSolidEdgesBtn.addEventListener('click', () => _setRenderMode('solid+edges'));
 
 // ── Units selector ────────────────────────────────────────────────────────────
 unitsSelect.addEventListener('change', () => {
