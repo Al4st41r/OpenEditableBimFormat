@@ -8,6 +8,7 @@
 
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 export function initEditorScene(canvas) {
   // ── Renderer ──────────────────────────────────────────────────────────────
@@ -15,13 +16,22 @@ export function initEditorScene(canvas) {
   renderer.setPixelRatio(window.devicePixelRatio);
   renderer.setSize(canvas.clientWidth, canvas.clientHeight);
   renderer.localClippingEnabled = true;
+  renderer.toneMapping         = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.0;
+  renderer.outputColorSpace    = THREE.SRGBColorSpace;
 
   // ── Scene ─────────────────────────────────────────────────────────────────
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x1a1a1a);
-  scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-  const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-  dirLight.position.set(10, 20, 10);
+
+  // RoomEnvironment provides realistic indirect (IBL) lighting — replaces AmbientLight
+  const pmremGenerator = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmremGenerator.fromScene(new RoomEnvironment()).texture;
+  pmremGenerator.dispose();
+
+  // Single directional light — warm tint complements the IBL
+  const dirLight = new THREE.DirectionalLight(0xfff4e0, 1.2);
+  dirLight.position.set(5, 3, 10);
   scene.add(dirLight);
 
   // ── Perspective camera (Z-up) ─────────────────────────────────────────────
@@ -93,6 +103,27 @@ export function initEditorScene(canvas) {
     return activeStoreyZ;
   }
 
+  // ── Render mode ───────────────────────────────────────────────────────────
+  let _renderMode = 'solid';
+
+  function setRenderMode(mode) {
+    _renderMode = mode;
+    scene.background = new THREE.Color(mode === 'lines' ? 0xf5f5f0 : 0x1a1a1a);
+
+    // modelGroup contains only wall/floor geometry — construction plane is on
+    // `scene` directly, overlays are in `overlayGroup`, so isMesh check is safe.
+    modelGroup.traverse(child => {
+      if (child.name === 'edges') {
+        child.visible = mode === 'lines' || mode === 'solid+edges';
+        child.material.color.setHex(mode === 'lines' ? 0x222222 : 0x333333);
+      } else if (child.isMesh) {
+        child.visible = mode !== 'lines';
+      }
+    });
+  }
+
+  function getRenderMode() { return _renderMode; }
+
   function setPlanView(enabled) {
     isPlanView = enabled;
     controls.enabled      = !enabled;
@@ -136,5 +167,6 @@ export function initEditorScene(canvas) {
     renderer, scene, perspCamera, orthoCamera, controls,
     constructionPlane, constructionGrid, modelGroup, overlayGroup,
     setStoreyZ, getStoreyZ, setPlanView, getActiveCamera,
+    setRenderMode, getRenderMode,
   };
 }
