@@ -203,6 +203,7 @@
         <a href="#why">Why use it</a>
         <a href="#use-cases">Use cases</a>
         <a href="#tech">Tech stack</a>
+        <a href="#ifc-tools">IFC tools</a>
         <a href="#format">Format</a>
         <a href="https://github.com/Al4st41r/OpenEditableBimFormat" target="_blank">GitHub</a>
         <a href="https://github.com/Al4st41r/OpenEditableBimFormat/tree/main/docs" target="_blank">Documentation</a>
@@ -319,7 +320,56 @@
         </div>
         <div class="feature">
           <h3>IfcOpenShell</h3>
-          <p>A Python CLI (<code>oebf ifc-import</code> / <code>oebf ifc-export</code>) converts between IFC 4x3 and OEBF bundles. Source and setup instructions are in <a href="https://github.com/Al4st41r/OpenEditableBimFormat/tree/main/ifc-tools" target="_blank" rel="noopener"><code>ifc-tools/</code></a>.</p>
+          <p>A Python CLI converts between IFC 4x3 and OEBF bundles. Walls, slabs, storeys, and material layer sets are mapped automatically. A browser-based converter is planned.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="ifc-tools" class="border-bottom">
+      <h2>IFC converter tools</h2>
+      <div class="split">
+        <div class="split-content">
+          <p style="color:var(--fg-muted);font-size:15px;margin-bottom:24px;">
+            The <code>ifc-tools/</code> Python CLI converts between IFC&nbsp;4x3 and OEBF bundles using
+            <a href="https://ifcopenshell.org/" target="_blank" rel="noopener">IfcOpenShell</a>.
+            The output opens in Revit, FreeCAD, BIMvision, and any IFC-compatible tool.
+          </p>
+          <h3 style="font-size:18px;margin-bottom:12px;font-weight:700;">Entity mapping</h3>
+          <table style="width:100%;border-collapse:collapse;font-size:14px;color:var(--fg-muted);">
+            <thead>
+              <tr style="border-bottom:1px solid var(--border);">
+                <th style="text-align:left;padding:6px 0;color:var(--fg);">OEBF entity</th>
+                <th style="text-align:left;padding:6px 0;color:var(--fg);">IFC type</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr style="border-bottom:1px solid var(--border);"><td style="padding:6px 0;">Element (wall)</td><td style="padding:6px 0;font-family:var(--font-mono);font-size:12px;">IfcWall</td></tr>
+              <tr style="border-bottom:1px solid var(--border);"><td style="padding:6px 0;">Element (slab)</td><td style="padding:6px 0;font-family:var(--font-mono);font-size:12px;">IfcSlab</td></tr>
+              <tr style="border-bottom:1px solid var(--border);"><td style="padding:6px 0;">Storey</td><td style="padding:6px 0;font-family:var(--font-mono);font-size:12px;">IfcBuildingStorey</td></tr>
+              <tr style="border-bottom:1px solid var(--border);"><td style="padding:6px 0;">Space</td><td style="padding:6px 0;font-family:var(--font-mono);font-size:12px;">IfcSpace</td></tr>
+              <tr><td style="padding:6px 0;">Profile layers</td><td style="padding:6px 0;font-family:var(--font-mono);font-size:12px;">IfcMaterialLayerSet</td></tr>
+            </tbody>
+          </table>
+          <p style="margin-top:20px;font-size:14px;">
+            <a href="https://github.com/Al4st41r/OpenEditableBimFormat/tree/main/ifc-tools" target="_blank" rel="noopener">View source and full documentation →</a>
+          </p>
+        </div>
+        <div class="split-visual">
+          <div class="code-block">
+<span style="color:#555;"># Setup (Python 3.12+ and uv required)</span>
+cd ifc-tools
+uv sync
+
+<span style="color:#555;"># Import IFC → OEBF</span>
+uv run oebf ifc-import model.ifc \
+  --output my-model.oebf
+
+<span style="color:#555;"># Export OEBF → IFC</span>
+uv run oebf ifc-export my-model.oebf \
+  --output model-out.ifc
+
+<span style="color:#555;"># Run tests</span>
+uv run pytest</div>
         </div>
       </div>
     </section>
