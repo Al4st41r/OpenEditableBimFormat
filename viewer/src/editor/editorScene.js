@@ -137,9 +137,14 @@ export function initEditorScene(canvas) {
   }
 
   // ── Resize ────────────────────────────────────────────────────────────────
+  // Read dimensions from the viewport container, not the canvas. renderer.setSize()
+  // pins the canvas with inline pixel styles, so observing the canvas itself would
+  // never fire after the first call — the viewport is what actually changes on resize.
+  const viewport = canvas.parentElement;
+
   function handleResize() {
-    const w = canvas.clientWidth;
-    const h = canvas.clientHeight;
+    const w = viewport.clientWidth;
+    const h = viewport.clientHeight;
     renderer.setSize(w, h);
     perspCamera.aspect = w / h;
     perspCamera.updateProjectionMatrix();
@@ -149,11 +154,8 @@ export function initEditorScene(canvas) {
     orthoCamera.updateProjectionMatrix();
   }
 
-  // ResizeObserver ensures correct canvas dimensions on first layout and
-  // on every subsequent resize, preventing the WebGL drawArraysInstanced
-  // viewport warning caused by a drawingBuffer/viewport size mismatch.
   const resizeObserver = new ResizeObserver(() => handleResize());
-  resizeObserver.observe(canvas);
+  resizeObserver.observe(viewport);
   handleResize(); // ensure correct size on first frame
 
   // ── Render loop ───────────────────────────────────────────────────────────
