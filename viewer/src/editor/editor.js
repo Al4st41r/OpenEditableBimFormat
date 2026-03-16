@@ -523,6 +523,7 @@ async function _loadAndRenderBundle(adapter) {
       _elementRegistry.set(info.id, { pathData: info.pathData, profileId: info.profileId, description: 'Wall' });
       _addElementToTree(info.id, 'Wall');
       _selectElement(info.id);
+      editorScene.setRenderMode(editorScene.getRenderMode());
     },
   });
 
@@ -550,6 +551,7 @@ async function _loadAndRenderBundle(adapter) {
       _elementRegistry.set(info.id, { pathData: info.pathData, profileId: info.profileId, description: label });
       _addElementToTree(info.id, label);
       _selectElement(info.id);
+      editorScene.setRenderMode(editorScene.getRenderMode());
     },
   });
 
