@@ -36,6 +36,24 @@ function _svgPt(svgEl, cx, cy) {
   return pt.matrixTransform(ctm.inverse());
 }
 function _r(v) { return Math.round(v * 1e4) / 1e4; }
+function _mm(m) { return Math.round(m * 1000); }
+
+function _dimLabel(svgEl, x, y, text) {
+  let el = svgEl.querySelector('[data-dim-label]');
+  if (!el) {
+    el = document.createElementNS(SVG_NS, 'text');
+    el.setAttribute('data-dim-label', 'true');
+    el.setAttribute('data-draw-preview', 'true');
+    el.setAttribute('fill', '#4488ff');
+    el.setAttribute('font-size', '0.06');
+    el.setAttribute('pointer-events', 'none');
+    svgEl.appendChild(el);
+  }
+  el.setAttribute('x', String(x));
+  el.setAttribute('y', String(y));
+  el.textContent = text;
+  return el;
+}
 
 export function deactivateTool(svgEl) {
   if (_cleanup) { _cleanup(); _cleanup = null; }
@@ -68,6 +86,7 @@ export function activateRectTool(svgEl, onDone) {
     const { x1,y1,x2,y2 } = normaliseRect(startPt, { x:_r(p.x), y:_r(p.y) });
     previewEl.setAttribute('x', String(x1)); previewEl.setAttribute('y', String(y1));
     previewEl.setAttribute('width', String(x2-x1)); previewEl.setAttribute('height', String(y2-y1));
+    _dimLabel(svgEl, x1, y2 + 0.07, `${_mm(x2-x1)} × ${_mm(y2-y1)} mm`);
   };
   const onUp = e => {
     if (!startPt) return;
@@ -111,6 +130,11 @@ export function activatePolygonTool(svgEl, onDone) {
     previewPoly.setAttribute('stroke-dasharray', '0.015 0.01');
     previewPoly.setAttribute('data-draw-preview', 'true');
     svgEl.appendChild(previewPoly);
+
+    const last = points[points.length - 1];
+    const dx = cur.x - last.x, dy = cur.y - last.y;
+    const len = Math.sqrt(dx*dx + dy*dy);
+    _dimLabel(svgEl, cur.x + 0.015, cur.y - 0.015, `${_mm(len)} mm`);
 
     snapCircle?.remove(); snapCircle = null;
     if (isPolygonClosed(points, cur, SNAP_DIST)) {

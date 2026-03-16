@@ -64,7 +64,12 @@
                 "y": { "type": "number" }
               }
             }
-          }
+          },
+          "depth_m":    { "type": "number", "exclusiveMinimum": 0 },
+          "repeat_x_m": { "type": "number", "exclusiveMinimum": 0 },
+          "repeat_y_m": { "type": "number", "exclusiveMinimum": 0 },
+          "offset_x_m": { "type": "number" },
+          "offset_y_m": { "type": "number" }
         }
       }
     }

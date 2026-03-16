@@ -31,6 +31,22 @@ const layerList     = document.getElementById('layer-list');
 let dirHandle  = null;
 let matMap     = {};
 let matIds     = [];
+
+// ── Material create callback ───────────────────────────────────────────────────
+async function _onNewMaterial(mat) {
+  matMap[mat.id] = mat;
+  if (!matIds.includes(mat.id)) matIds.push(mat.id);
+  if (!dirHandle) return;
+  let lib = { '$schema': 'oebf://schema/0.1/materials', materials: [] };
+  try {
+    const mh = await dirHandle.getDirectoryHandle('materials');
+    const fh = await mh.getFileHandle('library.json');
+    lib = JSON.parse(await (await fh.getFile()).text());
+  } catch { /* no materials dir yet */ }
+  if (!Array.isArray(lib.materials)) lib.materials = [];
+  if (!lib.materials.some(m => m.id === mat.id)) lib.materials.push(mat);
+  await _writeFile('materials/library.json', JSON.stringify(lib, null, 2));
+}
 let currentId  = null;
 let currentDesc = '';
 let layers     = [];
@@ -104,7 +120,7 @@ async function _loadBundle(handle) {
     matIds.push(m.id);
   }
 
-  initForm(layerList, matIds, matMap);
+  initForm(layerList, matIds, matMap, { onNewMaterial: _onNewMaterial });
   await _listProfiles();
 
   profileSelect.disabled = false;
@@ -319,7 +335,7 @@ if (window.opener) {
         matIds  = Object.keys(matMap);
 
         if (pName) projectName.textContent = pName;
-        initForm(layerList, matIds, matMap);
+        initForm(layerList, matIds, matMap, { onNewMaterial: _onNewMaterial });
         _listProfilesFromMemory(_memoryProfiles);
 
         profileSelect.disabled = false;

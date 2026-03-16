@@ -18,9 +18,10 @@ const ICON_BASE = import.meta.env.BASE_URL + 'icons/';
  * @param {string[]}    matIds  — ordered list of material ids for the dropdown
  * @param {object}      matMap  — id → { name }
  */
-export function initForm(formEl, matIds, matMap) {
+export function initForm(formEl, matIds, matMap, { onNewMaterial } = {}) {
   formEl._matIds = matIds;
   formEl._matMap = matMap;
+  formEl._onNewMaterial = onNewMaterial ?? null;
 }
 
 /**
@@ -63,6 +64,22 @@ export function getLayers(formEl) {
     if (isRegion) {
       base.type     = 'region';
       base.vertices = JSON.parse(row.dataset.vertices || '[]');
+      const props = row.nextElementSibling?.classList.contains('layer-region-props')
+        ? row.nextElementSibling : null;
+      const _num = cls => {
+        const v = parseFloat(props?.querySelector(`.${cls}`)?.value);
+        return isNaN(v) ? undefined : v;
+      };
+      const depth = _num('rp-depth');
+      const rx    = _num('rp-repeat-x');
+      const ry    = _num('rp-repeat-y');
+      const ox    = _num('rp-offset-x');
+      const oy    = _num('rp-offset-y');
+      if (depth !== undefined) base.depth_m    = depth;
+      if (rx    !== undefined) base.repeat_x_m = rx;
+      if (ry    !== undefined) base.repeat_y_m = ry;
+      if (ox    !== undefined) base.offset_x_m = ox;
+      if (oy    !== undefined) base.offset_y_m = oy;
     } else {
       base.thickness = parseFloat(row.querySelector('.layer-thick').value) || 0;
     }
@@ -137,10 +154,20 @@ function _appendRow(formEl, layer, index) {
   swatchBtn.style.padding = '0';
   swatchBtn.title = 'Pick material';
   swatchBtn.addEventListener('click', async () => {
-    const id = await openMaterialPicker(matMap);
-    if (!id) return;
-    matSelect.value = id;
-    swatchBtn.style.background = matMap[id]?.colour_hex ?? '#888888';
+    const result = await openMaterialPicker(formEl._matMap, { onNewMaterial: formEl._onNewMaterial });
+    if (!result) return;
+    if (result.newMat) {
+      const m = result.newMat;
+      if (!formEl._matMap[m.id]) {
+        formEl._matMap[m.id] = m;
+        if (!formEl._matIds.includes(m.id)) formEl._matIds.push(m.id);
+        const opt = document.createElement('option');
+        opt.value = m.id; opt.textContent = m.name;
+        matSelect.appendChild(opt);
+      }
+    }
+    matSelect.value = result.id;
+    swatchBtn.style.background = formEl._matMap[result.id]?.colour_hex ?? '#888888';
     _emit(formEl);
   });
 
@@ -172,6 +199,35 @@ function _appendRow(formEl, layer, index) {
 
   row.append(nameInput, thickInput, swatchBtn, matSelect, fnIcon, fnSelect, upBtn, downBtn, delBtn);
   formEl.appendChild(row);
+
+  if (isRegion) {
+    const props = document.createElement('div');
+    props.className = 'layer-region-props';
+    props.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;padding:3px 6px 6px 10px;border-bottom:1px solid #333;background:#1a1a1a;';
+
+    const _numField = (label, cls, value) => {
+      const wrap = document.createElement('label');
+      wrap.style.cssText = 'display:flex;flex-direction:column;gap:2px;font-size:10px;color:#666;';
+      const lbl = document.createElement('span');
+      lbl.textContent = label;
+      const inp = document.createElement('input');
+      inp.type = 'number'; inp.className = cls; inp.step = '0.001';
+      inp.style.cssText = 'width:60px;background:#2a2a2a;color:#ddd;border:1px solid #333;border-radius:2px;padding:2px 4px;font-size:11px;';
+      if (value !== undefined) inp.value = value;
+      inp.addEventListener('input', () => _emit(formEl));
+      wrap.append(lbl, inp);
+      return wrap;
+    };
+
+    props.append(
+      _numField('Depth (m)',  'rp-depth',    layer.depth_m),
+      _numField('Rep X (m)',  'rp-repeat-x', layer.repeat_x_m),
+      _numField('Rep Y (m)',  'rp-repeat-y', layer.repeat_y_m),
+      _numField('Off X (m)',  'rp-offset-x', layer.offset_x_m),
+      _numField('Off Y (m)',  'rp-offset-y', layer.offset_y_m),
+    );
+    formEl.appendChild(props);
+  }
 }
 
 function _btn(iconFile, ariaLabel, onClick) {

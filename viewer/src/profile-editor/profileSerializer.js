@@ -36,6 +36,11 @@ export function buildJson({ layers, originX, id, description, profileType, ffl_m
       if (l.type === 'region') {
         item.type     = 'region';
         item.vertices = l.vertices ?? [];
+        if (l.depth_m    !== undefined) item.depth_m    = l.depth_m;
+        if (l.repeat_x_m !== undefined) item.repeat_x_m = l.repeat_x_m;
+        if (l.repeat_y_m !== undefined) item.repeat_y_m = l.repeat_y_m;
+        if (l.offset_x_m !== undefined) item.offset_x_m = l.offset_x_m;
+        if (l.offset_y_m !== undefined) item.offset_y_m = l.offset_y_m;
       } else {
         item.thickness = Math.round((l.thickness ?? 0) * 1e6) / 1e6;
       }
