@@ -385,9 +385,14 @@ async function _loadAndRenderBundle(adapter) {
   const matMap = new Map();
   for (const meshData of meshes) {
     if (meshData.materialId && !matMap.has(meshData.materialId)) {
-      matMap.set(meshData.materialId, new THREE.MeshLambertMaterial({
-        color: new THREE.Color(meshData.colour ?? '#888888'),
-        side: THREE.DoubleSide,
+      matMap.set(meshData.materialId, new THREE.MeshStandardMaterial({
+        color:               new THREE.Color(meshData.colour ?? '#888888'),
+        roughness:           0.8,
+        metalness:           0.0,
+        side:                THREE.DoubleSide,
+        polygonOffset:       true,
+        polygonOffsetFactor: 1,
+        polygonOffsetUnits:  1,
       }));
     }
   }
