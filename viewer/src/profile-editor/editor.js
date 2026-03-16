@@ -13,6 +13,8 @@
 import { initCanvas, renderCanvas } from './profileCanvas.js';
 import { initForm, setLayers, getLayers, highlightRow, addBlankLayer } from './profileForm.js';
 import { buildJson, buildSvg } from './profileSerializer.js';
+import { addGuide, getGuides, clearGuides, renderGuidelines, setupGuideDrag } from './profileGuidelines.js';
+import { activateRectTool, activatePolygonTool, deactivateTool } from './canvasDrawTools.js';
 
 // ── DOM refs ─────────────────────────────────────────────────────────────────
 const profileSvg    = document.getElementById('profile-svg');
@@ -33,12 +35,36 @@ let currentId  = null;
 let currentDesc = '';
 let layers     = [];
 let originX    = 0;
+let profileType    = 'wall';
+let ffl_m          = 0.0;
+let height_limit_m = 2.4;
 let selectedLayerIndex = null;
 let memoryMode      = false;
 let _memoryProfiles = {};  // profileId → parsed profile object (memory mode only)
 
 // ── Initialise canvas ─────────────────────────────────────────────────────────
 initCanvas(profileSvg);
+
+setupGuideDrag(profileSvg, () => _renderCanvas(), () => _renderCanvas());
+
+document.getElementById('add-h-guide-btn').addEventListener('click', () => {
+  const vb = profileSvg.viewBox.baseVal;
+  addGuide('h', Math.round((vb.height / 2) * 1e4) / 1e4);
+  _renderCanvas();
+});
+document.getElementById('add-v-guide-btn').addEventListener('click', () => {
+  const vb = profileSvg.viewBox.baseVal;
+  addGuide('v', Math.round((vb.width / 2) * 1e4) / 1e4);
+  _renderCanvas();
+});
+
+const profileTypeSelect = document.getElementById('profile-type-select');
+const fflInput          = document.getElementById('ffl-input');
+const heightLimitInput  = document.getElementById('height-limit-input');
+
+profileTypeSelect.addEventListener('change', () => { profileType    = profileTypeSelect.value;                      _renderCanvas(); });
+fflInput.addEventListener('change',          () => { ffl_m          = parseFloat(fflInput.value)          || 0;    _renderCanvas(); });
+heightLimitInput.addEventListener('change',  () => { const parsed = parseFloat(heightLimitInput.value); height_limit_m = isNaN(parsed) ? undefined : parsed; _renderCanvas(); });
 
 profileSvg.addEventListener('layer-selected', e => {
   selectedLayerIndex = e.detail.index;
@@ -123,6 +149,7 @@ function _listProfilesFromMemory(profiles) {
 profileSelect.addEventListener('change', async () => {
   const id = profileSelect.value;
   if (!id) return;
+  clearGuides();
   const data = await _readJson(`profiles/${id}.json`);
   currentId   = data.id;
   currentDesc = data.description ?? '';
@@ -132,7 +159,14 @@ profileSelect.addEventListener('change', async () => {
     material_id: l.material_id,
     thickness:   l.thickness,
     function:    l.function,
+    ...(l.type === 'region' ? { type: 'region', vertices: l.vertices ?? [] } : {}),
   }));
+  profileType    = data.profile_type    ?? 'wall';
+  ffl_m          = data.ffl_m           ?? 0.0;
+  height_limit_m = data.height_limit_m  ?? 2.4;
+  profileTypeSelect.value   = profileType;
+  fflInput.value            = ffl_m;
+  heightLimitInput.value    = height_limit_m;
   selectedLayerIndex = null;
   setLayers(layerList, layers);
   saveBtn.disabled = false;
@@ -144,6 +178,7 @@ profileSelect.addEventListener('change', async () => {
 newBtn.addEventListener('click', () => {
   const raw = window.prompt('Profile id (e.g. profile-brick-200):');
   if (!raw) return;
+  clearGuides();
   const id = raw.trim().toLowerCase();
   if (!/^[a-z0-9][a-z0-9-]*$/.test(id)) {
     alert('Id must match ^[a-z0-9][a-z0-9-]*$');
@@ -152,6 +187,8 @@ newBtn.addEventListener('click', () => {
   currentId   = id;
   currentDesc = '';
   originX     = 0.1;
+  profileType = 'wall'; ffl_m = 0.0; height_limit_m = 2.4;
+  profileTypeSelect.value = 'wall'; fflInput.value = '0'; heightLimitInput.value = '2.4';
   layers      = [{ name: '', material_id: matIds[0] ?? '', thickness: 0.1, function: 'structure' }];
   selectedLayerIndex = null;
   setLayers(layerList, layers);
@@ -172,12 +209,32 @@ addLayerBtn.addEventListener('click', () => {
   _renderCanvas();
 });
 
+// ── Draw tools ────────────────────────────────────────────────────────────────
+document.getElementById('tool-rect-btn').addEventListener('click', () => {
+  activateRectTool(profileSvg, vertices => {
+    layers = getLayers(layerList);
+    layers.push({ name: 'Region', material_id: matIds[0] ?? '', type: 'region', function: 'structure', vertices });
+    setLayers(layerList, layers);
+    _renderCanvas();
+  });
+});
+
+document.getElementById('tool-poly-btn').addEventListener('click', () => {
+  activatePolygonTool(profileSvg, vertices => {
+    layers = getLayers(layerList);
+    layers.push({ name: 'Region', material_id: matIds[0] ?? '', type: 'region', function: 'structure', vertices });
+    setLayers(layerList, layers);
+    _renderCanvas();
+  });
+});
+
 // ── Save ──────────────────────────────────────────────────────────────────────
 saveBtn.addEventListener('click', async () => {
   if (!currentId) return;
   layers = getLayers(layerList);
   try {
-    const json = buildJson({ layers, originX, id: currentId, description: currentDesc });
+    const json = buildJson({ layers, originX, id: currentId, description: currentDesc,
+                             profileType, ffl_m, height_limit_m });
     const svg  = buildSvg({ layers, originX, matMap });
 
     if (memoryMode) {
@@ -202,7 +259,9 @@ saveBtn.addEventListener('click', async () => {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function _renderCanvas() {
-  renderCanvas(profileSvg, getLayers(layerList), originX, matMap, selectedLayerIndex);
+  renderCanvas(profileSvg, getLayers(layerList), originX, matMap, selectedLayerIndex,
+               { ffl_m, height_limit_m });
+  renderGuidelines(profileSvg, getGuides());
 }
 
 function _setStatus(msg) { statusEl.textContent = msg; }

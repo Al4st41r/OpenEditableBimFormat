@@ -33,20 +33,38 @@ export function initCanvas(svgEl) {
  * @param {object} matMap   — id → { colour_hex }
  * @param {number|null} selectedIndex
  */
-export function renderCanvas(svgEl, layers, originX, matMap, selectedIndex = null) {
+export function renderCanvas(svgEl, layers, originX, matMap, selectedIndex = null, opts = {}) {
   // Clear previous content
   while (svgEl.firstChild) svgEl.removeChild(svgEl.firstChild);
 
-  const totalWidth = layers.reduce((s, l) => s + l.thickness, 0) || 0.1;
+  const totalWidth = layers
+    .filter(l => l.type !== 'region')
+    .reduce((s, l) => s + (l.thickness ?? 0), 0) || 0.1;
   svgEl.setAttribute('viewBox', `0 0 ${totalWidth} ${WALL_HEIGHT}`);
 
   let cursor = 0;
   layers.forEach((layer, i) => {
     const colour = matMap[layer.material_id]?.colour_hex ?? '#888888';
+
+    if (layer.type === 'region' && Array.isArray(layer.vertices) && layer.vertices.length >= 3) {
+      const poly = document.createElementNS(SVG_NS, 'polygon');
+      poly.setAttribute('points', layer.vertices.map(v => `${v.x},${v.y}`).join(' '));
+      poly.setAttribute('fill', colour);
+      poly.setAttribute('stroke', i === selectedIndex ? '#0080ff' : '#888');
+      poly.setAttribute('stroke-width', '0.002');
+      poly.style.cursor = 'pointer';
+      poly.addEventListener('click', () => {
+        svgEl.dispatchEvent(new CustomEvent('layer-selected', { detail: { index: i } }));
+      });
+      svgEl.appendChild(poly);
+      return;
+    }
+
+    // Band layer (rect) — existing code
     const rect = document.createElementNS(SVG_NS, 'rect');
     rect.setAttribute('x',      String(Math.round(cursor * 1e6) / 1e6));
     rect.setAttribute('y',      '0');
-    rect.setAttribute('width',  String(Math.round(layer.thickness * 1e6) / 1e6));
+    rect.setAttribute('width',  String(Math.round((layer.thickness ?? 0) * 1e6) / 1e6));
     rect.setAttribute('height', String(WALL_HEIGHT));
     rect.setAttribute('fill',   colour);
     rect.setAttribute('stroke', i === selectedIndex ? '#0080ff' : '#888');
@@ -56,7 +74,7 @@ export function renderCanvas(svgEl, layers, originX, matMap, selectedIndex = nul
       svgEl.dispatchEvent(new CustomEvent('layer-selected', { detail: { index: i } }));
     });
     svgEl.appendChild(rect);
-    cursor += layer.thickness;
+    cursor += layer.thickness ?? 0;
     cursor = Math.round(cursor * 1e6) / 1e6; // prevent float drift
   });
 
@@ -79,6 +97,42 @@ export function renderCanvas(svgEl, layers, originX, matMap, selectedIndex = nul
   circle.setAttribute('data-origin-marker', 'true');
   circle.style.cursor = 'ew-resize';
   svgEl.appendChild(circle);
+
+  const { ffl_m: ffl = 0, height_limit_m: hlimit } = opts;
+
+  if (ffl > 0) {
+    const yFfl = Math.round((WALL_HEIGHT - ffl) * 1e6) / 1e6;
+    const fflLine = document.createElementNS(SVG_NS, 'line');
+    fflLine.setAttribute('x1', '0'); fflLine.setAttribute('y1', String(yFfl));
+    fflLine.setAttribute('x2', String(totalWidth)); fflLine.setAttribute('y2', String(yFfl));
+    fflLine.setAttribute('stroke', '#22bb66');
+    fflLine.setAttribute('stroke-width', '0.003');
+    fflLine.setAttribute('stroke-dasharray', '0.02 0.015');
+    svgEl.appendChild(fflLine);
+
+    const fflLabel = document.createElementNS(SVG_NS, 'text');
+    fflLabel.setAttribute('x', '0.005'); fflLabel.setAttribute('y', String(yFfl - 0.01));
+    fflLabel.setAttribute('fill', '#22bb66'); fflLabel.setAttribute('font-size', '0.06');
+    fflLabel.textContent = `FFL: ${ffl}m`;
+    svgEl.appendChild(fflLabel);
+  }
+
+  if (hlimit !== undefined) {
+    const yLimit = Math.round((WALL_HEIGHT - hlimit) * 1e6) / 1e6;
+    const limitLine = document.createElementNS(SVG_NS, 'line');
+    limitLine.setAttribute('x1', '0'); limitLine.setAttribute('y1', String(yLimit));
+    limitLine.setAttribute('x2', String(totalWidth)); limitLine.setAttribute('y2', String(yLimit));
+    limitLine.setAttribute('stroke', '#cc8800');
+    limitLine.setAttribute('stroke-width', '0.003');
+    limitLine.setAttribute('stroke-dasharray', '0.02 0.015');
+    svgEl.appendChild(limitLine);
+
+    const limitLabel = document.createElementNS(SVG_NS, 'text');
+    limitLabel.setAttribute('x', '0.005'); limitLabel.setAttribute('y', String(yLimit - 0.01));
+    limitLabel.setAttribute('fill', '#cc8800'); limitLabel.setAttribute('font-size', '0.06');
+    limitLabel.textContent = `${hlimit}m limit`;
+    svgEl.appendChild(limitLabel);
+  }
 }
 
 /** Wire up drag behaviour for the origin marker circle. */

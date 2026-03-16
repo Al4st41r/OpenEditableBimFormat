@@ -131,3 +131,65 @@ describe('buildSvg', () => {
     expect(svg).toContain('viewBox="0 0 0.202 2.700"');
   });
 });
+
+describe('buildJson — profile_type', () => {
+  const layers = [
+    { name: 'Brick', material_id: 'mat-brick', thickness: 0.102, function: 'finish' },
+  ];
+
+  it('includes profile_type when provided', () => {
+    const result = buildJson({ layers, originX: 0.05, id: 'p', description: '', profileType: 'wall' });
+    expect(result.profile_type).toBe('wall');
+  });
+
+  it('includes profile_type slab', () => {
+    const result = buildJson({ layers, originX: 0.05, id: 'p', description: '', profileType: 'slab' });
+    expect(result.profile_type).toBe('slab');
+  });
+
+  it('omits profile_type when not provided', () => {
+    const result = buildJson({ layers, originX: 0.05, id: 'p', description: '' });
+    expect(result.profile_type).toBeUndefined();
+  });
+});
+
+describe('buildJson — ffl_m and height_limit_m', () => {
+  const layers = [
+    { name: 'Brick', material_id: 'mat-brick', thickness: 0.102, function: 'finish' },
+  ];
+
+  it('includes ffl_m when provided', () => {
+    const result = buildJson({ layers, originX: 0.05, id: 'p', description: '', ffl_m: 0.15 });
+    expect(result.ffl_m).toBe(0.15);
+  });
+
+  it('includes height_limit_m when provided', () => {
+    const result = buildJson({ layers, originX: 0.05, id: 'p', description: '', height_limit_m: 2.4 });
+    expect(result.height_limit_m).toBe(2.4);
+  });
+
+  it('omits ffl_m and height_limit_m when not provided', () => {
+    const result = buildJson({ layers, originX: 0.05, id: 'p', description: '' });
+    expect(result.ffl_m).toBeUndefined();
+    expect(result.height_limit_m).toBeUndefined();
+  });
+});
+
+describe('buildJson — region layers', () => {
+  const regionLayers = [
+    { name: 'Slab', material_id: 'mat-conc', type: 'region', function: 'structure',
+      vertices: [{ x: 0, y: 0 }, { x: 0.3, y: 0 }, { x: 0.3, y: 0.2 }, { x: 0, y: 0.2 }] },
+  ];
+
+  it('preserves type:region and vertices in assembly', () => {
+    const result = buildJson({ layers: regionLayers, originX: 0, id: 'p', description: '' });
+    expect(result.assembly[0].type).toBe('region');
+    expect(result.assembly[0].vertices).toHaveLength(4);
+    expect(result.assembly[0].vertices[0]).toEqual({ x: 0, y: 0 });
+  });
+
+  it('omits thickness for region layers', () => {
+    const result = buildJson({ layers: regionLayers, originX: 0, id: 'p', description: '' });
+    expect(result.assembly[0].thickness).toBeUndefined();
+  });
+});

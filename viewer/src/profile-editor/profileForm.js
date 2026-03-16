@@ -9,6 +9,7 @@
  */
 
 import { FUNCTIONS, FUNCTION_META } from './profileConstants.js';
+import { openMaterialPicker } from './materialPicker.js';
 
 const ICON_BASE = import.meta.env.BASE_URL + 'icons/';
 
@@ -52,12 +53,21 @@ export function highlightRow(formEl, index) {
  * @returns {Array}
  */
 export function getLayers(formEl) {
-  return [...formEl.querySelectorAll('.layer-row')].map(row => ({
-    name:        row.querySelector('.layer-name').value,
-    material_id: row.querySelector('.layer-mat').value,
-    thickness:   parseFloat(row.querySelector('.layer-thick').value) || 0,
-    function:    row.querySelector('.layer-fn').value,
-  }));
+  return [...formEl.querySelectorAll('.layer-row')].map(row => {
+    const isRegion = row.dataset.layerType === 'region';
+    const base = {
+      name:        row.querySelector('.layer-name').value,
+      material_id: row.querySelector('.layer-mat').value,
+      function:    row.querySelector('.layer-fn').value,
+    };
+    if (isRegion) {
+      base.type     = 'region';
+      base.vertices = JSON.parse(row.dataset.vertices || '[]');
+    } else {
+      base.thickness = parseFloat(row.querySelector('.layer-thick').value) || 0;
+    }
+    return base;
+  });
 }
 
 /**
@@ -82,6 +92,9 @@ function _appendRow(formEl, layer, index) {
 
   const row = document.createElement('div');
   row.className = 'layer-row';
+  const isRegion = layer.type === 'region';
+  row.dataset.layerType = isRegion ? 'region' : 'band';
+  if (isRegion) row.dataset.vertices = JSON.stringify(layer.vertices ?? []);
   const fnColour = FUNCTION_META[layer.function]?.colour ?? '#555';
   row.style.cssText = `display:flex;gap:6px;align-items:center;padding:4px 0;border-bottom:1px solid #333;border-left:3px solid ${fnColour};padding-left:6px;`;
 
@@ -94,11 +107,12 @@ function _appendRow(formEl, layer, index) {
 
   const thickInput = document.createElement('input');
   thickInput.className = 'layer-thick';
-  thickInput.type = 'number';
-  thickInput.value = layer.thickness;
-  thickInput.min = '0.001';
-  thickInput.step = '0.001';
-  thickInput.style.width = '70px';
+  if (isRegion) {
+    thickInput.type = 'hidden'; thickInput.value = '0';
+  } else {
+    thickInput.type = 'number'; thickInput.value = layer.thickness;
+    thickInput.min = '0.001'; thickInput.step = '0.001'; thickInput.style.width = '70px';
+  }
 
   const matSelect = document.createElement('select');
   matSelect.className = 'layer-mat';
@@ -110,6 +124,25 @@ function _appendRow(formEl, layer, index) {
     matSelect.appendChild(opt);
   });
   matSelect.style.flex = '2';
+
+  const swatchBtn = document.createElement('button');
+  const swatchColour = matMap[layer.material_id]?.colour_hex ?? '#888888';
+  swatchBtn.style.width = '20px';
+  swatchBtn.style.height = '20px';
+  swatchBtn.style.background = swatchColour;
+  swatchBtn.style.border = '1px solid #666';
+  swatchBtn.style.borderRadius = '2px';
+  swatchBtn.style.cursor = 'pointer';
+  swatchBtn.style.flexShrink = '0';
+  swatchBtn.style.padding = '0';
+  swatchBtn.title = 'Pick material';
+  swatchBtn.addEventListener('click', async () => {
+    const id = await openMaterialPicker(matMap);
+    if (!id) return;
+    matSelect.value = id;
+    swatchBtn.style.background = matMap[id]?.colour_hex ?? '#888888';
+    _emit(formEl);
+  });
 
   const fnIcon = document.createElement('img');
   fnIcon.src = ICON_BASE + (FUNCTION_META[layer.function]?.icon ?? 'layer-structure.svg');
@@ -137,7 +170,7 @@ function _appendRow(formEl, layer, index) {
     el.addEventListener('change', () => _emit(formEl));
   });
 
-  row.append(nameInput, thickInput, matSelect, fnIcon, fnSelect, upBtn, downBtn, delBtn);
+  row.append(nameInput, thickInput, swatchBtn, matSelect, fnIcon, fnSelect, upBtn, downBtn, delBtn);
   formEl.appendChild(row);
 }
 
