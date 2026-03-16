@@ -13,6 +13,7 @@
 import { initCanvas, renderCanvas } from './profileCanvas.js';
 import { initForm, setLayers, getLayers, highlightRow, addBlankLayer } from './profileForm.js';
 import { buildJson, buildSvg } from './profileSerializer.js';
+import { addGuide, getGuides, clearGuides, renderGuidelines, setupGuideDrag } from './profileGuidelines.js';
 
 // ── DOM refs ─────────────────────────────────────────────────────────────────
 const profileSvg    = document.getElementById('profile-svg');
@@ -42,6 +43,19 @@ let _memoryProfiles = {};  // profileId → parsed profile object (memory mode o
 
 // ── Initialise canvas ─────────────────────────────────────────────────────────
 initCanvas(profileSvg);
+
+setupGuideDrag(profileSvg, () => _renderCanvas(), () => _renderCanvas());
+
+document.getElementById('add-h-guide-btn').addEventListener('click', () => {
+  const vb = profileSvg.viewBox.baseVal;
+  addGuide('h', Math.round((vb.height / 2) * 1e4) / 1e4);
+  _renderCanvas();
+});
+document.getElementById('add-v-guide-btn').addEventListener('click', () => {
+  const vb = profileSvg.viewBox.baseVal;
+  addGuide('v', Math.round((vb.width / 2) * 1e4) / 1e4);
+  _renderCanvas();
+});
 
 const profileTypeSelect = document.getElementById('profile-type-select');
 const fflInput          = document.getElementById('ffl-input');
@@ -134,6 +148,7 @@ function _listProfilesFromMemory(profiles) {
 profileSelect.addEventListener('change', async () => {
   const id = profileSelect.value;
   if (!id) return;
+  clearGuides();
   const data = await _readJson(`profiles/${id}.json`);
   currentId   = data.id;
   currentDesc = data.description ?? '';
@@ -161,6 +176,7 @@ profileSelect.addEventListener('change', async () => {
 newBtn.addEventListener('click', () => {
   const raw = window.prompt('Profile id (e.g. profile-brick-200):');
   if (!raw) return;
+  clearGuides();
   const id = raw.trim().toLowerCase();
   if (!/^[a-z0-9][a-z0-9-]*$/.test(id)) {
     alert('Id must match ^[a-z0-9][a-z0-9-]*$');
@@ -224,6 +240,7 @@ saveBtn.addEventListener('click', async () => {
 function _renderCanvas() {
   renderCanvas(profileSvg, getLayers(layerList), originX, matMap, selectedLayerIndex,
                { ffl_m, height_limit_m });
+  renderGuidelines(profileSvg, getGuides());
 }
 
 function _setStatus(msg) { statusEl.textContent = msg; }
