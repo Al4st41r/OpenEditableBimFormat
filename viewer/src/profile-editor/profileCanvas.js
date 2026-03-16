@@ -51,8 +51,8 @@ export function renderCanvas(svgEl, layers, originX, matMap, selectedIndex = nul
       const poly = document.createElementNS(SVG_NS, 'polygon');
       poly.setAttribute('points', layer.vertices.map(v => `${v.x},${v.y}`).join(' '));
       poly.setAttribute('fill', colour);
-      poly.setAttribute('stroke', i === selectedIndex ? '#0080ff' : '#888');
-      poly.setAttribute('stroke-width', '0.002');
+      poly.setAttribute('stroke', i === selectedIndex ? '#0080ff' : '#333');
+      poly.setAttribute('stroke-width', '0.003');
       poly.style.cursor = 'pointer';
       poly.addEventListener('click', () => {
         svgEl.dispatchEvent(new CustomEvent('layer-selected', { detail: { index: i } }));
@@ -68,8 +68,8 @@ export function renderCanvas(svgEl, layers, originX, matMap, selectedIndex = nul
     rect.setAttribute('width',  String(Math.round((layer.thickness ?? 0) * 1e6) / 1e6));
     rect.setAttribute('height', String(WALL_HEIGHT));
     rect.setAttribute('fill',   colour);
-    rect.setAttribute('stroke', i === selectedIndex ? '#0080ff' : '#888');
-    rect.setAttribute('stroke-width', '0.002');
+    rect.setAttribute('stroke', i === selectedIndex ? '#0080ff' : '#333');
+    rect.setAttribute('stroke-width', '0.003');
     rect.style.cursor = 'pointer';
     rect.addEventListener('click', () => {
       svgEl.dispatchEvent(new CustomEvent('layer-selected', { detail: { index: i } }));

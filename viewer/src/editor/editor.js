@@ -296,6 +296,18 @@ function _setActiveTool(tool, buttonEl) {
   activeTool = tool;
   document.querySelectorAll('#toolbar button').forEach(b => b.classList.remove('active'));
   if (buttonEl) buttonEl.classList.add('active');
+
+  // Show profile selectors in props panel for drawing tools
+  const wallRow = document.getElementById('wall-profile-row');
+  const slabRow = document.getElementById('slab-profile-row');
+  const toolOpts = document.getElementById('tool-options');
+  if (wallRow && slabRow && toolOpts) {
+    const isWall  = tool === wallTool;
+    const isFloor = tool === floorTool;
+    wallRow.style.display  = isWall  ? '' : 'none';
+    slabRow.style.display  = isFloor ? '' : 'none';
+    toolOpts.style.display = (isWall || isFloor) ? '' : 'none';
+  }
 }
 
 // ── Guide and grid tool handlers ──────────────────────────────────────────────
@@ -354,9 +366,6 @@ document.getElementById('tool-select').addEventListener('click', () => {
   _setActiveTool(null, document.getElementById('tool-select'));
 });
 
-document.getElementById('tool-path-edit').addEventListener('click', () => {
-  statusBar.textContent = 'Select an element from the scene tree to edit its path nodes';
-});
 
 document.getElementById('tool-wall').addEventListener('click', async () => {
   if (!wallTool) return;
@@ -625,7 +634,7 @@ async function _loadAndRenderBundle(adapter) {
   // Create junction editor bound to this bundle
   junctionEditor = new JunctionEditor(
     editorScene.overlayGroup,
-    document.getElementById('props-panel'),
+    document.getElementById('props-content'),
     adapter,
   );
   junctionEditor.loadJunctions(junctions);
@@ -730,7 +739,6 @@ function _enableEditorTools() {
   document.getElementById('tool-floor').disabled = false;
   document.getElementById('tool-grid').disabled  = false;
   document.getElementById('tool-guide').disabled = false;
-  document.getElementById('tool-path-edit').disabled = false;
   document.getElementById('add-grid-btn').disabled  = false;
   document.getElementById('add-guide-btn').disabled = false;
   document.getElementById('add-height-guide-btn').disabled = false;
@@ -952,7 +960,7 @@ function _onPathNodeSelected(nodeInfo) {
     return;
   }
 
-  const panel = document.getElementById('props-panel');
+  const panel = document.getElementById('props-content');
   panel.innerHTML = '';
 
   const h3 = document.createElement('h3');
@@ -1072,7 +1080,7 @@ async function _reRenderElement(elementId, updatedPathData) {
 }
 
 async function _showElementProps(id) {
-  const panel = document.getElementById('props-panel');
+  const panel = document.getElementById('props-content');
   const reg = _elementRegistry.get(id);
   if (!reg) { panel.innerHTML = '<p id="props-empty">Element not found.</p>'; return; }
 

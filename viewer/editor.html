@@ -75,7 +75,7 @@
 
     #props-panel {
       width: 280px; flex-shrink: 0; background: #1e1e1e;
-      border-left: 1px solid #333; overflow-y: auto; padding: 12px;
+      border-left: 1px solid #333; overflow-y: auto; padding: 0;
       transition: width 0.15s ease, padding 0.15s ease;
       position: relative;
     }
@@ -157,7 +157,6 @@
     <button id="tool-storey" aria-label="Add storey"><img src="/oebf/icons/storey.svg" width="16" height="16" alt=""> Storey</button>
     <button id="tool-grid" disabled aria-label="Add grid axis"><img src="/oebf/icons/grid.svg" width="16" height="16" alt=""> Grid</button>
     <button id="tool-guide" disabled aria-label="Add guide"><img src="/oebf/icons/align.svg" width="16" height="16" alt=""> Guide</button>
-    <button id="tool-path-edit" disabled aria-label="Edit path nodes"><img src="/oebf/icons/select.svg" width="16" height="16" alt=""> Edit path</button>
     <div class="toolbar-sep"></div>
     <button id="view-3d" class="active" aria-label="3D view"><img src="/oebf/icons/plane-vertical.svg" width="16" height="16" alt=""> 3D</button>
     <button id="view-plan" aria-label="Plan view"><img src="/oebf/icons/plane-horizontal.svg" width="16" height="16" alt=""> Plan</button>
@@ -165,11 +164,6 @@
     <button id="render-solid"       title="Solid shaded view"                   aria-label="Solid view">Solid</button>
     <button id="render-lines"       title="Line drawing"                        aria-label="Line drawing">Lines</button>
     <button id="render-solid-edges" class="active" title="Solid with edge overlay" aria-label="Solid with edges">S+E</button>
-    <div class="toolbar-sep"></div>
-    <label>Wall profile:</label>
-    <select id="default-wall-profile" disabled><option>— none —</option></select>
-    <label>Slab profile:</label>
-    <select id="default-slab-profile" disabled><option>— none —</option></select>
     <div class="toolbar-sep"></div>
     <button id="lib-btn" title="Material library">Library</button>
     <div class="toolbar-sep"></div>
@@ -232,7 +226,19 @@
 
     <div id="props-panel">
       <button id="props-toggle" title="Toggle properties panel">›</button>
-      <p id="props-empty">Select an element to see properties.</p>
+      <div id="tool-options" style="display:none;padding:8px 12px 0;border-bottom:1px solid #2a2a2a;">
+        <div class="prop-row" id="wall-profile-row" style="display:none">
+          <label>Wall profile</label>
+          <select id="default-wall-profile" disabled style="background:#2a2a2a;color:#ddd;border:1px solid #444;padding:4px 8px;border-radius:3px;font-size:12px;"><option>— none —</option></select>
+        </div>
+        <div class="prop-row" id="slab-profile-row" style="display:none">
+          <label>Slab profile</label>
+          <select id="default-slab-profile" disabled style="background:#2a2a2a;color:#ddd;border:1px solid #444;padding:4px 8px;border-radius:3px;font-size:12px;"><option>— none —</option></select>
+        </div>
+      </div>
+      <div id="props-content" style="padding:12px">
+        <p id="props-empty">Select an element to see properties.</p>
+      </div>
     </div>
   </div>
 

@@ -36,6 +36,11 @@
       overflow: visible;
     }
 
+    #pane-resizer {
+      width: 5px; flex-shrink: 0; cursor: ew-resize; background: #2a2a2a;
+      transition: background 0.1s;
+    }
+    #pane-resizer:hover, #pane-resizer.dragging { background: #4a8aaa; }
     #form-panel { width: 380px; display: flex; flex-direction: column; overflow: hidden; }
     #layer-list { flex: 1; overflow-y: auto; padding: 8px 12px; }
     #form-footer { padding: 8px 12px; border-top: 1px solid #333; display: flex; gap: 8px; }
@@ -66,6 +71,7 @@
     <div id="canvas-panel">
       <svg id="profile-svg" viewBox="0 0 0.3 2.7" overflow="visible"></svg>
     </div>
+    <div id="pane-resizer"></div>
     <div id="form-panel">
       <div id="profile-meta" style="padding:8px 12px;border-bottom:1px solid #333;display:flex;gap:12px;align-items:center;flex-shrink:0;">
         <label style="display:flex;align-items:center;gap:6px;font-size:12px;">
@@ -95,5 +101,35 @@
     </div>
   </div>
   <script type="module" src="/src/profile-editor/editor.js"></script>
+  <script>
+    (function () {
+      const STORAGE_KEY = 'oebf-profile-pane-width';
+      const resizer   = document.getElementById('pane-resizer');
+      const formPanel = document.getElementById('form-panel');
+      const MIN_W = 240, MAX_W = 700;
+
+      // Restore saved width
+      const saved = sessionStorage.getItem(STORAGE_KEY);
+      if (saved) formPanel.style.width = saved + 'px';
+
+      let startX, startW;
+      resizer.addEventListener('mousedown', e => {
+        startX = e.clientX;
+        startW = formPanel.offsetWidth;
+        resizer.classList.add('dragging');
+        e.preventDefault();
+      });
+      window.addEventListener('mousemove', e => {
+        if (!resizer.classList.contains('dragging')) return;
+        const delta = startX - e.clientX;
+        const newW  = Math.min(MAX_W, Math.max(MIN_W, startW + delta));
+        formPanel.style.width = newW + 'px';
+        sessionStorage.setItem(STORAGE_KEY, newW);
+      });
+      window.addEventListener('mouseup', () => {
+        resizer.classList.remove('dragging');
+      });
+    })();
+  </script>
 </body>
 </html>
