@@ -153,7 +153,7 @@ export class PathEditTool {
     if (hit.type === 'handle') {
       this._selectHandle(hit.index);
       this._dragging   = true;
-      this._dragHandle = hit;
+      this._dragHandle = this._handles[hit.index];
       this._canvas.style.cursor = 'grabbing';
       window.addEventListener('mousemove', this._boundMouseMove);
       window.addEventListener('mouseup',   this._boundMouseUp);
