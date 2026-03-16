@@ -35,7 +35,18 @@
     #scene-tree {
       width: 220px; flex-shrink: 0; background: #1e1e1e;
       border-right: 1px solid #333; overflow-y: auto; padding: 8px 0;
+      display: flex; flex-direction: column;
     }
+    #scene-tree-body { flex: 1; overflow-y: auto; }
+    #scene-tree-footer {
+      flex-shrink: 0; padding: 6px 10px 8px;
+      border-top: 1px solid #2a2a2a;
+    }
+    #scene-tree-filename {
+      font-size: 11px; color: #aaa; overflow: hidden;
+      text-overflow: ellipsis; white-space: nowrap; margin-bottom: 2px;
+    }
+    #scene-tree-version { font-size: 10px; color: #555; }
     .tree-section-header {
       display: flex; align-items: center; justify-content: space-between;
       padding: 4px 10px; font-size: 11px; font-weight: 700;
@@ -131,35 +142,41 @@
 
   <div id="main">
     <div id="scene-tree">
-      <div class="tree-section-header">
-        Storeys
-        <button class="tree-section-add" id="add-storey-btn" title="Add storey">+</button>
-      </div>
-      <div class="tree-items" id="storeys-list"></div>
+      <div id="scene-tree-body">
+        <div class="tree-section-header">
+          Storeys
+          <button class="tree-section-add" id="add-storey-btn" title="Add storey">+</button>
+        </div>
+        <div class="tree-items" id="storeys-list"></div>
 
-      <div class="tree-section-header">
-        Reference Grids
-        <button class="tree-section-add" id="add-grid-btn" disabled title="Add grid axis">+</button>
-      </div>
-      <div class="tree-items" id="grids-list"></div>
+        <div class="tree-section-header">
+          Reference Grids
+          <button class="tree-section-add" id="add-grid-btn" disabled title="Add grid axis">+</button>
+        </div>
+        <div class="tree-items" id="grids-list"></div>
 
-      <div class="tree-section-header">
-        Reference Lines
-        <button class="tree-section-add" id="add-guide-btn" disabled title="Add vertical guide">+</button>
-        <button class="tree-section-add" id="add-height-guide-btn" disabled title="Add horizontal height guide">H</button>
-      </div>
-      <div class="tree-items" id="guides-list"></div>
+        <div class="tree-section-header">
+          Reference Lines
+          <button class="tree-section-add" id="add-guide-btn" disabled title="Add vertical guide">+</button>
+          <button class="tree-section-add" id="add-height-guide-btn" disabled title="Add horizontal height guide">H</button>
+        </div>
+        <div class="tree-items" id="guides-list"></div>
 
-      <div class="tree-section-header">
-        Elements
-      </div>
-      <div class="tree-items" id="elements-list"></div>
+        <div class="tree-section-header">
+          Elements
+        </div>
+        <div class="tree-items" id="elements-list"></div>
 
-      <div class="tree-section-header">
-        Details
-        <button class="tree-section-add" id="add-detail-btn" disabled title="Add detail">+</button>
+        <div class="tree-section-header">
+          Details
+          <button class="tree-section-add" id="add-detail-btn" disabled title="Add detail">+</button>
+        </div>
+        <div class="tree-items" id="details-list"></div>
       </div>
-      <div class="tree-items" id="details-list"></div>
+      <div id="scene-tree-footer">
+        <div id="scene-tree-filename">No bundle open</div>
+        <div id="scene-tree-version"></div>
+      </div>
     </div>
 
     <div id="viewport">

@@ -35,11 +35,24 @@ import * as THREE from 'three';
 // ── DOM refs ─────────────────────────────────────────────────────────────────
 const canvas      = document.getElementById('canvas');
 const statusBar   = document.getElementById('status-bar');
+const treeFilename = document.getElementById('scene-tree-filename');
+const treeVersion  = document.getElementById('scene-tree-version');
 const openBtn     = document.getElementById('open-btn');
 const saveBtn     = document.getElementById('save-btn');
 const view3dBtn   = document.getElementById('view-3d');
 const viewPlanBtn = document.getElementById('view-plan');
 const unitsSelect = document.getElementById('units-select');
+
+// ── Version footer ────────────────────────────────────────────────────────────
+/* global __APP_VERSION__ */
+treeVersion.textContent = `v${__APP_VERSION__}`;
+
+function _setBundleOpen(name, memoryMode = false) {
+  treeFilename.textContent = name;
+  statusBar.textContent = memoryMode
+    ? `${name} (memory mode — Save to download zip)`
+    : name;
+}
 
 // ── Scene ────────────────────────────────────────────────────────────────────
 const editorScene = initEditorScene(canvas);
@@ -116,7 +129,7 @@ _fileInput.addEventListener('change', async () => {
     adapter = await MemoryAdapter.fromFile(file);
     await _loadAndRenderBundle(adapter);
     _enableEditorTools();
-    statusBar.textContent = `${adapter.name} (memory mode — Save to download zip)`;
+    _setBundleOpen(adapter.name, true);
     saveBtn.disabled = false;
   } catch (e) {
     statusBar.textContent = `Error: ${e.message}`;
@@ -165,7 +178,7 @@ document.getElementById('new-btn').addEventListener('click', async () => {
   await _loadAndRenderBundle(adapter);
   _enableEditorTools();
   saveBtn.disabled = false;
-  statusBar.textContent = `${adapter.name} (memory mode — Save to download zip)`;
+  _setBundleOpen(adapter.name, true);
 });
 
 function _showOpenMenu() {
@@ -200,7 +213,7 @@ function _showOpenMenu() {
       statusBar.textContent = 'Loading…';
       await _loadAndRenderBundle(adapter);
       _enableEditorTools();
-      statusBar.textContent = adapter.name;
+      _setBundleOpen(adapter.name, false);
       saveBtn.disabled = false;
     } catch (e) {
       if (e.name !== 'AbortError') statusBar.textContent = `Error: ${e.message}`;

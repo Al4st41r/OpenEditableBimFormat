@@ -1,11 +1,17 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'path';
 import { fileURLToPath } from 'url';
+import { readFileSync } from 'fs';
+
+const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8'));
 
 const __dirname2 = fileURLToPath(new URL('.', import.meta.url));
 
 export default defineConfig({
   base: '/oebf/',
+  define: {
+    __APP_VERSION__: JSON.stringify(pkg.version),
+  },
   resolve: {
     alias: {
       // Force ESM source entry points to avoid CJS circular dependency in
