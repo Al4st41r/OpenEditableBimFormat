@@ -8,3 +8,4 @@ example/*/ifc/last_export.ifc
 .DS_Store
 .worktrees/
 viewer/test-results/
+bugs/

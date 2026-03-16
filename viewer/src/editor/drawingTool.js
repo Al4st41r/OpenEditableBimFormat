@@ -120,6 +120,7 @@ export class DrawingTool {
   }
 
   _onClick(e) {
+    if (e.detail >= 2) return; // second click of dblclick — handled by _onDblClick
     const pos = this._getWorldPos(e);
     if (!pos) return;
 
@@ -137,10 +138,7 @@ export class DrawingTool {
   }
 
   _onDblClick(e) {
-    // Browsers fire two click events before dblclick — remove both
-    // Require at least 4 points: 2 real + 2 from the double-click clicks
-    if (this._points.length >= 4) {
-      this._points.splice(-2);
+    if (this._points.length >= 2) {
       this._commit(false);
     }
   }
