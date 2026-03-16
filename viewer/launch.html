@@ -96,6 +96,26 @@
       background: #2a3a2a; color: #8f8; border: 1px solid #3a5a3a;
       padding: 2px 7px; border-radius: 3px;
     }
+    .future-badge-roadmap {
+      font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+      background: #2a2a3a; color: #88f; border: 1px solid #3a3a5a;
+      padding: 2px 7px; border-radius: 3px;
+    }
+
+    /* ── CLI commands ── */
+    .cli-commands { display: flex; flex-direction: column; gap: 10px; }
+    .cli-cmd {
+      background: #111; border: 1px solid #2a2a2a; border-radius: 4px;
+      padding: 12px 16px;
+    }
+    .cli-cmd-label {
+      font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+      opacity: 0.4; margin-bottom: 6px;
+    }
+    .cli-cmd code {
+      font-family: 'JetBrains Mono', 'Courier New', monospace;
+      font-size: 12px; color: #a3be8c; display: block;
+    }
     .future-intro { font-size: 13px; opacity: 0.55; max-width: 620px; line-height: 1.6; }
 
     .pipeline {
@@ -219,25 +239,24 @@
       </div>
     </div>
 
-    <!-- Future: IFC round-trip -->
+    <!-- IFC Converter Tools -->
     <div class="future">
       <div class="future-header">
-        <h2>Coming soon</h2>
-        <span class="future-badge">Roadmap</span>
+        <h2>IFC Converter Tools</h2>
+        <span class="future-badge">CLI Available</span>
       </div>
       <p class="future-intro">
-        The long-term goal is a full round-trip between IFC and OEBF, with an LLM
-        acting as an intelligent editing layer. Because every entity is a readable
-        JSON file, a language model can add walls, change profiles, or restructure
-        storeys without specialised BIM tooling.
+        A Python CLI converts between IFC 4x3 and OEBF bundles. Walls, slabs,
+        storeys, spaces, and material layer sets are mapped to OEBF entities and
+        back. The full round-trip enables LLM-assisted editing of existing IFC models.
       </p>
       <div class="pipeline">
         <div class="pipeline-step">
           <span class="pipeline-step-num">Step 1</span>
           <span class="pipeline-step-title">Import IFC</span>
           <p class="pipeline-step-body">
-            Convert an IFC 4x3 file to an OEBF bundle using the included Python
-            tools. Walls, slabs, storeys, and materials are mapped to OEBF entities.
+            Convert an IFC 4x3 file to an OEBF bundle. Walls, slabs, storeys,
+            and material layer sets are mapped to OEBF entities.
           </p>
         </div>
         <div class="pipeline-step">
@@ -253,15 +272,41 @@
           <span class="pipeline-step-num">Step 3</span>
           <span class="pipeline-step-title">Export to IFC</span>
           <p class="pipeline-step-body">
-            Convert the modified OEBF bundle back to IFC using the same Python
-            tools. The result opens in Revit, FreeCAD, or any IFC-compatible viewer.
+            Convert the modified OEBF bundle back to IFC. The result opens in
+            Revit, FreeCAD, BIMvision, or any IFC-compatible viewer.
           </p>
         </div>
       </div>
+
+      <div class="cli-commands">
+        <div class="cli-cmd">
+          <div class="cli-cmd-label">Import IFC → OEBF</div>
+          <code>uv run oebf ifc-import model.ifc --output my-model.oebf</code>
+        </div>
+        <div class="cli-cmd">
+          <div class="cli-cmd-label">Export OEBF → IFC</div>
+          <code>uv run oebf ifc-export my-model.oebf --output model-out.ifc</code>
+        </div>
+      </div>
+
       <p class="future-note">
-        IFC import and export tools are in development. The OEBF format specification
-        is designed to map cleanly to IFC 4x3 entity types including IfcWall,
-        IfcSlab, IfcBuildingStorey, and IfcMaterialLayerSet.
+        Requires Python 3.12+ and <a href="https://docs.astral.sh/uv/" target="_blank" rel="noopener" style="color: #6a8aaa; opacity: 1;">uv</a>.
+        Run <code style="font-size: 11px; color: #888;">uv sync</code> in <code style="font-size: 11px; color: #888;">ifc-tools/</code> to install dependencies.
+        Full setup instructions and entity mapping are in the
+        <a href="https://github.com/Al4st41r/OpenEditableBimFormat/tree/main/ifc-tools" target="_blank" rel="noopener" style="color: #6a8aaa; opacity: 1;">ifc-tools README</a>.
+      </p>
+    </div>
+
+    <!-- Future: Browser-based IFC converter -->
+    <div class="future">
+      <div class="future-header">
+        <h2>Coming soon</h2>
+        <span class="future-badge-roadmap">Roadmap</span>
+      </div>
+      <p class="future-intro">
+        A browser-based IFC converter is planned — no local Python install required.
+        Possible approaches include a WASM build of IfcOpenShell or a lightweight
+        server-side conversion endpoint.
       </p>
     </div>
 
