@@ -201,7 +201,15 @@ profileSelect.addEventListener('change', async () => {
     material_id: l.material_id,
     thickness:   l.thickness,
     function:    l.function,
-    ...(l.type === 'region' ? { type: 'region', vertices: l.vertices ?? [] } : {}),
+    ...(l.type === 'region' ? {
+      type:     'region',
+      vertices: l.vertices ?? [],
+      ...(l.depth_m    !== undefined && { depth_m:    l.depth_m    }),
+      ...(l.repeat_x_m !== undefined && { repeat_x_m: l.repeat_x_m }),
+      ...(l.repeat_y_m !== undefined && { repeat_y_m: l.repeat_y_m }),
+      ...(l.offset_x_m !== undefined && { offset_x_m: l.offset_x_m }),
+      ...(l.offset_y_m !== undefined && { offset_y_m: l.offset_y_m }),
+    } : {}),
   }));
   profileType    = data.profile_type    ?? 'wall';
   ffl_m          = data.ffl_m           ?? 0.0;
