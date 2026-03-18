@@ -1,4 +1,5 @@
 import { describe, test, expect } from 'vitest';
+import { snapToTargets } from './pathEditTool.js';
 
 // Pure path manipulation functions extracted for testability
 function insertNode(segments, segIdx) {
@@ -140,5 +141,30 @@ describe('pathEditTool — node manipulation', () => {
     expect(segs.length).toBe(2);
     expect(segs[0].start).toEqual({ x:0, y:0, z:0 });
     expect(segs[0].end).toEqual({ x:2, y:0, z:0 });
+  });
+});
+
+describe('pathEditTool — snapToTargets', () => {
+  test('returns null when no targets within radius', () => {
+    const pos = { x: 0, y: 0, z: 0 };
+    expect(snapToTargets(pos, [{ x: 5, y: 0, z: 0 }], 0.1)).toBeNull();
+  });
+
+  test('returns nearest target within radius', () => {
+    const pos = { x: 1.05, y: 0, z: 0 };
+    const targets = [{ x: 1, y: 0, z: 0 }, { x: 2, y: 0, z: 0 }];
+    const result = snapToTargets(pos, targets, 0.1);
+    expect(result).toEqual({ x: 1, y: 0, z: 0 });
+  });
+
+  test('preserves z from position when target has no z', () => {
+    const pos = { x: 0.05, y: 0, z: 3 };
+    const target = { x: 0, y: 0 };
+    const result = snapToTargets(pos, [target], 0.1);
+    expect(result?.z).toBe(3);
+  });
+
+  test('returns null for empty target list', () => {
+    expect(snapToTargets({ x: 0, y: 0, z: 0 }, [], 0.1)).toBeNull();
   });
 });

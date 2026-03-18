@@ -2,7 +2,7 @@
 
 **Date:** 2026-03-18
 **Branch:** main
-**Tests:** 459 passing — 459 JS (Vitest, 37 test files) + 21 Python (pytest)
+**Tests:** 463 passing — 463 JS (Vitest, 37 test files) + 21 Python (pytest)
 
 ---
 

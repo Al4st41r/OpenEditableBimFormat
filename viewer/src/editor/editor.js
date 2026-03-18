@@ -488,7 +488,20 @@ document.getElementById('tool-grid').addEventListener('click', () => {
 });
 
 document.getElementById('tool-select').addEventListener('click', () => {
+  if (pathEditTool) pathEditTool.deactivate();
   _setActiveTool(null, document.getElementById('tool-select'));
+});
+
+document.getElementById('tool-path-edit').addEventListener('click', () => {
+  if (!pathEditTool) return;
+  _setActiveTool('path-edit', document.getElementById('tool-path-edit'));
+  // Re-activate for currently selected element (if any)
+  if (_selectedElementId && _elementRegistry.has(_selectedElementId)) {
+    const reg = _elementRegistry.get(_selectedElementId);
+    const pathId = reg.pathData?.id;
+    if (pathId) pathEditTool.activate(pathId, reg.pathData, _selectedElementId);
+  }
+  statusBar.textContent = 'Path edit: drag a node to move, click a midpoint to insert, Delete to remove.';
 });
 
 
@@ -749,6 +762,7 @@ async function _loadAndRenderBundle(adapter) {
     canvas,
     () => editorScene.getActiveCamera(),
     (nodeInfo) => _onPathNodeSelected(nodeInfo),
+    () => _collectSnapTargets(),
   );
   pathEditTool.setAdapter(adapter);
   pathEditTool.onEditCommitted = () => {
@@ -863,7 +877,8 @@ function _enableEditorTools() {
   document.getElementById('tool-wall').disabled  = false;
   document.getElementById('tool-floor').disabled = false;
   document.getElementById('tool-grid').disabled  = false;
-  document.getElementById('tool-guide').disabled = false;
+  document.getElementById('tool-guide').disabled     = false;
+  document.getElementById('tool-path-edit').disabled = false;
   document.getElementById('add-grid-btn').disabled  = false;
   document.getElementById('add-guide-btn').disabled = false;
   document.getElementById('add-height-guide-btn').disabled = false;
@@ -1024,10 +1039,10 @@ document.getElementById('add-material-btn').addEventListener('click', async () =
   statusBar.textContent = `Material added: ${name}`;
 });
 
-// ── Junction selection via canvas click (Select mode only) ────────────────────
+// ── Canvas click — element pick + junction pick (Select / Path Edit mode) ─────
 canvas.addEventListener('click', (e) => {
   if (activeTool) return; // drawing tool active
-  if (!junctionEditor) return;
+
   const rect = canvas.getBoundingClientRect();
   const mouse = new THREE.Vector2(
     ((e.clientX - rect.left) / rect.width)  * 2 - 1,
@@ -1035,7 +1050,23 @@ canvas.addEventListener('click', (e) => {
   );
   const ray = new THREE.Raycaster();
   ray.setFromCamera(mouse, editorScene.getActiveCamera());
-  junctionEditor.trySelectJunction(ray);
+
+  // 1. Element mesh picking — select element and activate path edit
+  const meshCandidates = [];
+  editorScene.modelGroup.traverse(child => {
+    if (child.isMesh && child.userData?.elementId) meshCandidates.push(child);
+  });
+  const hits = ray.intersectObjects(meshCandidates, false);
+  if (hits.length > 0) {
+    const elementId = hits[0].object.userData.elementId;
+    if (_elementRegistry.has(elementId)) {
+      _selectElement(elementId);
+      return;
+    }
+  }
+
+  // 2. Junction picking (existing behaviour)
+  if (junctionEditor) junctionEditor.trySelectJunction(ray);
 });
 
 // ── Element tree and properties ───────────────────────────────────────────────
@@ -1070,11 +1101,16 @@ function _selectElement(id) {
     item.classList.toggle('active', item.dataset.elementId === id);
   });
   _showElementProps(id);
-  // Activate path node editing for this element
-  if (pathEditTool && _elementRegistry.has(id)) {
+  // Activate path node editing for this element (only when not in a drawing mode)
+  if (pathEditTool && _elementRegistry.has(id) && !activeTool) {
     const reg = _elementRegistry.get(id);
     const pathId = reg.pathData?.id;
-    if (pathId) pathEditTool.activate(pathId, reg.pathData, id);
+    if (pathId) {
+      pathEditTool.activate(pathId, reg.pathData, id);
+      // Reflect path-edit mode in toolbar
+      document.querySelectorAll('#toolbar button').forEach(b => b.classList.remove('active'));
+      document.getElementById('tool-path-edit')?.classList.add('active');
+    }
   }
 }
 
@@ -1389,5 +1425,26 @@ saveBtn.addEventListener('click', async () => {
     saveBtn.disabled = false;
   }
 });
+
+/**
+ * Collect all path endpoints from the element registry as snap targets.
+ * Excludes endpoints of the path currently being edited to avoid snapping to self.
+ * @returns {{x:number,y:number,z:number}[]}
+ */
+function _collectSnapTargets() {
+  const targets = [];
+  const editingPathId = pathEditTool?._pathId ?? null;
+  for (const [, reg] of _elementRegistry) {
+    const segs = reg.pathData?.segments;
+    if (!Array.isArray(segs)) continue;
+    if (reg.pathData?.id === editingPathId) continue; // skip self
+    for (const seg of segs) {
+      if (seg.type !== 'line') continue;
+      targets.push(seg.start);
+      targets.push(seg.end);
+    }
+  }
+  return targets;
+}
 
 export { editorScene };

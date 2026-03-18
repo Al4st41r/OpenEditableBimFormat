@@ -11,24 +11,53 @@ import { writeEntity } from './bundleWriter.js';
 
 const HANDLE_RADIUS   = 0.08; // metres
 const MIDPOINT_RADIUS = 0.05;
+const SNAP_RADIUS     = 0.1;  // metres — matches drawingTool
 const HANDLE_COLOUR   = 0x4488ff;
 const MIDPOINT_COLOUR = 0x223355;
 const SELECTED_COLOUR = 0xffaa22;
+const SNAP_COLOUR     = 0xffff00;
+
+/**
+ * Snap `pos` to the nearest target within `radius` metres (XY plane only).
+ * Returns the snapped position (preserving pos.z if target has no z), or null.
+ *
+ * @param {{x:number,y:number,z:number}} pos
+ * @param {{x:number,y:number,z?:number}[]} targets
+ * @param {number} radius
+ * @returns {{x:number,y:number,z:number}|null}
+ */
+export function snapToTargets(pos, targets, radius) {
+  let best = null;
+  let bestDist = radius;
+  for (const t of targets) {
+    const dx = t.x - pos.x;
+    const dy = t.y - pos.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < bestDist) {
+      bestDist = dist;
+      best = t;
+    }
+  }
+  return best ? { x: best.x, y: best.y, z: best.z ?? pos.z } : null;
+}
 
 export class PathEditTool {
   /**
    * @param {THREE.Group}  overlayGroup
    * @param {THREE.Scene}  scene
    * @param {HTMLElement}  canvas
-   * @param {Function}     getCameraFn  — () => THREE.Camera
-   * @param {Function}     onNodeSelected — (nodeInfo|null) => void
+   * @param {Function}     getCameraFn      — () => THREE.Camera
+   * @param {Function}     onNodeSelected   — (nodeInfo|null) => void
+   * @param {Function}     [getSnapTargets] — () => {x,y,z}[]  optional snap target provider
    */
-  constructor(overlayGroup, scene, canvas, getCameraFn, onNodeSelected) {
+  constructor(overlayGroup, scene, canvas, getCameraFn, onNodeSelected, getSnapTargets) {
     this._overlayGroup   = overlayGroup;
     this._scene          = scene;
     this._canvas         = canvas;
     this._getCamera      = getCameraFn;
     this._onNodeSelected = onNodeSelected ?? (() => {});
+    this._getSnapTargets = getSnapTargets ?? null;
+    this._snapIndicator  = null;
     /** Called after every committed edit (mouseup, insert, delete). */
     this.onEditCommitted = null;
     this._raycaster      = new THREE.Raycaster();
@@ -77,6 +106,7 @@ export class PathEditTool {
   deactivate() {
     this._active = false;
     this._clearHandles();
+    this._hideSnapIndicator();
     this._canvas.removeEventListener('mousedown', this._boundMouseDown);
     window.removeEventListener('mousemove',       this._boundMouseMove);
     window.removeEventListener('mouseup',         this._boundMouseUp);
@@ -164,8 +194,20 @@ export class PathEditTool {
 
   _onMouseMove(e) {
     if (!this._dragging || !this._dragHandle) return;
-    const pos = this._getConstructionPlanePos(e);
-    if (!pos) return;
+    const rawPos = this._getConstructionPlanePos(e);
+    if (!rawPos) return;
+
+    // Apply endpoint snap
+    let pos = { x: rawPos.x, y: rawPos.y, z: rawPos.z };
+    if (this._getSnapTargets) {
+      const snapped = snapToTargets(pos, this._getSnapTargets(), SNAP_RADIUS);
+      if (snapped) {
+        pos = snapped;
+        this._showSnapIndicator(snapped);
+      } else {
+        this._hideSnapIndicator();
+      }
+    }
 
     const { segIdx, role } = this._dragHandle;
     const seg = this._pathData.segments[segIdx];
@@ -199,6 +241,7 @@ export class PathEditTool {
     this._canvas.style.cursor = '';
     window.removeEventListener('mousemove', this._boundMouseMove);
     window.removeEventListener('mouseup',   this._boundMouseUp);
+    this._hideSnapIndicator();
     // Full handle rebuild once drag ends
     this._buildHandles();
     this._save();
@@ -310,6 +353,22 @@ export class PathEditTool {
     this._buildHandles();
     this._save();
     this.onEditCommitted?.();
+  }
+
+  _showSnapIndicator(pos) {
+    if (!this._snapIndicator) {
+      const geo = new THREE.SphereGeometry(0.06, 6, 6);
+      const mat = new THREE.MeshBasicMaterial({ color: SNAP_COLOUR, depthTest: false });
+      this._snapIndicator = new THREE.Mesh(geo, mat);
+      this._snapIndicator.renderOrder = 3;
+      this._overlayGroup.add(this._snapIndicator);
+    }
+    this._snapIndicator.position.set(pos.x, pos.y, pos.z ?? 0);
+    this._snapIndicator.visible = true;
+  }
+
+  _hideSnapIndicator() {
+    if (this._snapIndicator) this._snapIndicator.visible = false;
   }
 
   async _save() {
