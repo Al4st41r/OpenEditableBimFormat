@@ -30,6 +30,8 @@ import { createNewBundle } from './newBundle.js';
 import { openLibraryBrowser, setAdapter as setLibraryAdapter } from './libraryBrowser.js';
 import { setUnit, getUnit, toDisplay, fromDisplay, unitLabel } from './units.js';
 import { updateNodeAxis } from './nodeUtils.js';
+import { importIfcText } from '../ifc/ifcImporter.js';
+import { exportBundleToIfc } from '../ifc/ifcExporter.js';
 import * as THREE from 'three';
 
 // ── DOM refs ─────────────────────────────────────────────────────────────────
@@ -145,8 +147,124 @@ _fileInput.addEventListener('change', async () => {
   _fileInput.value = '';
 });
 
+// ── Hidden file input for IFC import ─────────────────────────────────────────
+const _ifcInput = document.createElement('input');
+_ifcInput.type   = 'file';
+_ifcInput.accept = '.ifc';
+_ifcInput.style.display = 'none';
+document.body.appendChild(_ifcInput);
+
+_ifcInput.addEventListener('change', async () => {
+  const file = _ifcInput.files[0];
+  if (!file || !adapter) return;
+  statusBar.textContent = 'Importing IFC…';
+  try {
+    const text = await file.text();
+    const { projectName, elementIds, slabIds, materials } = await importIfcText(text, adapter);
+
+    // Merge imported materials into library
+    if (materials.length > 0) {
+      let lib = { materials: [] };
+      try { lib = await adapter.readJson('materials/library.json'); } catch { /* new */ }
+      const existingIds = new Set(lib.materials.map(m => m.id));
+      for (const m of materials) {
+        if (!existingIds.has(m.id)) lib.materials.push(m);
+      }
+      await adapter.writeJson('materials/library.json', lib);
+    }
+
+    // Update model.json
+    let model = { hierarchy: { type: 'Project', id: 'project-root', description: projectName, children: [] }, elements: [], slabs: [], objects: [], arrays: [], junctions: [] };
+    try { model = await adapter.readJson('model.json'); } catch { /* new bundle */ }
+    model.elements = [...new Set([...(model.elements ?? []), ...elementIds])];
+    model.slabs    = [...new Set([...(model.slabs    ?? []), ...slabIds])];
+    await adapter.writeJson('model.json', model);
+
+    // Update _modelState
+    for (const id of elementIds) if (!_modelState.elements.includes(id)) _modelState.elements.push(id);
+    for (const id of slabIds)    if (!_modelState.slabs.includes(id))    _modelState.slabs.push(id);
+
+    await _loadAndRenderBundle(adapter);
+    statusBar.textContent = `Imported ${elementIds.length} elements, ${slabIds.length} slabs from ${file.name}`;
+  } catch (e) {
+    statusBar.textContent = `IFC import error: ${e.message}`;
+  }
+  _ifcInput.value = '';
+});
+
 // ── Library browser ───────────────────────────────────────────────────────────
 document.getElementById('lib-btn').addEventListener('click', () => openLibraryBrowser());
+
+// ── IFC import / export ────────────────────────────────────────────────────
+document.getElementById('ifc-btn').addEventListener('click', () => {
+  _showIfcMenu();
+});
+
+function _showIfcMenu() {
+  document.getElementById('_ifc-menu')?.remove();
+
+  const menu = document.createElement('div');
+  menu.id = '_ifc-menu';
+  menu.style.cssText = [
+    'position:fixed', 'top:36px', 'z-index:1000',
+    'background:#2a2a2a', 'border:1px solid #555', 'border-radius:4px',
+    'padding:4px 0', 'min-width:200px', 'box-shadow:0 4px 12px rgba(0,0,0,0.5)',
+  ].join(';');
+
+  // Position below the IFC button
+  const ifcBtn = document.getElementById('ifc-btn');
+  const rect = ifcBtn.getBoundingClientRect();
+  menu.style.left = rect.left + 'px';
+
+  function _menuItem(label, onclick) {
+    const btn = document.createElement('button');
+    btn.textContent = label;
+    btn.style.cssText = [
+      'display:block', 'width:100%', 'text-align:left',
+      'padding:6px 14px', 'background:none', 'border:none',
+      'color:#ddd', 'cursor:pointer', 'font-size:12px',
+    ].join(';');
+    btn.addEventListener('mouseenter', () => { btn.style.background = '#3a3a3a'; });
+    btn.addEventListener('mouseleave', () => { btn.style.background = 'none'; });
+    btn.addEventListener('click', () => { menu.remove(); onclick(); });
+    return btn;
+  }
+
+  menu.appendChild(_menuItem('Import IFC…', () => {
+    if (!adapter) { statusBar.textContent = 'Open a bundle first.'; return; }
+    _ifcInput.click();
+  }));
+
+  menu.appendChild(_menuItem('Export IFC', async () => {
+    if (!adapter) { statusBar.textContent = 'Open a bundle first.'; return; }
+    statusBar.textContent = 'Exporting IFC…';
+    try {
+      const ifcText = await exportBundleToIfc(adapter);
+      let manifest = { project_name: 'model' };
+      try { manifest = await adapter.readJson('manifest.json'); } catch { /* ok */ }
+      const filename = (manifest.project_name || 'model').replace(/[^a-z0-9_-]/gi, '_') + '.ifc';
+      const blob = new Blob([ifcText], { type: 'application/x-step' });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href = url; a.download = filename; a.click();
+      URL.revokeObjectURL(url);
+      statusBar.textContent = `Exported ${filename}`;
+    } catch (e) {
+      statusBar.textContent = `IFC export error: ${e.message}`;
+    }
+  }));
+
+  document.body.appendChild(menu);
+
+  setTimeout(() => {
+    document.addEventListener('click', function _close(e) {
+      if (!menu.contains(e.target)) {
+        menu.remove();
+        document.removeEventListener('click', _close);
+      }
+    });
+  }, 0);
+}
 
 // ── View toggle ───────────────────────────────────────────────────────────────
 view3dBtn.addEventListener('click', () => {
