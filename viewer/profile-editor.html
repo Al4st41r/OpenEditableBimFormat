@@ -65,6 +65,11 @@
     <button id="add-v-guide-btn" style="font-size:11px;padding:4px 8px;" title="Add vertical guide">V guide</button>
     <button id="tool-rect-btn"   style="font-size:11px;padding:4px 8px;" title="Rectangle tool">Rect</button>
     <button id="tool-poly-btn"   style="font-size:11px;padding:4px 8px;" title="Polygon tool">Poly</button>
+    <label for="units-select" style="font-size:11px;opacity:0.6;">Units:</label>
+    <select id="units-select" title="Display units" style="background:#333;color:#ddd;border:1px solid #555;border-radius:3px;padding:3px 6px;font-size:12px;">
+      <option value="mm" selected>mm</option>
+      <option value="m">m</option>
+    </select>
     <span id="status"></span>
   </div>
   <div id="main">
@@ -82,13 +87,13 @@
           </select>
         </label>
         <label style="display:flex;align-items:center;gap:6px;font-size:12px;">
-          FFL (m)
-          <input id="ffl-input" type="number" value="0.00" step="0.01"
+          <span id="ffl-label">FFL</span>
+          <input id="ffl-input" type="number" value="0" step="1"
                  style="width:70px;background:#333;color:#ddd;border:1px solid #555;border-radius:3px;padding:3px 6px;">
         </label>
         <label style="display:flex;align-items:center;gap:6px;font-size:12px;">
-          H limit (m)
-          <input id="height-limit-input" type="number" value="2.40" min="0" step="0.01"
+          <span id="height-limit-label">H limit</span>
+          <input id="height-limit-input" type="number" value="2400" min="0" step="1"
                  style="width:70px;background:#333;color:#ddd;border:1px solid #555;border-radius:3px;padding:3px 6px;">
         </label>
       </div>

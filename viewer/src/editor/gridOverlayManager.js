@@ -8,7 +8,7 @@
 
 import * as THREE from 'three';
 import { writeEntity } from './bundleWriter.js';
-import { toDisplay, unitLabel } from './units.js';
+import { toDisplay, unitLabel, fromDisplay } from './units.js';
 
 const GRID_COLOUR   = 0xe87070;
 const GRID_OPACITY  = 0.12;
@@ -58,9 +58,9 @@ export class GridOverlayManager {
   async addAxisNumeric() {
     const dir = window.prompt('Direction (x or y):', 'x');
     if (!dir || !['x','y'].includes(dir.toLowerCase())) return;
-    const offStr = window.prompt('Offset (metres):', '0');
+    const offStr = window.prompt(`Offset (${unitLabel()}):`, '0');
     if (offStr === null) return;
-    const offset = parseFloat(offStr);
+    const offset = fromDisplay(parseFloat(offStr));
     if (Number.isNaN(offset)) return;
     const label  = window.prompt('Label:', String.fromCharCode(65 + this._axes.length));
     if (!label) return;

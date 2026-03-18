@@ -10,6 +10,7 @@
 
 import { FUNCTIONS, FUNCTION_META } from './profileConstants.js';
 import { openMaterialPicker } from './materialPicker.js';
+import { toDisplay, fromDisplay, unitLabel } from '../editor/units.js';
 
 const ICON_BASE = import.meta.env.BASE_URL + 'icons/';
 
@@ -81,7 +82,7 @@ export function getLayers(formEl) {
       if (ox    !== undefined) base.offset_x_m = ox;
       if (oy    !== undefined) base.offset_y_m = oy;
     } else {
-      base.thickness = parseFloat(row.querySelector('.layer-thick').value) || 0;
+      base.thickness = fromDisplay(parseFloat(row.querySelector('.layer-thick').value) || 0);
     }
     return base;
   });
@@ -127,8 +128,12 @@ function _appendRow(formEl, layer, index) {
   if (isRegion) {
     thickInput.type = 'hidden'; thickInput.value = '0';
   } else {
-    thickInput.type = 'number'; thickInput.value = layer.thickness;
-    thickInput.min = '0.001'; thickInput.step = '0.001'; thickInput.style.width = '70px';
+    const u = unitLabel();
+    thickInput.type = 'number'; thickInput.value = toDisplay(layer.thickness);
+    thickInput.min = u === 'mm' ? '1' : '0.001';
+    thickInput.step = u === 'mm' ? '1' : '0.001';
+    thickInput.style.width = '70px';
+    thickInput.title = u;
   }
 
   const matSelect = document.createElement('select');

@@ -15,6 +15,7 @@ import { initForm, setLayers, getLayers, highlightRow, addBlankLayer } from './p
 import { buildJson, buildSvg } from './profileSerializer.js';
 import { addGuide, getGuides, clearGuides, renderGuidelines, setupGuideDrag } from './profileGuidelines.js';
 import { activateRectTool, activatePolygonTool, deactivateTool } from './canvasDrawTools.js';
+import { setUnit, getUnit, toDisplay, fromDisplay, unitLabel } from '../editor/units.js';
 
 // ── DOM refs ─────────────────────────────────────────────────────────────────
 const profileSvg    = document.getElementById('profile-svg');
@@ -26,6 +27,28 @@ const openBtn       = document.getElementById('open-btn');
 const newBtn        = document.getElementById('new-btn');
 const addLayerBtn   = document.getElementById('add-layer-btn');
 const layerList     = document.getElementById('layer-list');
+const unitsSelect   = document.getElementById('units-select');
+
+// ── Units initialisation ──────────────────────────────────────────────────────
+{
+  const stored = localStorage.getItem('oebf-units');
+  if (stored === 'mm' || stored === 'm') {
+    setUnit(stored);
+    unitsSelect.value = stored;
+  }
+}
+
+unitsSelect.addEventListener('change', () => {
+  setUnit(unitsSelect.value);
+  localStorage.setItem('oebf-units', unitsSelect.value);
+  _refreshUnitLabels();
+  if (currentId) {
+    fflInput.value         = toDisplay(ffl_m);
+    heightLimitInput.value = toDisplay(height_limit_m ?? 0);
+    setLayers(layerList, layers);
+    _renderCanvas();
+  }
+});
 
 // ── State ─────────────────────────────────────────────────────────────────────
 let dirHandle  = null;
@@ -78,9 +101,12 @@ const profileTypeSelect = document.getElementById('profile-type-select');
 const fflInput          = document.getElementById('ffl-input');
 const heightLimitInput  = document.getElementById('height-limit-input');
 
-profileTypeSelect.addEventListener('change', () => { profileType    = profileTypeSelect.value;                      _renderCanvas(); });
-fflInput.addEventListener('change',          () => { ffl_m          = parseFloat(fflInput.value)          || 0;    _renderCanvas(); });
-heightLimitInput.addEventListener('change',  () => { const parsed = parseFloat(heightLimitInput.value); height_limit_m = isNaN(parsed) ? undefined : parsed; _renderCanvas(); });
+profileTypeSelect.addEventListener('change', () => { profileType    = profileTypeSelect.value;                                              _renderCanvas(); });
+fflInput.addEventListener('change',          () => { ffl_m          = fromDisplay(parseFloat(fflInput.value) || 0);                       _renderCanvas(); });
+heightLimitInput.addEventListener('change',  () => { const p = parseFloat(heightLimitInput.value); height_limit_m = isNaN(p) ? undefined : fromDisplay(p); _renderCanvas(); });
+
+// Apply initial unit labels (fflInput/heightLimitInput are now declared)
+_refreshUnitLabels();
 
 profileSvg.addEventListener('layer-selected', e => {
   selectedLayerIndex = e.detail.index;
@@ -181,8 +207,8 @@ profileSelect.addEventListener('change', async () => {
   ffl_m          = data.ffl_m           ?? 0.0;
   height_limit_m = data.height_limit_m  ?? 2.4;
   profileTypeSelect.value   = profileType;
-  fflInput.value            = ffl_m;
-  heightLimitInput.value    = height_limit_m;
+  fflInput.value            = toDisplay(ffl_m);
+  heightLimitInput.value    = toDisplay(height_limit_m);
   selectedLayerIndex = null;
   setLayers(layerList, layers);
   saveBtn.disabled = false;
@@ -204,7 +230,7 @@ newBtn.addEventListener('click', () => {
   currentDesc = '';
   originX     = 0.1;
   profileType = 'wall'; ffl_m = 0.0; height_limit_m = 2.4;
-  profileTypeSelect.value = 'wall'; fflInput.value = '0'; heightLimitInput.value = '2.4';
+  profileTypeSelect.value = 'wall'; fflInput.value = toDisplay(0.0); heightLimitInput.value = toDisplay(2.4);
   layers      = [{ name: '', material_id: matIds[0] ?? '', thickness: 0.1, function: 'structure' }];
   selectedLayerIndex = null;
   setLayers(layerList, layers);
@@ -272,6 +298,16 @@ saveBtn.addEventListener('click', async () => {
     _setStatus(`Save failed: ${e.message}`);
   }
 });
+
+// ── Unit helpers ──────────────────────────────────────────────────────────────
+function _refreshUnitLabels() {
+  const u = unitLabel();
+  document.getElementById('ffl-label').textContent          = `FFL (${u})`;
+  document.getElementById('height-limit-label').textContent = `H limit (${u})`;
+  const step = u === 'mm' ? '1' : '0.001';
+  fflInput.step         = step;
+  heightLimitInput.step = step;
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function _renderCanvas() {

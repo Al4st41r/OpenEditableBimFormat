@@ -4,7 +4,7 @@
 
 import * as THREE from 'three';
 import { writeEntity } from './bundleWriter.js';
-import { toDisplay, unitLabel } from './units.js';
+import { toDisplay, unitLabel, fromDisplay } from './units.js';
 
 const STOREY_PLANE_SIZE    = 60;
 const STOREY_PLANE_OPACITY = 0.08;
@@ -60,10 +60,10 @@ export class StoreyManager {
   async createStorey() {
     const name = window.prompt('Storey name:', 'New Storey');
     if (!name) return;
-    const zStr = window.prompt('Floor level Z (metres):', '0');
+    const zStr = window.prompt(`Floor level Z (${unitLabel()}):`, '0');
     if (zStr === null) return;
     const zParsed = parseFloat(zStr);
-    const z = Number.isNaN(zParsed) ? 0 : zParsed;
+    const z = Number.isNaN(zParsed) ? 0 : fromDisplay(zParsed);
     let id = `storey-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`;
     let counter = 2;
     while (this._storeys.some(x => x.id === id)) {

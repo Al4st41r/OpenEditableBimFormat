@@ -1,0 +1,33 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "oebf://schema/0.1/model",
+  "title": "OEBF Model Index",
+  "description": "model.json — top-level index of all entities in an OEBF bundle, plus project-level settings.",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "units": {
+      "type": "string",
+      "enum": ["mm", "m"],
+      "default": "mm",
+      "description": "Preferred display unit for the editor UI. Does not affect stored geometry (always metres)."
+    },
+    "elements":  { "type": "array", "items": { "type": "string" }, "description": "IDs of Element entities." },
+    "slabs":     { "type": "array", "items": { "type": "string" }, "description": "IDs of Slab entities." },
+    "junctions": { "type": "array", "items": { "type": "string" }, "description": "IDs of Junction entities." },
+    "grids":     { "type": "array", "items": { "type": "string" }, "description": "IDs of Grid entities." },
+    "paths":     { "type": "array", "items": { "type": "string" }, "description": "IDs of Path entities (walls, guides, etc.)." },
+    "storeys":   { "type": "array", "items": { "type": "string" }, "description": "IDs of storey Group entities, in vertical order." },
+    "arrays":    { "type": "array", "items": { "type": "string" }, "description": "IDs of Array entities." },
+    "hierarchy": {
+      "type": "object",
+      "description": "Project hierarchy root node (IfcProject).",
+      "properties": {
+        "type":        { "type": "string" },
+        "id":          { "type": "string" },
+        "description": { "type": "string" },
+        "children":    { "type": "array" }
+      }
+    }
+  }
+}
