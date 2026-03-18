@@ -1,8 +1,8 @@
 # OEBF Project Status
 
-**Date:** 2026-03-16
+**Date:** 2026-03-18
 **Branch:** main
-**Tests:** 399 passing — 399 JS (Vitest, 34 test files) + 21 Python (pytest)
+**Tests:** 459 passing — 459 JS (Vitest, 37 test files) + 21 Python (pytest)
 
 ---
 
@@ -77,14 +77,19 @@ Phases 1–6 are complete. v0.1.0 is tagged and published. The v0.2 editor alpha
 
 ## Open Issues
 
-| # | Title | Priority | Notes |
+See `docs/roadmap.md` for the full version-by-version plan.
+
+| # | Title | Target | Notes |
 |---|---|---|---|
-| #67 | AI integration research and plan | High | Research task; plan to be committed as `docs/ai-integration-plan.md` |
-| #58 | V0.3: IFC importer/exporter integrated into editor UI | Medium | Accessible from editor, not just CLI |
-| #18 | CSG fallback for spline-path junctions (three-bvh-csg) | Medium | Geometry correctness for curved paths |
-| #10 | Tauri v2 desktop wrapper + file-watching for LLM editing | Medium | Design plan written; not started |
-| #45 | Project/marketing website | Low | Roadmap item |
-| #44 | Surface IFC converter tools on homepage | Low | Roadmap item |
+| #58 | IFC importer/exporter integrated into editor UI | v0.3 | Accessible from editor, not just CLI |
+| #18 | CSG fallback for spline-path junctions (three-bvh-csg) | v0.3 | Geometry correctness for curved paths |
+| #82 | Snapping tools (endpoint, grid, angle, midpoint) | v0.3 | Precision drawing |
+| #83 | Object properties panel — full inline editing | v0.3 | All entity fields editable in panel |
+| #81 | Junction detail editor — multi-profile 2D canvas | v0.4 | Edit connecting profiles in context |
+| #22 | OEBF-GUIDE.md LLM context document | Pre-v0.5 | Required before AI integration Phase 1 |
+| #67 | AI integration — command palette + agent loop | v0.5 | Plan at `docs/ai-integration-plan.md` |
+| #10 | Tauri v2 desktop wrapper + file-watching | v1.0 | Design plan written; not started |
+| #45 | Project/marketing website | Done | Closed — homepage covers all requirements |
 
 ---
 

@@ -8,9 +8,10 @@
 
 import { writeEntity } from './bundleWriter.js';
 
-let _adapter    = null;
-let _library    = null; // { version, materials[] } — cached after first fetch
-let _profiles   = null; // Profile[] — cached after first fetch
+let _adapter            = null;
+let _library            = null; // { version, materials[] } — cached after first fetch
+let _profiles           = null; // Profile[] — cached after first fetch
+let _onMaterialImported = null; // optional callback(mat) fired after each material import
 
 const PROFILE_FILENAMES = [
   'cavity-wall.json',
@@ -19,13 +20,15 @@ const PROFILE_FILENAMES = [
 ];
 
 export function setAdapter(a) {
-  _adapter  = a;
-  _library  = null; // invalidate on bundle change
-  _profiles = null;
+  _adapter            = a;
+  _library            = null; // invalidate on bundle change
+  _profiles           = null;
+  _onMaterialImported = null;
 }
 
 /** Open the library browser modal. */
-export async function openLibraryBrowser() {
+export async function openLibraryBrowser({ onMaterialImported } = {}) {
+  _onMaterialImported = onMaterialImported ?? null;
   if (!_library) {
     try {
       const res  = await fetch('/oebf/library/materials/library.json');
@@ -49,6 +52,11 @@ export async function openLibraryBrowser() {
   _renderModal(_library, _profiles);
 }
 
+/** Return the material IDs referenced by a profile's layers. Exported for unit testing. */
+export function extractProfileMaterialIds(profile) {
+  return (profile.layers ?? []).map(l => l.material_id).filter(Boolean);
+}
+
 /** Filter materials by category and search query. Exported for unit testing. */
 export function filterMaterials(materials, query, cat) {
   const q = query.toLowerCase();
@@ -60,14 +68,20 @@ export function filterMaterials(materials, query, cat) {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-/** Load the set of material IDs already in the open bundle. */
+/** Load the set of entity IDs (materials + profiles) already in the open bundle. */
 async function _loadInProject() {
   const s = new Set();
-  if (_adapter) {
+  if (!_adapter) return s;
+  try {
+    const existing = await _adapter.readJson('materials/library.json');
+    (existing.materials ?? []).forEach(m => s.add(m.id));
+  } catch { /* no library yet */ }
+  // Check which library profiles are already in the bundle
+  for (const prof of (_profiles ?? [])) {
     try {
-      const existing = await _adapter.readJson('materials/library.json');
-      (existing.materials ?? []).forEach(m => s.add(m.id));
-    } catch { /* no library yet */ }
+      await _adapter.readJson(`profiles/${prof.id}.json`);
+      s.add(prof.id);
+    } catch { /* not in bundle */ }
   }
   return s;
 }
@@ -241,6 +255,17 @@ async function _renderModal(library, profiles) {
         useBtn.style.cssText = 'font-size:11px;padding:3px 8px;cursor:pointer;background:#2a4a6a;color:#ddd;border:1px solid #4a8aaa;border-radius:3px;';
         useBtn.addEventListener('click', async () => {
           if (_adapter) {
+            // Auto-import any materials the profile references
+            const depIds = extractProfileMaterialIds(prof);
+            for (const matId of depIds) {
+              if (!inProject.has(matId)) {
+                const libMat = (_library?.materials ?? []).find(m => m.id === matId);
+                if (libMat) {
+                  await _importMaterial(libMat);
+                  inProject.add(libMat.id);
+                }
+              }
+            }
             await writeEntity(_adapter, `profiles/${prof.id}.json`, prof);
           }
           inProject.add(prof.id); // update in-place — no extra readJson needed
@@ -297,10 +322,11 @@ async function _renderModal(library, profiles) {
 
 async function _importMaterial(mat) {
   if (!_adapter) return;
-  let existing = { version: '1.0', materials: [] };
+  let existing = { '$schema': 'oebf://schema/0.1/materials', version: '1.0', materials: [] };
   try { existing = await _adapter.readJson('materials/library.json'); } catch { /* create new */ }
   if (!(existing.materials ?? []).some(m => m.id === mat.id)) {
     existing.materials = [...(existing.materials ?? []), mat];
     await writeEntity(_adapter, 'materials/library.json', existing);
+    if (_onMaterialImported) _onMaterialImported(mat);
   }
 }

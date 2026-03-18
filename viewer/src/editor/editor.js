@@ -193,7 +193,14 @@ _ifcInput.addEventListener('change', async () => {
 });
 
 // ── Library browser ───────────────────────────────────────────────────────────
-document.getElementById('lib-btn').addEventListener('click', () => openLibraryBrowser());
+document.getElementById('lib-btn').addEventListener('click', () => {
+  openLibraryBrowser({
+    onMaterialImported: (mat) => {
+      activeProfileMap[mat.id] = mat;
+      _addMaterialToTree(mat);
+    },
+  });
+});
 
 // ── IFC import / export ────────────────────────────────────────────────────
 document.getElementById('ifc-btn').addEventListener('click', () => {
