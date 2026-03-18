@@ -12,10 +12,12 @@
     "description": { "type": "string" },
     "closed":      { "type": "boolean" },
     "guide":       { "type": "boolean" },
+    "guide_axis":  { "type": "string", "enum": ["z"], "description": "When 'z', this path is a horizontal reference plane at a fixed Z height. Use z_m to specify the height." },
+    "z_m":         { "type": "number", "description": "Z height in metres for horizontal (guide_axis='z') guide planes." },
     "tags":        { "type": "array", "items": { "type": "string" } },
     "segments": {
       "type": "array",
-      "minItems": 1,
+      "minItems": 0,
       "items": {
         "oneOf": [
           {
