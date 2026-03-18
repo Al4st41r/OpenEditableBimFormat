@@ -1124,12 +1124,10 @@ function _onPathNodeSelected(nodeInfo) {
   const panel = document.getElementById('props-content');
   panel.innerHTML = '';
 
-  const h3 = document.createElement('h3');
-  h3.textContent = 'Selected Node';
-  panel.appendChild(h3);
-
   const roleLabel = nodeInfo.role === 'start' ? 'Start node' : 'End node';
-  _propRow(panel, 'Role', roleLabel, true);
+  const h3 = document.createElement('h3');
+  h3.textContent = roleLabel;
+  panel.appendChild(h3);
 
   const ul = unitLabel();
 
@@ -1146,6 +1144,7 @@ function _onPathNodeSelected(nodeInfo) {
       const metres = fromDisplay(parsed);
       updateNodeAxis(pathEditTool._pathData.segments, nodeInfo.segIdx, nodeInfo.role, axis, metres);
       pathEditTool._buildHandles();
+      pathEditTool.onEditCommitted?.();
       writeEntity(adapter, `paths/${pathEditTool._pathId}.json`, pathEditTool._pathData)
         .catch(err => console.warn('[OEBF] node axis save failed:', err));
     });
