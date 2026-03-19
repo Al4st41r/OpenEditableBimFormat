@@ -119,6 +119,8 @@ let pathEditTool = null;
 let _pendingGuideName = null;
 /** The element id currently selected in the elements tree. */
 let _selectedElementId = null;
+/** Prevents _onPathNodeSelected from firing during programmatic pathEditTool.deactivate(). */
+let _suppressNodeSelectedCallback = false;
 /** elementId → { pathData, profileId, description } */
 const _elementRegistry = new Map();
 /** Monotonic counter — guards against stale async renders in _reRenderElement */
@@ -769,6 +771,8 @@ async function _loadAndRenderBundle(adapter) {
     const elementId = pathEditTool._elementId;
     if (elementId) _reRenderElement(elementId, pathEditTool._pathData);
   };
+  pathEditTool.onDragStart = () => { editorScene.controls.enabled = false; };
+  pathEditTool.onDragEnd   = () => { editorScene.controls.enabled = true; };
 
   // Create junction editor bound to this bundle
   junctionEditor = new JunctionEditor(
@@ -1100,22 +1104,23 @@ function _selectElement(id) {
   document.querySelectorAll('#elements-list .tree-item').forEach(item => {
     item.classList.toggle('active', item.dataset.elementId === id);
   });
-  _showElementProps(id);
-  // Activate path node editing for this element (only when not in a drawing mode)
-  if (pathEditTool && _elementRegistry.has(id) && !activeTool) {
-    const reg = _elementRegistry.get(id);
-    const pathId = reg.pathData?.id;
-    if (pathId) {
-      pathEditTool.activate(pathId, reg.pathData, id);
-      // Reflect path-edit mode in toolbar
-      document.querySelectorAll('#toolbar button').forEach(b => b.classList.remove('active'));
-      document.getElementById('tool-path-edit')?.classList.add('active');
-    }
+  // Deactivate path edit when switching elements; suppress the nodeSelected
+  // callback so _showElementProps is not called twice (once from deactivate,
+  // once below).
+  if (pathEditTool) {
+    _suppressNodeSelectedCallback = true;
+    pathEditTool.deactivate();
+    _suppressNodeSelectedCallback = false;
   }
+  _showElementProps(id);
+  // Keep toolbar showing the select button as active
+  document.querySelectorAll('#toolbar button').forEach(b => b.classList.remove('active'));
+  document.getElementById('tool-select')?.classList.add('active');
 }
 
 function _onPathNodeSelected(nodeInfo) {
   // nodeInfo: { segIdx, role, pos } or null
+  if (_suppressNodeSelectedCallback) return;
   if (!nodeInfo) {
     _showElementProps(_selectedElementId);
     return;
@@ -1192,13 +1197,6 @@ async function _reRenderElement(elementId, updatedPathData) {
 
     if (gen !== _renderGen) return;
 
-    const profileId = reg.profileId;
-    if (!profileId) return;
-
-    const profData = await readEntity(adapter, `profiles/${profileId}.json`);
-
-    if (gen !== _renderGen) return;
-
     if (reg.description === 'Slab') {
       // Slab: re-build from boundary path
       try {
@@ -1216,6 +1214,10 @@ async function _reRenderElement(elementId, updatedPathData) {
       }
     } else {
       // Wall / element: sweep profile along path
+      const profileId = reg.profileId;
+      if (!profileId) return;
+      const profData = await readEntity(adapter, `profiles/${profileId}.json`);
+      if (gen !== _renderGen) return;
       const profileShapes = buildProfileShape(profData);
       const { points: pathPoints } = parsePath(updatedPathData);
       const layerMeshes = sweepProfile(pathPoints, profileShapes);
@@ -1317,18 +1319,6 @@ async function _changeElementProfile(elementId, newProfileId) {
   const reg = _elementRegistry.get(elementId);
   if (!reg) return;
 
-  // Remove existing meshes for this element
-  const toRemove = editorScene.modelGroup.children.filter(
-    c => c.userData?.elementId === elementId
-  );
-  for (const m of toRemove) {
-    editorScene.modelGroup.remove(m);
-    m.traverse(child => {
-      if (child.geometry) child.geometry.dispose();
-      if (child.material) child.material.dispose();
-    });
-  }
-
   try {
     const { parsePath }         = await import('../loader/loadPath.js');
     const { buildProfileShape } = await import('../loader/loadProfile.js');
@@ -1338,6 +1328,23 @@ async function _changeElementProfile(elementId, newProfileId) {
     const profileShapes = buildProfileShape(profData);
     const { points: pathPoints } = parsePath(reg.pathData);
     const layerMeshes   = sweepProfile(pathPoints, profileShapes);
+
+    if (layerMeshes.length === 0) {
+      statusBar.textContent = 'Profile change: new profile produced no geometry.';
+      return;
+    }
+
+    // Only remove old meshes after confirming new ones can be built
+    const toRemove = editorScene.modelGroup.children.filter(
+      c => c.userData?.elementId === elementId
+    );
+    for (const m of toRemove) {
+      editorScene.modelGroup.remove(m);
+      m.traverse(child => {
+        if (child.geometry) child.geometry.dispose();
+        if (child.material) child.material.dispose();
+      });
+    }
 
     for (const layerData of layerMeshes) {
       const matData = activeProfileMap[layerData.materialId];

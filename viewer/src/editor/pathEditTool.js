@@ -62,6 +62,11 @@ export class PathEditTool {
     this.onEditCommitted = null;
     this._raycaster      = new THREE.Raycaster();
 
+    /** Called when a node drag begins — use to disable OrbitControls. */
+    this.onDragStart = null;
+    /** Called when a node drag ends — use to re-enable OrbitControls. */
+    this.onDragEnd   = null;
+
     this._pathId     = null; // current path id
     this._pathData   = null; // current path JSON (mutable)
     this._adapter    = null;
@@ -185,6 +190,7 @@ export class PathEditTool {
       this._dragging   = true;
       this._dragHandle = this._handles[hit.index];
       this._canvas.style.cursor = 'grabbing';
+      this.onDragStart?.();
       window.addEventListener('mousemove', this._boundMouseMove);
       window.addEventListener('mouseup',   this._boundMouseUp);
     } else if (hit.type === 'mid') {
@@ -236,14 +242,22 @@ export class PathEditTool {
 
   _onMouseUp(e) {
     if (!this._dragging) return;
+    const prevSegIdx = this._dragHandle?.segIdx;
+    const prevRole   = this._dragHandle?.role;
     this._dragging = false;
     this._dragHandle = null;
     this._canvas.style.cursor = '';
     window.removeEventListener('mousemove', this._boundMouseMove);
     window.removeEventListener('mouseup',   this._boundMouseUp);
     this._hideSnapIndicator();
+    this.onDragEnd?.();
     // Full handle rebuild once drag ends
     this._buildHandles();
+    // Restore selected highlight on the node that was dragged
+    if (prevSegIdx !== undefined) {
+      const idx = this._handles.findIndex(h => h.segIdx === prevSegIdx && h.role === prevRole);
+      if (idx >= 0) this._selectHandle(idx);
+    }
     this._save();
     this.onEditCommitted?.();
   }
