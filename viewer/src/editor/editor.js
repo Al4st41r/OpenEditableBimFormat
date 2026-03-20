@@ -1132,17 +1132,7 @@ function _selectElement(id) {
 function _setElementEdgeHighlight(elementId, selected) {
   editorScene.modelGroup.traverse(child => {
     if (!child.isMesh || child.userData?.elementId !== elementId) return;
-    const edges = child.getObjectByName('edges');
-    if (!edges) return;
-    if (selected) {
-      edges.visible = true;
-      edges.material.color.set(0x1e3a5a);
-    } else {
-      // Restore to the state controlled by the current render mode
-      const mode = editorScene.getRenderMode();
-      edges.visible = mode === 'solid+edges';
-      edges.material.color.set(0x333333);
-    }
+    child.material.emissive.set(selected ? 0x1e3a5a : 0x000000);
   });
 }
 
