@@ -490,6 +490,7 @@ document.getElementById('tool-grid').addEventListener('click', () => {
 });
 
 document.getElementById('tool-select').addEventListener('click', () => {
+  if (_selectedElementId) _setElementEdgeHighlight(_selectedElementId, false);
   if (pathEditTool) pathEditTool.deactivate();
   _setActiveTool(null, document.getElementById('tool-select'));
 });
@@ -536,6 +537,7 @@ async function _loadAndRenderBundle(adapter) {
   if (junctionEditor) junctionEditor.clear();
 
   // Reset session state for this bundle
+  _selectedElementId = null;
   _elementRegistry.clear();
   _modelState.elements.length  = 0;
   _modelState.slabs.length     = 0;
@@ -1100,6 +1102,10 @@ function _addMaterialToTree(mat) {
 }
 
 function _selectElement(id) {
+  // Clear edge highlight on previously selected element
+  if (_selectedElementId && _selectedElementId !== id) {
+    _setElementEdgeHighlight(_selectedElementId, false);
+  }
   _selectedElementId = id;
   document.querySelectorAll('#elements-list .tree-item').forEach(item => {
     item.classList.toggle('active', item.dataset.elementId === id);
@@ -1112,10 +1118,32 @@ function _selectElement(id) {
     pathEditTool.deactivate();
     _suppressNodeSelectedCallback = false;
   }
+  _setElementEdgeHighlight(id, true);
   _showElementProps(id);
   // Keep toolbar showing the select button as active
   document.querySelectorAll('#toolbar button').forEach(b => b.classList.remove('active'));
   document.getElementById('tool-select')?.classList.add('active');
+}
+
+/**
+ * Show or hide the edge overlay on all meshes belonging to an element,
+ * using a highlight colour when selected.
+ */
+function _setElementEdgeHighlight(elementId, selected) {
+  editorScene.modelGroup.traverse(child => {
+    if (!child.isMesh || child.userData?.elementId !== elementId) return;
+    const edges = child.getObjectByName('edges');
+    if (!edges) return;
+    if (selected) {
+      edges.visible = true;
+      edges.material.color.set(0x44aaff);
+    } else {
+      // Restore to the state controlled by the current render mode
+      const mode = editorScene.getRenderMode();
+      edges.visible = mode === 'solid+edges';
+      edges.material.color.set(0x333333);
+    }
+  });
 }
 
 function _onPathNodeSelected(nodeInfo) {
