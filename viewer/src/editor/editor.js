@@ -1136,7 +1136,7 @@ function _setElementEdgeHighlight(elementId, selected) {
     if (!edges) return;
     if (selected) {
       edges.visible = true;
-      edges.material.color.set(0x44aaff);
+      edges.material.color.set(0x1e3a5a);
     } else {
       // Restore to the state controlled by the current render mode
       const mode = editorScene.getRenderMode();
