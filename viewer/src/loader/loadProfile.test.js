@@ -216,3 +216,84 @@ describe('buildProfileShape — edge cases', () => {
     expect(shapes).toHaveLength(1);
   });
 });
+
+describe('buildProfileShape — region layers', () => {
+  test('region layer: uses vertices array instead of thickness', () => {
+    const profile = {
+      id: 'p', type: 'Profile', width: 0.3,
+      origin: { x: 0.15, y: 0 },
+      assembly: [
+        {
+          layer: 1, name: 'Polygon region', material_id: 'mat-a', function: 'structure',
+          type: 'region',
+          vertices: [
+            { x: 0.0, y: 0.0 }, { x: 0.3, y: 0.0 },
+            { x: 0.3, y: 0.2 }, { x: 0.0, y: 0.2 },
+          ],
+        },
+      ],
+    };
+    const shapes = buildProfileShape(profile);
+    expect(shapes).toHaveLength(1);
+    expect(shapes[0].materialId).toBe('mat-a');
+    expect(shapes[0].points).toHaveLength(4);
+  });
+
+  test('region layer: origin offset is applied to vertices', () => {
+    const profile = {
+      id: 'p', type: 'Profile', width: 0.2,
+      origin: { x: 0.1, y: 0 },
+      assembly: [
+        {
+          layer: 1, name: 'Region', material_id: 'mat-a', function: 'structure',
+          type: 'region',
+          vertices: [{ x: 0.0, y: 0 }, { x: 0.2, y: 0 }, { x: 0.1, y: 0.2 }],
+        },
+      ],
+    };
+    const shapes = buildProfileShape(profile);
+    // origin.x = 0.1 → vertices shifted left by 0.1
+    expect(shapes[0].points[0].x).toBeCloseTo(-0.1);
+    expect(shapes[0].points[1].x).toBeCloseTo(0.1);
+  });
+
+  test('region layer with fewer than 3 vertices is skipped', () => {
+    const profile = {
+      id: 'p', type: 'Profile', width: 0.2,
+      origin: { x: 0.1, y: 0 },
+      assembly: [
+        {
+          layer: 1, name: 'Bad region', material_id: 'mat-a', function: 'structure',
+          type: 'region',
+          vertices: [{ x: 0, y: 0 }, { x: 0.1, y: 0 }], // only 2 — invalid
+        },
+      ],
+    };
+    const shapes = buildProfileShape(profile);
+    expect(shapes).toHaveLength(0);
+  });
+
+  test('region layer does not advance the band cursor', () => {
+    const profile = {
+      id: 'p', type: 'Profile', width: 0.3,
+      origin: { x: 0.0, y: 0 },
+      assembly: [
+        {
+          layer: 1, name: 'Region', material_id: 'mat-a', function: 'structure',
+          type: 'region',
+          vertices: [{ x: 0, y: 0 }, { x: 0.1, y: 0 }, { x: 0.05, y: 0.1 }],
+        },
+        { layer: 2, name: 'Band', material_id: 'mat-b', thickness: 0.2, function: 'structure' },
+      ],
+    };
+    const shapes = buildProfileShape(profile);
+    expect(shapes).toHaveLength(2);
+    // Band layer cursor should start at 0 (region did not advance it)
+    expect(shapes[1].points[0].x).toBeCloseTo(0.0);
+    expect(shapes[1].points[1].x).toBeCloseTo(0.2);
+    // All coordinates must be finite
+    for (const s of shapes) {
+      expect(s.points.every(p => isFinite(p.x) && isFinite(p.y))).toBe(true);
+    }
+  });
+});
