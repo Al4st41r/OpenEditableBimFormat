@@ -7,6 +7,7 @@
  */
 
 import { writeEntity } from './bundleWriter.js';
+import { libraryProfileToBundle } from '../loader/loadProfile.js';
 
 let _adapter            = null;
 let _library            = null; // { version, materials[] } — cached after first fetch
@@ -266,7 +267,8 @@ async function _renderModal(library, profiles) {
                 }
               }
             }
-            await writeEntity(_adapter, `profiles/${prof.id}.json`, prof);
+            // The library stores profiles as layers[]; a bundle needs assembly[] (issue #91)
+            await writeEntity(_adapter, `profiles/${prof.id}.json`, libraryProfileToBundle(prof));
           }
           inProject.add(prof.id); // update in-place — no extra readJson needed
           _renderProfileList(inProject); // refresh to show "In project"

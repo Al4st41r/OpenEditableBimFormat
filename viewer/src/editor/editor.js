@@ -1627,6 +1627,7 @@ window.__editor = {
   junctionMarkers: () => (junctionEditor?._junctions ?? []).map((j) => ({ id: j.id, x: j.point.x, y: j.point.y, z: j.point.z, detailId: j.detailId })),
   openDetailEditor: _openDetailEditor,
   focusJunction: _focusJunction,
+  elementMeshes: (id) => editorScene.modelGroup.children.filter((c) => c.userData?.elementId === id).length,
   cameraTarget: () => ({ x: editorScene.controls.target.x, y: editorScene.controls.target.y, z: editorScene.controls.target.z }),
   showJunction: (id) => { const j = junctionEditor?._junctions.find((x) => x.id === id); if (j) junctionEditor._showProps(j.id, j.elementIds, j.rule); return !!j; },
   status: () => statusBar.textContent,

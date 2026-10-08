@@ -1,5 +1,11 @@
 import { describe, test, expect } from 'vitest';
-import { buildProfileShape } from './loadProfile.js';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { buildProfileShape, normaliseProfile, libraryProfileToBundle } from './loadProfile.js';
+
+const LIB = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../public/library/profiles');
+const libProfile = (name) => JSON.parse(fs.readFileSync(path.join(LIB, `${name}.json`), 'utf8'));
 
 describe('buildProfileShape — single layer', () => {
   test('single layer: returns one shape with four rectangle points', () => {
@@ -295,5 +301,101 @@ describe('buildProfileShape — region layers', () => {
     for (const s of shapes) {
       expect(s.points.every(p => isFinite(p.x) && isFinite(p.y))).toBe(true);
     }
+  });
+});
+
+// ─── library dialect (issue #91): layers[] / thickness_m / origin_x ────────────
+
+describe('library profiles (layers, thickness_m, origin_x)', () => {
+  test('cavity-wall from the library sweeps: one shape per layer with the library thicknesses', () => {
+    const shapes = buildProfileShape(libProfile('cavity-wall'));
+    expect(shapes).toHaveLength(5);
+    const widths = shapes.map((s) => Math.max(...s.points.map((p) => p.x)) - Math.min(...s.points.map((p) => p.x)));
+    [0.102, 0.05, 0.05, 0.1, 0.013].forEach((w, i) => expect(widths[i]).toBeCloseTo(w, 9));
+  });
+
+  test('layers are contiguous and the profile is centred on the path when origin_x is 0', () => {
+    const shapes = buildProfileShape(libProfile('cavity-wall'));
+    const xs = shapes.flatMap((s) => s.points.map((p) => p.x));
+    expect(Math.min(...xs)).toBeCloseTo(-0.315 / 2, 9);
+    expect(Math.max(...xs)).toBeCloseTo(0.315 / 2, 9);
+  });
+
+  test('a layer with no material (an air cavity) becomes a placeholder material, not null', () => {
+    const shapes = buildProfileShape(libProfile('cavity-wall'));
+    expect(shapes[1].materialId).toBe('mat-unset');
+    expect(shapes[0].materialId).toBe('clay-brick-general');
+  });
+
+  test('a non-zero origin_x is honoured as the distance from the left face', () => {
+    const p = { id: 'x', layers: [{ id: 'a', name: 'a', thickness_m: 0.2, material_id: 'm', function: 'structure' }], origin_x: 0.05 };
+    const xs = buildProfileShape(p)[0].points.map((q) => q.x);
+    expect(Math.min(...xs)).toBeCloseTo(-0.05, 9);
+    expect(Math.max(...xs)).toBeCloseTo(0.15, 9);
+  });
+
+  test('every library profile produces geometry', () => {
+    for (const name of fs.readdirSync(LIB).filter((f) => f.endsWith('.json'))) {
+      const shapes = buildProfileShape(libProfile(name.replace('.json', '')));
+      expect(shapes.length, name).toBeGreaterThan(0);
+      expect(shapes.flatMap((s) => s.points).every((p) => Number.isFinite(p.x) && Number.isFinite(p.y)), name).toBe(true);
+    }
+  });
+
+  test('a profile with neither assembly nor layers throws a clear error naming it', () => {
+    expect(() => buildProfileShape({ id: 'profile-broken' })).toThrow(/profile-broken/);
+    expect(() => buildProfileShape({ id: 'profile-broken' })).toThrow(/assembly|layers/);
+  });
+});
+
+describe('normaliseProfile', () => {
+  test('a bundle profile is returned unchanged (same object)', () => {
+    const p = { id: 'a', assembly: [{ layer: 1, thickness: 0.1 }], width: 0.1 };
+    expect(normaliseProfile(p)).toBe(p);
+  });
+
+  test('a library profile becomes a bundle profile', () => {
+    const b = normaliseProfile(libProfile('solid-wall'));
+    expect(b.assembly).toHaveLength(1);
+    expect(b.assembly[0]).toMatchObject({ layer: 1, name: 'Solid Brick', material_id: 'clay-brick-general', thickness: 0.215, function: 'structure' });
+    expect(b.width).toBeCloseTo(0.215, 9);
+    expect(b.origin).toEqual({ x: 0.1075, y: 0 });
+  });
+
+  test('the input is not mutated', () => {
+    const lib = Object.freeze(libProfile('cavity-wall'));
+    expect(() => normaliseProfile(lib)).not.toThrow();
+  });
+});
+
+describe('libraryProfileToBundle (what the library browser writes)', () => {
+  const REQUIRED = ['$schema', 'id', 'type', 'svg_file', 'origin', 'alignment', 'assembly'];   // profile.schema.json
+
+  test('has every field profile.schema.json requires, and none of the library-only ones', () => {
+    for (const name of ['cavity-wall', 'solid-wall', 'concrete-slab']) {
+      const b = libraryProfileToBundle(libProfile(name));
+      for (const k of REQUIRED) expect(b, `${name}.${k}`).toHaveProperty(k);
+      expect(b).not.toHaveProperty('layers'); expect(b).not.toHaveProperty('origin_x');
+      expect(b.type).toBe('Profile');
+      expect(b.svg_file).toBe(`profiles/${name}.svg`);
+      for (const l of b.assembly) {
+        expect(typeof l.material_id).toBe('string');
+        expect(l.thickness).toBeGreaterThan(0);
+        expect(['finish', 'structure', 'insulation', 'membrane', 'service']).toContain(l.function);
+      }
+    }
+  });
+
+  test('keeps the profile type, description and width', () => {
+    const b = libraryProfileToBundle(libProfile('cavity-wall'));
+    expect(b.profile_type).toBe('wall'); expect(b.description).toBe('Standard cavity wall');
+    expect(b.width).toBeCloseTo(0.315, 9);
+  });
+
+  test('the converted profile sweeps to the same geometry as the library original', () => {
+    const lib = libProfile('cavity-wall');
+    const a = buildProfileShape(lib), b = buildProfileShape(libraryProfileToBundle(lib));
+    expect(b.map((s) => s.points)).toEqual(a.map((s) => s.points));
+    expect(b.map((s) => s.materialId)).toEqual(a.map((s) => s.materialId));
   });
 });
