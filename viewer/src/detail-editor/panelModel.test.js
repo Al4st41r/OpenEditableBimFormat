@@ -206,3 +206,48 @@ describe('usage rows for assignment (slice 3e)', () => {
     expect(row(m, 'junction-sw-corner').parameters).toEqual([]);
   });
 });
+
+describe('dimensions of the selected region (issue #105)', () => {
+  const sel = { type: 'region', index: 0 };
+
+  test('lists every edge with its length at the parameter defaults', async () => {
+    const m = await model({ selection: sel });
+    expect(m.selectedRegion.edges).toHaveLength(4);
+    for (const e of m.selectedRegion.edges) expect(e.length).toBeCloseTo(0.05, 9);
+    expect(m.selectedRegion.edges.map((e) => e.index)).toEqual([0, 1, 2, 3]);
+  });
+
+  test('an edge touching a vertex driven by a parameter is marked bound', async () => {
+    const m = await model({ selection: sel });
+    // vertices 2 and 3 are bound: edges 1 (1-2), 2 (2-3) and 3 (3-0) touch them; edge 0 (0-1) does not
+    expect(m.selectedRegion.edges.map((e) => e.bound)).toEqual([false, true, true, true]);
+  });
+
+  test('a rectangle region reports its width and height, and whether it can be resized', async () => {
+    const m = await model({ selection: sel });
+    expect(m.selectedRegion.rect.width).toBeCloseTo(0.05, 9);
+    expect(m.selectedRegion.rect.height).toBeCloseTo(0.05, 9);
+    expect(m.selectedRegion.rect.editable).toBe(false);        // two vertices are driven by a parameter
+  });
+
+  test('a free rectangle is editable', async () => {
+    const doc = exampleDetail();
+    doc.geometry.regions[0].vertices = [{ x: 0, y: 0 }, { x: 0.2, y: 0 }, { x: 0.2, y: 0.1 }, { x: 0, y: 0.1 }];
+    const m = await model({ doc, selection: sel });
+    expect(m.selectedRegion.rect).toMatchObject({ width: expect.closeTo(0.2, 9), height: expect.closeTo(0.1, 9), editable: true });
+    expect(m.selectedRegion.edges.every((e) => e.bound === false)).toBe(true);
+  });
+
+  test('a triangle has edges but no rectangle', async () => {
+    const doc = exampleDetail();
+    doc.geometry.regions[0].vertices = [{ x: 0, y: 0 }, { x: 0.3, y: 0 }, { x: 0, y: 0.4 }];
+    const m = await model({ doc, selection: sel });
+    expect(m.selectedRegion.rect).toBeNull();
+    expect(m.selectedRegion.edges.map((e) => e.length)).toEqual([expect.closeTo(0.3, 9), expect.closeTo(0.5, 9), expect.closeTo(0.4, 9)]);
+  });
+
+  test('edge lengths follow the preview values', async () => {
+    const m = await model({ selection: sel, previewValues: { cavity_closer_width_m: 0.1 } });
+    expect(m.selectedRegion.edges[1].length).toBeCloseTo(0.1, 9);
+  });
+});

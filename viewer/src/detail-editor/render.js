@@ -23,9 +23,9 @@ const pointsAttr = (pts, view, size) => pts.map((p) => { const s = toScreen(view
  * @param {object} model - buildCanvasModel() result
  * @param {{cx, cy, scale}} view
  * @param {{width, height}} size - pixels
- * @param {{ draft?: object|null, selectedVertex?: boolean }} [opts]
+ * @param {{ draft?: object|null, hint?: { snap: object, lastPoint: object|null }|null }} [opts]
  */
-export function renderCanvas(svg, model, view, size, { draft = null } = {}) {
+export function renderCanvas(svg, model, view, size, { draft = null, hint = null } = {}) {
   while (svg.firstChild) svg.removeChild(svg.firstChild);
   svg.setAttribute('viewBox', `0 0 ${size.width} ${size.height}`);
 
@@ -75,6 +75,7 @@ export function renderCanvas(svg, model, view, size, { draft = null } = {}) {
     });
   }
 
+  // Smart cursor marker and guides are drawn after the handles so they stay visible
   // Handles (only for the selection)
   for (const h of model.handles) {
     const s = toScreen(view, size, h);
@@ -83,5 +84,41 @@ export function renderCanvas(svg, model, view, size, { draft = null } = {}) {
     svg.appendChild(el(bound ? 'rect' : 'circle',
       bound ? { x: s.x - 5.5, y: s.y - 5.5, width: 11, height: 11, fill: '#fff', stroke: colour, 'stroke-width': 2 }
             : { cx: s.x, cy: s.y, r: 5.5, fill: h.kind === 'origin' ? '#fff' : colour, stroke: h.kind === 'origin' ? colour : '#fff', 'stroke-width': 2 }));
+  }
+  drawHint(svg, hint, view, size);
+}
+
+const SNAP_COLOUR = '#e8590c';
+
+/** Snap marker and guide lines for the smart cursor. Drawn last, on top of everything. */
+export function drawHint(svg, hint, view, size) {
+  if (!hint?.snap || hint.snap.kind === 'none') return;
+  const { snap } = hint;
+  for (const g of snap.guides ?? []) {
+    const a = toScreen(view, size, g.a), b = toScreen(view, size, g.b);
+    svg.appendChild(el('line', {
+      x1: a.x, y1: a.y, x2: b.x, y2: b.y, stroke: SNAP_COLOUR, 'stroke-width': g.kind === 'reference' ? 1 : 1.25,
+      'stroke-dasharray': '6 4', opacity: g.kind === 'reference' ? 0.5 : 0.9,
+    }));
+  }
+  const p = toScreen(view, size, snap.point);
+  const common = { fill: 'none', stroke: SNAP_COLOUR, 'stroke-width': 2 };
+  const halo = { fill: 'none', stroke: '#fff', 'stroke-width': 4 };
+  const draw = (name, attrs) => { svg.appendChild(el(name, { ...attrs, ...halo })); svg.appendChild(el(name, { ...attrs, ...common })); };
+
+  switch (snap.kind) {
+    case 'endpoint': draw('rect', { x: p.x - 6, y: p.y - 6, width: 12, height: 12 }); break;
+    case 'midpoint': draw('polygon', { points: `${p.x},${p.y - 7} ${p.x + 7},${p.y + 6} ${p.x - 7},${p.y + 6}` }); break;
+    case 'intersection':
+      for (const style of [halo, common]) svg.appendChild(el('path', { ...style, d: `M${p.x - 6},${p.y - 6}L${p.x + 6},${p.y + 6}M${p.x + 6},${p.y - 6}L${p.x - 6},${p.y + 6}` }));
+      break;
+    case 'perpendicular':
+      for (const style of [halo, common]) svg.appendChild(el('path', { ...style, d: `M${p.x - 7},${p.y - 7}L${p.x - 7},${p.y + 7}L${p.x + 7},${p.y + 7}` }));
+      break;
+    case 'step':
+      svg.appendChild(el('circle', { cx: p.x, cy: p.y, r: 2.5, fill: SNAP_COLOUR }));
+      break;
+    default:   // parallel, angle, grid-axis, alignment, on-line
+      draw('circle', { cx: p.x, cy: p.y, r: 6 });
   }
 }

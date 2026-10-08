@@ -7,7 +7,8 @@
  * parameter preview sliders use `input` and only repaint the canvas.
  */
 
-import { toDisplay, fromDisplay, unitLabel } from '../editor/units.js';
+import { toDisplay, unitLabel, getUnit } from '../editor/units.js';
+import { parseDimension } from '../snap/dimension.js';
 import { KINDS, PLANES, EXTENTS, DATUM_KINDS, DATUM_REFERENCES, RULES } from './detailConstants.js';
 import { drawReference } from './reference.js';
 
@@ -29,10 +30,24 @@ const options = (values, current) => values.map((v) => h('option', { value: v, s
 const select = (values, current, onChange, attrs = {}) => h('select', { ...attrs, onchange: (e) => onChange(e.target.value) }, options(values, current));
 const row = (label, control) => h('div', { class: 'row' }, h('label', {}, label), control);
 const text = (value, onChange, attrs = {}) => h('input', { type: 'text', value, ...attrs, onchange: (e) => onChange(e.target.value) });
-const num = (metres, onChange, attrs = {}) => h('input', {
-  type: 'number', value: metres === null || metres === undefined ? '' : toDisplay(metres), step: unitLabel() === 'mm' ? 1 : 0.001, ...attrs,
-  onchange: (e) => { const v = parseFloat(e.target.value); if (Number.isFinite(v)) onChange(fromDisplay(v)); },
-});
+let notify = () => {};   // set by renderPanels: shows a message in the status line
+
+/**
+ * A length field. Accepts a plain number in the display unit, or a typed
+ * dimension with units and arithmetic ("2.4m", "1200+300"); see snap/dimension.js.
+ */
+const num = (metres, onChange, attrs = {}) => {
+  const shown = metres === null || metres === undefined ? '' : String(toDisplay(metres));
+  return h('input', {
+    type: 'text', inputmode: 'decimal', value: shown, title: 'Type a value: 2400, 2.4m or 1200+300', ...attrs,
+    onchange: (e) => {
+      const raw = e.target.value;
+      const m = parseDimension(raw, { unit: getUnit() });
+      if (m === null) { notify(`Could not read "${raw}" as a length. Try 2400, 2.4m or 1200+300.`); e.target.value = shown; return; }
+      onChange(m);
+    },
+  });
+};
 const plain = (value, onChange, attrs = {}) => h('input', {
   type: 'number', value: value ?? '', step: 'any', ...attrs,
   onchange: (e) => { const v = parseFloat(e.target.value); if (Number.isFinite(v)) onChange(v); },
@@ -45,6 +60,7 @@ const plain = (value, onChange, attrs = {}) => h('input', {
  * @param {object} a - actions
  */
 export function renderPanels({ left, right }, pm, bundle, a) {
+  notify = a.notify ?? (() => {});
   left.replaceChildren(...leftPanel(pm, bundle, a));
   right.replaceChildren(...rightPanel(pm, bundle, a));
 }
@@ -91,7 +107,7 @@ function rightPanel(pm, bundle, a) {
   );
 
   if (pm.selectedMember) out.push(...memberEditor(pm.selectedMember, bundle, a));
-  if (pm.selectedRegion) out.push(...regionEditor(pm.selectedRegion, pm, bundle, a));
+  if (pm.selectedRegion) out.push(...regionEditor(pm.selectedRegion, pm, bundle, a), ...dimensionEditor(pm.selectedRegion, bundle, a));
 
   out.push(h('h3', {}, 'Parameters'));
   if (pm.parameters.length === 0) out.push(h('div', { class: 'note' }, 'None. Add one, then bind a vertex coordinate to it.'));
@@ -204,6 +220,25 @@ function regionEditor(r, pm, bundle, a) {
     ...vertexRows,
     h('div', { class: 'row' }, h('button', { onclick: () => a.removeRegion(r.index) }, 'Remove region')),
   ];
+}
+
+/** Edge lengths and rectangle size for the selected region, typed directly (issue #105). */
+function dimensionEditor(r, bundle, a) {
+  const anchors = bundle.anchors ?? { edge: 'start', rect: 'bottom-left' };
+  const out = [h('h3', {}, `Dimensions: region ${r.index}`)];
+
+  if (r.rect) {
+    out.push(
+      row(`Width (${unitLabel()})`, num(r.rect.width, (v) => a.setRegionSize(r.index, v, undefined), { disabled: !r.rect.editable, min: 0 })),
+      row(`Height (${unitLabel()})`, num(r.rect.height, (v) => a.setRegionSize(r.index, undefined, v), { disabled: !r.rect.editable, min: 0 })),
+      row('Resize about', select(['bottom-left', 'bottom-right', 'top-left', 'top-right', 'centre'], anchors.rect, (v) => a.setAnchor('rect', v))),
+      r.rect.editable ? null : h('div', { class: 'note' }, 'A vertex is driven by a parameter: unbind it to resize by size.'));
+  }
+  out.push(
+    h('div', { class: 'note' }, 'Edge lengths (the edge from each vertex to the next):'),
+    ...r.edges.map((e) => row(`Edge ${e.index} (${unitLabel()})`, num(e.length, (v) => a.setEdgeLength(r.index, e.index, v), { disabled: e.bound, min: 0, title: e.bound ? 'An end vertex is driven by a parameter' : undefined }))),
+    row('Hold fixed', select(['start', 'end', 'centre'], anchors.edge, (v) => a.setAnchor('edge', v))));
+  return out;
 }
 
 function axisCell(value, boundParam, params, onValue, onBind, onUnbind) {

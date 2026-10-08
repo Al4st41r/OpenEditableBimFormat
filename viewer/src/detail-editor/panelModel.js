@@ -8,6 +8,7 @@
 
 import { findUsages, findCandidates } from '../detail/detailUsage.js';
 import { evaluateCoordinate } from './detailDocument.js';
+import { edgeLengths, regionAsRect } from './dimensionOps.js';
 import { applyOverrides } from '../detail/detailParams.js';
 import { detailFit, suggestLocation } from './junctionAssign.js';
 
@@ -24,7 +25,7 @@ function describeLocation(loc) {
  * @param {{ doc, selection, validation, dirty, canUndo, canRedo, profileIds?: string[], materialIds?: string[], junctions?: object[], elements?: object,
  *   grids?: object[], levels?: object[], elementPaths?: object }} input   (grids, levels and elementPaths let candidates carry a suggested location)
  */
-export function buildPanelModel({ doc, selection, validation, dirty, canUndo, canRedo, profileIds, materialIds, junctions = [], elements = {}, grids, levels, elementPaths }) {
+export function buildPanelModel({ doc, selection, validation, dirty, canUndo, canRedo, profileIds, materialIds, junctions = [], elements = {}, grids, levels, elementPaths, previewValues }) {
   const profileSet = profileIds ? new Set(profileIds) : null;
   const materialSet = materialIds ? new Set(materialIds) : null;
   const regions = doc.geometry?.regions ?? [];
@@ -69,12 +70,20 @@ export function buildPanelModel({ doc, selection, validation, dirty, canUndo, ca
   let selectedRegion = null;
   if (selection?.type === 'region' && regions[selection.index]) {
     const r = regions[selection.index];
+    const bound = (c) => c !== null && typeof c === 'object';
+    const n = r.vertices.length;
+    const vertexBound = r.vertices.map((v) => bound(v.x) || bound(v.y));
+    const rect = regionAsRect(doc, selection.index, previewValues);
     selectedRegion = {
       index: selection.index, materialId: r.material_id,
       vertices: r.vertices.map((v, i) => ({
-        x: tidy(evaluateCoordinate(v.x, doc.parameters)), y: tidy(evaluateCoordinate(v.y, doc.parameters)),
+        x: tidy(evaluateCoordinate(v.x, doc.parameters, previewValues)), y: tidy(evaluateCoordinate(v.y, doc.parameters, previewValues)),
         boundX: boundParam(v.x), boundY: boundParam(v.y), selected: selection.vertex === i,
       })),
+      edges: edgeLengths(doc, selection.index, previewValues).map((length, i) => ({
+        index: i, length: tidy(length), bound: vertexBound[i] || vertexBound[(i + 1) % n],
+      })),
+      rect: rect ? { width: tidy(rect.width), height: tidy(rect.height), editable: !vertexBound.some(Boolean) } : null,
     };
   }
 

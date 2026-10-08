@@ -26,6 +26,10 @@ import { buildPanelModel } from './panelModel.js';
 import { fitView, toDetail, zoomAt, panByPixels } from './viewTransform.js';
 import { renderCanvas } from './render.js';
 import { renderPanels } from './panels.js';
+import { snapPoint, SNAP_KINDS } from '../snap/snapEngine.js';
+import { buildTooltip } from '../snap/tooltip.js';
+import { buildSnapScene } from './snapScene.js';
+import { setRegionEdgeLength, setRegionSize } from './dimensionOps.js';
 import { KINDS, PLANES } from './detailConstants.js';
 
 const $ = (id) => document.getElementById(id);
@@ -40,6 +44,21 @@ let controller = createController('select');
 let draft = null;
 let view = { cx: 0, cy: 0, scale: 100 };
 let size = { width: 800, height: 600 };
+// smart cursor (issue #105)
+const SNAP_LABELS = {
+  endpoint: 'Endpoint', intersection: 'Intersection', midpoint: 'Midpoint', perpendicular: 'Perpendicular', parallel: 'Parallel',
+  angle: 'Angle', 'grid-axis': 'Drawing origin axes', alignment: 'Alignment', 'on-line': 'On line', step: 'Ruler step',
+};
+const snapState = { on: true, kinds: new Set(SNAP_KINDS), angleStep: 45 };
+try {
+  const saved = JSON.parse(localStorage.getItem('oebf-detail-snap') ?? 'null');
+  if (saved) { snapState.on = saved.on !== false; snapState.kinds = new Set(saved.kinds ?? SNAP_KINDS); snapState.angleStep = saved.angleStep ?? 45; }
+} catch { /* defaults */ }
+const saveSnapState = () => { try { localStorage.setItem('oebf-detail-snap', JSON.stringify({ on: snapState.on, kinds: [...snapState.kinds], angleStep: snapState.angleStep })); } catch { /* optional */ } };
+let hint = null;            // { snap, lastPoint } from the controller
+let pointer = { x: 0, y: 0, alt: false };
+const anchors = { edge: 'start', rect: 'bottom-left' };   // what stays put when a typed length or size is applied
+
 let refLevel = null;        // building reference: level filter (null = all)
 let refHighlight = null;    // building reference: the junction picked on the plan or in the list
 
@@ -77,7 +96,8 @@ function visibleSnap() {
 // ── painting ─────────────────────────────────────────────────────────────────
 function paint() {
   if (!st) { svg.replaceChildren(); return; }
-  renderCanvas(svg, canvasModelFor(currentDoc(), st.selection), view, size, { draft });
+  renderCanvas(svg, canvasModelFor(currentDoc(), st.selection), view, size, { draft, hint });
+  paintTip();
 }
 
 function refresh() {
@@ -90,7 +110,7 @@ function refresh() {
     const pm = buildPanelModel({
       doc: st.doc, selection: st.selection, validation, dirty: isDirty(st), canUndo: canUndo(st), canRedo: canRedo(st),
       profileIds: bundle.ctx.profileIds, materialIds: bundle.ctx.materialIds, junctions: bundle.ctx.junctions, elements: bundle.ctx.elements,
-      grids: bundle.ctx.grids, levels: bundle.ctx.levels, elementPaths: bundle.ctx.elementPaths,
+      grids: bundle.ctx.grids, levels: bundle.ctx.levels, elementPaths: bundle.ctx.elementPaths, previewValues: st.preview,
     });
     const reference = {
       data: buildBuildingReference({
@@ -102,7 +122,7 @@ function refresh() {
       canShow3D: !!window.opener && !window.opener.closed,
     };
     renderPanels({ left: $('left-panel'), right: $('right-panel') }, pm, {
-      profileIds: bundle.ctx.profileIds, materialIds: bundle.ctx.materialIds, materials: bundle.ctx.materials, previewValues: st.preview, reference,
+      profileIds: bundle.ctx.profileIds, materialIds: bundle.ctx.materialIds, materials: bundle.ctx.materials, previewValues: st.preview, reference, anchors,
     }, actions);
     $('save-btn').disabled = !pm.saveEnabled;
     $('undo-btn').disabled = !pm.canUndo;
@@ -162,6 +182,10 @@ const actions = {
   removeParameter: (name) => apply((d) => D.removeParameter(d, name)),
   renameParameter: (from, to) => apply((d) => D.renameParameter(d, from, to).doc),
   setConditionRule: (rule) => apply((d) => (rule === null ? D.setCondition(d, null) : D.setCondition(d, { ...(d.condition ?? {}), rule, member_count: d.members.length, member_kinds: d.members.map((m) => m.kind) }))),
+  notify: (text) => status(text, true),
+  setAnchor: (kind, value) => { anchors[kind] = value; refresh(); },
+  setEdgeLength: (r, edge, length) => apply((d) => setRegionEdgeLength(d, r, edge, length, anchors.edge, st.preview).doc),
+  setRegionSize: (r, w, h) => apply((d) => setRegionSize(d, r, w, h, anchors.rect, st.preview).doc),
   referencePick: (id) => {
     refHighlight = refHighlight === id ? null : id;
     refresh();
@@ -205,10 +229,19 @@ for (const t of ['select', 'rect', 'polygon']) $(`tool-${t}`).addEventListener('
 // ── canvas interaction ───────────────────────────────────────────────────────
 function controllerContext() {
   let model;
+  const getModel = () => (model ??= canvasModelFor(st.doc, st.selection));
+  const step = visibleSnap();
   return {
-    doc: st.doc, selection: st.selection, snap: visibleSnap(), angleStep: 5, tolerance: 9 / view.scale,
+    doc: st.doc, selection: st.selection, snap: step, angleStep: 5, tolerance: 9 / view.scale,
     material: $('material-select').value || null,
-    get model() { return (model ??= canvasModelFor(st.doc, st.selection)); },
+    suspendSnap: pointer.alt,
+    // The smart cursor: named snaps against everything drawn, in pixels converted to metres at this zoom.
+    snapFn: snapState.on
+      ? (point, extra) => snapPoint(point, buildSnapScene(getModel(), { exclude: extra.exclude, lastPoint: extra.lastPoint, step }), {
+        tolerance: 9 / view.scale, kinds: snapState.kinds, angleStep: snapState.angleStep, suspend: extra.suspend,
+      })
+      : null,
+    get model() { return getModel(); },
   };
 }
 
@@ -223,6 +256,7 @@ function applyEffects(effects) {
       case 'select': st = select(st, e.selection); needsRefresh = true; break;
       case 'pan': view = panByPixels(view, e.dx, e.dy); break;
       case 'draft': draft = e.draft; break;
+      case 'hint': hint = e.hint; break;
       case 'message': status(e.text, true); break;
       case 'cancel': display = null; needsRefresh = true; break;
     }
@@ -234,6 +268,7 @@ function dispatch(type, e, key) {
   if (!st) return;
   const rect = svg.getBoundingClientRect();
   const screen = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  pointer = { x: screen.x, y: screen.y, alt: !!e.altKey };
   const r = handleEvent(controller, { type, point: toDetail(view, size, screen), screen, key }, controllerContext());
   controller = r.state;
   applyEffects(r.effects);
@@ -256,6 +291,7 @@ svg.addEventListener('wheel', (e) => {
 }, { passive: false });
 
 window.addEventListener('keydown', (e) => {
+  if (e.key === 'Alt') pointer.alt = true;
   const typing = ['INPUT', 'SELECT', 'TEXTAREA'].includes(e.target.tagName);
   const mod = e.ctrlKey || e.metaKey;
   if (mod && e.key.toLowerCase() === 's') { e.preventDefault(); save(); return; }
@@ -265,6 +301,7 @@ window.addEventListener('keydown', (e) => {
   const tools = { v: 'select', r: 'rect', p: 'polygon' };
   if (!mod && tools[e.key.toLowerCase()]) { chooseTool(tools[e.key.toLowerCase()]); return; }
   if (!mod && e.key.toLowerCase() === 'f') { fit(); return; }
+  if (!mod && e.key.toLowerCase() === 's') { toggleSnap(); return; }
   if (['Escape', 'Delete', 'Backspace', 'Enter'].includes(e.key)) {
     if (e.key !== 'Escape') e.preventDefault();
     dispatch('key', { clientX: 0, clientY: 0 }, e.key);
@@ -276,6 +313,47 @@ new ResizeObserver(() => {
   size = { width: Math.max(1, wrap.clientWidth), height: Math.max(1, wrap.clientHeight) };
   if (first && st) fit(); else paint();
 }).observe(wrap);
+
+// ── smart cursor: tooltip and snap controls ──────────────────────────────────
+function paintTip() {
+  const tip = $('tip');
+  if (!hint?.snap || !snapState.on) { tip.hidden = true; return; }
+  const t = buildTooltip({ snap: hint.snap, lastPoint: hint.lastPoint, unit: getUnit() });
+  tip.replaceChildren();
+  const add = (cls, text) => { const d = document.createElement('div'); if (cls) d.className = cls; d.textContent = text; tip.append(d); };
+  if (t.title) add('t', t.title);
+  for (const line of t.lines) add('', line);
+  add('c', t.coords);
+  tip.hidden = false;
+  const room = { w: wrap.clientWidth, h: wrap.clientHeight };
+  const x = pointer.x + 16 + tip.offsetWidth > room.w ? pointer.x - 16 - tip.offsetWidth : pointer.x + 16;
+  const y = pointer.y + 18 + tip.offsetHeight > room.h ? pointer.y - 18 - tip.offsetHeight : pointer.y + 18;
+  tip.style.left = `${Math.max(0, x)}px`; tip.style.top = `${Math.max(0, y)}px`;
+}
+
+svg.addEventListener('pointerleave', () => { if (hint) { hint = null; paint(); } });
+
+function refreshSnapControls() {
+  $('snap-btn').classList.toggle('active', snapState.on);
+  const body = $('snap-menu-body');
+  body.replaceChildren();
+  for (const kind of SNAP_KINDS) {
+    const label = document.createElement('label');
+    const cb = Object.assign(document.createElement('input'), { type: 'checkbox', checked: snapState.kinds.has(kind) });
+    cb.addEventListener('change', () => { if (cb.checked) snapState.kinds.add(kind); else snapState.kinds.delete(kind); saveSnapState(); });
+    label.append(cb, SNAP_LABELS[kind]);
+    body.append(label);
+  }
+  const angle = document.createElement('label');
+  const sel = document.createElement('select');
+  for (const v of [0, 15, 30, 45, 90]) sel.append(Object.assign(document.createElement('option'), { value: v, textContent: v === 0 ? 'Angle snap off' : `Angle step ${v}°`, selected: v === snapState.angleStep }));
+  sel.addEventListener('change', () => { snapState.angleStep = Number(sel.value); saveSnapState(); });
+  angle.append(sel);
+  body.append(angle);
+}
+function toggleSnap() { snapState.on = !snapState.on; saveSnapState(); hint = null; refreshSnapControls(); paint(); status(snapState.on ? 'Snapping on' : 'Snapping off'); }
+$('snap-btn').addEventListener('click', toggleSnap);
+refreshSnapControls();
 
 // ── opening bundles ──────────────────────────────────────────────────────────
 function openContext(ctx, adapter, source, activeId = null) {
@@ -514,4 +592,5 @@ if (window.opener) {
 if (new URLSearchParams(window.location.search).has('demo')) openDemo();
 
 // Read-only hook for headless checks and bug reports.
-window.__detailEditor = { state: () => st, view: () => view, size: () => size, adapter: () => bundle?.adapter ?? null, status: () => $('status').textContent };
+window.__detailEditor = { snapState: () => snapState, hint: () => hint, state: () => st, view: () => view, size: () => size, adapter: () => bundle?.adapter ?? null, status: () => $('status').textContent };
+window.addEventListener('keyup', (e) => { if (e.key === 'Alt') pointer.alt = false; });

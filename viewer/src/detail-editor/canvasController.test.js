@@ -330,3 +330,131 @@ describe('tool switching and purity', () => {
     expect(() => handleEvent(r.state, ev('move', 0.2, 0.2), ctx)).not.toThrow();
   });
 });
+
+// ── smart cursor: a snap function in the context (issue #105) ────────────────
+
+describe('smart cursor (ctx.snapFn)', () => {
+  /** Snaps to a 0.1 grid and records how it was called. */
+  function snapStub() {
+    const calls = [];
+    const fn = (p, extra) => {
+      calls.push({ p, extra });
+      return { point: { x: Math.round(p.x * 10) / 10, y: Math.round(p.y * 10) / 10 }, kind: 'endpoint', label: 'Endpoint', snapped: true, guides: [], source: null };
+    };
+    return { fn, calls };
+  }
+  const withSnap = (doc, selection, stub, extra = {}) => ctxFor(doc, selection, { snapFn: stub.fn, ...extra });
+  const hints = (r) => of(r, 'hint');
+
+  test('without a snap function there are no hint effects and behaviour is unchanged', () => {
+    let r = handleEvent(createController('rect'), ev('down', 0.2, 0.3), ctxFor(exampleDetail()));
+    r = handleEvent(r.state, ev('move', 0.4, 0.5), ctxFor(exampleDetail()));
+    expect(hints(r)).toEqual([]);
+  });
+
+  describe('rectangle tool', () => {
+    test('moving with no rectangle started shows a hint', () => {
+      const stub = snapStub();
+      const r = handleEvent(createController('rect'), ev('move', 0.23, 0.31), withSnap(exampleDetail(), null, stub));
+      expect(hints(r)[0].hint.snap).toMatchObject({ kind: 'endpoint', label: 'Endpoint' });
+      expect(hints(r)[0].hint.lastPoint).toBeNull();
+    });
+
+    test('both corners use the snapped points and the hint measures from the first corner', () => {
+      const doc = exampleDetail(); const stub = snapStub();
+      let r = handleEvent(createController('rect'), ev('down', 0.231, 0.349), withSnap(doc, null, stub));
+      expect(of(r, 'draft')[0].draft.a).toEqual({ x: 0.2, y: 0.3 });
+      r = handleEvent(r.state, ev('move', 0.372, 0.481), withSnap(doc, null, stub));
+      expect(of(r, 'draft')[0].draft).toEqual({ kind: 'rect', a: { x: 0.2, y: 0.3 }, b: { x: 0.4, y: 0.5 } });
+      expect(hints(r)[0].hint.lastPoint).toEqual({ x: 0.2, y: 0.3 });
+      r = handleEvent(r.state, ev('up', 0.372, 0.481), withSnap(doc, null, stub));
+      expect(lastDoc(r).doc.geometry.regions.at(-1).vertices).toEqual([{ x: 0.2, y: 0.3 }, { x: 0.4, y: 0.3 }, { x: 0.4, y: 0.5 }, { x: 0.2, y: 0.5 }]);
+      expect(hints(r).at(-1).hint).toBeNull();
+    });
+
+    test('Escape clears the hint', () => {
+      const doc = exampleDetail(); const stub = snapStub();
+      let r = handleEvent(createController('rect'), ev('down', 0.2, 0.3), withSnap(doc, null, stub));
+      r = handleEvent(r.state, key('Escape'), withSnap(doc, null, stub));
+      expect(hints(r).at(-1).hint).toBeNull();
+    });
+  });
+
+  describe('polygon tool', () => {
+    test('the first point is snapped; later points snap relative to the previous one', () => {
+      const doc = exampleDetail(); const stub = snapStub();
+      let r = handleEvent(createController('polygon'), ev('down', 0.231, 0.349), withSnap(doc, null, stub));
+      expect(r.state.draft.points[0]).toEqual({ x: 0.2, y: 0.3 });
+      r = handleEvent(r.state, ev('down', 0.421, 0.299), withSnap(doc, null, stub));
+      expect(stub.calls.at(-1).extra.lastPoint).toEqual({ x: 0.2, y: 0.3 });
+      expect(r.state.draft.points[1]).toEqual({ x: 0.4, y: 0.3 });
+    });
+
+    test('moving shows a hint measured from the last point, and the cursor is the snapped point', () => {
+      const doc = exampleDetail(); const stub = snapStub();
+      let r = handleEvent(createController('polygon'), ev('down', 0.2, 0.3), withSnap(doc, null, stub));
+      r = handleEvent(r.state, ev('move', 0.352, 0.481), withSnap(doc, null, stub));
+      expect(hints(r)[0].hint.lastPoint).toEqual({ x: 0.2, y: 0.3 });
+      expect(of(r, 'draft')[0].draft.cursor).toEqual({ x: 0.4, y: 0.5 });
+    });
+
+    test('closing clears the hint', () => {
+      const doc = exampleDetail(); const stub = snapStub();
+      let r = { state: createController('polygon') };
+      for (const [x, y] of [[0.2, 0.2], [0.4, 0.2], [0.4, 0.4]]) r = handleEvent(r.state, ev('down', x, y), withSnap(doc, null, stub));
+      r = handleEvent(r.state, key('Enter'), withSnap(doc, null, stub));
+      expect(hints(r).at(-1).hint).toBeNull();
+    });
+  });
+
+  describe('select tool', () => {
+    test('dragging a vertex snaps it, excluding its own region from the scene', () => {
+      const doc = exampleDetail(); const stub = snapStub();
+      const sel = { type: 'region', index: 0 };
+      let r = handleEvent(createController(), ev('down', 0, 0.145), withSnap(doc, sel, stub));
+      r = handleEvent(r.state, ev('move', 0.123, 0.172), withSnap(doc, { ...sel, vertex: 0 }, stub));
+      expect(lastDoc(r).doc.geometry.regions[0].vertices[0]).toEqual({ x: 0.1, y: 0.2 });
+      expect(stub.calls.at(-1).extra.exclude).toEqual({ regionIndex: 0 });
+      expect(hints(r)[0].hint.snap.label).toBe('Endpoint');
+    });
+
+    test('dragging a member snaps its origin, excluding that member', () => {
+      const doc = exampleDetail(); const stub = snapStub();
+      let r = handleEvent(createController(), ev('down', 0, -0.4), withSnap(doc, null, stub));
+      r = handleEvent(r.state, ev('move', 0.0632, -0.351), withSnap(doc, { type: 'member', role: 'butting-wall' }, stub));
+      expect(stub.calls.at(-1).extra.exclude).toEqual({ memberRole: 'butting-wall' });
+      const p = lastDoc(r).doc.members[1].placement;
+      // pointer moved by (0.0632, 0.049); the origin follows, snapped to the 0.1 grid
+      expect(p.offset_x_m).toBe(0.1); expect(p.offset_y_m).toBe(-0.1);
+    });
+
+    test('releasing a drag clears the hint', () => {
+      const doc = exampleDetail(); const stub = snapStub();
+      const sel = { type: 'region', index: 0 };
+      let r = handleEvent(createController(), ev('down', 0, 0.145), withSnap(doc, sel, stub));
+      r = handleEvent(r.state, ev('move', 0.123, 0.172), withSnap(doc, sel, stub));
+      r = handleEvent(r.state, ev('up', 0.123, 0.172), withSnap(doc, sel, stub));
+      expect(hints(r).at(-1).hint).toBeNull();
+    });
+
+    test('hovering with no drag shows no hint', () => {
+      const stub = snapStub();
+      expect(hints(handleEvent(createController(), ev('move', 0.1, 0.1), withSnap(exampleDetail(), null, stub)))).toEqual([]);
+    });
+
+    test('dragging a whole region does not snap (its delta is stepped)', () => {
+      const doc = exampleDetail(); const stub = snapStub();
+      let r = handleEvent(createController(), ev('down', ...REGION_CENTRE), withSnap(doc, null, stub));
+      r = handleEvent(r.state, ev('move', 0.125, 0.17), withSnap(doc, { type: 'region', index: 0 }, stub));
+      expect(stub.calls).toEqual([]);
+    });
+  });
+
+  test('suspending snapping is passed to the snap function', () => {
+    const stub = snapStub();
+    handleEvent(createController('rect'), ev('move', 0.2, 0.3), withSnap(exampleDetail(), null, stub, { suspendSnap: true }));
+    expect(stub.calls.at(-1).extra.suspend).toBe(true);
+    handleEvent(createController('rect'), ev('move', 0.2, 0.3), withSnap(exampleDetail(), null, stub));
+    expect(stub.calls.at(-1).extra.suspend).toBe(false);
+  });
+});

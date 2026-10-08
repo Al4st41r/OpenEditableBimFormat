@@ -20,6 +20,11 @@
  *     { type: 'draft', draft }         rubber band: rect { a, b } or polygon { points, cursor }; null clears
  *     { type: 'message', text }
  *     { type: 'cancel' }               discard transient changes, show the committed doc
+ *     { type: 'hint', hint }           smart cursor: { snap, lastPoint } to show (marker, guides, tooltip), or null to clear
+ *
+ *   ctx.snapFn (optional): (point, { lastPoint, exclude, suspend }) => snap result of snap/snapEngine.js.
+ *   When absent everything works as before with the step in ctx.snap and no hints.
+ *   ctx.suspendSnap: true while the user holds the modifier that suspends snapping.
  */
 
 import { hitTest } from './canvasModel.js';
@@ -37,7 +42,17 @@ export function createController(tool = 'select') {
 
 export const setControllerTool = (_state, tool) => createController(tool);
 
-const snapPoint = (p, snap) => ({ x: snapValue(p.x, snap), y: snapValue(p.y, snap) });
+const stepSnap = (p, snap) => ({ x: snapValue(p.x, snap), y: snapValue(p.y, snap) });
+
+/** Snap a point with the engine when there is one, else to the step. `snap` is the engine result or null. */
+function snapAt(ctx, point, extra = {}) {
+  if (!ctx.snapFn) return { point: stepSnap(point, ctx.snap), snap: null, lastPoint: null };
+  const snap = ctx.snapFn(point, { lastPoint: null, ...extra, suspend: !!ctx.suspendSnap });
+  return { point: { x: snap.point.x, y: snap.point.y }, snap, lastPoint: extra.lastPoint ?? null };
+}
+
+const hintEffect = (s) => ({ type: 'hint', hint: s.snap ? { snap: s.snap, lastPoint: s.lastPoint } : null });
+const clearHint = (ctx) => (ctx.snapFn ? [{ type: 'hint', hint: null }] : []);
 const msg = (text) => ({ type: 'message', text });
 const done = (state, effects = []) => ({ state, effects });
 
@@ -55,7 +70,7 @@ function selectTool(state, event, ctx) {
   const { type, point, screen } = event;
 
   if (type === 'key') {
-    if (state.drag && event.key === 'Escape') return done({ ...state, drag: null }, [{ type: 'cancel' }]);
+    if (state.drag && event.key === 'Escape') return done({ ...state, drag: null }, [{ type: 'cancel' }, ...clearHint(ctx)]);
     if (!state.drag && (event.key === 'Delete' || event.key === 'Backspace') && ctx.selection?.type === 'region') {
       return done(state, [{ type: 'doc', doc: removeRegion(ctx.doc, ctx.selection.index), transient: false }, { type: 'select', selection: null }]);
     }
@@ -96,8 +111,20 @@ function selectTool(state, event, ctx) {
     }
 
     let result;
-    if (drag.kind === 'handle') {
+    let hint = null;
+    const snapDrag = (exclude) => {
+      const s = snapAt(ctx, { x: point.x - drag.grab.x, y: point.y - drag.grab.y }, { exclude });
+      hint = s.snap ? hintEffect(s) : null;
+      return s.point;                                                     // already the target: dragHandle gets no grab offset
+    };
+    if (drag.kind === 'handle' && drag.ref.type === 'vertex' && ctx.snapFn) {
+      result = dragHandle(drag.startDoc, drag.ref, snapDrag({ regionIndex: drag.ref.region }), { snap: 0, grab: { x: 0, y: 0 } });
+    } else if (drag.kind === 'handle' && drag.ref.type === 'member-origin' && ctx.snapFn) {
+      result = dragHandle(drag.startDoc, drag.ref, snapDrag({ memberRole: drag.ref.role }), { snap: 0, grab: { x: 0, y: 0 } });
+    } else if (drag.kind === 'handle') {
       result = dragHandle(drag.startDoc, drag.ref, point, { snap: ctx.snap, angleStep: ctx.angleStep, grab: drag.grab });
+    } else if (drag.kind === 'member-body' && ctx.snapFn) {
+      result = dragHandle(drag.startDoc, { type: 'member-origin', role: drag.role }, snapDrag({ memberRole: drag.role }), { snap: 0, grab: { x: 0, y: 0 } });
     } else if (drag.kind === 'member-body') {
       result = dragHandle(drag.startDoc, { type: 'member-origin', role: drag.role }, point, { snap: ctx.snap, grab: drag.grab });
     } else {
@@ -106,6 +133,7 @@ function selectTool(state, event, ctx) {
 
     const changed = !same(result.doc, drag.startDoc);
     const effects = [];
+    if (hint) effects.push(hint);
     if (changed) effects.push({ type: 'doc', doc: result.doc, transient: true });
     const locked = result.locked.length > 0;
     if (locked && !drag.notified) effects.push(msg('Coordinates driven by a parameter stay put while dragging. Unbind them to move them freely.'));
@@ -114,7 +142,7 @@ function selectTool(state, event, ctx) {
 
   if (type === 'up') {
     const effects = drag.kind !== 'pan' && drag.moved ? [{ type: 'doc', doc: drag.current, transient: false }] : [];
-    return done({ ...state, drag: null }, effects);
+    return done({ ...state, drag: null }, [...effects, ...(drag.kind === 'pan' ? [] : clearHint(ctx))]);
   }
 
   return done(state);
@@ -130,32 +158,38 @@ function rectTool(state, event, ctx) {
   const { type, point } = event;
 
   if (type === 'key') {
-    return event.key === 'Escape' && state.draft ? done({ ...state, draft: null }, [{ type: 'draft', draft: null }]) : done(state);
+    return event.key === 'Escape' && state.draft ? done({ ...state, draft: null }, [{ type: 'draft', draft: null }, ...clearHint(ctx)]) : done(state);
   }
   if (type === 'down') {
     const blocked = needMaterial(state, ctx);
     if (blocked) return blocked;
-    const a = snapPoint(point, ctx.snap);
+    const s = snapAt(ctx, point);
+    const a = s.point;
     const draft = { kind: 'rect', a, b: a };
-    return done({ ...state, draft }, [{ type: 'draft', draft }]);
+    return done({ ...state, draft }, [{ type: 'draft', draft }, ...(s.snap ? [hintEffect(s)] : [])]);
   }
-  if (!state.draft) return done(state);
+  if (!state.draft) {
+    // hovering: show what the first corner would snap to
+    return type === 'move' && ctx.snapFn ? done(state, [hintEffect(snapAt(ctx, point))]) : done(state);
+  }
 
-  const b = snapPoint(point, ctx.snap);
+  const s = snapAt(ctx, point, { lastPoint: state.draft.a });
+  const b = s.point;
   if (type === 'move') {
     const draft = { ...state.draft, b };
-    return done({ ...state, draft }, [{ type: 'draft', draft }]);
+    return done({ ...state, draft }, [{ type: 'draft', draft }, ...(s.snap ? [hintEffect(s)] : [])]);
   }
   if (type === 'up') {
     const { a } = state.draft;
     const cleared = { ...state, draft: null };
     const clear = { type: 'draft', draft: null };
-    if (a.x === b.x || a.y === b.y) return done(cleared, [clear]);
+    if (a.x === b.x || a.y === b.y) return done(cleared, [clear, ...clearHint(ctx)]);
     const doc = addRect(ctx.doc, ctx.material, a, b);
     return done(cleared, [
       { type: 'doc', doc, transient: false },
       { type: 'select', selection: { type: 'region', index: doc.geometry.regions.length - 1 } },
       clear,
+      ...clearHint(ctx),
     ]);
   }
   return done(state);
@@ -175,12 +209,13 @@ function closePolygon(state, ctx) {
     { type: 'doc', doc, transient: false },
     { type: 'select', selection: { type: 'region', index: doc.geometry.regions.length - 1 } },
     { type: 'draft', draft: null },
+    ...clearHint(ctx),
   ]);
 }
 
 function polygonTool(state, event, ctx) {
   const { type, point } = event;
-  const cancel = () => done({ ...state, draft: null }, [{ type: 'draft', draft: null }]);
+  const cancel = () => done({ ...state, draft: null }, [{ type: 'draft', draft: null }, ...clearHint(ctx)]);
 
   if (type === 'key') {
     if (!state.draft) return done(state);
@@ -198,10 +233,12 @@ function polygonTool(state, event, ctx) {
   if (type === 'down') {
     const blocked = needMaterial(state, ctx);
     if (blocked) return blocked;
-    const p = snapPoint(point, ctx.snap);
+    const lastDrawn = state.draft?.points.at(-1) ?? null;
+    const s = snapAt(ctx, point, { lastPoint: lastDrawn });
+    const p = s.point;
     if (!state.draft) {
       const draft = { kind: 'polygon', points: [p] };
-      return done({ ...state, draft }, [{ type: 'draft', draft: { ...draft, cursor: p } }]);
+      return done({ ...state, draft }, [{ type: 'draft', draft: { ...draft, cursor: p } }, ...(s.snap ? [hintEffect(s)] : [])]);
     }
     const { points } = state.draft;
     if (points.length >= 3 && Math.hypot(p.x - points[0].x, p.y - points[0].y) <= ctx.tolerance) return closePolygon(state, ctx);
@@ -211,8 +248,11 @@ function polygonTool(state, event, ctx) {
     return done({ ...state, draft }, [{ type: 'draft', draft: { ...draft, cursor: p } }]);
   }
 
-  if (!state.draft) return done(state);
-  if (type === 'move') return done(state, [{ type: 'draft', draft: { ...state.draft, cursor: snapPoint(point, ctx.snap) } }]);
+  if (!state.draft) return type === 'move' && ctx.snapFn ? done(state, [hintEffect(snapAt(ctx, point))]) : done(state);
+  if (type === 'move') {
+    const s = snapAt(ctx, point, { lastPoint: state.draft.points.at(-1) });
+    return done(state, [{ type: 'draft', draft: { ...state.draft, cursor: s.point } }, ...(s.snap ? [hintEffect(s)] : [])]);
+  }
   if (type === 'dblclick') return closePolygon(state, ctx);
   return done(state);
 }
