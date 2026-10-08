@@ -56,6 +56,7 @@ export class WallTool {
       opts.canvas,
     );
 
+    this._drawingTool.snapFn = opts.snapFn ?? null;
     this._drawingTool.onCommit = (points) => this._onCommit(points);
     this._drawingTool.onCancel = () => {};
   }

@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-09
 **Issue:** #105 (extends #82 snapping and #83 object properties)
-**Status:** Draft, built in three slices (section 7)
+**Status:** Built in three slices (section 7); all three complete
 
 ---
 

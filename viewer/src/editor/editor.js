@@ -40,6 +40,9 @@ import { createNewBundle } from './newBundle.js';
 import { openLibraryBrowser, setAdapter as setLibraryAdapter } from './libraryBrowser.js';
 import { setUnit, getUnit, toDisplay, fromDisplay, unitLabel } from './units.js';
 import { updateNodeAxis } from './nodeUtils.js';
+import { snapPoint, SNAP_KINDS } from '../snap/snapEngine.js';
+import { buildPlanSnapScene, setPathSegmentLength } from './planSnap.js';
+import { parseDimension } from '../snap/dimension.js';
 import { importIfcText } from '../ifc/ifcImporter.js';
 import { exportBundleToIfc } from '../ifc/ifcExporter.js';
 import * as THREE from 'three';
@@ -435,6 +438,7 @@ function _setActiveTool(tool, buttonEl) {
   activeTool = tool;
   document.querySelectorAll('#toolbar button').forEach(b => b.classList.remove('active'));
   if (buttonEl) buttonEl.classList.add('active');
+  document.getElementById('snap-toggle')?.classList.toggle('active', _snapOn);   // a setting, not a tool
 
   // Show profile selectors in props panel for drawing tools
   const wallRow = document.getElementById('wall-profile-row');
@@ -480,6 +484,7 @@ document.getElementById('tool-guide').addEventListener('click', () => {
       editorScene.constructionPlane,
       canvas,
     );
+    guideTool.snapFn = _planSnap;
     guideTool.onCommit = async (points) => {
       const name = _pendingGuideName ?? 'guide';
       _pendingGuideName = null;
@@ -723,6 +728,7 @@ async function _loadAndRenderBundle(adapter) {
 
   // Create wall tool bound to this bundle
   wallTool = new WallTool({
+    snapFn:            _planSnap,
     scene:             editorScene.scene,
     getCamera:         editorScene.getActiveCamera,
     constructionPlane: editorScene.constructionPlane,
@@ -747,6 +753,7 @@ async function _loadAndRenderBundle(adapter) {
 
   // Create floor tool bound to this bundle
   floorTool = new FloorTool({
+    snapFn:              _planSnap,
     scene:               editorScene.scene,
     getCamera:           editorScene.getActiveCamera,
     constructionPlane:   editorScene.constructionPlane,
@@ -1305,7 +1312,10 @@ async function _reRenderElement(elementId, updatedPathData) {
   }
 }
 
+let _propsGen = 0;   // a slower, earlier call must not overwrite the panel of a later selection
+
 async function _showElementProps(id) {
+  const gen = ++_propsGen;
   const panel = document.getElementById('props-content');
   const reg = _elementRegistry.get(id);
   if (!reg) { panel.innerHTML = '<p id="props-empty">Element not found.</p>'; return; }
@@ -1336,6 +1346,7 @@ async function _showElementProps(id) {
       } catch { /* skip */ }
     }
   } catch { /* no profiles dir */ }
+  if (gen !== _propsGen) return;
   profileSel.addEventListener('change', () => _changeElementProfile(id, profileSel.value));
   _propRowWidget(panel, 'Profile', profileSel);
 
@@ -1346,6 +1357,9 @@ async function _showElementProps(id) {
   descInp.addEventListener('change', () => { reg.description = descInp.value; });
   _propRowWidget(panel, 'Description', descInp);
 
+  // Segment lengths: type a new length, 2400, 2.4m or 1200+300 (issue #105)
+  _addLengthRows(panel, id, reg);
+
   // Edit profile button
   if (adapter && reg.profileId) {
     const btn = document.createElement('button');
@@ -1353,6 +1367,62 @@ async function _showElementProps(id) {
     btn.style.cssText = 'padding:5px 10px;cursor:pointer;background:#2a4a2a;color:#8f8;border:1px solid #555;border-radius:3px;font-size:12px;margin-top:8px;width:100%';
     btn.addEventListener('click', () => _openDetailInProfileEditor(reg.profileId));
     panel.appendChild(btn);
+  }
+}
+
+let _lengthAnchor = 'start';
+
+function _addLengthRows(panel, elementId, reg) {
+  const segs = reg.pathData?.segments;
+  if (!Array.isArray(segs) || segs.length === 0) return;
+  const unit = getUnit();
+  const h = document.createElement('h3');
+  h.textContent = 'Dimensions';
+  panel.appendChild(h);
+
+  const anchorSel = document.createElement('select');
+  anchorSel.style.cssText = 'background:#2a2a2a;color:#ddd;border:1px solid #444;padding:4px 8px;border-radius:3px;font-size:12px;width:100%';
+  for (const [v, t] of [['start', 'Start stays put'], ['end', 'End stays put'], ['centre', 'Centre stays put']]) {
+    anchorSel.append(Object.assign(document.createElement('option'), { value: v, textContent: t, selected: v === _lengthAnchor }));
+  }
+  anchorSel.addEventListener('change', () => { _lengthAnchor = anchorSel.value; });
+  _propRowWidget(panel, 'Hold fixed', anchorSel);
+
+  segs.forEach((seg, i) => {
+    if (seg.type !== 'line') return;
+    const inp = document.createElement('input');
+    inp.type = 'text'; inp.id = `seg-length-${i}`;
+    const shown = String(toDisplay(Math.hypot(seg.end.x - seg.start.x, seg.end.y - seg.start.y)));
+    inp.value = shown;
+    inp.title = 'Type a value: 2400, 2.4m or 1200+300';
+    inp.style.cssText = 'background:#2a2a2a;color:#ddd;border:1px solid #444;padding:4px 8px;border-radius:3px;font-size:12px;width:100%';
+    inp.addEventListener('change', () => _applySegmentLength(elementId, i, inp, shown));
+    _propRowWidget(panel, segs.length > 1 ? `Length ${i + 1} (${unit})` : `Length (${unit})`, inp);
+  });
+}
+
+async function _applySegmentLength(elementId, segIndex, inp, previous) {
+  const reg = _elementRegistry.get(elementId);
+  if (!reg) return;
+  const metres = parseDimension(inp.value, { unit: getUnit() });
+  if (metres === null || metres <= 0) {
+    statusBar.textContent = `Could not read "${inp.value}" as a length. Try 2400, 2.4m or 1200+300.`;
+    inp.value = previous;
+    return;
+  }
+  try {
+    const paths = [..._elementRegistry.values()].map((r) => r.pathData).filter(Boolean);
+    const { changedPathIds } = setPathSegmentLength(paths, reg.pathData.id, segIndex, metres, _lengthAnchor);
+    for (const pathId of changedPathIds) {
+      const data = paths.find((p) => p.id === pathId);
+      await writeEntity(adapter, `paths/${pathId}.json`, data);
+      for (const [elId, r] of _elementRegistry) if (r.pathData?.id === pathId) await _reRenderElement(elId, data);
+    }
+    statusBar.textContent = `Length set to ${inp.value}${changedPathIds.length > 1 ? ` (${changedPathIds.length - 1} attached path${changedPathIds.length > 2 ? 's' : ''} followed)` : ''}`;
+    await _showElementProps(elementId);
+  } catch (e) {
+    statusBar.textContent = `Length not changed: ${e.message}`;
+    inp.value = previous;
   }
 }
 
@@ -1501,6 +1571,29 @@ saveBtn.addEventListener('click', async () => {
  * Excludes endpoints of the path currently being edited to avoid snapping to self.
  * @returns {{x:number,y:number,z:number}[]}
  */
+// ── Smart cursor (issue #105) ─────────────────────────────────────────────────
+let _snapOn = true;
+try { _snapOn = localStorage.getItem('oebf-snap') !== 'off'; } catch { /* default on */ }
+const _snapBtn = document.getElementById('snap-toggle');
+_snapBtn.classList.toggle('active', _snapOn);
+_snapBtn.addEventListener('click', () => {
+  _snapOn = !_snapOn;
+  _snapBtn.classList.toggle('active', _snapOn);
+  try { localStorage.setItem('oebf-snap', _snapOn ? 'on' : 'off'); } catch { /* optional */ }
+  statusBar.textContent = _snapOn ? 'Snapping on (hold Alt to suspend)' : 'Snapping off';
+});
+
+/** Snap function handed to the drawing tools: the shared engine over every path and grid axis. */
+function _planSnap(point, { lastPoint = null, suspend = false, tolerance = 0.1 } = {}) {
+  if (!_snapOn) return { point, kind: 'none', label: '', source: null, guides: [], snapped: false };
+  const scene = buildPlanSnapScene({
+    paths: [..._elementRegistry.values()].map((r) => r.pathData).filter(Boolean),
+    axes: gridManager.getAxes(),
+    lastPoint,
+  });
+  return snapPoint(point, scene, { tolerance, kinds: SNAP_KINDS, angleStep: 45, suspend });
+}
+
 function _collectSnapTargets() {
   const targets = [];
   const editingPathId = pathEditTool?._pathId ?? null;
@@ -1631,6 +1724,15 @@ window.__editor = {
   cameraTarget: () => ({ x: editorScene.controls.target.x, y: editorScene.controls.target.y, z: editorScene.controls.target.z }),
   showJunction: (id) => { const j = junctionEditor?._junctions.find((x) => x.id === id); if (j) junctionEditor._showProps(j.id, j.elementIds, j.rule); return !!j; },
   status: () => statusBar.textContent,
+  registryPaths: () => [..._elementRegistry.values()].map((r) => r.pathData).filter(Boolean),
+  planSnap: _planSnap,
+  registry: () => [..._elementRegistry].map(([id, r]) => [id, r.pathData?.id, r.pathData?.segments?.map((g) => [g.start.x, g.start.y, g.end.x, g.end.y])]),
+  selectedId: () => _selectedElementId,
+  worldToScreen: (x, y, z = 0) => {
+    const r = canvas.getBoundingClientRect();
+    const v = new THREE.Vector3(x, y, z).project(editorScene.getActiveCamera());
+    return { clientX: r.left + ((v.x + 1) / 2) * r.width, clientY: r.top + ((1 - v.y) / 2) * r.height };
+  },
 };
 
 if (new URLSearchParams(window.location.search).has('demo')) {

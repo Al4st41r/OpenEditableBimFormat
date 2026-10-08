@@ -13,9 +13,11 @@
  */
 
 import * as THREE from 'three';
-import { fromDisplay, toDisplay, unitLabel } from './units.js';
+import { fromDisplay, toDisplay, unitLabel, getUnit } from './units.js';
+import { buildTooltip } from '../snap/tooltip.js';
 
 const SNAP_RADIUS = 0.1; // metres
+const SNAP_PIXELS = 10;  // snap reach on screen, so snapping feels the same at any zoom
 const Z_FIGHT_OFFSET = 0.001; // metres — lifts preview above construction plane
 
 export class DrawingTool {
@@ -43,6 +45,13 @@ export class DrawingTool {
     this._snapIndicator = _makeSnapIndicator();
     this._snapIndicator.visible = false;
     this._scene.add(this._snapIndicator);
+
+    /**
+     * Optional smart cursor (issue #105): (point {x, y}, { lastPoint, suspend }) => snap result
+     * from the shared snap engine. Without it the raw plane position is used.
+     */
+    this.snapFn = null;
+    this._snap  = null;
 
     // Callbacks
     this.onCommit = null; // (points: THREE.Vector3[]) => void
@@ -90,6 +99,7 @@ export class DrawingTool {
     window.removeEventListener('keydown',         this._boundKeyDown);
     this._clearPreview();
     this._snapIndicator.visible = false;
+    this._snap = null;
     this._hudEl.style.display = 'none';
     this._hideCoordOverlay();
   }
@@ -102,7 +112,28 @@ export class DrawingTool {
     this._mouse.y = -((event.clientY - rect.top)  / rect.height) * 2 + 1;
     this._raycaster.setFromCamera(this._mouse, this._getCamera());
     const hits = this._raycaster.intersectObject(this._constructionPlane);
-    return hits.length > 0 ? hits[0].point.clone() : null;
+    if (hits.length === 0) return null;
+    const pos = hits[0].point.clone();
+    this._snap = null;
+    if (this.snapFn) {
+      const last = this._points.at(-1) ?? null;
+      const snap = this.snapFn({ x: pos.x, y: pos.y }, {
+        lastPoint: last ? { x: last.x, y: last.y } : null, suspend: !!event.altKey,
+        tolerance: SNAP_PIXELS * this._metresPerPixel(pos),
+      });
+      pos.x = snap.point.x; pos.y = snap.point.y;
+      this._snap = snap;
+    }
+    return pos;
+  }
+
+  /** Metres covered by one screen pixel at a point on the construction plane. */
+  _metresPerPixel(pos) {
+    const cam = this._getCamera();
+    const h = this._canvas.getBoundingClientRect().height || 1;
+    if (cam.isOrthographicCamera) return (cam.top - cam.bottom) / cam.zoom / h;
+    const dist = cam.position.distanceTo(pos);
+    return (2 * dist * Math.tan((cam.fov * Math.PI) / 360)) / h;
   }
 
   _onMouseMove(e) {
@@ -114,7 +145,14 @@ export class DrawingTool {
     this._updatePreview();
 
     this._hudEl.style.display = 'block';
-    this._hudEl.textContent = `X: ${toDisplay(pos.x)} ${unitLabel()}  Y: ${toDisplay(pos.y)} ${unitLabel()}`;
+    if (this._snap) {
+      const last = this._points.at(-1) ?? null;
+      const t = buildTooltip({ snap: this._snap, lastPoint: last ? { x: last.x, y: last.y } : null, unit: getUnit() });
+      this._hudEl.style.whiteSpace = 'pre';
+      this._hudEl.textContent = [t.title, ...t.lines, t.coords].filter(Boolean).join('\n');
+    } else {
+      this._hudEl.textContent = `X: ${toDisplay(pos.x)} ${unitLabel()}  Y: ${toDisplay(pos.y)} ${unitLabel()}`;
+    }
     this._hudEl.style.left = (e.clientX + 14) + 'px';
     this._hudEl.style.top  = (e.clientY - 24) + 'px';
   }
@@ -254,6 +292,14 @@ export class DrawingTool {
   _updatePreview() {
     this._clearPreview();
     if (!this._cursorPos) return;
+
+    for (const g of this._snap?.guides ?? []) {
+      const z = this._cursorPos.z + Z_FIGHT_OFFSET;
+      const geo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(g.a.x, g.a.y, z), new THREE.Vector3(g.b.x, g.b.y, z)]);
+      const guide = new THREE.Line(geo, new THREE.LineDashedMaterial({ color: 0xff8c1a, dashSize: 0.15, gapSize: 0.1 }));
+      guide.computeLineDistances();
+      this._previewGroup.add(guide);
+    }
 
     const allPts = [...this._points, this._cursorPos];
     if (allPts.length < 2) return;

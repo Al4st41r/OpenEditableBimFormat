@@ -66,6 +66,7 @@ export class FloorTool {
       opts.constructionPlane,
       opts.canvas,
     );
+    this._drawingTool.snapFn = opts.snapFn ?? null;
 
     this._drawingTool.onCommit = (points, closed) => this._onCommit(points, closed);
     this._drawingTool.onCancel = () => {};
