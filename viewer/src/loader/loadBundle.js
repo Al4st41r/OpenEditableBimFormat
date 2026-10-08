@@ -21,12 +21,13 @@ import { buildProfileShape }   from './loadProfile.js';
 import { sweepProfile }        from '../geometry/sweep.js';
 import { buildSlabMeshData }   from './loadSlab.js';
 import { buildOpeningOutline } from './loadOpening.js';
+import { loadDetails }         from '../detail/loadDetails.js';
 
 /**
  * Load an OEBF bundle from a File System Access API directory handle.
  *
  * @param {FileSystemDirectoryHandle} dirHandle
- * @returns {Promise<{ meshes: Array, manifest: object, junctions: Array, arrays: Array, grids: Array }>}
+ * @returns {Promise<{ meshes: Array, manifest: object, junctions: Array, arrays: Array, grids: Array, openings: Array, details: Array, materials: Array }>}
  */
 export async function loadBundle(dirHandle) {
   const manifest  = await _readJson(dirHandle, 'manifest.json');
@@ -127,7 +128,12 @@ export async function loadBundle(dirHandle) {
     }
   }
 
-  return { meshes, manifest, junctions, arrays, grids, openings };
+  const details = await loadDetails({
+    readJson: (rel) => _readJson(dirHandle, rel),
+    model, junctions, grids,
+  });
+
+  return { meshes, manifest, junctions, arrays, grids, openings, details, materials: materials.materials };
 }
 
 /**

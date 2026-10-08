@@ -394,3 +394,71 @@ def test_llm_parameter_min_greater_than_default_is_not_schema_valid_but_caught_b
     validate(d, DETAIL_ID)  # JSON Schema cannot compare siblings...
     p = d["parameters"]["dpc_height_m"]
     assert not (p["min"] <= p["default"] <= p["max"])  # ...so the integrity tests (i6b) must.
+
+
+# ── Phase 2 additions: extrusion and parameter-bound coordinates ─────────────
+
+def _first_region(d):
+    return d["geometry"]["regions"][0]
+
+
+def test_p2_geometry_requires_positive_extrusion():
+    d = example_detail()
+    assert d["geometry"]["extrusion_m"] > 0
+    validate(d, DETAIL_ID)
+    del d["geometry"]["extrusion_m"]
+    with pytest.raises(jsonschema.ValidationError):
+        validate(d, DETAIL_ID)
+    d = example_detail()
+    d["geometry"]["extrusion_m"] = 0
+    with pytest.raises(jsonschema.ValidationError):
+        validate(d, DETAIL_ID)
+
+
+def test_p2_example_binds_at_least_one_coordinate_to_a_parameter():
+    d = example_detail()
+    bound = [c for v in _first_region(d)["vertices"] for c in v.values() if isinstance(c, dict)]
+    assert bound, "example should demonstrate a parameter-bound coordinate"
+
+
+def test_p2_parameter_expression_accepted():
+    d = example_detail()
+    _first_region(d)["vertices"][0]["x"] = {"param": "cavity_closer_width_m", "scale": 0.5, "offset": 0.1}
+    validate(d, DETAIL_ID)
+
+
+@pytest.mark.parametrize("bad", [
+    {"scale": 1.0},                                   # missing param
+    {"param": "p", "scale": "big"},                   # scale not a number
+    {"param": "p", "surprise": 1},                    # unknown field
+    {"param": ""},                                    # empty name
+    "0.1",                                            # string, not number
+])
+def test_p2_bad_coordinate_rejected(bad):
+    d = example_detail()
+    _first_region(d)["vertices"][0]["x"] = bad
+    with pytest.raises(jsonschema.ValidationError):
+        validate(d, DETAIL_ID)
+
+
+def test_i12_region_parameter_references_are_declared():
+    for d in detail_docs().values():
+        declared = set(d.get("parameters", {}))
+        for r in d.get("geometry", {}).get("regions", []):
+            for v in r["vertices"]:
+                for c in v.values():
+                    if isinstance(c, dict):
+                        assert c["param"] in declared, (d["id"], c["param"])
+
+
+def test_i13_overridden_parameter_is_actually_bound_in_geometry():
+    """An override that no coordinate uses would silently do nothing."""
+    details = detail_docs()
+    for j in junction_docs().values():
+        for key in j.get("detail_overrides", {}):
+            used = {
+                c["param"]
+                for r in details[j["detail_id"]].get("geometry", {}).get("regions", [])
+                for v in r["vertices"] for c in v.values() if isinstance(c, dict)
+            }
+            assert key in used, (j["id"], key)

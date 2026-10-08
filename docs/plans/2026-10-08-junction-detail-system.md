@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-08
 **Issue:** #81 (extended)
-**Status:** Phase 1 complete (2026-10-08); phases 2 to 5 pending
+**Status:** Phases 1 and 2 complete (2026-10-08); phases 3 to 5 pending
 **Supersedes:** the "Junction detail editor" section of `docs/roadmap.md` (v0.4)
 
 ---
@@ -82,10 +82,16 @@ These were open questions. They are assumed here so the plan can proceed; each i
   "plane": "section",
   "view_direction": "along_path",
   "geometry": {
+    "extrusion_m": 2.7,
     "regions": [
       {
         "material_id": "mat-dense-aggregate",
-        "vertices": [{ "x": -0.125, "y": 0.0 }, { "x": 0.125, "y": 0.0 }, { "x": 0.125, "y": 0.3 }, { "x": -0.125, "y": 0.3 }]
+        "vertices": [
+          { "x": 0.0, "y": 0.125 },
+          { "x": 0.05, "y": 0.125 },
+          { "x": 0.05, "y": { "param": "dpc_height_m", "scale": 1, "offset": 0.125 } },
+          { "x": 0.0, "y": { "param": "dpc_height_m", "scale": 1, "offset": 0.125 } }
+        ]
       }
     ]
   },
@@ -103,7 +109,8 @@ Field rules:
 - **`members`:** at least 2 items. Each needs `role` (a label, unique within the detail, eg `through-wall`), `kind` (`wall`, `slab`, `beam`, `column`, `roof` or `other`, derived from an element's `ifc_type` when matching) and `profile_id`. `placement` holds offsets in metres within detail space and a rotation in degrees. Detail space is a 2D section: x is across the primary member, y is up.
 - **`datum`:** where the detail's y = 0 sits relative to a level. `kind` is `storey` or `grid_elevation`. `reference` is `top` or `bottom` of the storey slab, or `elevation` for the storey's stated elevation.
 - **`plane`:** `section` or `plan`. A corner is usually a `plan` detail. A wall to slab detail is a `section`. This decides how the 2D canvas is oriented relative to the junction.
-- **`geometry.regions`:** extra drawn regions (membranes, fixings, fillers) in detail space, with `material_id`. Same vertex format as profile region layers.
+- **`geometry`:** extra drawn regions (membranes, fixings, fillers) in detail space, each with a `material_id` and at least three vertices. `extrusion_m` (required, greater than zero) turns them into 3D: for a `plan` detail the region rises from the level by that amount; for a `section` detail it runs along the primary member, centred on the location.
+- **Parameter-bound coordinates:** a vertex `x` or `y` is either a number (metres) or an expression `{ "param", "scale", "offset" }` meaning `offset + scale * parameter` (scale defaults to 1, offset to 0). This is how a `detail_overrides` value changes the drawn geometry. Added in phase 2.
 - **`parameters`:** named values the junction may override (D4). Each has `default` and optional `min` and `max`.
 - **`additionalProperties: false`** on every object, to match the other schemas.
 
@@ -148,6 +155,17 @@ Add `"details": ["detail-..."]`, matching the pattern used for `junctions`, `arr
 
 After the schema edits, run `node scripts/sync-schemas.mjs` (added for #99). CI fails if the example bundle copy differs.
 
+### 4.5 Detail frame (phase 2)
+
+A detail's 2D space is mapped onto a junction by a right-handed frame. The origin is the junction's resolved `location` (grid point, level z including `level_offset_m`). The primary member is `priority[0]`, else `elements[0]`; its horizontal path tangent `t` at the junction (direction of travel) fixes the axes:
+
+| `plane` | u (detail x) | v (detail y) | w (extrusion) |
+|---|---|---|---|
+| `plan` | `t` | `t` rotated 90 degrees anticlockwise | up (z), from 0 to `extrusion_m` |
+| `section` | `t` rotated 90 degrees anticlockwise | up (z) | `t`, from `-extrusion_m/2` to `+extrusion_m/2` |
+
+Consequence: a detail looks the same relative to the primary member wherever it is used. Walls drawn clockwise have the exterior on the left of travel (positive v in plan). Mirrored use of a detail is not yet supported (K3).
+
 ---
 
 ## 5. Modules
@@ -161,8 +179,11 @@ Pure functions first, with no Three.js or DOM dependency, so they are fully unit
 | `viewer/src/detail/locationResolver.js` | `resolveLocation(location, {model, grids})` returns {x, y, z}. |
 | `viewer/src/detail/detailUsage.js` | `findUsages(detailId, junctions)` and `findCandidates(detail, junctions, elements)`. |
 | `viewer/src/detail/detailParams.js` | `applyOverrides(detail, overrides)` returns resolved parameters, clamped and validated. |
-| `viewer/src/loader/loadDetail.js` | Loads `details/*.json` into the bundle result as `details`. |
-| `viewer/src/detail/detailToGeometry.js` | Converts a detail and a junction instance into `junction-geometry` polygon data (existing `rule: custom` path). |
+| `viewer/src/detail/detailFrame.js` | Path tangent and the detail frame (section 4.5). |
+| `viewer/src/detail/loadDetails.js` | Loads `details/*.json`, attaches `detailGeometry` and `detailWarnings` to junctions. Shared by all three bundle loaders. |
+| `viewer/src/detail/detailMaterials.js` | Adds library materials that detail regions use but no wall does. |
+| `viewer/src/detail/detailToGeometry.js` | Converts a detail and a junction instance into `junction-geometry` (the existing `rule: custom` format). Triangulates concave regions, rejects self-intersecting ones. |
+| `viewer/src/junction-renderer.js` | `buildJunctionDetailMeshes()` reuses `buildCustomJunctionMesh`. |
 | `viewer/src/detail-editor/` | Canvas, member list, parameter panel (phase 3). |
 | `viewer/src/detail/buildingReference.js` | Plan thumbnail data: junction points grouped by detail (phase 4). |
 
@@ -299,7 +320,7 @@ Playwright (extends `tests/e2e/`):
 | Phase | Scope | Exit criteria |
 |---|---|---|
 | 1. Schema and resolvers | `detail.schema.json`, junction and model schema changes, sync, example Detail and junction updates, the pure resolver modules, tests S, I, T, resolver tests. | All section 6.1 to 6.4 tests pass. Example bundle validates. No UI. |
-| 2. Loading and 3D | `loadDetail.js`, `detailToGeometry.js`, renderer integration through the existing custom-junction path, reuse tests R1 to R3. | Example junction renders from a Detail in the viewer. |
+| 2. Loading and 3D (complete) | Loading, `detailToGeometry.js`, renderer integration through the custom-junction path, parameter-bound coordinates, reuse tests R1 to R3, demo archive re-packed. | The four example corners render from one Detail in the viewer; SE shows its override. |
 | 3. Detail editor | 2D canvas reusing profile editor code, member list, parameter panel, save, R4 and R5, section 6.7. | A Detail can be created and edited in the browser, and the 3D view updates. |
 | 4. Building reference | Plan thumbnail, usage list, navigation, candidate suggestions, section 6.8. | Opening a Detail shows and navigates to all its locations. |
 | 5. Guide and IFC | Update `OEBF-GUIDE.md`, LLM harness cases, IFC exporter writes the detail reference as a property set (`OEBF_Junction.DetailId`). | Section 6.9 passes. IFC round trip keeps `detail_id`. |
@@ -327,6 +348,7 @@ Phases 1 and 2 need no new UI and give a working data model that an LLM can alre
 | K5 | A "detail at a location" where the junction has more than two members (T and cross junctions). | `members` supports any number. The tests in 6.5 use a three-member Detail. |
 | K6 | Interaction with the CSG fallback for splines (closed #18). | Details apply to straight and arc junctions first. Spline junctions are excluded and tested as such. |
 | Q1 | Should a Detail be allowed to span levels (eg a wall that passes through a floor)? | Assumed no for v1: one `datum`, one level. |
+| Q3 | What do `datum.reference` values `top` and `bottom` mean? | Phase 2 uses the level elevation plus `level_offset_m` for all three values. `top` and `bottom` need a rule for slab thickness and are not yet distinct. Decide before phase 3, when the canvas shows the datum. |
 | Q2 | Should the 2D canvas show a section cut or a plan cut by default? | `plane` is a Detail field, so both are possible. Default to `section` for wall to slab, `plan` for corners. |
 
 ---

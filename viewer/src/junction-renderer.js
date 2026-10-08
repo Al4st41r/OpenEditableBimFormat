@@ -157,3 +157,23 @@ export function buildCustomJunctionMesh(geomJson, materialMap) {
 
   return group;
 }
+
+/**
+ * Build meshes for junctions that carry detail geometry (attached by
+ * detail/loadDetails.js). Reuses buildCustomJunctionMesh, so detail-driven and
+ * rule:'custom' junctions render identically.
+ *
+ * @param {Array<object>} junctions
+ * @param {Map<string, THREE.Material>} materialMap - material ID -> THREE.Material
+ * @returns {THREE.Group[]} one group per junction with detailGeometry
+ */
+export function buildJunctionDetailMeshes(junctions, materialMap) {
+  const groups = [];
+  for (const junction of junctions ?? []) {
+    if (!junction.detailGeometry) continue;
+    const group = buildCustomJunctionMesh(junction.detailGeometry, materialMap);
+    group.userData.detailId = junction.detail_id;
+    groups.push(group);
+  }
+  return groups;
+}

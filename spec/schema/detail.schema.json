@@ -59,8 +59,11 @@
     "view_direction": { "type": "string", "enum": ["along_path", "across_path"] },
     "geometry": {
       "type": "object",
+      "description": "Extra regions drawn in detail space and extruded into 3D. For a 'plan' detail the extrusion rises from the level (datum) by extrusion_m. For a 'section' detail it runs along the primary member (junction priority[0], else elements[0]), centred on the location.",
+      "required": ["extrusion_m"],
       "additionalProperties": false,
       "properties": {
+        "extrusion_m": { "type": "number", "exclusiveMinimum": 0 },
         "regions": {
           "type": "array",
           "items": {
@@ -76,7 +79,10 @@
                   "type": "object",
                   "required": ["x", "y"],
                   "additionalProperties": false,
-                  "properties": { "x": { "type": "number" }, "y": { "type": "number" } }
+                  "properties": {
+                    "x": { "$ref": "#/definitions/coordinate" },
+                    "y": { "$ref": "#/definitions/coordinate" }
+                  }
                 }
               }
             }
@@ -101,6 +107,22 @@
     "tags": { "type": "array", "items": { "type": "string" } }
   },
   "definitions": {
+    "coordinate": {
+      "description": "A number in metres, or a parameter expression: value = offset + scale * parameter.",
+      "oneOf": [
+        { "type": "number" },
+        {
+          "type": "object",
+          "required": ["param"],
+          "additionalProperties": false,
+          "properties": {
+            "param":  { "type": "string", "minLength": 1 },
+            "scale":  { "type": "number", "default": 1 },
+            "offset": { "type": "number", "default": 0 }
+          }
+        }
+      ]
+    },
     "kind": { "type": "string", "enum": ["wall", "slab", "beam", "column", "roof", "other"] }
   }
 }

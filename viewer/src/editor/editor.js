@@ -12,7 +12,9 @@
 import { initEditorScene } from './editorScene.js';
 import { loadBundle }         from '../loader/loadBundle.js';
 import { buildThreeMesh }     from '../scene/buildMesh.js';
-import { applyJunctionClipping, buildCustomJunctionMesh } from '../junction-renderer.js';
+import { applyJunctionClipping, buildCustomJunctionMesh, buildJunctionDetailMeshes } from '../junction-renderer.js';
+import { ensureDetailMaterials } from '../detail/detailMaterials.js';
+import { loadDetails } from '../detail/loadDetails.js';
 import { buildArrayGroup }    from '../array/arrayRenderer.js';
 import { buildSymbolGeometries } from '../loader/loadSymbol.js';
 import { buildGridLineSegments } from '../loader/loadGrid.js';
@@ -554,7 +556,7 @@ async function _loadAndRenderBundle(adapter) {
   } else {
     bundleData = await _loadBundleFromAdapter(adapter);
   }
-  const { meshes, junctions, arrays, grids } = bundleData;
+  const { meshes, junctions, arrays, grids, materials: libraryMaterials } = bundleData;
 
   for (const meshData of meshes) {
     editorScene.modelGroup.add(buildThreeMesh(meshData));
@@ -580,6 +582,12 @@ async function _loadAndRenderBundle(adapter) {
       editorScene.modelGroup.add(buildCustomJunctionMesh(junction.geomData, matMap));
     }
   }
+  const detailMatMap = new Map(); // own map: pulled forward so faces flush against a wall do not z-fight
+  ensureDetailMaterials(detailMatMap, junctions, libraryMaterials, (hex) => new THREE.MeshStandardMaterial({
+    color: new THREE.Color(hex), roughness: 0.8, metalness: 0.0, side: THREE.DoubleSide,
+    polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1,
+  }));
+  for (const group of buildJunctionDetailMeshes(junctions, detailMatMap)) editorScene.modelGroup.add(group);
   for (const { arrayDef, pathPoints, symbolDef } of arrays) {
     try {
       const symMat = new Map();
@@ -875,7 +883,12 @@ async function _loadBundleFromAdapter(adapter) {
     catch (err) { console.warn(`[OEBF] Skipping grid ${gridId}: ${err.message}`); }
   }
 
-  return { meshes, junctions, arrays, grids };
+  const details = await loadDetails({
+    readJson: (rel) => adapter.readJson(rel),
+    model, junctions, grids,
+  });
+
+  return { meshes, junctions, arrays, grids, details, materials: matsData.materials ?? [] };
 }
 
 // ── Enable editor tools after bundle load ─────────────────────────────────────

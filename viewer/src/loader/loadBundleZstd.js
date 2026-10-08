@@ -9,6 +9,7 @@
  *   { meshes, manifest, junctions, arrays, grids }
  */
 
+import { loadDetails } from '../detail/loadDetails.js';
 import { decompress } from 'fzstd';
 import { parsePath }           from './loadPath.js';
 import { buildProfileShape }   from './loadProfile.js';
@@ -165,5 +166,7 @@ export async function loadBundleZstd(file) {
     }
   }
 
-  return { meshes, manifest, junctions, arrays, grids, openings };
+  const details = await loadDetails({ readJson, model, junctions, grids });
+
+  return { meshes, manifest, junctions, arrays, grids, openings, details, materials: materials.materials };
 }

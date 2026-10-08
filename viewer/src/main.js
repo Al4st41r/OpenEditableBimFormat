@@ -17,7 +17,8 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { loadBundle }           from './loader/loadBundle.js';
 import { loadBundleZstd }       from './loader/loadBundleZstd.js';
 import { buildThreeMesh }        from './scene/buildMesh.js';
-import { applyJunctionClipping, buildCustomJunctionMesh } from './junction-renderer.js';
+import { applyJunctionClipping, buildCustomJunctionMesh, buildJunctionDetailMeshes } from './junction-renderer.js';
+import { ensureDetailMaterials } from './detail/detailMaterials.js';
 import { applyCsgJunctions } from './junction-csg.js';
 import { buildArrayGroup }       from './array/arrayRenderer.js';
 import { buildSymbolGeometries } from './loader/loadSymbol.js';
@@ -95,7 +96,7 @@ function _clearScene() {
   currentGroup = null;
 }
 
-function _buildScene(meshes, manifest, junctions, arrays, grids, openings = []) {
+function _buildScene(meshes, manifest, junctions, arrays, grids, openings = [], materials = []) {
   _clearScene();
 
   currentGroup = new THREE.Group();
@@ -120,6 +121,15 @@ function _buildScene(meshes, manifest, junctions, arrays, grids, openings = []) 
       currentGroup.add(customMesh);
     }
   }
+
+  // Junctions drawn from reusable details (junction.detailGeometry, see detail/loadDetails.js).
+  // Own material map with a polygon offset so faces flush against a wall do not z-fight.
+  const detailMatMap = new Map();
+  ensureDetailMaterials(detailMatMap, junctions, materials, (hex) => new THREE.MeshLambertMaterial({
+    color: new THREE.Color(hex), side: THREE.DoubleSide,
+    polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1,
+  }));
+  for (const group of buildJunctionDetailMeshes(junctions, detailMatMap)) currentGroup.add(group);
 
   // Render arrays (InstancedMesh per symbol layer)
   for (const { arrayDef, pathPoints, symbolDef } of arrays) {
@@ -182,8 +192,8 @@ document.getElementById('open-dir-btn').addEventListener('click', async () => {
     currentDirHandle = dirHandle;
     document.getElementById('edit-profiles-btn').disabled = false;
     statusEl.textContent = 'Loading…';
-    const { meshes, manifest, junctions, arrays, grids, openings } = await loadBundle(dirHandle);
-    _buildScene(meshes, manifest, junctions, arrays, grids, openings);
+    const { meshes, manifest, junctions, arrays, grids, openings, materials } = await loadBundle(dirHandle);
+    _buildScene(meshes, manifest, junctions, arrays, grids, openings, materials);
   } catch (err) {
     if (err.name !== 'AbortError') {
       statusEl.textContent = `Error: ${err.message}`;
@@ -202,7 +212,7 @@ document.getElementById('load-demo-btn').addEventListener('click', async () => {
     const blob = await resp.blob();
     const file = new File([blob], 'terraced-house.oebfz');
     const result = await loadBundleZstd(file);
-    _buildScene(result.meshes, result.manifest, result.junctions, result.arrays, result.grids, result.openings);
+    _buildScene(result.meshes, result.manifest, result.junctions, result.arrays, result.grids, result.openings, result.materials);
   } catch (err) {
     statusEl.textContent = `Error: ${err.message}`;
     console.error(err);
@@ -219,7 +229,7 @@ document.getElementById('open-file-btn').addEventListener('click', () => {
     statusEl.textContent = 'Loading…';
     try {
       const result = await loadBundleZstd(file);
-      _buildScene(result.meshes, result.manifest, result.junctions, result.arrays, result.grids, result.openings);
+      _buildScene(result.meshes, result.manifest, result.junctions, result.arrays, result.grids, result.openings, result.materials);
       currentDirHandle = null;
       document.getElementById('edit-profiles-btn').disabled = true;
     } catch (err) {

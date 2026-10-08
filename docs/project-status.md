@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-08
 **Branch:** main
-**Tests:** 556 JS (Vitest, 45 test files) + 222 Python (pytest, plus 7 documented xfails)
+**Tests:** 632 JS (Vitest, 51 test files) + 232 Python (pytest, plus 7 documented xfails)
 
 ---
 
@@ -81,9 +81,9 @@ Two suites check the repository against the original design (`docs/plans/2026-02
 
 ---
 
-## Junction Detail System (#81) - Phase 1 complete (2026-10-08)
+## Junction Detail System (#81) - Phases 1 and 2 complete (2026-10-08)
 
-Plan: `docs/plans/2026-10-08-junction-detail-system.md`. Delivered: `detail.schema.json`; optional `detail_id`, `location` and `detail_overrides` on junctions; `details` list in the model schema; example detail used by the four wall corners; pure resolvers in `viewer/src/detail/` (grid, level, location, parameters, usage); schema, integrity and geometry-consistency tests. No UI or rendering yet (phases 2 to 4).
+Plan: `docs/plans/2026-10-08-junction-detail-system.md`. Delivered: `detail.schema.json`; optional `detail_id`, `location` and `detail_overrides` on junctions; `details` list in the model schema; example detail used by the four wall corners; pure resolvers in `viewer/src/detail/` (grid, level, location, parameters, usage); schema, integrity and geometry-consistency tests. Phase 2 loads details in all three bundle loaders and renders them: the four example corners are drawn from one shared detail (the SE corner uses a parameter override) in both the viewer and the editor. The demo archive `viewer/public/terraced-house.oebfz` was re-packed and a test now fails if it drifts from the example. No detail editor UI yet (phases 3 and 4).
 
 ---
 
