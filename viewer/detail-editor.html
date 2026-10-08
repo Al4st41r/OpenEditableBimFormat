@@ -53,6 +53,13 @@
     .vtx { display: grid; grid-template-columns: 18px 1fr 1fr; gap: 4px; align-items: center; margin: 3px 0; }
     .vtx.selected { background: #1e3a5a; border-radius: 3px; }
     .bound { color: #8cf; font-size: 11px; }
+    .box.hl { border-color: #0a6cff; box-shadow: 0 0 0 1px #0a6cff; }
+    .ref { margin: 4px 0; line-height: 0; }
+    .ref svg { width: 100%; height: auto; display: block; border-radius: 3px; }
+    .legend { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 6px 0; font-size: 11px; }
+    .legend .lg { display: inline-flex; align-items: center; gap: 4px; }
+    .legend i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+    .legend i.hollow { background: transparent; border: 2px solid #888; box-sizing: border-box; }
     dialog { background: #222; color: #ddd; border: 1px solid #555; border-radius: 4px; padding: 16px; }
     dialog::backdrop { background: rgba(0,0,0,0.5); }
   </style>

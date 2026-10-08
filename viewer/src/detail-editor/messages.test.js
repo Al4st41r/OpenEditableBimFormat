@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest';
-import { readyMessage, parseIncoming, buildOpenerReply, isTrustedReady, savedMessage, parseSaved } from './messages.js';
+import { readyMessage, parseIncoming, buildOpenerReply, isTrustedReady, savedMessage, parseSaved, focusMessage, parseFocus } from './messages.js';
 import { makeDetail } from '../detail/fixtures.js';
 
 const OWN = 'https://architools.drawingtable.net';
@@ -122,6 +122,28 @@ describe('saved message: persisted flag and the opener side', () => {
     const m = good();
     for (const data of [{ ...m, id: 'other' }, { ...m, json: { ...m.json, type: 'Junction' } }, { ...m, json: null }, { ...m, id: 3 }, null, 'x']) {
       expect(parseSaved({ origin: OWN, source: tab, data }, c)).toBeNull();
+    }
+  });
+});
+
+describe('focus message (page asks the main editor to show a junction)', () => {
+  const tab = { name: 'tab' };
+  const c = { ownOrigin: OWN, tab };
+
+  test('build and parse round trip', () => {
+    const m = focusMessage({ junctionId: 'junction-ne-corner' });
+    expect(m).toEqual({ type: 'detail-focus', junctionId: 'junction-ne-corner' });
+    expect(parseFocus({ origin: OWN, source: tab, data: m }, c)).toEqual({ junctionId: 'junction-ne-corner' });
+    expect(() => structuredClone(m)).not.toThrow();
+  });
+
+  test('wrong origin, window, type or payload are ignored', () => {
+    const m = focusMessage({ junctionId: 'j1' });
+    expect(parseFocus({ origin: 'https://evil.example', source: tab, data: m }, c)).toBeNull();
+    expect(parseFocus({ origin: OWN, source: {}, data: m }, c)).toBeNull();
+    expect(parseFocus({ origin: OWN, source: tab, data: { ...m, type: 'detail-saved' } }, c)).toBeNull();
+    for (const data of [null, 'x', { type: 'detail-focus' }, { type: 'detail-focus', junctionId: 3 }, { type: 'detail-focus', junctionId: '' }]) {
+      expect(parseFocus({ origin: OWN, source: tab, data }, c)).toBeNull();
     }
   });
 });

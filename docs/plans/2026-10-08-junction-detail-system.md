@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-08
 **Issue:** #81 (extended)
-**Status:** Phases 1 to 3 complete (2026-10-08); phases 4 and 5 pending
+**Status:** Phases 1 to 4 complete (2026-10-08); phase 5 pending
 **Supersedes:** the "Junction detail editor" section of `docs/roadmap.md` (v0.4)
 
 ---
@@ -322,7 +322,7 @@ Playwright (extends `tests/e2e/`):
 | 1. Schema and resolvers | `detail.schema.json`, junction and model schema changes, sync, example Detail and junction updates, the pure resolver modules, tests S, I, T, resolver tests. | All section 6.1 to 6.4 tests pass. Example bundle validates. No UI. |
 | 2. Loading and 3D (complete) | Loading, `detailToGeometry.js`, renderer integration through the custom-junction path, parameter-bound coordinates, reuse tests R1 to R3, demo archive re-packed. | The four example corners render from one Detail in the viewer; SE shows its override. |
 | 3. Detail editor (complete; design: `2026-10-08-detail-editor-design.md`) | 2D canvas reusing profile editor code, member list, parameter panel, save, R4 and R5, section 6.7. | A Detail can be created and edited in the browser, and the 3D view updates. |
-| 4. Building reference | Plan thumbnail, usage list, navigation, candidate suggestions, section 6.8. | Opening a Detail shows and navigates to all its locations. |
+| 4. Building reference (complete) | Plan thumbnail, usage list, navigation, candidate suggestions, section 6.8. | Opening a Detail shows and navigates to all its locations. |
 | 5. Guide and IFC | Update `OEBF-GUIDE.md`, LLM harness cases, IFC exporter writes the detail reference as a property set (`OEBF_Junction.DetailId`). | Section 6.9 passes. IFC round trip keeps `detail_id`. |
 
 Phases 1 and 2 need no new UI and give a working data model that an LLM can already edit. Phase 3 is the largest.
@@ -350,6 +350,17 @@ Phases 1 and 2 need no new UI and give a working data model that an LLM can alre
 | Q1 | Should a Detail be allowed to span levels (eg a wall that passes through a floor)? | Assumed no for v1: one `datum`, one level. |
 | Q3 | What do `datum.reference` values `top` and `bottom` mean? | Resolved in the phase 3 design note (E5) and implemented in slice 3a: `top` and `elevation` are the storey elevation; `bottom` subtracts the slab thickness. |
 | Q2 | Should the 2D canvas show a section cut or a plan cut by default? | `plane` is a Detail field, so both are possible. Default to `section` for wall to slab, `plan` for corners. |
+
+---
+
+## 9a. Phase 4 Outcome
+
+- **Reference model:** `viewer/src/detail-editor/buildingReference.js` (pure) builds the plan data: walls from the element paths, the grid, and one marker per junction placed from its location or from where its walls meet. A marker is `current` (uses this detail), `candidate`, `other` (another detail, with a stable palette colour per detail id) or `none`. The legend lists the current detail first, junctions with no usable position are listed as unplaced, and a level filter shows one storey at a time. Where markers coincide (a corner and a padstone), the current detail's marker wins the hit test.
+- **Thumbnail on the detail page:** an SVG plan under "Used at" with tooltips, the legend, and a level selector when the bundle has more than one level. Clicking a marker highlights its row (and scrolls to it); clicking it again clears the highlight.
+- **Show in 3D editor:** the page sends `detail-focus`; the main editor selects the junction in its properties panel and pans the 3D and plan cameras to it, keeping the zoom and angle.
+- **Also used at (main editor):** a junction with a detail lists the other junctions using it as buttons, so you can move between instances without leaving the 3D editor.
+- **Checked in the real editor** with `shot-scraper`: 11 checks (markers, legend, tooltip, highlight, show in 3D moving the camera to the SE corner, the properties list of 3 other places, moving to the NW corner, highlight toggle, no page errors). Script and Playwright wrapper in `viewer/tests/e2e/`; the wrapper has not been run here.
+- **Not included:** slab outlines on the thumbnail (walls only), zooming or panning the thumbnail, and selecting from the thumbnail by dragging a box.
 
 ---
 

@@ -18,7 +18,7 @@ describe('buildSnapshot', () => {
     expect(Object.keys(s.profiles)).toEqual(['profile-cavity-250']);
     expect(s.materials['mat-brick-common']).toEqual({ id: 'mat-brick-common', name: expect.any(String), colour_hex: expect.stringMatching(/^#/) });
     expect(s.junctions.map((j) => j.id)).toContain('junction-ne-corner');
-    expect(s.elements['element-wall-east-gf']).toEqual({ id: 'element-wall-east-gf', ifc_type: 'IfcWall', profile_id: 'profile-cavity-250' });
+    expect(s.elements['element-wall-east-gf']).toEqual({ id: 'element-wall-east-gf', ifc_type: 'IfcWall', profile_id: 'profile-cavity-250', parent_group_id: 'storey-gf' });
     expect(s.activeDetailId).toBe('detail-corner-cavity-butt');
   });
 

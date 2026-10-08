@@ -19,7 +19,7 @@ import { junctionPoint } from '../detail/junctionPosition.js';
 import { parsePath } from '../loader/loadPath.js';
 import { loadDetailContext } from '../detail-editor/detailStore.js';
 import { buildSnapshot } from '../detail-editor/bundleSnapshot.js';
-import { isTrustedReady, buildOpenerReply, parseSaved } from '../detail-editor/messages.js';
+import { isTrustedReady, buildOpenerReply, parseSaved, parseFocus } from '../detail-editor/messages.js';
 import { parseJunctionMessage } from '../detail-editor/junctionFields.js';
 import { applySavedDetail, applyJunctionUpdate, refreshDetail, groupsForDetail } from './detailIntegration.js';
 import { buildArrayGroup }    from '../array/arrayRenderer.js';
@@ -802,6 +802,7 @@ async function _loadAndRenderBundle(adapter) {
   const elementPaths = new Map([..._elementRegistry].map(([id, reg]) => [id, parsePath(reg.pathData).points]));
   junctionEditor.loadJunctions(junctions, (j) => junctionPoint(j, { model, grids, elementPaths }));
   junctionEditor.onOpenDetail = (detailId) => _openDetailEditor(detailId);
+  junctionEditor.onFocusJunction = (id) => _focusJunction(id);
   _bundleCtx.positionCtx = { model, grids, elementPaths };
 
   // Fit camera to loaded geometry
@@ -1550,12 +1551,26 @@ function _openDetailEditor(detailId = null) {
     const saved = parseSaved(e, { ownOrigin, tab });
     if (saved) { await _onDetailSaved(saved); return; }
     const changed = parseJunctionMessage(e, { ownOrigin, tab });
-    if (changed) await _onJunctionUpdated(changed);
+    if (changed) { await _onJunctionUpdated(changed); return; }
+    const focus = parseFocus(e, { ownOrigin, tab });
+    if (focus) _focusJunction(focus.junctionId);
   };
   window.addEventListener('message', onMessage);
   const timer = setInterval(() => {
     if (tab.closed) { clearInterval(timer); window.removeEventListener('message', onMessage); }
   }, 2000);
+}
+
+/** Select a junction (properties panel) and pan the views to it, keeping the current zoom and angle. */
+function _focusJunction(junctionId) {
+  const p = junctionEditor?.focus(junctionId);
+  if (!p) { statusBar.textContent = `Junction ${junctionId} is not in this bundle.`; return; }
+  const shift = new THREE.Vector3().subVectors(p, editorScene.controls.target);
+  editorScene.perspCamera.position.add(shift);
+  if (editorScene.orthoCamera) editorScene.orthoCamera.position.add(new THREE.Vector3(shift.x, shift.y, 0));
+  editorScene.controls.target.copy(p);
+  editorScene.controls.update();
+  statusBar.textContent = `Junction ${junctionId}`;
 }
 
 /** Recompute junction geometry for these details and swap only their 3D groups. */
@@ -1610,6 +1625,8 @@ window.__editor = {
   detailGroups: (id) => groupsForDetail(editorScene.modelGroup.children, id),
   junctionMarkers: () => (junctionEditor?._junctions ?? []).map((j) => ({ id: j.id, x: j.point.x, y: j.point.y, z: j.point.z, detailId: j.detailId })),
   openDetailEditor: _openDetailEditor,
+  focusJunction: _focusJunction,
+  cameraTarget: () => ({ x: editorScene.controls.target.x, y: editorScene.controls.target.y, z: editorScene.controls.target.z }),
   showJunction: (id) => { const j = junctionEditor?._junctions.find((x) => x.id === id); if (j) junctionEditor._showProps(j.id, j.elementIds, j.rule); return !!j; },
   status: () => statusBar.textContent,
 };

@@ -19,7 +19,7 @@ export function buildSnapshot(ctx, activeDetailId = null) {
     profiles: structuredClone(ctx.profiles),
     materials: Object.fromEntries(Object.values(ctx.materials).map((m) => [m.id, { id: m.id, name: m.name ?? m.id, colour_hex: m.colour_hex }])),
     junctions: ctx.junctions.map((j) => pick(j, JUNCTION_FIELDS)),
-    elements: Object.fromEntries(Object.values(ctx.elements).map((e) => [e.id, pick(e, ['id', 'ifc_type', 'profile_id'])])),
+    elements: Object.fromEntries(Object.values(ctx.elements).map((e) => [e.id, pick(e, ['id', 'ifc_type', 'profile_id', 'parent_group_id'])])),
     grids: structuredClone(ctx.grids ?? []),
     levels: structuredClone(ctx.levels ?? []),
     elementPaths: structuredClone(ctx.elementPaths ?? {}),

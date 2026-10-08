@@ -9,6 +9,7 @@
 
 import { toDisplay, fromDisplay, unitLabel } from '../editor/units.js';
 import { KINDS, PLANES, EXTENTS, DATUM_KINDS, DATUM_REFERENCES, RULES } from './detailConstants.js';
+import { drawReference } from './reference.js';
 
 function h(tag, attrs = {}, ...children) {
   const e = document.createElement(tag);
@@ -99,7 +100,7 @@ function rightPanel(pm, bundle, a) {
 
   out.push(h('h3', {}, 'Condition'), ...conditionEditor(pm, a));
 
-  out.push(h('h3', {}, 'Used at'), ...usageSection(pm, a));
+  out.push(h('h3', {}, 'Used at'), ...referenceSection(bundle.reference, a), ...usageSection(pm, bundle.reference?.highlight ?? null, a));
 
   out.push(h('h3', {}, 'Checks'));
   if (pm.messages.length === 0) out.push(h('div', { class: 'note' }, 'No problems found.'));
@@ -107,7 +108,33 @@ function rightPanel(pm, bundle, a) {
   return out;
 }
 
-function usageSection(pm, a) {
+function referenceSection(ref, a) {
+  if (!ref) return [];
+  const d = ref.data;
+  const out = [];
+  if (ref.levels.length > 1) {
+    out.push(h('div', { class: 'row' }, h('label', {}, 'Level'),
+      h('select', { onchange: (e) => a.referenceLevel(e.target.value || null) },
+        h('option', { value: '', selected: !ref.levelId }, 'All levels'),
+        ref.levels.map((l) => h('option', { value: l.id, selected: l.id === ref.levelId }, `${l.id} (${l.elevation} m)`)))));
+  }
+  out.push(h('div', { class: 'ref' }, drawReference(d, { highlight: ref.highlight, onPick: a.referencePick })));
+  out.push(h('div', { class: 'legend' },
+    d.legend.map((l) => h('span', { class: 'lg', title: l.current ? 'The detail being edited' : 'Another detail' },
+      h('i', { style: `background:${l.colour}` }), `${l.detailId} (${l.count})`)),
+    h('span', { class: 'lg' }, h('i', { class: 'hollow' }), `no detail (${d.unassigned})`)));
+  if (d.unplaced.length) out.push(h('div', { class: 'note warn' }, `No position for: ${d.unplaced.map((u) => u.id).join(', ')}`));
+  if (ref.highlight) {
+    out.push(h('div', { class: 'row' }, h('strong', {}, ref.highlight),
+      h('button', { style: 'margin-left:auto', disabled: !ref.canShow3D, title: ref.canShow3D ? 'Select it and frame it in the 3D editor' : 'Open this page from the main editor to use this',
+        onclick: () => a.referenceShow3D(ref.highlight) }, 'Show in 3D editor')));
+  } else {
+    out.push(h('div', { class: 'note' }, 'Click a marker to find it in the list below.'));
+  }
+  return out;
+}
+
+function usageSection(pm, highlight, a) {
   const u = pm.usage;
   const locked = u.needsSave;
   const out = [];
@@ -115,7 +142,7 @@ function usageSection(pm, a) {
   if (u.junctions.length === 0) out.push(h('div', { class: 'note' }, 'No junction uses this detail yet.'));
 
   for (const j of u.junctions) {
-    out.push(h('div', { class: 'box' },
+    out.push(h('div', { class: `box${j.id === highlight ? ' hl' : ''}`, 'data-id': j.id, onclick: () => a.referencePick(j.id) },
       h('div', { class: 'row' }, h('strong', {}, j.id), h('span', { class: 'note', style: 'margin-left:auto' }, j.location ?? 'no location')),
       h('div', { class: 'row' },
         h('button', { disabled: locked, onclick: () => a.junctionLocation(j.id) }, 'Change location'),
@@ -133,7 +160,7 @@ function usageSection(pm, a) {
   if (u.candidates.length) {
     out.push(h('h3', {}, 'Could also apply to'));
     for (const c of u.candidates) {
-      out.push(h('div', { class: 'item' },
+      out.push(h('div', { class: `item${c.id === highlight ? ' selected' : ''}`, 'data-id': c.id, onclick: () => a.referencePick(c.id) },
         h('span', {}, c.id),
         h('span', { class: 'meta' }, c.suggestion ? `${c.suggestion}${c.approximate ? ' (approx)' : ''}` : 'no suggestion'),
         h('button', { disabled: locked, onclick: () => a.junctionAssign(c.id) }, 'Assign…')));

@@ -16,6 +16,7 @@ export class JunctionEditor {
     this._propsPanel   = propsPanel;
     this._adapter    = adapter;
     this.onOpenDetail  = null; // (detailId) => void, set by editor.js
+    this.onFocusJunction = null; // (junctionId) => void, set by editor.js
     this._elements     = []; // { id, pathData }
     this._junctions    = []; // { id, elementIds, point, rule, sprite }
   }
@@ -77,6 +78,21 @@ export class JunctionEditor {
     mesh.userData   = { junctionId: id, elementIds, rule, detailId };
     this._overlayGroup.add(mesh);
     this._junctions.push({ id, elementIds, point, rule, detailId, sprite: mesh });
+  }
+
+  /** Ids of the other junctions that use the same detail as this one (none when it has no detail). */
+  otherUsages(junctionId) {
+    const j = this._junctions.find((x) => x.id === junctionId);
+    if (!j?.detailId) return [];
+    return this._junctions.filter((x) => x.id !== junctionId && x.detailId === j.detailId).map((x) => x.id);
+  }
+
+  /** Show a junction in the properties panel; returns its point (null when unknown) so the caller can frame it. */
+  focus(junctionId) {
+    const j = this._junctions.find((x) => x.id === junctionId);
+    if (!j) return null;
+    this._showProps(j.id, j.elementIds, j.rule);
+    return j.point;
   }
 
   /** The detail editor (re)assigned a detail to this junction; optionally move its marker. */
@@ -154,6 +170,24 @@ export class JunctionEditor {
       openBtn.addEventListener('click', () => this.onOpenDetail?.(junc.detailId));
       detailRow.append(detailLabel, detailVal, openBtn);
       this._propsPanel.appendChild(detailRow);
+    }
+
+    // Other places this detail is used: one button each, to move between instances
+    const others = junc ? this.otherUsages(junc.id) : [];
+    if (others.length) {
+      const usedRow = document.createElement('div');
+      usedRow.className = 'prop-row';
+      const usedLabel = document.createElement('label');
+      usedLabel.textContent = `Also used at (${others.length})`;
+      usedRow.appendChild(usedLabel);
+      for (const otherId of others) {
+        const b = document.createElement('button');
+        b.textContent = otherId;
+        b.style.cssText = 'display:block;width:100%;margin-top:2px;font-size:11px;text-align:left';
+        b.addEventListener('click', () => this.onFocusJunction?.(otherId));
+        usedRow.appendChild(b);
+      }
+      this._propsPanel.appendChild(usedRow);
     }
 
     // Apply button row

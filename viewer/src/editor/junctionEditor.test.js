@@ -302,3 +302,60 @@ describe('JunctionEditor.setDetail', () => {
     expect(je._junctions[0].sprite.position).toMatchObject({ x: 1, y: 2, z: 3 });
   });
 });
+
+// ── Navigation between places a detail is used (#81 phase 4) ──────────────────
+
+describe('JunctionEditor: focus and also-used-at', () => {
+  const load = (je) => je.loadJunctions([
+    { id: 'j-a', elements: ['a', 'b'], rule: 'butt', detail_id: 'detail-x' },
+    { id: 'j-b', elements: ['c', 'd'], rule: 'butt', detail_id: 'detail-x' },
+    { id: 'j-c', elements: ['e', 'f'], rule: 'butt', detail_id: 'detail-y' },
+    { id: 'j-d', elements: ['g', 'h'], rule: 'butt' },
+    { id: 'j-e', elements: ['i', 'j'], rule: 'butt', detail_id: 'detail-x' },
+  ], (j) => ({ x: { 'j-a': 1, 'j-b': 2 }[j.id] ?? 0, y: 0, z: 0 }));
+  const clear = () => { for (const k of Object.keys(handlersByLabel)) delete handlersByLabel[k]; };
+
+  test('focus shows the junction in the properties panel and returns its point', () => {
+    clear();
+    const { je } = makeJunctionEditor(); load(je);
+    const p = je.focus('j-b');
+    expect(p.x).toBe(2);
+    expect(handlersByLabel['Apply']).toBeTypeOf('function');
+  });
+
+  test('focus on an unknown junction returns null and changes nothing', () => {
+    clear();
+    const { je } = makeJunctionEditor(); load(je);
+    expect(je.focus('nope')).toBeNull();
+    expect(handlersByLabel['Apply']).toBeUndefined();
+  });
+
+  test('a junction with a detail lists the other junctions using the same detail, each a button that focuses it', () => {
+    clear();
+    const { je } = makeJunctionEditor(); load(je);
+    const focused = [];
+    je.onFocusJunction = (id) => focused.push(id);
+    je._showProps('j-a', ['a', 'b'], 'butt');
+    expect(handlersByLabel['j-b']).toBeTypeOf('function');
+    expect(handlersByLabel['j-e']).toBeTypeOf('function');
+    expect(handlersByLabel['j-a']).toBeUndefined();   // not itself
+    expect(handlersByLabel['j-c']).toBeUndefined();   // other detail
+    expect(handlersByLabel['j-d']).toBeUndefined();   // no detail
+    handlersByLabel['j-e']();
+    expect(focused).toEqual(['j-e']);
+  });
+
+  test('a junction that is the only user of its detail has no list', () => {
+    clear();
+    const { je } = makeJunctionEditor(); load(je);
+    je._showProps('j-c', ['e', 'f'], 'butt');
+    expect(Object.keys(handlersByLabel).filter((k) => k.startsWith('j-'))).toEqual([]);
+  });
+
+  test('otherUsages lists the ids using the same detail, excluding the junction itself', () => {
+    const { je } = makeJunctionEditor(); load(je);
+    expect(je.otherUsages('j-a')).toEqual(['j-b', 'j-e']);
+    expect(je.otherUsages('j-d')).toEqual([]);
+    expect(je.otherUsages('nope')).toEqual([]);
+  });
+});

@@ -6,6 +6,7 @@
  * profile editor's `ready` / `bundle-handle` / `memory-bundle`.
  *
  *   page -> opener   detail-ready
+ *                    detail-focus          { junctionId }   (show this junction in the 3D editor)
  *                    detail-saved          { id, json, persisted, previousId? }
  *                      persisted: the page already wrote the file (file-system and archive bundles);
  *                      false means the opener must write it (snapshot bundles)
@@ -72,4 +73,15 @@ export function parseSaved(event, { ownOrigin, tab }) {
   if (!isObject(d) || d.type !== 'detail-saved' || typeof d.id !== 'string') return null;
   if (!isObject(d.json) || d.json.id !== d.id || d.json.type !== 'Detail') return null;
   return { id: d.id, json: d.json, previousId: typeof d.previousId === 'string' ? d.previousId : null, persisted: d.persisted === true };
+}
+
+/** Detail editor -> main editor: show this junction (select it and frame it in the 3D view). */
+export const focusMessage = ({ junctionId }) => ({ type: 'detail-focus', junctionId });
+
+/** Main editor side: parse a focus request from the tab it opened, or null. */
+export function parseFocus(event, { ownOrigin, tab }) {
+  if (event?.origin !== ownOrigin || event.source !== tab) return null;
+  const d = event.data;
+  if (!isObject(d) || d.type !== 'detail-focus' || typeof d.junctionId !== 'string' || d.junctionId === '') return null;
+  return { junctionId: d.junctionId };
 }

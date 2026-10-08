@@ -15,7 +15,8 @@ import { validateDetail } from './detailValidate.js';
 import { createDetail } from './detailSerializer.js';
 import { loadDetailContext, saveDetail } from './detailStore.js';
 import { snapshotToContext } from './bundleSnapshot.js';
-import { readyMessage, parseIncoming, savedMessage } from './messages.js';
+import { readyMessage, parseIncoming, savedMessage, focusMessage } from './messages.js';
+import { buildBuildingReference } from './buildingReference.js';
 import { DETAIL_FIELDS, applyJunctionFields, validateJunctionFields, junctionMessage } from './junctionFields.js';
 import { assignDetail, unassignDetail, setOverride, setMirrored, setLocation, suggestLocation, validateLocation } from './junctionAssign.js';
 import { createState, commit, undo, redo, select, setPreview, setTool, markSaved, isDirty, canUndo, canRedo } from './pageState.js';
@@ -39,6 +40,8 @@ let controller = createController('select');
 let draft = null;
 let view = { cx: 0, cy: 0, scale: 100 };
 let size = { width: 800, height: 600 };
+let refLevel = null;        // building reference: level filter (null = all)
+let refHighlight = null;    // building reference: the junction picked on the plan or in the list
 
 // ── units ────────────────────────────────────────────────────────────────────
 {
@@ -89,8 +92,17 @@ function refresh() {
       profileIds: bundle.ctx.profileIds, materialIds: bundle.ctx.materialIds, junctions: bundle.ctx.junctions, elements: bundle.ctx.elements,
       grids: bundle.ctx.grids, levels: bundle.ctx.levels, elementPaths: bundle.ctx.elementPaths,
     });
+    const reference = {
+      data: buildBuildingReference({
+        detailId: st.doc.id, details: bundle.ctx.detailIds, junctions: bundle.ctx.junctions, elementPaths: bundle.ctx.elementPaths,
+        elements: bundle.ctx.elements, grids: bundle.ctx.grids, levels: bundle.ctx.levels, levelId: refLevel,
+        candidateIds: pm.usage.candidates.map((c) => c.id),
+      }),
+      levels: bundle.ctx.levels, levelId: refLevel, highlight: refHighlight,
+      canShow3D: !!window.opener && !window.opener.closed,
+    };
     renderPanels({ left: $('left-panel'), right: $('right-panel') }, pm, {
-      profileIds: bundle.ctx.profileIds, materialIds: bundle.ctx.materialIds, materials: bundle.ctx.materials, previewValues: st.preview,
+      profileIds: bundle.ctx.profileIds, materialIds: bundle.ctx.materialIds, materials: bundle.ctx.materials, previewValues: st.preview, reference,
     }, actions);
     $('save-btn').disabled = !pm.saveEnabled;
     $('undo-btn').disabled = !pm.canUndo;
@@ -150,6 +162,17 @@ const actions = {
   removeParameter: (name) => apply((d) => D.removeParameter(d, name)),
   renameParameter: (from, to) => apply((d) => D.renameParameter(d, from, to).doc),
   setConditionRule: (rule) => apply((d) => (rule === null ? D.setCondition(d, null) : D.setCondition(d, { ...(d.condition ?? {}), rule, member_count: d.members.length, member_kinds: d.members.map((m) => m.kind) }))),
+  referencePick: (id) => {
+    refHighlight = refHighlight === id ? null : id;
+    refresh();
+    if (refHighlight) document.querySelector(`#right-panel [data-id="${CSS.escape(refHighlight)}"]`)?.scrollIntoView({ block: 'nearest' });
+  },
+  referenceLevel: (levelId) => { refLevel = levelId; refresh(); },
+  referenceShow3D: (id) => {
+    if (!window.opener || window.opener.closed) { status('Open this page from the main editor to show a junction in 3D.', true); return; }
+    window.opener.postMessage(focusMessage({ junctionId: id }), window.location.origin);
+    status(`Showing ${id} in the 3D editor.`);
+  },
   junctionMirror: (id, v) => updateJunction(id, (j) => setMirrored(j, v)),
   junctionOverride: (id, name, value) => updateJunction(id, (j) => setOverride(j, st.doc, name, value)),
   junctionUnassign: (id) => updateJunction(id, (j) => unassignDetail(j)),
@@ -287,7 +310,7 @@ function openDetail(id) {
   const doc = bundle.ctx.details.find((d) => d.id === id);
   if (!doc) { status(`Detail "${id}" is not in this bundle`, true); return; }
   st = createState(structuredClone(doc));
-  display = null; draft = null; controller = createController('select');
+  display = null; draft = null; controller = createController('select'); refHighlight = null;
   $('empty').hidden = true;
   fit();
   refresh();
