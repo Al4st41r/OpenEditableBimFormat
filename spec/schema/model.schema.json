@@ -18,6 +18,7 @@
     "grids":     { "type": "array", "items": { "type": "string" }, "description": "IDs of Grid entities." },
     "paths":     { "type": "array", "items": { "type": "string" }, "description": "IDs of Path entities (walls, guides, etc.)." },
     "storeys":   { "type": "array", "items": { "type": "string" }, "description": "IDs of storey Group entities, in vertical order." },
+    "details":   { "type": "array", "items": { "type": "string" }, "description": "IDs of Detail entities." },
     "arrays":    { "type": "array", "items": { "type": "string" }, "description": "IDs of Array entities." },
     "hierarchy": {
       "type": "object",

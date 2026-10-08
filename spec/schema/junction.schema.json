@@ -33,6 +33,24 @@
         }
       }
     },
+    "detail_id": { "type": "string", "description": "ID of the Detail this junction is an instance of." },
+    "location": {
+      "type": "object",
+      "description": "Where the junction sits: the intersection of two grid axes (one per direction) at a level.",
+      "required": ["grid_id", "axes", "level_id"],
+      "additionalProperties": false,
+      "properties": {
+        "grid_id":        { "type": "string" },
+        "axes":           { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "string" } },
+        "level_id":       { "type": "string" },
+        "level_offset_m": { "type": "number", "default": 0 }
+      }
+    },
+    "detail_overrides": {
+      "type": "object",
+      "description": "Per-junction values for the Detail's declared parameters, keyed by parameter name.",
+      "additionalProperties": { "type": "number" }
+    },
     "trim_method": {
       "type": "string",
       "enum": ["planar", "csg", "none"],

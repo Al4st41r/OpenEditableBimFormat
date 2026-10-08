@@ -7,6 +7,7 @@
     "schemaVersion": "0.1.0",
     "entityTypes": [
       "array",
+      "detail",
       "element",
       "grid",
       "group",

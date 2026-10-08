@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-08
 **Issue:** #81 (extended)
-**Status:** Draft for review
+**Status:** Phase 1 complete (2026-10-08); phases 2 to 5 pending
 **Supersedes:** the "Junction detail editor" section of `docs/roadmap.md` (v0.4)
 
 ---
@@ -62,16 +62,18 @@ These were open questions. They are assumed here so the plan can proceed; each i
   "condition": {
     "rule": "butt",
     "member_count": 2,
-    "roles": ["wall", "slab"]
+    "member_kinds": ["wall", "slab"]
   },
   "members": [
     {
       "role": "wall",
+      "kind": "wall",
       "profile_id": "profile-cavity-250",
       "placement": { "offset_x_m": 0.0, "offset_y_m": 0.0, "rotation_deg": 0 }
     },
     {
       "role": "slab",
+      "kind": "slab",
       "profile_id": "profile-slab-150",
       "placement": { "offset_x_m": -0.125, "offset_y_m": -0.15, "rotation_deg": 90 }
     }
@@ -97,8 +99,8 @@ These were open questions. They are assumed here so the plan can proceed; each i
 Field rules:
 
 - **Required:** `$schema`, `id`, `type` (const `Detail`), `description`, `members`, `datum`.
-- **`condition`:** optional and advisory (D3). `rule` uses the junction rule enum. `member_count` is an integer of at least 2. `roles` is a list of strings.
-- **`members`:** at least 2 items. Each needs `role` (string, unique within the detail) and `profile_id`. `placement` holds offsets in metres within detail space and a rotation in degrees. Detail space is a 2D section: x is across the primary member, y is up.
+- **`condition`:** optional and advisory (D3). `rule` uses the junction rule enum. `member_count` is an integer of at least 2. `member_kinds` is a list of kinds (a multiset: a wall to wall corner is `["wall", "wall"]`).
+- **`members`:** at least 2 items. Each needs `role` (a label, unique within the detail, eg `through-wall`), `kind` (`wall`, `slab`, `beam`, `column`, `roof` or `other`, derived from an element's `ifc_type` when matching) and `profile_id`. `placement` holds offsets in metres within detail space and a rotation in degrees. Detail space is a 2D section: x is across the primary member, y is up.
 - **`datum`:** where the detail's y = 0 sits relative to a level. `kind` is `storey` or `grid_elevation`. `reference` is `top` or `bottom` of the storey slab, or `elevation` for the storey's stated elevation.
 - **`plane`:** `section` or `plan`. A corner is usually a `plan` detail. A wall to slab detail is a `section`. This decides how the 2D canvas is oriented relative to the junction.
 - **`geometry.regions`:** extra drawn regions (membranes, fixings, fillers) in detail space, with `material_id`. Same vertex format as profile region layers.
@@ -197,7 +199,7 @@ Test-first. Each phase starts with these tests failing for the right reason. Nam
 | I5 | Every `location.grid_id`, axis ID and `level_id` exists. |
 | I6 | Every override key is a declared parameter of the Detail, and the value is within `min` and `max`. |
 | I7 | Member roles are unique within a Detail. |
-| I8 | A Detail with a `condition` is consistent: `member_count` equals `len(members)` and `roles` equals the set of member roles. |
+| I8 | A Detail with a `condition` is consistent: `member_count` equals `len(members)` and `member_kinds` equals the multiset of member kinds. |
 | I9 | Every Detail has a description and a slug ID matching its filename (existing LLM-editability rules apply to the new folder). |
 
 ### 6.3 Geometry consistency (pytest and Vitest)
@@ -234,7 +236,7 @@ Test-first. Each phase starts with these tests failing for the right reason. Nam
 
 `detailUsage.test.js`:
 - `findUsages` returns every junction that references a Detail, and none for an unused one.
-- `findCandidates` lists junctions whose rule, member count and roles match the `condition`, excluding those already assigned.
+- `findCandidates` lists junctions whose rule, member count and element kinds match the `condition`, excluding those already assigned.
 - A Detail with no `condition` yields no candidates.
 - Candidates never include junctions that already reference another Detail.
 
@@ -318,7 +320,7 @@ Phases 1 and 2 need no new UI and give a working data model that an LLM can alre
 
 | ID | Risk or question | Mitigation |
 |---|---|---|
-| K1 | Grid axis semantics are implicit. `direction` and `offset_m` read as "line along y at x = offset". | Add a documented definition to the grid schema and a test (the resolver tests in 6.4 pin the behaviour). |
+| K1 | Grid axis semantics conflict. `OEBF-GUIDE.md` and the example data say `direction: "y"` runs north-south at the given X offset. `loadGrid.js`, `gridOverlayManager.js` and `loadGrid.test.js` draw it as a line at that Y value, so the example grid renders transposed. | The resolver follows the guide and example (the only reading where axes 2 and B meet at the NE corner). The mismatch is tracked as its own issue; resolver tests pin the convention. |
 | K2 | Levels live in two places: storeys in `model.json` and `elevations` in the grid. In the example the grid lists GF and FF, while `model.json` has only `storey-gf`. | Decide the single source (D5 chooses storeys). Add an integrity test that every grid elevation matches a storey, or document grid elevations as datums only. |
 | K3 | Corners differ in orientation: a detail drawn for one corner must work for the mirrored corner. | Include `mirror` in member placement in phase 3, with a test that mirrored output equals the reflected polygon. |
 | K4 | Curved and radial grids. | Out of scope. The resolver returns an explicit error. |

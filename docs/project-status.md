@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-08
 **Branch:** main
-**Tests:** 488 JS (Vitest, 38 test files) + 166 Python (pytest, plus 7 documented xfails)
+**Tests:** 545 JS (Vitest, 44 test files) + 222 Python (pytest, plus 7 documented xfails)
 
 ---
 
@@ -81,6 +81,12 @@ Two suites check the repository against the original design (`docs/plans/2026-02
 
 ---
 
+## Junction Detail System (#81) - Phase 1 complete (2026-10-08)
+
+Plan: `docs/plans/2026-10-08-junction-detail-system.md`. Delivered: `detail.schema.json`; optional `detail_id`, `location` and `detail_overrides` on junctions; `details` list in the model schema; example detail used by the four wall corners; pure resolvers in `viewer/src/detail/` (grid, level, location, parameters, usage); schema, integrity and geometry-consistency tests. No UI or rendering yet (phases 2 to 4).
+
+---
+
 ## Open Issues
 
 See `docs/roadmap.md` for the full version-by-version plan.
@@ -97,6 +103,7 @@ See `docs/roadmap.md` for the full version-by-version plan.
 | #97 | Bezier and spline path segments | v0.3 | Scope gap; silently skipped today |
 | #98 | Honour sweep_mode, caps, offsets | v0.3 | Scope gap; fields ignored by loader |
 | #100 | Library format differs from spec schemas | v0.3 | Two profile dialects |
+| #102 | Grid axis direction convention mismatch (docs vs viewer) | v0.3 | Blocks #81 location accuracy in editor-made grids |
 | #101 | commands.json, ifc/mapping.json, migrations | Pre-v0.5 | Spec items not delivered |
 
 ---

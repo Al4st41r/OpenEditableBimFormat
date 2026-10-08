@@ -1,0 +1,45 @@
+{
+  "$schema": "oebf://schema/0.1/detail",
+  "id": "detail-corner-cavity-butt",
+  "type": "Detail",
+  "description": "Plan detail: two cavity walls meeting at a butt corner, with a cavity closer at the reveal",
+  "condition": {
+    "rule": "butt",
+    "member_count": 2,
+    "member_kinds": ["wall", "wall"]
+  },
+  "members": [
+    {
+      "role": "through-wall",
+      "kind": "wall",
+      "profile_id": "profile-cavity-250",
+      "placement": { "offset_x_m": 0.0, "offset_y_m": 0.0, "rotation_deg": 0 }
+    },
+    {
+      "role": "butting-wall",
+      "kind": "wall",
+      "profile_id": "profile-cavity-250",
+      "placement": { "offset_x_m": 0.125, "offset_y_m": 0.0, "rotation_deg": 90 }
+    }
+  ],
+  "datum": { "kind": "storey", "reference": "bottom" },
+  "plane": "plan",
+  "view_direction": "along_path",
+  "geometry": {
+    "regions": [
+      {
+        "material_id": "mat-pir-insulation",
+        "vertices": [
+          { "x": 0.102, "y": 0.0 },
+          { "x": 0.177, "y": 0.0 },
+          { "x": 0.177, "y": 0.05 },
+          { "x": 0.102, "y": 0.05 }
+        ]
+      }
+    ]
+  },
+  "parameters": {
+    "cavity_closer_width_m": { "default": 0.05, "min": 0.03, "max": 0.1 }
+  },
+  "tags": ["junction", "corner", "ground-floor"]
+}

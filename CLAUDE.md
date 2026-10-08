@@ -48,6 +48,7 @@ Open issues, in rough priority order:
 | #100 | Unify library profile/material format with the spec schemas |
 | #97 | Feature: bezier and spline path segments |
 | #98 | Feature: honour sweep_mode, caps and offsets |
+| #102 | Bug: grid axis direction convention differs between docs/example and viewer/editor |
 
 Phase 8 issues #69–#77 and #70/#66 are closed.
 

@@ -36,5 +36,6 @@
     "junction-ne-padstone"
   ],
   "grids": ["grid-structural"],
+  "details": ["detail-corner-cavity-butt"],
   "openings": ["opening-door-south-gf"]
 }

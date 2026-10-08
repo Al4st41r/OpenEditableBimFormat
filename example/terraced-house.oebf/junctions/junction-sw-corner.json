@@ -4,6 +4,8 @@
   "type": "Junction",
   "description": "SW corner: south wall butts into west wall (west wall runs through)",
   "elements": ["element-wall-south-gf", "element-wall-west-gf"],
+  "detail_id": "detail-corner-cavity-butt",
+  "location": { "grid_id": "grid-structural", "axes": ["1", "A"], "level_id": "storey-gf", "level_offset_m": 0.0 },
   "rule": "butt",
   "priority": ["element-wall-west-gf"],
   "trim_planes": [{

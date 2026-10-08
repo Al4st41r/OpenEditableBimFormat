@@ -4,6 +4,9 @@
   "type": "Junction",
   "description": "SE corner: south wall butts into east wall (east wall runs through)",
   "elements": ["element-wall-south-gf", "element-wall-east-gf"],
+  "detail_id": "detail-corner-cavity-butt",
+  "location": { "grid_id": "grid-structural", "axes": ["2", "A"], "level_id": "storey-gf", "level_offset_m": 0.0 },
+  "detail_overrides": { "cavity_closer_width_m": 0.075 },
   "rule": "butt",
   "priority": ["element-wall-east-gf"],
   "trim_planes": [{
