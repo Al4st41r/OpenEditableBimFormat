@@ -1,8 +1,8 @@
 # OEBF Project Status
 
-**Date:** 2026-03-18
+**Date:** 2026-10-08
 **Branch:** main
-**Tests:** 463 passing — 463 JS (Vitest, 37 test files) + 21 Python (pytest)
+**Tests:** 488 JS (Vitest, 38 test files) + 150 Python (pytest, plus 11 documented xfails)
 
 ---
 
@@ -75,21 +75,30 @@ Phases 1–6 are complete. v0.1.0 is tagged and published. The v0.2 editor alpha
 
 ---
 
+## Scope Conformance (2026-10-08)
+
+Two suites check the repository against the original design (`docs/plans/2026-02-22-oebf-format-design.md`): `viewer/src/scope-conformance.test.js` and `ifc-tools/tests/test_scope_conformance.py`. Documented gaps (11 Python xfails, 3 Vitest `test.fails`): bezier/spline paths (#97), ignored sweep mode, caps and offsets (#98), stale embedded schemas (#99), library format drift (#100), and undelivered spec items (#101).
+
+---
+
 ## Open Issues
 
 See `docs/roadmap.md` for the full version-by-version plan.
 
 | # | Title | Target | Notes |
 |---|---|---|---|
-| #58 | IFC importer/exporter integrated into editor UI | v0.3 | Accessible from editor, not just CLI |
-| #18 | CSG fallback for spline-path junctions (three-bvh-csg) | v0.3 | Geometry correctness for curved paths |
 | #82 | Snapping tools (endpoint, grid, angle, midpoint) | v0.3 | Precision drawing |
 | #83 | Object properties panel — full inline editing | v0.3 | All entity fields editable in panel |
 | #81 | Junction detail editor — multi-profile 2D canvas | v0.4 | Edit connecting profiles in context |
-| #22 | OEBF-GUIDE.md LLM context document | Pre-v0.5 | Required before AI integration Phase 1 |
-| #67 | AI integration — command palette + agent loop | v0.5 | Plan at `docs/ai-integration-plan.md` |
 | #10 | Tauri v2 desktop wrapper + file-watching | v1.0 | Design plan written; not started |
 | #45 | Project/marketing website | Done | Closed — homepage covers all requirements |
+| #91 | Bug: changing wall profile makes wall disappear | v0.3 | Open |
+| #96 / #95 | Profile manager and material panel issues | v0.3 | Open |
+| #97 | Bezier and spline path segments | v0.3 | Scope gap; silently skipped today |
+| #98 | Honour sweep_mode, caps, offsets | v0.3 | Scope gap; fields ignored by loader |
+| #99 | Embedded bundle schemas stale | v0.3 | Drift from spec/schema |
+| #100 | Library format differs from spec schemas | v0.3 | Two profile dialects |
+| #101 | commands.json, ifc/mapping.json, migrations | Pre-v0.5 | Spec items not delivered |
 
 ---
 
@@ -115,4 +124,4 @@ See `docs/roadmap.md` for the full version-by-version plan.
 | Phase 5 — Scene completeness & release | Tasks 21–29 | Complete — v0.1.0 tagged |
 | Phase 6 — Browser editor (v0.2 alpha) | Tasks 30–42 | Complete — v0.2.0-editor-alpha |
 | Phase 7 — Editor review batch 1 | PR #68 | Complete — #59 #60 #61 #62 #63 #64 #65 |
-| Phase 8 — Profile editor + AI integration | #66 #67 | #66 complete; #67 next |
+| Phase 8 — Editor polish and spec conformance | #66, #69–#77, #91–#101 | Polish items complete; bugs and scope gaps open (see above) |

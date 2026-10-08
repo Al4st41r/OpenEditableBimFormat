@@ -9,7 +9,8 @@
 
 ## Tests
 
-- Run from `viewer/`: `npm test`
+- Run from `viewer/`: `npm test`; run from `ifc-tools/`: `uv run pytest`
+- Scope-conformance suites: `viewer/src/scope-conformance.test.js` and `ifc-tools/tests/test_scope_conformance.py`. Known gaps are marked `test.fails` / `xfail(strict=True)`; remove the marker when the linked issue is fixed.
 - All tests must pass before committing. Update the test count in `docs/project-status.md` after any test changes.
 
 ## Deployment
@@ -31,33 +32,31 @@ After completing any feature, bug fix, or review session:
 2. **Open new issues** for anything discovered during the work that is not already tracked — bugs found, follow-on features, tech debt.
 3. **Keep issues and the development phase in sync** — the open issue list should reflect exactly what is planned or known for the current and next phase. If an issue is complete but still open, close it. If a planned item has no issue, create one.
 
-### Current phase (Phase 8 — editor polish)
+### Current phase (Phase 8 — editor polish and spec conformance)
 
-Open issues for the current phase, in rough priority order:
+Open issues, in rough priority order:
 
 | # | Title |
 |---|---|
-| #69 | Bug: 3D rendering quality — lighting, z-fighting, gradient artefacts |
-| #71 | Feature: Materials section in editor scene tree |
-| #72 | Feature: Profile editor — FFL line spans full canvas width |
-| #73 | Feature: Profile editor — resizable buildup pane |
-| #74 | Feature: Profile editor — outlines on drawn shapes |
-| #75 | Feature: Profile editor — ruler and dimension input while drawing |
-| #76 | Feature: Profile editor — material picker (library + project + create new) |
-| #77 | Feature: Profile editor — region layer extrusion depth and repeat |
+| #91 | Bug: Changing wall profile in properties panel causes wall to disappear |
+| #96 | Problems with profile manager and detail tagging |
+| #95 | Feature: Add material panel should display existing library below the create form |
+| #99 | Bug: schemas embedded in bundles are stale copies of spec/schema |
+| #100 | Unify library profile/material format with the spec schemas |
+| #97 | Feature: bezier and spline path segments |
+| #98 | Feature: honour sweep_mode, caps and offsets |
 
-Issues #70 (version number) and #66 (profile editor features) are complete — close them after confirming.
+Phase 8 issues #69–#77 and #70/#66 are closed.
 
 ### Backlog / future phases
 
 | # | Title |
 |---|---|
-| #67 | Research and plan AI integration |
-| #58 | V0.3: IFC importer/exporter in editor UI |
-| #18 | CSG fallback for spline-path junctions |
-| #10 | Tauri v2 desktop wrapper |
-| #45 | Project/marketing website |
-| #44 | Surface IFC tools on homepage |
+| #101 | Spec items not yet delivered (commands.json, ifc/mapping.json, migrations) |
+| #83 | Object properties panel — full entity field display and inline editing |
+| #82 | Snapping tools — grid, endpoint, angle, midpoint |
+| #81 | Junction detail editor — 2D multi-profile canvas |
+| #10 | Desktop wrapper: Tauri v2 and file watching |
 
 ### Review checklist
 
