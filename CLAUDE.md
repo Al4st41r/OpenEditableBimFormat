@@ -13,6 +13,10 @@
 - Scope-conformance suites: `viewer/src/scope-conformance.test.js` and `ifc-tools/tests/test_scope_conformance.py`. Known gaps are marked `test.fails` / `xfail(strict=True)`; remove the marker when the linked issue is fixed.
 - All tests must pass before committing. Update the test count in `docs/project-status.md` after any test changes.
 
+## Schemas
+
+- `spec/schema/` is the source of truth. After editing a schema run `node scripts/sync-schemas.mjs` to update the example bundle copy; CI fails if they differ (`--check`).
+
 ## Deployment
 
 - Deployed at `architools.drawingtable.net/oebf/`
@@ -41,7 +45,6 @@ Open issues, in rough priority order:
 | #91 | Bug: Changing wall profile in properties panel causes wall to disappear |
 | #96 | Problems with profile manager and detail tagging |
 | #95 | Feature: Add material panel should display existing library below the create form |
-| #99 | Bug: schemas embedded in bundles are stale copies of spec/schema |
 | #100 | Unify library profile/material format with the spec schemas |
 | #97 | Feature: bezier and spline path segments |
 | #98 | Feature: honour sweep_mode, caps and offsets |

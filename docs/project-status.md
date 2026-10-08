@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-08
 **Branch:** main
-**Tests:** 488 JS (Vitest, 38 test files) + 150 Python (pytest, plus 11 documented xfails)
+**Tests:** 488 JS (Vitest, 38 test files) + 166 Python (pytest, plus 7 documented xfails)
 
 ---
 
@@ -77,7 +77,7 @@ Phases 1–6 are complete. v0.1.0 is tagged and published. The v0.2 editor alpha
 
 ## Scope Conformance (2026-10-08)
 
-Two suites check the repository against the original design (`docs/plans/2026-02-22-oebf-format-design.md`): `viewer/src/scope-conformance.test.js` and `ifc-tools/tests/test_scope_conformance.py`. Documented gaps (11 Python xfails, 3 Vitest `test.fails`): bezier/spline paths (#97), ignored sweep mode, caps and offsets (#98), stale embedded schemas (#99), library format drift (#100), and undelivered spec items (#101).
+Two suites check the repository against the original design (`docs/plans/2026-02-22-oebf-format-design.md`): `viewer/src/scope-conformance.test.js` and `ifc-tools/tests/test_scope_conformance.py`. Documented gaps (7 Python xfails, 3 Vitest `test.fails`): bezier/spline paths (#97), ignored sweep mode, caps and offsets (#98), library format drift (#100), and undelivered spec items (#101).
 
 ---
 
@@ -96,7 +96,6 @@ See `docs/roadmap.md` for the full version-by-version plan.
 | #96 / #95 | Profile manager and material panel issues | v0.3 | Open |
 | #97 | Bezier and spline path segments | v0.3 | Scope gap; silently skipped today |
 | #98 | Honour sweep_mode, caps, offsets | v0.3 | Scope gap; fields ignored by loader |
-| #99 | Embedded bundle schemas stale | v0.3 | Drift from spec/schema |
 | #100 | Library format differs from spec schemas | v0.3 | Two profile dialects |
 | #101 | commands.json, ifc/mapping.json, migrations | Pre-v0.5 | Spec items not delivered |
 

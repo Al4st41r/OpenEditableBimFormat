@@ -32,6 +32,11 @@
           "plane_origin": { "type": "object", "required": ["x","y","z"] }
         }
       }
+    },
+    "trim_method": {
+      "type": "string",
+      "enum": ["planar", "csg", "none"],
+      "description": "Method used to compute trim_planes. 'planar': flat clip planes derived from path tangents at the junction endpoint (exact for lines and arcs; analytical control-point tangent for bezier). 'csg': non-planar trim required (spline paths); trim_planes is empty and custom_geometry or a future CSG exporter should be used. 'none': trim planes not yet computed."
     }
   }
 }

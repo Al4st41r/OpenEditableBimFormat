@@ -18,6 +18,7 @@ jobs:
           cache: 'npm'
           cache-dependency-path: viewer/package-lock.json
       - run: cd viewer && npm ci
+      - run: node scripts/sync-schemas.mjs --check
       - run: cd viewer && npm test
 
   ifc-tools-tests:

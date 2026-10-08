@@ -83,22 +83,14 @@ def test_schemas_reject_unknown_fields_on_core_entities():
         assert SCHEMAS[f"oebf://schema/0.1/{name}"].get("additionalProperties") is False
 
 
-@pytest.mark.parametrize("name", ["junction", "path", "profile"])
-@pytest.mark.xfail(
-    strict=True,
-    reason="DRIFT: example/terraced-house.oebf/schema/ is a stale copy of spec/schema/ "
-           "(missing trim_method, guide fields, region layers, profile_type/ffl).",
-)
+@pytest.mark.parametrize("name", [p.name.replace(".schema.json", "") for p in sorted(SCHEMA_DIR.glob("*.schema.json"))])
 def test_embedded_schema_matches_spec(name):
+    # Fix with: node scripts/sync-schemas.mjs (issue #99)
     spec = load(SCHEMA_DIR / f"{name}.schema.json")
     embedded = load(BUNDLE / "schema" / f"{name}.schema.json")
     assert spec == embedded
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="DRIFT: slab and model schemas exist in spec/ but are not shipped in the bundle schema/ folder.",
-)
 def test_embedded_schema_folder_is_complete():
     spec = {p.name for p in SCHEMA_DIR.glob("*.schema.json")}
     embedded = {p.name for p in (BUNDLE / "schema").glob("*.schema.json")}
