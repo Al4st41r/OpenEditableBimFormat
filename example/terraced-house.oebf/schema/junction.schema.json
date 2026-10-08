@@ -46,6 +46,7 @@
         "level_offset_m": { "type": "number", "default": 0 }
       }
     },
+    "detail_mirrored": { "type": "boolean", "default": false, "description": "Use the Detail mirrored across the primary member's axis, so one detail serves both hands of a corner." },
     "detail_overrides": {
       "type": "object",
       "description": "Per-junction values for the Detail's declared parameters, keyed by parameter name.",

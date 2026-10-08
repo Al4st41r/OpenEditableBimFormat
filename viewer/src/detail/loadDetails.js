@@ -38,6 +38,16 @@ export async function loadDetails({ readJson, model, junctions, grids }) {
     }
   }
 
+  // Slabs are only needed to resolve a "bottom" datum.
+  let slabs;
+  if (details.some((d) => d.datum?.reference === 'bottom')) {
+    slabs = [];
+    for (const id of (model.slabs ?? [])) {
+      try { slabs.push(await readJson(`slabs/${id}.json`)); }
+      catch (err) { console.warn(`[OEBF] Skipping slab ${id}: ${err.message}`); }
+    }
+  }
+
   const pathCache = new Map(); // elementId -> Promise<points>
   const pointsFor = (elementId) => {
     if (!pathCache.has(elementId)) {
@@ -60,7 +70,7 @@ export async function loadDetails({ readJson, model, junctions, grids }) {
       const primaryId = junction.priority?.[0] ?? junction.elements[0];
       const elementPaths = new Map([[primaryId, await pointsFor(primaryId)]]);
 
-      const { geometry, warnings } = detailToGeometry(detail, junction, { model, grids, elementPaths });
+      const { geometry, warnings } = detailToGeometry(detail, junction, { model, grids, elementPaths, slabs });
       if (geometry) junction.detailGeometry = geometry;
       if (warnings.length) junction.detailWarnings = warnings;
     } catch (err) {

@@ -35,7 +35,7 @@
   ],
   "datum": {
     "kind": "storey",
-    "reference": "bottom"
+    "reference": "elevation"
   },
   "plane": "plan",
   "view_direction": "along_path",

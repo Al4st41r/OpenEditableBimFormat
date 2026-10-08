@@ -34,4 +34,10 @@ describe('demo archive (public/terraced-house.oebfz)', () => {
     const se = r.junctions.find((j) => j.id === 'junction-se-corner');
     expect(se.detail_overrides).toEqual({ cavity_closer_width_m: 0.075 });
   });
+
+  test('the archived detail is identical to the example detail', async () => {
+    const r = await loadBundleZstd(archive());
+    const example = JSON.parse(fs.readFileSync(path.join(ROOT, 'example/terraced-house.oebf/details/detail-corner-cavity-butt.json'), 'utf8'));
+    expect(r.details[0]).toEqual(example);
+  });
 });

@@ -10,11 +10,17 @@
  *   plan    u = t,           v = t rotated 90 degrees anticlockwise, w = up
  *   section u = across (t rotated 90 degrees anticlockwise), v = up, w = t
  *
- * Both frames are right-handed (u x v = w). For plan details the region is
- * extruded upwards along w; for section details along the member, centred.
+ * Unmirrored frames are right-handed (u x v = w). For plan details the region
+ * is extruded upwards along w; for section details along the member, centred.
+ *
+ * When junction.detail_mirrored is true the detail is reflected across the
+ * primary member's axis: v is flipped (plan) or u is flipped (section). That
+ * frame is left-handed, so `mirrored: true` tells detailToGeometry to reverse
+ * face winding. The origin z includes the datum offset (see datum.js).
  */
 
 import { resolveLocation } from './locationResolver.js';
+import { datumOffset } from './datum.js';
 
 const EPS = 1e-9;
 const n = (x) => x + 0; // normalise -0 to 0
@@ -53,11 +59,12 @@ export function pathTangentAt(points, point) {
  * @param {object} detail
  * @param {object} junction
  * @param {{ model: object, grids: object[], elementPaths: Map<string, Array> }} ctx
- * @returns {{ origin, u, v, w }} each {x, y, z}
+ * @returns {{ origin, u, v, w, mirrored }} each of origin, u, v, w is {x, y, z}
  */
 export function buildDetailFrame(detail, junction, ctx) {
   if (!junction.location) throw new Error(`Junction "${junction.id}" has no location`);
   const origin = resolveLocation(junction.location, ctx);
+  if (detail.datum) origin.z += datumOffset(detail.datum, junction.location.level_id, ctx.slabs);
 
   const primaryId = junction.priority?.[0] ?? junction.elements[0];
   const points = ctx.elementPaths?.get(primaryId);
@@ -68,7 +75,10 @@ export function buildDetailFrame(detail, junction, ctx) {
   const P = { x: n(-t.y), y: n(t.x), z: 0 };
   const UP = { x: 0, y: 0, z: 1 };
 
+  const mirrored = junction.detail_mirrored === true;
+  const flip = (a) => ({ x: n(-a.x), y: n(-a.y), z: n(-a.z) });
+
   return (detail.plane ?? 'section') === 'plan'
-    ? { origin, u: T, v: P, w: UP }
-    : { origin, u: P, v: UP, w: T };
+    ? { origin, u: T, v: mirrored ? flip(P) : P, w: UP, mirrored }
+    : { origin, u: mirrored ? flip(P) : P, v: UP, w: T, mirrored };
 }

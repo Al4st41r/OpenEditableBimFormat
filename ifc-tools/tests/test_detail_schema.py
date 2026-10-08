@@ -462,3 +462,25 @@ def test_i13_overridden_parameter_is_actually_bound_in_geometry():
                 for v in r["vertices"] for c in v.values() if isinstance(c, dict)
             }
             assert key in used, (j["id"], key)
+
+
+# ── Slice 3a: mirroring (E6) ─────────────────────────────────────────────────
+
+@pytest.mark.parametrize("value", [True, False])
+def test_e6_detail_mirrored_boolean_accepted(value):
+    j = _junction_with_detail()
+    j["detail_mirrored"] = value
+    validate(j, JUNCTION_ID)
+
+
+@pytest.mark.parametrize("bad", ["yes", 1, None, "true"])
+def test_e6_detail_mirrored_must_be_boolean(bad):
+    j = _junction_with_detail()
+    j["detail_mirrored"] = bad
+    with pytest.raises(jsonschema.ValidationError):
+        validate(j, JUNCTION_ID)
+
+
+def test_e5_example_datum_uses_elevation():
+    """A plan trim block must rise from the floor level, not from the slab underside."""
+    assert example_detail()["datum"]["reference"] == "elevation"

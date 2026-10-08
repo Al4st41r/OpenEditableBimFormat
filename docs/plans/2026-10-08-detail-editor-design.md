@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-08
 **Issue:** #81, phase 3
-**Status:** Draft for review. Nothing here is built.
+**Status:** Decisions E1 to E7 accepted (2026-10-08). Slice 3a complete; slices 3b to 3e pending.
 **Parent plan:** `docs/plans/2026-10-08-junction-detail-system.md`
 
 ---
@@ -186,13 +186,24 @@ Each slice leaves the tests green and is committed on its own.
 
 | Slice | Scope | Exit criteria |
 |---|---|---|
-| 3a | `detailDocument`, `detailValidate`, `detailSerializer`, `detailRefs`, `datum`, mirror in the frame, schema field. | All pure tests pass. Example still renders. No UI. |
+| 3a (complete) | `detailDocument`, `detailValidate`, `detailSerializer`, `detailRefs`, `datum`, mirror in the frame, schema field. | All pure tests pass. Example still renders. No UI. |
 | 3b | `memberShapes`, `canvasModel` and hit testing. | Canvas model for the example detail matches expectations in plan and section. |
 | 3c | `detail-editor.html`, DOM wiring, handoff, save. | The example detail opens, edits and saves to a bundle in Chrome; checked by screenshot. |
 | 3d | Editor integration: tree section (E2), open from a junction, partial rebuild (E7), junction positions from `location`, `model.details` on save. | Editing a detail updates all four example corners in the editor without a reload. |
 | 3e | Usage and candidates, location picker, parameter preview slider, overrides in the properties panel. | A second junction can be assigned and overridden from the UI. |
 
 Slice 3a is useful on its own: with it, an LLM or script can create and validate details safely.
+
+---
+
+## 8a. Slice 3a Outcome
+
+- Modules are in `viewer/src/detail-editor/` (document, validate, serializer, refs, constants) and `viewer/src/detail/` (`datum.js`, `regionGeometry.js`, mirror and datum in `detailFrame.js`). About 190 new tests.
+- E5 is implemented: `bottom` subtracts the thickest slab whose `parent_group_id` is the storey. `loadDetails` reads slabs only when a detail needs `bottom`.
+- E6 is implemented: `detail_mirrored` on the junction flips v (plan) or u (section) and reverses face winding. Tests check the mirrored geometry is the exact reflection, that volume stays positive in every orientation, and that one detail serves opposite walls.
+- The example detail's datum changed from `bottom` to `elevation`. A plan trim block should rise from the floor level, not from the slab underside, and a schema test now guards it.
+- Validation is tested against about 40 deliberately broken documents that mirror the JSON Schema rules, plus nine unknown-field cases. The viewer has no JSON Schema validator, so `detailValidate.js` re-implements the schema rules; the Python schema tests remain the authority.
+- Parameter-bound coordinates round computed offsets to 1e-9, so saved files do not carry floating point noise.
 
 ---
 

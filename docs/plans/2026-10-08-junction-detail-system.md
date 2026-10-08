@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-08
 **Issue:** #81 (extended)
-**Status:** Phases 1 and 2 complete (2026-10-08); phases 3 to 5 pending
+**Status:** Phases 1 and 2 complete; phase 3 slice 3a complete (2026-10-08); the rest of phases 3 to 5 pending
 **Supersedes:** the "Junction detail editor" section of `docs/roadmap.md` (v0.4)
 
 ---
@@ -348,7 +348,7 @@ Phases 1 and 2 need no new UI and give a working data model that an LLM can alre
 | K5 | A "detail at a location" where the junction has more than two members (T and cross junctions). | `members` supports any number. The tests in 6.5 use a three-member Detail. |
 | K6 | Interaction with the CSG fallback for splines (closed #18). | Details apply to straight and arc junctions first. Spline junctions are excluded and tested as such. |
 | Q1 | Should a Detail be allowed to span levels (eg a wall that passes through a floor)? | Assumed no for v1: one `datum`, one level. |
-| Q3 | What do `datum.reference` values `top` and `bottom` mean? | Phase 2 uses the level elevation plus `level_offset_m` for all three values. `top` and `bottom` need a rule for slab thickness and are not yet distinct. Decide before phase 3, when the canvas shows the datum. |
+| Q3 | What do `datum.reference` values `top` and `bottom` mean? | Resolved in the phase 3 design note (E5) and implemented in slice 3a: `top` and `elevation` are the storey elevation; `bottom` subtracts the slab thickness. |
 | Q2 | Should the 2D canvas show a section cut or a plan cut by default? | `plane` is a Detail field, so both are possible. Default to `section` for wall to slab, `plan` for corners. |
 
 ---
