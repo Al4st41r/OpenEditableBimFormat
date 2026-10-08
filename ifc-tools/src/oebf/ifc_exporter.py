@@ -43,11 +43,19 @@ def export_ifc(oebf_dir: Path, ifc_path: Path) -> None:
     ifcopenshell.api.aggregate.assign_object(ifc, relating_object=site, products=[building])
     ifcopenshell.api.aggregate.assign_object(ifc, relating_object=building, products=[storey])
 
+    exported = {}   # OEBF id -> IFC entity, for the property sets that refer back to elements
     for element_id in model_data.get("elements", []):
-        _export_element(ifc, oebf_dir, element_id, storey, body_context, mat_by_id)
+        entity = _export_element(ifc, oebf_dir, element_id, storey, body_context, mat_by_id)
+        if entity is not None:
+            exported[element_id] = entity
 
     for slab_id in model_data.get("slabs", []):
-        _export_slab(ifc, oebf_dir, slab_id, storey, body_context, mat_by_id)
+        entity = _export_slab(ifc, oebf_dir, slab_id, storey, body_context, mat_by_id)
+        if entity is not None:
+            exported[slab_id] = entity
+
+    _export_junctions(ifc, oebf_dir, model_data, exported)
+    _export_bundle_extensions(ifc, project, oebf_dir, model_data)
 
     ifc.write(str(ifc_path))
 
@@ -61,13 +69,18 @@ def _export_element(ifc, oebf_dir, element_id, storey, body_context, mat_by_id):
         )
     except (FileNotFoundError, KeyError) as exc:
         print(f"  Warning: skipping {element_id}: {exc}")
-        return
+        return None
+
+    path_length, tangent = _path_length_and_tangent(path_data)
+    if abs(tangent["x"]) + abs(tangent["y"]) < 1e-9:
+        print(f"  Warning: skipping {element_id}: its path is vertical, which the wall exporter cannot sweep")
+        return None
 
     entity = ifcopenshell.api.root.create_entity(
         ifc, ifc_class=elem["ifc_type"], name=elem["description"]
     )
+    _set_pset(ifc, entity, "OEBF_Element", {"OebfId": element_id})
 
-    path_length, tangent = _path_length_and_tangent(path_data)
     start = path_data["segments"][0]["start"]
     total_width = sum(layer["thickness"] for layer in profile_data["assembly"])
     origin_x = profile_data.get("origin", {}).get("x", total_width / 2)
@@ -79,6 +92,7 @@ def _export_element(ifc, oebf_dir, element_id, storey, body_context, mat_by_id):
     _assign_property_set(ifc, entity, elem.get("properties", {}))
 
     ifcopenshell.api.spatial.assign_container(ifc, relating_structure=storey, products=[entity])
+    return entity
 
 
 def _path_length_and_tangent(path_data):
@@ -204,11 +218,12 @@ def _export_slab(ifc, oebf_dir, slab_id, storey, body_context, mat_by_id):
         )
     except (FileNotFoundError, KeyError) as exc:
         print(f"  Warning: skipping slab {slab_id}: {exc}")
-        return
+        return None
 
     entity = ifcopenshell.api.root.create_entity(
         ifc, ifc_class=slab["ifc_type"], name=slab["description"]
     )
+    _set_pset(ifc, entity, "OEBF_Element", {"OebfId": slab_id})
 
     pts_2d = [
         (seg["start"]["x"], seg["start"]["y"])
@@ -269,6 +284,7 @@ def _export_slab(ifc, oebf_dir, slab_id, storey, body_context, mat_by_id):
 
     _assign_property_set(ifc, entity, slab.get("properties", {}))
     ifcopenshell.api.spatial.assign_container(ifc, relating_structure=storey, products=[entity])
+    return entity
 
 
 def _assign_property_set(ifc, entity, properties: dict):
@@ -287,3 +303,95 @@ def _assign_property_set(ifc, entity, properties: dict):
         else:
             props[key] = str(val)
     ifcopenshell.api.pset.edit_pset(ifc, pset=pset, properties=props)
+
+
+# ── OEBF extension property sets ──────────────────────────────────────────────
+# IFC has no junction or detail concept. OEBF carries them as property sets that
+# other IFC tools ignore and an OEBF import restores (see ifc_importer.py).
+
+def _set_pset(ifc, entity, name, props: dict):
+    pset = ifcopenshell.api.pset.add_pset(ifc, product=entity, name=name)
+    ifcopenshell.api.pset.edit_pset(ifc, pset=pset, properties=props)
+
+
+def _read_json(path: Path):
+    try:
+        return json.loads(path.read_text())
+    except (FileNotFoundError, json.JSONDecodeError):
+        return None
+
+
+def _junction_properties(junction: dict) -> dict:
+    props = {
+        "JunctionId": junction["id"],
+        "Rule": junction.get("rule", "butt"),
+        "Priority": ",".join(junction.get("priority", [])),
+        "Elements": ",".join(junction.get("elements", [])),
+    }
+    if junction.get("detail_id"):
+        props["DetailId"] = junction["detail_id"]
+    loc = junction.get("location")
+    if loc:
+        props.update({
+            "GridId": loc["grid_id"], "AxisA": loc["axes"][0], "AxisB": loc["axes"][1],
+            "LevelId": loc["level_id"], "LevelOffsetM": float(loc.get("level_offset_m", 0.0)),
+        })
+    if junction.get("detail_mirrored") is True:
+        props["Mirrored"] = True
+    for name, value in (junction.get("detail_overrides") or {}).items():
+        props[f"Override_{name}"] = float(value)
+    return props
+
+
+def _export_junctions(ifc, oebf_dir, model_data, exported):
+    """One OEBF_Junction_<id> property set on each exported member element of a junction."""
+    for junction_id in model_data.get("junctions", []):
+        junction = _read_json(oebf_dir / "junctions" / f"{junction_id}.json")
+        if not junction or junction.get("type") != "Junction":
+            continue
+        members = [exported[e] for e in junction.get("elements", []) if e in exported]
+        if not members:
+            continue
+        props = _junction_properties(junction)
+        for entity in members:
+            _set_pset(ifc, entity, f"OEBF_Junction_{junction_id}", props)
+
+
+def _levels(oebf_dir, model_data) -> list:
+    """Storeys as [{id, elevation, name}]: from the hierarchy, then storey groups (editor bundles)."""
+    out, seen = [], set()
+
+    def walk(node):
+        if isinstance(node, dict):
+            if node.get("type") == "Storey" and isinstance(node.get("elevation"), (int, float)) and node["id"] not in seen:
+                seen.add(node["id"])
+                out.append({"id": node["id"], "elevation": node["elevation"], "name": node.get("description") or node["id"]})
+            for child in node.get("children", []):
+                walk(child)
+
+    walk(model_data.get("hierarchy"))
+    for storey_id in model_data.get("storeys", []):
+        g = _read_json(oebf_dir / "groups" / f"{storey_id}.json")
+        height = g and (g.get("z_m") if isinstance(g.get("z_m"), (int, float)) else g.get("elevation_m"))
+        if g and g.get("ifc_type") == "IfcBuildingStorey" and isinstance(height, (int, float)) and g["id"] not in seen:
+            seen.add(g["id"])
+            out.append({"id": g["id"], "elevation": height, "name": g.get("name") or g["id"]})
+    return out
+
+
+def _export_bundle_extensions(ifc, project, oebf_dir, model_data):
+    """Details, grids and levels as JSON text on the project, so an OEBF import can restore detail locations."""
+    details = {}
+    for detail_id in model_data.get("details", []):
+        d = _read_json(oebf_dir / "details" / f"{detail_id}.json")
+        if d:
+            details[detail_id] = d
+    grids = [g for g in (_read_json(oebf_dir / "grids" / f"{i}.json") for i in model_data.get("grids", [])) if g]
+    levels = _levels(oebf_dir, model_data)
+
+    props = {}
+    for key, value in (("Details", details), ("Grids", grids), ("Levels", levels)):
+        if value:
+            props[key] = ifc.create_entity("IfcText", wrappedValue=json.dumps(value, ensure_ascii=False))
+    if props:
+        _set_pset(ifc, project, "OEBF_Bundle", props)

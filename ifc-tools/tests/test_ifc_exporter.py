@@ -178,3 +178,17 @@ def test_export_wall_has_material_layer_set(minimal_oebf_bundle, tmp_path):
     assert layer_set.is_a("IfcMaterialLayerSet")
     assert len(layer_set.MaterialLayers) == 1  # one layer in fixture profile
     assert abs(layer_set.MaterialLayers[0].LayerThickness - 0.200) < 1e-6
+
+
+def test_export_skips_an_element_with_a_vertical_path_instead_of_failing(minimal_oebf_bundle, tmp_path, capsys):
+    """Imported slabs become elements on vertical paths, which the wall exporter cannot sweep."""
+    import json
+    path = minimal_oebf_bundle / "paths" / "path-wall-test.json"
+    data = json.loads(path.read_text())
+    data["segments"][0]["end"] = {"x": 0.0, "y": 0.0, "z": 2.7}
+    path.write_text(json.dumps(data))
+    out = tmp_path / "output.ifc"
+    export_ifc(minimal_oebf_bundle, out)
+    model = ifcopenshell.open(str(out))
+    assert len(model.by_type("IfcWall")) == 0
+    assert "vertical" in capsys.readouterr().out

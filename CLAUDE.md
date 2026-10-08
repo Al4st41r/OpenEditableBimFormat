@@ -13,6 +13,11 @@
 - Scope-conformance suites: `viewer/src/scope-conformance.test.js` and `ifc-tools/tests/test_scope_conformance.py`. Known gaps are marked `test.fails` / `xfail(strict=True)`; remove the marker when the linked issue is fixed.
 - All tests must pass before committing. Update the test count in `docs/project-status.md` after any test changes.
 
+## Validating bundles
+
+- `cd ifc-tools && uv run oebf validate <bundle.oebf>` checks a bundle against its own schemas and the cross-references. Run it on the example bundle after changing a schema, an entity or the guide; `ifc-tools/tests/test_validate.py` and `test_guide.py` do this in CI.
+- `spec/OEBF-GUIDE-template.md` and `example/terraced-house.oebf/OEBF-GUIDE.md` must stay identical (a test checks the section headings and the JSON examples).
+
 ## Schemas
 
 - `spec/schema/` is the source of truth. After editing a schema run `node scripts/sync-schemas.mjs` to update the example bundle copy; CI fails if they differ (`--check`).
@@ -59,6 +64,7 @@ Phase 8 issues #69–#77 and #70/#66 are closed.
 
 | # | Title |
 |---|---|
+| #106 | IFC importer: imported bundles do not pass oebf validate (schemas, profiles, materials, parent_group_id, slabs) |
 | #101 | Spec items not yet delivered (commands.json, ifc/mapping.json, migrations) |
 | #105 | Feature: smart cursor tooltips and direct length/size editing (Vectorworks/ArchiCAD style); extends #82, #83 — future scope |
 | #104 | Feature: parametric grid frame generator (sliders place columns, floors, roof, beams) — future scope |

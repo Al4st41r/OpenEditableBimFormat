@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-08
 **Issue:** #81 (extended)
-**Status:** Phases 1 to 4 complete (2026-10-08); phase 5 pending
+**Status:** All five phases complete (2026-10-08)
 **Supersedes:** the "Junction detail editor" section of `docs/roadmap.md` (v0.4)
 
 ---
@@ -323,7 +323,7 @@ Playwright (extends `tests/e2e/`):
 | 2. Loading and 3D (complete) | Loading, `detailToGeometry.js`, renderer integration through the custom-junction path, parameter-bound coordinates, reuse tests R1 to R3, demo archive re-packed. | The four example corners render from one Detail in the viewer; SE shows its override. |
 | 3. Detail editor (complete; design: `2026-10-08-detail-editor-design.md`) | 2D canvas reusing profile editor code, member list, parameter panel, save, R4 and R5, section 6.7. | A Detail can be created and edited in the browser, and the 3D view updates. |
 | 4. Building reference (complete) | Plan thumbnail, usage list, navigation, candidate suggestions, section 6.8. | Opening a Detail shows and navigates to all its locations. |
-| 5. Guide and IFC | Update `OEBF-GUIDE.md`, LLM harness cases, IFC exporter writes the detail reference as a property set (`OEBF_Junction.DetailId`). | Section 6.9 passes. IFC round trip keeps `detail_id`. |
+| 5. Guide and IFC (complete) | Update `OEBF-GUIDE.md`, LLM harness cases, IFC exporter writes the detail reference as a property set (`OEBF_Junction.DetailId`). | Section 6.9 passes. IFC round trip keeps `detail_id`. |
 
 Phases 1 and 2 need no new UI and give a working data model that an LLM can already edit. Phase 3 is the largest.
 
@@ -361,6 +361,19 @@ Phases 1 and 2 need no new UI and give a working data model that an LLM can alre
 - **Also used at (main editor):** a junction with a detail lists the other junctions using it as buttons, so you can move between instances without leaving the 3D editor.
 - **Checked in the real editor** with `shot-scraper`: 11 checks (markers, legend, tooltip, highlight, show in 3D moving the camera to the SE corner, the properties list of 3 other places, moving to the NW corner, highlight toggle, no page errors). Script and Playwright wrapper in `viewer/tests/e2e/`; the wrapper has not been run here.
 - **Not included:** slab outlines on the thumbnail (walls only), zooming or panning the thumbnail, and selecting from the thumbnail by dragging a box.
+
+---
+
+## 9b. Phase 5 Outcome
+
+- **`oebf validate`** (`ifc-tools/src/oebf/validate.py`, CLI command): checks a bundle against the schemas it carries and the cross-references JSON Schema cannot express (model registration, ids against file names, detail links, locations against grids and levels, parallel axes, overrides against declared parameters and ranges, member profiles, region materials, parameter bindings, conditions). Prints `code path: message` per problem and exits 1. 33 tests, each breaking the example bundle in one plausible way, plus an LLM scenario (adds a detail and uses it) and five typical LLM mistakes.
+- **OEBF-GUIDE.md:** new worked example for details and junction references (with the real example files embedded), a drawing-space and axis-convention explanation, LLM authoring notes, an IFC section, and a Validation section built on `oebf validate`. The guide's winding section said counter-clockwise while its own diagram and the example walls run clockwise; fixed. `spec/OEBF-GUIDE-template.md` is now identical to the bundle guide. 20 tests check that every JSON example validates, that the detail and junction examples are the real files, and that the sections and conventions are present.
+- **IFC round trip:** the exporter writes `OEBF_Element.OebfId`, `OEBF_Junction_<id>` (rule, priority, elements, `DetailId`, grid location, mirror flag, `Override_<parameter>`) on each member element, and `OEBF_Bundle` on the project (details, grids, levels as JSON). The importer restores element ids, junctions, details, grids and levels as storeys. Verified by 21 tests, including export, import, export, import. Plain IFC files import unchanged.
+- **Found and fixed on the way:**
+  - Editor-made bundles have no `model.hierarchy`: their storeys are `model.storeys` plus `groups/<id>.json` with `z_m`. Level resolution only read the hierarchy, so a detail could not be placed in a bundle created in the editor. `withStoreyGroups` now reads both, in the loaders, the detail editor context and the junction markers. `group.schema.json` now allows the `name` and `z_m` the editor writes (readers accept `elevation_m` too).
+  - The editor wrote paths (wall tool) and storey groups without `$schema`, and new bundles had no `schema/` folder and an empty materials library without `$schema`. All fixed, so a new bundle passes `oebf validate`.
+  - The importer referenced `profile-imported-placeholder` without writing it, so an imported bundle could not be exported again; the exporter also aborted on elements with vertical paths (imported slabs). The placeholder profile and material are now written, and such elements are skipped with a warning.
+- **Not done (issue #106):** imported bundles still lack a `schema/` folder, details' profiles and materials, and `parent_group_id`; slabs import as elements.
 
 ---
 

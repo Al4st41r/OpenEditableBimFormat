@@ -4,7 +4,7 @@ from pathlib import Path
 
 @click.group()
 def cli():
-    """OEBF IFC import/export tools."""
+    """OEBF bundle tools: IFC import and export, and bundle validation."""
     pass
 
 
@@ -26,6 +26,21 @@ def ifc_export(oebf_dir, output):
     from .ifc_exporter import export_ifc
     export_ifc(Path(oebf_dir), Path(output))
     click.echo(f"Exported {oebf_dir} → {output}")
+
+
+@cli.command()
+@click.argument("oebf_dir", type=click.Path(exists=True, file_okay=False))
+def validate(oebf_dir):
+    """Check a bundle against its schemas and cross-references (exit code 1 if anything is wrong)."""
+    from .validate import validate_bundle
+    problems = validate_bundle(Path(oebf_dir))
+    if not problems:
+        click.echo(f"No problems found in {oebf_dir}")
+        return
+    for p in problems:
+        click.echo(str(p))
+    click.echo(f"{len(problems)} problem(s) in {oebf_dir}")
+    raise SystemExit(1)
 
 
 if __name__ == "__main__":

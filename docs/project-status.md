@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-08
 **Branch:** main
-**Tests:** 1164 JS (Vitest, 73 test files) + 250 Python (pytest, plus 7 documented xfails)
+**Tests:** 1183 JS (Vitest, 73 test files) + 331 Python (pytest, plus 7 documented xfails)
 
 ---
 
@@ -81,9 +81,9 @@ Two suites check the repository against the original design (`docs/plans/2026-02
 
 ---
 
-## Junction Detail System (#81) - Phases 1 and 2 and phases 3 and 4 complete (2026-10-08)
+## Junction Detail System (#81) - Phases 1 and 2 and all five phases complete (2026-10-08)
 
-Plan: `docs/plans/2026-10-08-junction-detail-system.md`. Delivered: `detail.schema.json`; optional `detail_id`, `location` and `detail_overrides` on junctions; `details` list in the model schema; example detail used by the four wall corners; pure resolvers in `viewer/src/detail/` (grid, level, location, parameters, usage); schema, integrity and geometry-consistency tests. Phase 2 loads details in all three bundle loaders and renders them: the four example corners are drawn from one shared detail (the SE corner uses a parameter override) in both the viewer and the editor. The demo archive `viewer/public/terraced-house.oebfz` was re-packed and a test now fails if it drifts from the example. Phase 3 slice 3a (2026-10-08) added the editor's pure logic in `viewer/src/detail-editor/`: document operations, validation, serialisation, reference-safe rename and delete, the `bottom` datum, and mirrored use of a detail. Slice 3b added the canvas logic and slice 3c the page itself: `viewer/detail-editor.html` opens a bundle (folder, `.oebfz` or `?demo`), draws a detail in plan or section, edits members, regions and parameters with undo and redo, previews parameter values, and saves. Slice 3d links it to the main editor: the Details tree opens it, a junction's properties open its detail, and a save refreshes only the affected 3D groups. Junction markers now sit at their real positions. Slice 3e adds assignment from the page: candidates and other junctions with a suggested grid location, a location picker, per-junction parameter overrides, the mirror flag, relocate and unassign, with the 3D view following each change. Phase 3 is complete. Phase 4 adds the building reference: a plan thumbnail on the detail page showing every junction coloured by the detail it uses, with a legend, a level filter, highlighting, Show in 3D editor, and an Also used at list in the main editor's junction properties. Phase 5 (guide, LLM harness, IFC property set) is next. Design: `docs/plans/2026-10-08-detail-editor-design.md`.
+Plan: `docs/plans/2026-10-08-junction-detail-system.md`. Delivered: `detail.schema.json`; optional `detail_id`, `location` and `detail_overrides` on junctions; `details` list in the model schema; example detail used by the four wall corners; pure resolvers in `viewer/src/detail/` (grid, level, location, parameters, usage); schema, integrity and geometry-consistency tests. Phase 2 loads details in all three bundle loaders and renders them: the four example corners are drawn from one shared detail (the SE corner uses a parameter override) in both the viewer and the editor. The demo archive `viewer/public/terraced-house.oebfz` was re-packed and a test now fails if it drifts from the example. Phase 3 slice 3a (2026-10-08) added the editor's pure logic in `viewer/src/detail-editor/`: document operations, validation, serialisation, reference-safe rename and delete, the `bottom` datum, and mirrored use of a detail. Slice 3b added the canvas logic and slice 3c the page itself: `viewer/detail-editor.html` opens a bundle (folder, `.oebfz` or `?demo`), draws a detail in plan or section, edits members, regions and parameters with undo and redo, previews parameter values, and saves. Slice 3d links it to the main editor: the Details tree opens it, a junction's properties open its detail, and a save refreshes only the affected 3D groups. Junction markers now sit at their real positions. Slice 3e adds assignment from the page: candidates and other junctions with a suggested grid location, a location picker, per-junction parameter overrides, the mirror flag, relocate and unassign, with the 3D view following each change. Phase 3 is complete. Phase 4 adds the building reference: a plan thumbnail on the detail page showing every junction coloured by the detail it uses, with a legend, a level filter, highlighting, Show in 3D editor, and an Also used at list in the main editor's junction properties. Phase 5 adds `oebf validate` (a bundle checker for people and LLMs), the guide section for details, and the IFC round trip of junction details; along the way it fixed level resolution for editor-made bundles and several files the editor wrote without a schema. Known gaps in imported bundles are tracked in #106. Design: `docs/plans/2026-10-08-detail-editor-design.md`.
 
 ---
 
@@ -103,6 +103,7 @@ See `docs/roadmap.md` for the full version-by-version plan.
 | #97 | Bezier and spline path segments | v0.3 | Scope gap; silently skipped today |
 | #98 | Honour sweep_mode, caps, offsets | v0.3 | Scope gap; fields ignored by loader |
 | #100 | Library format differs from spec schemas | v0.3 | Two profile dialects |
+| #106 | IFC importer: imported bundles do not pass oebf validate | v0.3 | Schemas, profiles, materials, parent_group_id, slabs |
 | #101 | commands.json, ifc/mapping.json, migrations | Pre-v0.5 | Spec items not delivered |
 
 ---
