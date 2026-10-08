@@ -15,6 +15,7 @@
 
 import { parsePath } from '../loader/loadPath.js';
 import { detailToGeometry } from './detailToGeometry.js';
+import { withStoreyGroups, loadStoreyGroups } from './levelResolver.js';
 
 /**
  * @param {object} args
@@ -27,6 +28,8 @@ import { detailToGeometry } from './detailToGeometry.js';
 export async function loadDetails({ readJson, model, junctions, grids }) {
   const details = [];
   const byId = new Map();
+  // Levels: the hierarchy's storeys, plus storey groups for bundles made in the editor.
+  const levelModel = withStoreyGroups(model, await loadStoreyGroups(readJson, model));
 
   for (const id of (model.details ?? [])) {
     try {
@@ -70,7 +73,7 @@ export async function loadDetails({ readJson, model, junctions, grids }) {
       const primaryId = junction.priority?.[0] ?? junction.elements[0];
       const elementPaths = new Map([[primaryId, await pointsFor(primaryId)]]);
 
-      const { geometry, warnings } = detailToGeometry(detail, junction, { model, grids, elementPaths, slabs });
+      const { geometry, warnings } = detailToGeometry(detail, junction, { model: levelModel, grids, elementPaths, slabs });
       if (geometry) junction.detailGeometry = geometry;
       if (warnings.length) junction.detailWarnings = warnings;
     } catch (err) {

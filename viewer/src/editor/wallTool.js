@@ -90,9 +90,11 @@ export class WallTool {
     }
 
     const pathData = {
-      id: pathId,
-      type: 'Path',
-      closed: false,
+      '$schema':   'oebf://schema/0.1/path',
+      id:          pathId,
+      type:        'Path',
+      description: 'Wall path',
+      closed:      false,
       segments,
     };
 

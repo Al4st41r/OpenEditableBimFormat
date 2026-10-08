@@ -12,6 +12,8 @@
     "description":  { "type": "string" },
     "ifc_type":     { "type": "string" },
     "elevation_m":  { "type": "number" },
+    "z_m":          { "type": "number", "description": "Storey elevation in metres, as written by the editor. Same meaning as elevation_m; readers accept either." },
+    "name":         { "type": "string", "description": "Display name, as written by the editor." },
     "children":     { "type": "array", "items": { "type": "string" } },
     "properties":   { "type": "object" }
   }

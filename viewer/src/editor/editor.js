@@ -16,6 +16,7 @@ import { applyJunctionClipping, buildCustomJunctionMesh, buildJunctionDetailMesh
 import { ensureDetailMaterials } from '../detail/detailMaterials.js';
 import { loadDetails } from '../detail/loadDetails.js';
 import { junctionPoint } from '../detail/junctionPosition.js';
+import { withStoreyGroups, loadStoreyGroups } from '../detail/levelResolver.js';
 import { parsePath } from '../loader/loadPath.js';
 import { loadDetailContext } from '../detail-editor/detailStore.js';
 import { buildSnapshot } from '../detail-editor/bundleSnapshot.js';
@@ -800,10 +801,10 @@ async function _loadAndRenderBundle(adapter) {
     adapter,
   );
   const elementPaths = new Map([..._elementRegistry].map(([id, reg]) => [id, parsePath(reg.pathData).points]));
-  junctionEditor.loadJunctions(junctions, (j) => junctionPoint(j, { model, grids, elementPaths }));
+  _bundleCtx.positionCtx = { model: withStoreyGroups(model, await loadStoreyGroups((p) => adapter.readJson(p), model)), grids, elementPaths };
+  junctionEditor.loadJunctions(junctions, (j) => junctionPoint(j, _bundleCtx.positionCtx));
   junctionEditor.onOpenDetail = (detailId) => _openDetailEditor(detailId);
   junctionEditor.onFocusJunction = (id) => _focusJunction(id);
-  _bundleCtx.positionCtx = { model, grids, elementPaths };
 
   // Fit camera to loaded geometry
   const box = new THREE.Box3().setFromObject(editorScene.modelGroup);

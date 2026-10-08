@@ -8,7 +8,7 @@
 
 import { validateDetail } from './detailValidate.js';
 import { serializeDetail } from './detailSerializer.js';
-import { listLevels } from '../detail/levelResolver.js';
+import { listLevels, withStoreyGroups, loadStoreyGroups } from '../detail/levelResolver.js';
 import { parsePath } from '../loader/loadPath.js';
 
 export class DetailSaveError extends Error {
@@ -71,7 +71,8 @@ export async function loadDetailContext(adapter) {
   return {
     mode: 'adapter', projectName, details, detailIds: details.map((d) => d.id),
     profiles, profileIds: Object.keys(profiles), materials, materialIds: Object.keys(materials),
-    junctions, elements, grids, levels: listLevels(model), elementPaths, warnings,
+    junctions, elements, grids, elementPaths, warnings,
+    levels: listLevels(withStoreyGroups(model, await loadStoreyGroups((p) => adapter.readJson(p), model))),
   };
 }
 

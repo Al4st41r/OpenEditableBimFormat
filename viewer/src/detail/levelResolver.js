@@ -42,3 +42,33 @@ export function listLevels(model) {
   walk(model?.hierarchy);
   return out;
 }
+
+/**
+ * Bundles made in the editor have no model.hierarchy: their storeys are the ids
+ * in model.storeys plus groups/<id>.json (ifc_type IfcBuildingStorey, z_m).
+ * Returns a model whose hierarchy also contains those storeys, so every
+ * consumer of the hierarchy (resolveLevelZ, listLevels) works on both kinds of
+ * bundle. A storey already in the hierarchy wins; the input is not changed.
+ */
+export function withStoreyGroups(model, groups) {
+  const known = new Set(listLevels(model).map((l) => l.id));
+  const heightOf = (g) => (typeof g.z_m === 'number' ? g.z_m : g.elevation_m);   // the editor writes z_m; the schema also allows elevation_m
+  const nodes = (groups ?? [])
+    .filter((g) => g?.ifc_type === 'IfcBuildingStorey' && typeof heightOf(g) === 'number' && !known.has(g.id))
+    .map((g) => ({ type: 'Storey', id: g.id, description: g.name ?? g.id, elevation: heightOf(g), children: [] }));
+  if (nodes.length === 0) return model;
+  const h = model?.hierarchy;
+  const hierarchy = h
+    ? { ...h, children: [...(h.children ?? []), ...nodes] }
+    : { type: 'Project', id: 'project-root', description: '', children: nodes };
+  return { ...model, hierarchy };
+}
+
+/** Read groups/<id>.json for every id in model.storeys; unreadable ones are skipped. */
+export async function loadStoreyGroups(readJson, model) {
+  const groups = [];
+  for (const id of model?.storeys ?? []) {
+    try { groups.push(await readJson(`groups/${id}.json`)); } catch { /* skipped */ }
+  }
+  return groups;
+}

@@ -30,6 +30,19 @@ describe('loadDetailContext', () => {
     expect(c.elements['element-wall-east-gf'].profile_id).toBe('profile-cavity-250');
   });
 
+  test('levels also come from storey groups, for bundles made in the editor', async () => {
+    const a = makeFsAdapter();
+    const read = a.readJson;
+    a.readJson = async (p) => {
+      if (p === 'groups/storey-first.json') return { id: 'storey-first', type: 'Group', ifc_type: 'IfcBuildingStorey', z_m: 3 };
+      const d = await read(p);
+      if (p === 'model.json') { d.storeys = ['storey-first']; }
+      return d;
+    };
+    const c = await loadDetailContext(a);
+    expect(c.levels).toEqual([{ id: 'storey-gf', elevation: 0 }, { id: 'storey-first', elevation: 3 }]);
+  });
+
   test('a missing grid or element path is a warning, not a failure', async () => {
     const a = makeFsAdapter();
     const read = a.readJson;

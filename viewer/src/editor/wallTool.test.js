@@ -87,6 +87,16 @@ describe('WallTool._onCommit', () => {
     expect(elKeys).toHaveLength(1);
   });
 
+  test('the path file declares its schema and has a description, so a bundle validates', async () => {
+    const { tool, adapter } = makeTool();
+    await tool._onCommit(TWO_POINTS);
+    const pathKey = [...adapter._map.keys()].find(k => k.startsWith('paths/'));
+    const path = JSON.parse(adapter._map.get(pathKey));
+    expect(path['$schema']).toBe('oebf://schema/0.1/path');
+    expect(typeof path.description).toBe('string');
+    expect(path.id).toBe(pathKey.replace('paths/', '').replace('.json', ''));
+  });
+
   test('path entity has correct schema fields', async () => {
     const { tool, adapter } = makeTool();
     await tool._onCommit(TWO_POINTS);

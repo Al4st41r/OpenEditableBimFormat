@@ -1,6 +1,11 @@
 import { describe, test, expect } from 'vitest';
 import { MemoryAdapter } from './storageAdapter.js';
 import { createNewBundle } from './newBundle.js';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const SPEC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../spec/schema');
 
 describe('createNewBundle', () => {
   test('returns a MemoryAdapter', () => {
@@ -63,5 +68,42 @@ describe('createNewBundle', () => {
   test('empty string project name falls back to New Project', () => {
     const adapter = createNewBundle('');
     expect(adapter.name).toBe('New Project');
+  });
+});
+
+describe('createNewBundle: a bundle that validates by itself', () => {
+  test('carries every spec schema, identical to spec/schema (so oebf validate can check it)', async () => {
+    const adapter = createNewBundle('Test');
+    for (const f of fs.readdirSync(SPEC).filter((n) => n.endsWith('.schema.json'))) {
+      const expected = JSON.parse(fs.readFileSync(path.join(SPEC, f), 'utf8'));
+      expect(await adapter.readJson(`schema/${f}`), f).toEqual(expected);
+    }
+  });
+
+  test('has a schema index listing the entity types', async () => {
+    const adapter = createNewBundle('Test');
+    const index = await adapter.readJson('schema/oebf-schema.json');
+    expect(index.$id).toBe('oebf://schema/0.1');
+    expect(index.definitions.entityTypes).toContain('detail');
+    expect(index.definitions.entityTypes).toContain('junction');
+  });
+
+  test('the first storey group declares its schema and a description', async () => {
+    const adapter = createNewBundle('Test');
+    const g = await adapter.readJson('groups/storey-ground.json');
+    expect(g['$schema']).toBe('oebf://schema/0.1/group');
+    expect(g.description).toBeTruthy();
+    expect(g).toMatchObject({ id: 'storey-ground', ifc_type: 'IfcBuildingStorey', z_m: 0 });
+  });
+
+  test('model.json lists details so a saved detail is registered', async () => {
+    const model = await createNewBundle('Test').readJson('model.json');
+    expect(model.details).toEqual([]);
+  });
+
+  test('the empty materials library declares its schema', async () => {
+    const lib = await createNewBundle('Test').readJson('materials/library.json');
+    expect(lib['$schema']).toBe('oebf://schema/0.1/materials');
+    expect(lib.materials).toEqual([]);
   });
 });

@@ -79,3 +79,31 @@ describe('loadDetails and slabs', () => {
     expect(warn.mock.calls.flat().join(' ')).toMatch(/storey-ff/);
   });
 });
+
+describe('loadDetails on an editor-made bundle (storeys as groups, no hierarchy)', () => {
+  const files = {
+    'details/detail-box.json': makeDetail(),
+    'elements/element-a.json': { id: 'element-a', path_id: 'path-a' },
+    'paths/path-a.json': { segments: [{ type: 'line', start: { x: 2, y: 3, z: 0 }, end: { x: 8, y: 3, z: 0 } }] },
+    'groups/storey-ff.json': { id: 'storey-ff', type: 'Group', ifc_type: 'IfcBuildingStorey', z_m: 3 },
+  };
+  const readJson = async (rel) => { if (!(rel in files)) throw new Error(`File not found: ${rel}`); return structuredClone(files[rel]); };
+  const model = { details: ['detail-box'], storeys: ['storey-ff'] };   // no hierarchy
+
+  test('the junction is placed at the storey height from its group', async () => {
+    const j = makeJunction();
+    await loadDetails({ readJson, model, junctions: [j], grids: [GRID] });
+    expect(j.detailGeometry).toBeDefined();
+    expect(bbox(j.detailGeometry).min[2]).toBeCloseTo(3, 9);
+  });
+
+  test('without the storey group the failure names the level', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { 'groups/storey-ff.json': _x, ...rest } = files;
+    const rj = async (rel) => { if (!(rel in rest)) throw new Error('missing'); return structuredClone(rest[rel]); };
+    const j = makeJunction();
+    await loadDetails({ readJson: rj, model, junctions: [j], grids: [GRID] });
+    expect(j.detailGeometry).toBeUndefined();
+    expect(warn.mock.calls.flat().join(' ')).toMatch(/storey-ff/);
+  });
+});

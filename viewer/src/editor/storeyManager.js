@@ -161,8 +161,9 @@ export class StoreyManager {
     const s = this._storeys.find(x => x.id === id);
     if (!s) return;
     await writeEntity(this._adapter, `groups/${s.id}.json`, {
+      '$schema': 'oebf://schema/0.1/group',
       id: s.id, type: 'Group', ifc_type: 'IfcBuildingStorey',
-      name: s.name, z_m: s.z_m, description: '',
+      name: s.name, z_m: s.z_m, description: s.name ?? '',
     });
   }
 }
