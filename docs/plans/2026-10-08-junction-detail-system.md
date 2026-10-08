@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-08
 **Issue:** #81 (extended)
-**Status:** Phases 1 and 2 complete; phase 3 slices 3a to 3d complete (2026-10-08); the rest of phases 3 to 5 pending
+**Status:** Phases 1 to 3 complete (2026-10-08); phases 4 and 5 pending
 **Supersedes:** the "Junction detail editor" section of `docs/roadmap.md` (v0.4)
 
 ---
@@ -321,7 +321,7 @@ Playwright (extends `tests/e2e/`):
 |---|---|---|
 | 1. Schema and resolvers | `detail.schema.json`, junction and model schema changes, sync, example Detail and junction updates, the pure resolver modules, tests S, I, T, resolver tests. | All section 6.1 to 6.4 tests pass. Example bundle validates. No UI. |
 | 2. Loading and 3D (complete) | Loading, `detailToGeometry.js`, renderer integration through the custom-junction path, parameter-bound coordinates, reuse tests R1 to R3, demo archive re-packed. | The four example corners render from one Detail in the viewer; SE shows its override. |
-| 3. Detail editor (design: `2026-10-08-detail-editor-design.md`) | 2D canvas reusing profile editor code, member list, parameter panel, save, R4 and R5, section 6.7. | A Detail can be created and edited in the browser, and the 3D view updates. |
+| 3. Detail editor (complete; design: `2026-10-08-detail-editor-design.md`) | 2D canvas reusing profile editor code, member list, parameter panel, save, R4 and R5, section 6.7. | A Detail can be created and edited in the browser, and the 3D view updates. |
 | 4. Building reference | Plan thumbnail, usage list, navigation, candidate suggestions, section 6.8. | Opening a Detail shows and navigates to all its locations. |
 | 5. Guide and IFC | Update `OEBF-GUIDE.md`, LLM harness cases, IFC exporter writes the detail reference as a property set (`OEBF_Junction.DetailId`). | Section 6.9 passes. IFC round trip keeps `detail_id`. |
 

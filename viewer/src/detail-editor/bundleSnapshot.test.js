@@ -18,7 +18,7 @@ describe('buildSnapshot', () => {
     expect(Object.keys(s.profiles)).toEqual(['profile-cavity-250']);
     expect(s.materials['mat-brick-common']).toEqual({ id: 'mat-brick-common', name: expect.any(String), colour_hex: expect.stringMatching(/^#/) });
     expect(s.junctions.map((j) => j.id)).toContain('junction-ne-corner');
-    expect(s.elements['element-wall-east-gf']).toEqual({ id: 'element-wall-east-gf', ifc_type: 'IfcWall' });
+    expect(s.elements['element-wall-east-gf']).toEqual({ id: 'element-wall-east-gf', ifc_type: 'IfcWall', profile_id: 'profile-cavity-250' });
     expect(s.activeDetailId).toBe('detail-corner-cavity-butt');
   });
 
@@ -28,6 +28,13 @@ describe('buildSnapshot', () => {
     expect(Object.keys(j).sort()).toEqual(['detail_id', 'detail_overrides', 'elements', 'id', 'location', 'priority', 'rule']);
     expect(j.detail_overrides).toEqual({ cavity_closer_width_m: 0.075 });
     expect(s.activeDetailId).toBeNull();
+  });
+
+  test('carries grids, levels and element paths for the location picker', async () => {
+    const s = buildSnapshot(await ctx(), null);
+    expect(s.grids.map((g) => g.id)).toEqual(['grid-structural']);
+    expect(s.levels).toEqual([{ id: 'storey-gf', elevation: 0 }]);
+    expect(s.elementPaths['element-wall-north-gf']).toHaveLength(2);
   });
 
   test('does not carry geometry payloads or detail geometry', async () => {
@@ -47,6 +54,16 @@ describe('snapshotToContext', () => {
     expect(back.profileIds).toEqual(full.profileIds);
     expect(back.materialIds.sort()).toEqual(full.materialIds.sort());
     expect(back.mode).toBe('snapshot');
+    expect(back.grids).toEqual(full.grids);
+    expect(back.levels).toEqual(full.levels);
+    expect(back.elementPaths).toEqual(full.elementPaths);
+  });
+
+  test('an older snapshot without grids, levels or paths still loads, with empty defaults', async () => {
+    const old = buildSnapshot(await ctx(), null);
+    delete old.grids; delete old.levels; delete old.elementPaths;
+    const back = snapshotToContext(old);
+    expect(back.grids).toEqual([]); expect(back.levels).toEqual([]); expect(back.elementPaths).toEqual({});
   });
 
   test('throws on a malformed snapshot', () => {

@@ -21,6 +21,25 @@ describe('loadDetailContext', () => {
     expect(c.mode).toBe('adapter');
   });
 
+  test('also reads what assigning a detail needs: grids, levels, element paths and profiles', async () => {
+    const c = await loadDetailContext(makeFsAdapter());
+    expect(c.grids.map((g) => g.id)).toEqual(['grid-structural']);
+    expect(c.levels).toEqual([{ id: 'storey-gf', elevation: 0 }]);
+    expect(Object.keys(c.elementPaths).sort()).toEqual(['element-wall-east-gf', 'element-wall-north-gf', 'element-wall-south-gf', 'element-wall-west-gf']);
+    expect(c.elementPaths['element-wall-east-gf']).toEqual([{ x: 5.4, y: 8.5, z: 0 }, { x: 5.4, y: 0, z: 0 }]);
+    expect(c.elements['element-wall-east-gf'].profile_id).toBe('profile-cavity-250');
+  });
+
+  test('a missing grid or element path is a warning, not a failure', async () => {
+    const a = makeFsAdapter();
+    const read = a.readJson;
+    a.readJson = async (p) => { if (p === 'grids/grid-structural.json' || p === 'paths/path-wall-east-gf.json') throw new Error('gone'); return read(p); };
+    const c = await loadDetailContext(a);
+    expect(c.grids).toEqual([]);
+    expect(c.elementPaths['element-wall-east-gf']).toBeUndefined();
+    expect(c.warnings.length).toBeGreaterThanOrEqual(2);
+  });
+
   test('a missing detail file is a warning, not a failure', async () => {
     const a = makeFsAdapter();
     const read = a.readJson;

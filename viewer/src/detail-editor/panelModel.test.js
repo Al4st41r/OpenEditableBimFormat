@@ -124,3 +124,85 @@ describe('messages and save state', () => {
     expect((await model({ doc })).parameters[0].usedBy).toBe(3);
   });
 });
+
+describe('usage rows for assignment (slice 3e)', () => {
+  const full = async (over = {}) => {
+    const c = await load();
+    const doc = exampleDetail();
+    return buildPanelModel({
+      doc, selection: null, validation: [], dirty: false, canUndo: false, canRedo: false,
+      profileIds: c.profileIds, materialIds: c.materialIds, junctions: c.junctions, elements: c.elements,
+      grids: c.grids, levels: c.levels, elementPaths: c.elementPaths, ...over,
+    });
+  };
+  const row = (m, id) => m.usage.junctions.find((j) => j.id === id);
+
+  test('each junction shows the effective value of every parameter and whether it is overridden', async () => {
+    const m = await full();
+    expect(row(m, 'junction-se-corner').parameters).toEqual([{ name: 'cavity_closer_width_m', value: 0.075, overridden: true, min: 0.03, max: 0.1 }]);
+    expect(row(m, 'junction-sw-corner').parameters).toEqual([{ name: 'cavity_closer_width_m', value: 0.05, overridden: false, min: 0.03, max: 0.1 }]);
+  });
+
+  test('the mirror flag and raw overrides stay on the row', async () => {
+    const c = await load();
+    const junctions = c.junctions.map((j) => (j.id === 'junction-nw-corner' ? { ...j, detail_mirrored: true } : j));
+    const m = await full({ junctions });
+    expect(row(m, 'junction-nw-corner').mirrored).toBe(true);
+    expect(row(m, 'junction-se-corner').overrides).toEqual({ cavity_closer_width_m: 0.075 });
+  });
+
+  test('junctions that fit have no warnings; a mismatch is reported on the junctions it affects', async () => {
+    const m = await full();
+    expect(m.usage.junctions.every((j) => j.warnings.length === 0)).toBe(true);
+    const c = await load();
+    const elements = { ...c.elements, 'element-wall-east-gf': { ...c.elements['element-wall-east-gf'], profile_id: 'profile-other' } };
+    const bad = await full({ elements });
+    expect(row(bad, 'junction-ne-corner').warnings.join(' ')).toMatch(/through-wall.*profile-other/);
+    expect(row(bad, 'junction-nw-corner').warnings).toEqual([]);   // west wall is primary there, not east
+  });
+
+  test('candidates carry a suggested grid location', async () => {
+    const c = await load();
+    const junctions = c.junctions.map((j) => (j.id === 'junction-sw-corner' ? (({ detail_id, location, ...rest }) => rest)(j) : j));
+    const m = await full({ junctions });
+    expect(m.usage.candidates).toEqual([{ id: 'junction-sw-corner', rule: 'butt', suggestion: '1 / A @ storey-gf', approximate: false }]);
+  });
+
+  test('without grid data there is no suggestion', async () => {
+    const c = await load();
+    const junctions = c.junctions.map((j) => (j.id === 'junction-sw-corner' ? (({ detail_id, location, ...rest }) => rest)(j) : j));
+    const m = await full({ junctions, grids: undefined, levels: undefined, elementPaths: undefined });
+    expect(m.usage.candidates[0].suggestion).toBeNull();
+  });
+
+  test('junctions that have no detail and do not match the condition are offered as others (the condition is advisory)', async () => {
+    const m = await full();
+    expect(m.usage.others).toEqual([{ id: 'junction-ne-padstone', rule: 'custom', suggestion: '2 / B @ storey-gf', approximate: false }]);
+  });
+
+  test('a candidate is not repeated in others', async () => {
+    const c = await load();
+    const junctions = c.junctions.map((j) => (j.id === 'junction-sw-corner' ? (({ detail_id, location, ...rest }) => rest)(j) : j));
+    const m = await full({ junctions });
+    expect(m.usage.candidates.map((x) => x.id)).toEqual(['junction-sw-corner']);
+    expect(m.usage.others.map((x) => x.id)).toEqual(['junction-ne-padstone']);
+  });
+
+  test('a junction using another detail is not offered', async () => {
+    const c = await load();
+    const junctions = [...c.junctions, { id: 'junction-x', type: 'Junction', elements: ['element-wall-north-gf', 'element-wall-east-gf'], rule: 'butt', priority: [], detail_id: 'detail-other' }];
+    expect((await full({ junctions })).usage.others.map((x) => x.id)).toEqual(['junction-ne-padstone']);
+  });
+
+  test('assigning needs a saved detail: needsSave follows the dirty flag', async () => {
+    expect((await full({ dirty: false })).usage.needsSave).toBe(false);
+    expect((await full({ dirty: true })).usage.needsSave).toBe(true);
+  });
+
+  test('a detail with no parameters gives rows with an empty parameter list', async () => {
+    const doc = exampleDetail(); delete doc.parameters;
+    doc.geometry.regions[0].vertices = doc.geometry.regions[0].vertices.map((v) => ({ x: typeof v.x === 'object' ? 0.05 : v.x, y: typeof v.y === 'object' ? 0.195 : v.y }));
+    const m = await full({ doc });
+    expect(row(m, 'junction-sw-corner').parameters).toEqual([]);
+  });
+});

@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest';
-import { resolveLevelZ } from './levelResolver.js';
+import { resolveLevelZ, listLevels } from './levelResolver.js';
 
 const MODEL = {
   hierarchy: {
@@ -47,5 +47,21 @@ describe('resolveLevelZ', () => {
   test('a storey without a numeric elevation throws', () => {
     const bad = { hierarchy: { type: 'Project', id: 'p', children: [{ type: 'Storey', id: 's', children: [] }] } };
     expect(() => resolveLevelZ(bad, 's')).toThrow(/elevation/i);
+  });
+});
+
+describe('listLevels', () => {
+  test('lists every storey with its elevation, in hierarchy order', () => {
+    expect(listLevels(MODEL)).toEqual([
+      { id: 'storey-gf', elevation: 0.0 }, { id: 'storey-ff', elevation: 3.0 }, { id: 'storey-basement', elevation: -2.4 },
+    ]);
+  });
+  test('no hierarchy or no storeys gives an empty list', () => {
+    expect(listLevels({})).toEqual([]);
+    expect(listLevels(undefined)).toEqual([]);
+    expect(listLevels({ hierarchy: { type: 'Project', id: 'p', children: [] } })).toEqual([]);
+  });
+  test('storeys without a numeric elevation are skipped', () => {
+    expect(listLevels({ hierarchy: { type: 'Project', id: 'p', children: [{ type: 'Storey', id: 's', children: [] }] } })).toEqual([]);
   });
 });

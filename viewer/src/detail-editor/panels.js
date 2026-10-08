@@ -99,19 +99,53 @@ function rightPanel(pm, bundle, a) {
 
   out.push(h('h3', {}, 'Condition'), ...conditionEditor(pm, a));
 
-  out.push(h('h3', {}, 'Used at'));
-  if (pm.usage.junctions.length === 0) out.push(h('div', { class: 'note' }, 'No junction references this detail yet.'));
-  for (const j of pm.usage.junctions) {
-    const ov = Object.entries(j.overrides).map(([k, v]) => `${k} = ${v}`).join(', ');
-    out.push(h('div', { class: 'msg' }, h('strong', {}, j.id), ' ', j.location ?? 'no location', j.mirrored ? ' · mirrored' : '', ov ? h('div', { class: 'note' }, `Overrides: ${ov}`) : null));
-  }
-  if (pm.usage.candidates.length) {
-    out.push(h('div', { class: 'note' }, `Could also apply to: ${pm.usage.candidates.map((c) => c.id).join(', ')}`));
-  }
+  out.push(h('h3', {}, 'Used at'), ...usageSection(pm, a));
 
   out.push(h('h3', {}, 'Checks'));
   if (pm.messages.length === 0) out.push(h('div', { class: 'note' }, 'No problems found.'));
   for (const m of pm.messages) out.push(h('div', { class: 'msg err' }, h('span', { class: 'note' }, `${m.path || 'detail'}: `), m.message));
+  return out;
+}
+
+function usageSection(pm, a) {
+  const u = pm.usage;
+  const locked = u.needsSave;
+  const out = [];
+  if (locked) out.push(h('div', { class: 'note warn' }, 'Save the detail before assigning it to junctions or changing their settings.'));
+  if (u.junctions.length === 0) out.push(h('div', { class: 'note' }, 'No junction uses this detail yet.'));
+
+  for (const j of u.junctions) {
+    out.push(h('div', { class: 'box' },
+      h('div', { class: 'row' }, h('strong', {}, j.id), h('span', { class: 'note', style: 'margin-left:auto' }, j.location ?? 'no location')),
+      h('div', { class: 'row' },
+        h('button', { disabled: locked, onclick: () => a.junctionLocation(j.id) }, 'Change location'),
+        h('button', { disabled: locked, onclick: () => a.junctionUnassign(j.id) }, 'Unassign'),
+        h('label', { style: 'flex:1;display:flex;gap:4px;align-items:center;font-size:12px;opacity:1' },
+          h('input', { type: 'checkbox', checked: j.mirrored, disabled: locked, onchange: (e) => a.junctionMirror(j.id, e.target.checked) }), 'Mirrored')),
+      ...j.parameters.map((p) => h('div', { class: 'row' },
+        h('label', { title: `${p.min ?? ''} to ${p.max ?? ''}` }, p.name),
+        h('input', { type: 'number', step: 'any', value: p.value, min: p.min, max: p.max, disabled: locked,
+          onchange: (e) => { const v = parseFloat(e.target.value); if (Number.isFinite(v)) a.junctionOverride(j.id, p.name, v); } }),
+        p.overridden ? h('button', { disabled: locked, title: 'Back to the detail default', onclick: () => a.junctionOverride(j.id, p.name, null) }, 'Reset') : h('span', { class: 'note' }, 'default'))),
+      ...j.warnings.map((w) => h('div', { class: 'msg warn' }, w))));
+  }
+
+  if (u.candidates.length) {
+    out.push(h('h3', {}, 'Could also apply to'));
+    for (const c of u.candidates) {
+      out.push(h('div', { class: 'item' },
+        h('span', {}, c.id),
+        h('span', { class: 'meta' }, c.suggestion ? `${c.suggestion}${c.approximate ? ' (approx)' : ''}` : 'no suggestion'),
+        h('button', { disabled: locked, onclick: () => a.junctionAssign(c.id) }, 'Assign…')));
+    }
+  }
+  if (u.others.length) {
+    const pick = h('select', {}, u.others.map((o) => h('option', { value: o.id }, `${o.id} (${o.rule})`)));
+    out.push(
+      h('h3', {}, 'Other junctions'),
+      h('div', { class: 'note' }, 'These do not match the detail\'s condition, but you can still assign it.'),
+      h('div', { class: 'row' }, pick, h('button', { disabled: locked, onclick: () => a.junctionAssign(pick.value) }, 'Assign…')));
+  }
   return out;
 }
 

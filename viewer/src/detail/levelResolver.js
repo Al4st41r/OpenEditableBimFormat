@@ -30,3 +30,15 @@ export function resolveLevelZ(model, levelId, offset = 0) {
   }
   return storey.elevation + (offset ?? 0);
 }
+
+/** Every storey with a numeric elevation, in hierarchy order: [{ id, elevation }]. */
+export function listLevels(model) {
+  const out = [];
+  const walk = (node) => {
+    if (!node || typeof node !== 'object') return;
+    if (node.type === 'Storey' && typeof node.elevation === 'number') out.push({ id: node.id, elevation: node.elevation });
+    for (const child of node.children ?? []) walk(child);
+  };
+  walk(model?.hierarchy);
+  return out;
+}

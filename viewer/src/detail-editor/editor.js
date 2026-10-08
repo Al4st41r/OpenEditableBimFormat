@@ -9,13 +9,15 @@
  */
 
 import { FsaAdapter, MemoryAdapter } from '../editor/storageAdapter.js';
-import { setUnit, getUnit } from '../editor/units.js';
+import { setUnit, getUnit, toDisplay, fromDisplay } from '../editor/units.js';
 import * as D from './detailDocument.js';
 import { validateDetail } from './detailValidate.js';
 import { createDetail } from './detailSerializer.js';
 import { loadDetailContext, saveDetail } from './detailStore.js';
 import { snapshotToContext } from './bundleSnapshot.js';
 import { readyMessage, parseIncoming, savedMessage } from './messages.js';
+import { DETAIL_FIELDS, applyJunctionFields, validateJunctionFields, junctionMessage } from './junctionFields.js';
+import { assignDetail, unassignDetail, setOverride, setMirrored, setLocation, suggestLocation, validateLocation } from './junctionAssign.js';
 import { createState, commit, undo, redo, select, setPreview, setTool, markSaved, isDirty, canUndo, canRedo } from './pageState.js';
 import { buildCanvasModel, rulerTicks } from './canvasModel.js';
 import { createController, setControllerTool, handleEvent } from './canvasController.js';
@@ -85,6 +87,7 @@ function refresh() {
     const pm = buildPanelModel({
       doc: st.doc, selection: st.selection, validation, dirty: isDirty(st), canUndo: canUndo(st), canRedo: canRedo(st),
       profileIds: bundle.ctx.profileIds, materialIds: bundle.ctx.materialIds, junctions: bundle.ctx.junctions, elements: bundle.ctx.elements,
+      grids: bundle.ctx.grids, levels: bundle.ctx.levels, elementPaths: bundle.ctx.elementPaths,
     });
     renderPanels({ left: $('left-panel'), right: $('right-panel') }, pm, {
       profileIds: bundle.ctx.profileIds, materialIds: bundle.ctx.materialIds, materials: bundle.ctx.materials, previewValues: st.preview,
@@ -147,6 +150,11 @@ const actions = {
   removeParameter: (name) => apply((d) => D.removeParameter(d, name)),
   renameParameter: (from, to) => apply((d) => D.renameParameter(d, from, to).doc),
   setConditionRule: (rule) => apply((d) => (rule === null ? D.setCondition(d, null) : D.setCondition(d, { ...(d.condition ?? {}), rule, member_count: d.members.length, member_kinds: d.members.map((m) => m.kind) }))),
+  junctionMirror: (id, v) => updateJunction(id, (j) => setMirrored(j, v)),
+  junctionOverride: (id, name, value) => updateJunction(id, (j) => setOverride(j, st.doc, name, value)),
+  junctionUnassign: (id) => updateJunction(id, (j) => unassignDetail(j)),
+  junctionLocation: (id) => openLocationPicker(id, 'change'),
+  junctionAssign: (id) => openLocationPicker(id, 'assign'),
   preview: (name, value) => {
     const next = { ...(st.preview ?? {}) };
     if (value === null) delete next[name]; else next[name] = value;
@@ -351,6 +359,90 @@ $('new-btn').addEventListener('click', () => {
     create, cancel);
   dlg.showModal();
 });
+
+// ── junctions: assign, relocate, override, mirror ────────────────────────────
+/**
+ * Change one junction's detail fields. `change` is a pure operation from
+ * junctionAssign.js; the result is written to the bundle (or sent to the main
+ * editor when this page was opened from a snapshot) and the local copy updated.
+ */
+async function updateJunction(junctionId, change) {
+  if (!st || !bundle) return;
+  if (isDirty(st)) { status('Save the detail before changing junctions.', true); return; }
+  const live = bundle.ctx.junctions.find((j) => j.id === junctionId);
+  if (!live) { status(`Junction "${junctionId}" is not in this bundle`, true); return; }
+  try {
+    const next = change(live);
+    const fields = Object.fromEntries(DETAIL_FIELDS.map((k) => [k, next[k] ?? null]));
+    const problems = validateJunctionFields(fields);
+    if (problems.length) throw new Error(problems[0].message);
+
+    if (bundle.source === 'snapshot') {
+      if (!window.opener || window.opener.closed) throw new Error('The editor window that opened this page has been closed.');
+      window.opener.postMessage(junctionMessage({ junctionId, fields, persisted: false }), window.location.origin);
+    } else {
+      const path = `junctions/${junctionId}.json`;
+      await bundle.adapter.writeJson(path, applyJunctionFields(await bundle.adapter.readJson(path), fields));
+      if (window.opener && !window.opener.closed) window.opener.postMessage(junctionMessage({ junctionId, fields, persisted: true }), window.location.origin);
+    }
+    for (const k of DETAIL_FIELDS) { if (next[k] !== undefined) live[k] = next[k]; else delete live[k]; }
+    status(`Updated ${junctionId}.`);
+    refresh();
+  } catch (err) { status(err.message, true); }
+}
+
+/** Choose a grid location for a junction (assign a detail to it, or move it), pre-filled from where it is. */
+function openLocationPicker(junctionId, mode) {
+  const live = bundle.ctx.junctions.find((j) => j.id === junctionId);
+  const { grids, levels } = bundle.ctx;
+  const dlg = $('loc-dialog');
+  const mk = (tag, props = {}, ...kids) => { const e = Object.assign(document.createElement(tag), props); e.append(...kids); return e; };
+  const opt = (v, t = v) => mk('option', { value: v, textContent: t });
+  const row = (label, control) => mk('div', { className: 'row' }, mk('label', { textContent: label }), control);
+
+  if (grids.length === 0 || levels.length === 0) { status('This bundle has no grid or no storey to place a detail on. Add them in the main editor first.', true); return; }
+  const start = (mode === 'change' ? live.location : null) ?? suggestLocation(live, bundle.ctx) ?? { grid_id: grids[0].id, axes: [], level_id: levels[0].id, level_offset_m: 0 };
+
+  const grid = mk('select'); grids.forEach((g) => grid.append(opt(g.id))); grid.value = start.grid_id;
+  const ns = mk('select'); const ew = mk('select');
+  const level = mk('select'); levels.forEach((l) => level.append(opt(l.id, `${l.id} (${l.elevation} m)`)));  level.value = start.level_id;
+  const offset = mk('input', { type: 'number', step: getUnit() === 'mm' ? 1 : 0.001, value: toDisplay(start.level_offset_m ?? 0) });
+  const mirrored = mk('input', { type: 'checkbox' });
+  const msg = mk('div', { className: 'note' });
+  const ok = mk('button', { className: 'primary', textContent: mode === 'assign' ? 'Assign' : 'Move' });
+  const cancel = mk('button', { textContent: 'Cancel' });
+
+  const fillAxes = () => {
+    const g = grids.find((x) => x.id === grid.value);
+    const pick = (sel, dir, keep) => { sel.replaceChildren(...g.axes.filter((a) => a.direction === dir).map((a) => opt(a.id, `${a.id} (${dir === 'y' ? 'x' : 'y'} = ${toDisplay(a.offset_m)} ${getUnit()})`))); if (keep) sel.value = keep; };
+    pick(ns, 'y', start.axes[0]); pick(ew, 'x', start.axes[1]);
+  };
+  const current = () => ({ grid_id: grid.value, axes: [ns.value, ew.value], level_id: level.value, level_offset_m: fromDisplay(parseFloat(offset.value) || 0) });
+  const check = () => {
+    const problems = ns.value && ew.value ? validateLocation(current(), bundle.ctx) : ['This grid needs a north-south and an east-west axis.'];
+    msg.textContent = problems.join(' ');
+    ok.disabled = problems.length > 0;
+  };
+  fillAxes(); check();
+  grid.addEventListener('change', () => { fillAxes(); check(); });
+  for (const c of [ns, ew, level, offset]) c.addEventListener('change', check);
+
+  ok.addEventListener('click', () => {
+    const loc = current();
+    dlg.close();
+    if (mode === 'assign') updateJunction(junctionId, (j) => assignDetail(j, st.doc, { location: loc, mirrored: mirrored.checked }));
+    else updateJunction(junctionId, (j) => setLocation(j, loc));
+  });
+  cancel.addEventListener('click', () => dlg.close());
+
+  dlg.replaceChildren(
+    mk('h3', { textContent: mode === 'assign' ? `Assign ${st.doc.id} to ${junctionId}` : `Move ${junctionId}` }),
+    mk('div', { className: 'note', textContent: start.exact === false ? 'Suggested from where the walls meet; the nearest grid point is more than 300 mm away, so check it.' : 'The grid point and level the junction sits at.' }),
+    row('Grid', grid), row('N-S axis', ns), row('E-W axis', ew), row('Level', level), row(`Offset (${getUnit()})`, offset),
+    ...(mode === 'assign' ? [row('Mirrored', mirrored)] : []),
+    msg, ok, cancel);
+  dlg.showModal();
+}
 
 // ── save ─────────────────────────────────────────────────────────────────────
 async function save() {

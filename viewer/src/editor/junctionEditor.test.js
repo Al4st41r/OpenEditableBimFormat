@@ -280,3 +280,25 @@ describe('JunctionEditor: positions and detail links', () => {
     expect(written.rule).toBeDefined();
   });
 });
+
+describe('JunctionEditor.setDetail', () => {
+  test('updates the entry and the sprite, so the properties panel and later saves see the new link', () => {
+    const { je } = makeJunctionEditor();
+    je.loadJunctions([{ id: 'j-1', elements: ['a', 'b'], rule: 'butt' }]);
+    expect(je.setDetail('j-1', 'detail-x')).toBe(true);
+    expect(je._junctions[0].detailId).toBe('detail-x');
+    expect(je._junctions[0].sprite.userData.detailId).toBe('detail-x');
+    expect(je.setDetail('j-1', null)).toBe(true);
+    expect(je._junctions[0].detailId).toBeNull();
+  });
+  test('an unknown junction returns false', () => {
+    const { je } = makeJunctionEditor();
+    expect(je.setDetail('nope', 'detail-x')).toBe(false);
+  });
+  test('moves the marker when given a position', () => {
+    const { je } = makeJunctionEditor();
+    je.loadJunctions([{ id: 'j-1', elements: ['a', 'b'], rule: 'butt' }]);
+    je.setDetail('j-1', 'detail-x', { x: 1, y: 2, z: 3 });
+    expect(je._junctions[0].sprite.position).toMatchObject({ x: 1, y: 2, z: 3 });
+  });
+});

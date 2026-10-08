@@ -9,6 +9,7 @@
 
 import { loadDetails } from '../detail/loadDetails.js';
 import { saveDetail } from '../detail-editor/detailStore.js';
+import { applyJunctionFields, DETAIL_FIELDS } from '../detail-editor/junctionFields.js';
 
 /** Profiles marked `detail: true` are single-profile sub-assemblies, not Detail entities (design note E2). */
 export function splitProfileIds(profiles = {}) {
@@ -58,4 +59,34 @@ export function describeJunctionDetail(junction) {
     overrides: Object.entries(junction.detail_overrides ?? {}).map(([k, v]) => `${k} = ${v}`).join(', '),
     mirrored: junction.detail_mirrored === true,
   };
+}
+
+/**
+ * The detail editor changed a junction's detail fields. Write the junction file
+ * unless the page already did (`persisted`), update the live junction object,
+ * and say which details need their geometry recomputed (the old and the new one).
+ * Only the four detail fields are ever touched.
+ *
+ * @param {object|undefined} liveJunction - the editor's in-memory junction, updated in place
+ * @returns {Promise<{ previousDetailId: string|null, detailId: string|null, detailIds: string[] }>}
+ */
+export async function applyJunctionUpdate(adapter, { junctionId, fields, persisted }, liveJunction) {
+  const path = `junctions/${junctionId}.json`;
+  let current = liveJunction;
+  if (!persisted) {
+    let stored;
+    try { stored = await adapter.readJson(path); }
+    catch { throw new Error(`Junction "${junctionId}" could not be read`); }
+    await adapter.writeJson(path, applyJunctionFields(stored, fields));
+    current ??= stored;
+  }
+  const previousDetailId = (liveJunction ?? current)?.detail_id ?? null;
+
+  if (liveJunction) {
+    const next = applyJunctionFields(liveJunction, fields);
+    for (const key of DETAIL_FIELDS) { if (key in next) liveJunction[key] = next[key]; else delete liveJunction[key]; }
+    delete liveJunction.detailGeometry; delete liveJunction.detailWarnings;   // recomputed by the refresh
+  }
+  const detailId = liveJunction ? liveJunction.detail_id ?? null : applyJunctionFields(current ?? {}, fields).detail_id ?? null;
+  return { previousDetailId, detailId, detailIds: [...new Set([previousDetailId, detailId].filter(Boolean))] };
 }

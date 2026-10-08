@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-08
 **Issue:** #81, phase 3
-**Status:** Decisions E1 to E7 accepted (2026-10-08). Slices 3a to 3d complete; 3e pending.
+**Status:** Decisions E1 to E7 accepted (2026-10-08). Slices 3a to 3e complete: phase 3 is done.
 **Parent plan:** `docs/plans/2026-10-08-junction-detail-system.md`
 
 ---
@@ -190,7 +190,7 @@ Each slice leaves the tests green and is committed on its own.
 | 3b (complete) | `memberShapes`, `canvasModel`, hit testing, drag handling (`canvasEdit`), optional member `extent`. | Canvas model for the example detail matches expectations in plan and section, and matches the 3D model's orientation. |
 | 3c (complete) | `detail-editor.html`, DOM wiring, handoff, save. | The example detail opens, edits and saves to a bundle; checked headlessly. |
 | 3d (complete) | Editor integration: tree section (E2), open from a junction, partial rebuild (E7), junction positions from `location`, `model.details` on save. | Editing a detail updates all four example corners in the editor without a reload. |
-| 3e | Usage and candidates, location picker, parameter preview slider, overrides in the properties panel. | A second junction can be assigned and overridden from the UI. |
+| 3e (complete) | Usage and candidates, location picker, parameter preview slider, overrides in the properties panel. | A second junction can be assigned and overridden from the UI. |
 
 Slice 3a is useful on its own: with it, an LLM or script can create and validate details safely.
 
@@ -237,6 +237,19 @@ Slice 3a is useful on its own: with it, an LLM or script can create and validate
 - **Bug fixed:** the junction Apply button rewrote the whole junction file from a fixed template, which would have dropped `detail_id`, `location`, `detail_overrides`, `detail_mirrored`, `priority` and `trim_planes` from any junction using a detail (and had been dropping `priority` and `trim_planes` before details existed). It now changes only the rule on an existing junction.
 - **`model.details`:** nothing extra was needed. The editor's save already keeps unknown `model.json` keys, and `saveDetail` keeps `model.details` up to date.
 - **Checked in the real editor** with `shot-scraper` (software WebGL), 17 checks: the tree, marker positions, four detail groups, opening from the tree, an edit in the page raising the corner blocks from 2.7 m to 3.3 m with the four groups replaced in place and the file written, the Open detail button, Apply keeping the detail fields, and no page errors. The scripts are in `viewer/tests/e2e/` with a Playwright wrapper that has not been run here. `editor.html` also gained a `?demo` mode and a read-only `window.__editor` hook for these checks.
+
+---
+
+## 8e. Slice 3e Outcome
+
+- **Usage rows:** each junction using the detail shows its location, a mirror checkbox, every parameter with its effective value (an input, with Reset when overridden) and fit warnings (risk X4: element kind or profile differs from the member it maps to, or the member and element counts differ). Overrides outside a parameter's range are refused with the range in the message.
+- **Assigning:** unassigned junctions that match the advisory condition are listed with a suggested grid location, and any other unassigned junction can be assigned from an "Other junctions" list, so the condition stays advisory (D3). The location picker opens pre-filled (grid, north-south axis, east-west axis, level, offset), validates as you change it, and never assigns without a location. The suggestion comes from where the junction's walls meet, snapped to the nearest grid intersection and level, and says when that is more than 300 mm away.
+- **Unassigning and relocating** work from the same rows. Junction controls are disabled while the detail has unsaved changes, because the junction file would otherwise point at a detail that is not on disk yet.
+- **Persistence:** the page writes the junction file itself for file-system and archive bundles and tells the opener (`detail-junction`, `persisted: true`). A snapshot page sends the change and the editor writes it (`applyJunctionUpdate`). Only the four detail fields (`detail_id`, `location`, `detail_overrides`, `detail_mirrored`) can change, whatever a message contains; priority, trim planes, rule and custom geometry are preserved.
+- **Main editor:** a junction update refreshes the old and the new detail's geometry, swaps only those 3D groups and updates the junction marker.
+- **Context:** `loadDetailContext` and the snapshot now also carry grids, levels, element paths and element profile ids.
+- **Checked in the real editor** with `shot-scraper`: 20 checks on the page (unassign, candidate suggestion, the picker, assign, override and out-of-range refusal, reset, mirror, the unsaved-changes lock, change location), 4 for other junctions (including a custom-rule junction keeping its rule and geometry file), and 10 through the main editor (the 3D groups and markers follow unassign, assign, mirror and override; mirroring moves the NE block from the east to the west face of the east wall). The scripts and a Playwright wrapper are in `viewer/tests/e2e/`; the wrapper has not been run here.
+- **Not covered:** moving a junction from one detail to another is unassign then assign; the location picker supports straight axes only (radial and arc grids are reported as not supported); renaming a detail from the page is not offered yet (`renameDetail` exists and is tested).
 
 ---
 

@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest';
-import { splitProfileIds, clearDetailGeometry, groupsForDetail, refreshDetail, applySavedDetail, describeJunctionDetail } from './detailIntegration.js';
+import { splitProfileIds, clearDetailGeometry, groupsForDetail, refreshDetail, applySavedDetail, describeJunctionDetail, applyJunctionUpdate } from './detailIntegration.js';
 import { loadDetailContext, DetailSaveError } from '../detail-editor/detailStore.js';
 import { makeMemoryAdapter, exampleDetail } from '../detail-editor/testUtils.js';
 import { setExtrusion } from '../detail-editor/detailDocument.js';
@@ -135,5 +135,72 @@ describe('describeJunctionDetail', () => {
   });
   test('missing parts are handled', () => {
     expect(describeJunctionDetail({ detail_id: 'detail-a' })).toEqual({ detailId: 'detail-a', location: null, overrides: '', mirrored: false });
+  });
+});
+
+describe('applyJunctionUpdate (detail editor assigns a detail to a junction)', () => {
+  const LOC = { grid_id: 'grid-structural', axes: ['1', 'A'], level_id: 'storey-gf' };
+
+  test('a snapshot page cannot write, so the editor writes the junction file and keeps its other fields', async () => {
+    const { adapter, ctx } = await loaded();
+    const live = structuredClone(ctx.junctions.find((j) => j.id === 'junction-sw-corner'));
+    const before = await adapter.readJson('junctions/junction-sw-corner.json');
+    const r = await applyJunctionUpdate(adapter, { junctionId: 'junction-sw-corner', fields: { detail_id: null, location: null }, persisted: false }, live);
+    const after = await adapter.readJson('junctions/junction-sw-corner.json');
+    expect('detail_id' in after).toBe(false); expect('location' in after).toBe(false);
+    expect(after.priority).toEqual(before.priority); expect(after.trim_planes).toEqual(before.trim_planes);
+    expect(r.previousDetailId).toBe('detail-corner-cavity-butt'); expect(r.detailId).toBeNull();
+    expect(r.detailIds).toEqual(['detail-corner-cavity-butt']);
+  });
+
+  test('a page that already wrote the file is not written again, but the live junction still updates', async () => {
+    const { adapter, ctx } = await loaded();
+    const live = structuredClone(ctx.junctions.find((j) => j.id === 'junction-sw-corner'));
+    let writes = 0; const w = adapter.writeJson.bind(adapter);
+    adapter.writeJson = async (p, d) => { writes++; return w(p, d); };
+    await applyJunctionUpdate(adapter, { junctionId: 'junction-sw-corner', fields: { detail_mirrored: true }, persisted: true }, live);
+    expect(writes).toBe(0);
+    expect(live.detail_mirrored).toBe(true);
+    expect(live.detail_id).toBe('detail-corner-cavity-butt');
+  });
+
+  test('assigning a detail to a junction that had none reports only the new detail', async () => {
+    const { adapter, ctx } = await loaded();
+    const live = structuredClone(ctx.junctions.find((j) => j.id === 'junction-ne-padstone'));
+    const r = await applyJunctionUpdate(adapter, { junctionId: 'junction-ne-padstone', fields: { detail_id: 'detail-corner-cavity-butt', location: LOC }, persisted: false }, live);
+    expect(r).toEqual({ previousDetailId: null, detailId: 'detail-corner-cavity-butt', detailIds: ['detail-corner-cavity-butt'] });
+    expect(live.location).toEqual(LOC);
+  });
+
+  test('stale computed geometry is dropped from the live junction', async () => {
+    const { adapter, ctx } = await loaded();
+    const live = structuredClone(ctx.junctions.find((j) => j.id === 'junction-sw-corner'));
+    live.detailGeometry = { id: 'old' }; live.detailWarnings = ['old'];
+    await applyJunctionUpdate(adapter, { junctionId: 'junction-sw-corner', fields: { detail_overrides: { cavity_closer_width_m: 0.09 } }, persisted: true }, live);
+    expect(live.detailGeometry).toBeUndefined(); expect(live.detailWarnings).toBeUndefined();
+    expect(live.detail_overrides).toEqual({ cavity_closer_width_m: 0.09 });
+  });
+
+  test('an unknown junction (no live object) still writes a persisted-false update', async () => {
+    const { adapter } = await loaded();
+    const r = await applyJunctionUpdate(adapter, { junctionId: 'junction-sw-corner', fields: { detail_mirrored: true }, persisted: false }, undefined);
+    expect((await adapter.readJson('junctions/junction-sw-corner.json')).detail_mirrored).toBe(true);
+    expect(r.detailIds).toEqual(['detail-corner-cavity-butt']);
+  });
+
+  test('a missing junction file is an error the caller can report', async () => {
+    const { adapter } = await loaded();
+    await expect(applyJunctionUpdate(adapter, { junctionId: 'junction-nope', fields: { detail_mirrored: true }, persisted: false }, undefined)).rejects.toThrow(/junction-nope/);
+  });
+
+  test('refreshing both old and new detail ids leaves no junction without geometry it should have', async () => {
+    const { adapter, ctx, model, grids, readJson } = await loaded();
+    const junctions = structuredClone(ctx.junctions);
+    await refreshDetail({ readJson, model, junctions, grids, detailId: 'detail-corner-cavity-butt' });
+    const live = junctions.find((j) => j.id === 'junction-sw-corner');
+    const r = await applyJunctionUpdate(adapter, { junctionId: 'junction-sw-corner', fields: { detail_id: null, location: null }, persisted: false }, live);
+    for (const id of r.detailIds) await refreshDetail({ readJson, model, junctions, grids, detailId: id });
+    expect(live.detailGeometry).toBeUndefined();
+    expect(junctions.filter((j) => j.detailGeometry).map((j) => j.id).sort()).toEqual(['junction-ne-corner', 'junction-nw-corner', 'junction-se-corner']);
   });
 });

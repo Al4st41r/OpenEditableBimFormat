@@ -8,6 +8,8 @@
 
 import { validateDetail } from './detailValidate.js';
 import { serializeDetail } from './detailSerializer.js';
+import { listLevels } from '../detail/levelResolver.js';
+import { parsePath } from '../loader/loadPath.js';
 
 export class DetailSaveError extends Error {
   constructor(messages) {
@@ -29,7 +31,8 @@ async function readAll(adapter, ids, pathFor, what, warnings) {
 /**
  * @returns {Promise<{ mode: 'adapter', projectName: string, details: object[], detailIds: string[],
  *   profiles: Object<string, object>, profileIds: string[], materials: Object<string, object>, materialIds: string[],
- *   junctions: object[], elements: Object<string, object>, warnings: string[] }>}
+ *   junctions: object[], elements: Object<string, object>, grids: object[], levels: Array<{id, elevation}>,
+ *   elementPaths: Object<string, Array<{x, y, z}>>, warnings: string[] }>}
  */
 export async function loadDetailContext(adapter) {
   const warnings = [];
@@ -57,10 +60,18 @@ export async function loadDetailContext(adapter) {
   const elements = Object.fromEntries(
     (await readAll(adapter, model.elements ?? [], (id) => `elements/${id}.json`, 'Element', warnings)).map((e) => [e.id, e]));
 
+  // What assigning a detail to a junction needs: the grids, the levels, and where each element runs.
+  const grids = await readAll(adapter, model.grids ?? [], (id) => `grids/${id}.json`, 'Grid', warnings);
+  const elementPaths = {};
+  for (const el of Object.values(elements)) {
+    try { elementPaths[el.id] = parsePath(await adapter.readJson(`paths/${el.path_id}.json`)).points; }
+    catch (err) { warnings.push(`Path of element "${el.id}" could not be read: ${err.message}`); }
+  }
+
   return {
     mode: 'adapter', projectName, details, detailIds: details.map((d) => d.id),
     profiles, profileIds: Object.keys(profiles), materials, materialIds: Object.keys(materials),
-    junctions, elements, warnings,
+    junctions, elements, grids, levels: listLevels(model), elementPaths, warnings,
   };
 }
 

@@ -8,6 +8,8 @@
 
 import { findUsages, findCandidates } from '../detail/detailUsage.js';
 import { evaluateCoordinate } from './detailDocument.js';
+import { applyOverrides } from '../detail/detailParams.js';
+import { detailFit, suggestLocation } from './junctionAssign.js';
 
 const tidy = (x) => Math.round(x * 1e9) / 1e9 + 0;
 const boundParam = (c) => (c && typeof c === 'object' ? c.param : null);
@@ -19,9 +21,10 @@ function describeLocation(loc) {
 }
 
 /**
- * @param {{ doc, selection, validation, dirty, canUndo, canRedo, profileIds?: string[], materialIds?: string[], junctions?: object[], elements?: object }} input
+ * @param {{ doc, selection, validation, dirty, canUndo, canRedo, profileIds?: string[], materialIds?: string[], junctions?: object[], elements?: object,
+ *   grids?: object[], levels?: object[], elementPaths?: object }} input   (grids, levels and elementPaths let candidates carry a suggested location)
  */
-export function buildPanelModel({ doc, selection, validation, dirty, canUndo, canRedo, profileIds, materialIds, junctions = [], elements = {} }) {
+export function buildPanelModel({ doc, selection, validation, dirty, canUndo, canRedo, profileIds, materialIds, junctions = [], elements = {}, grids, levels, elementPaths }) {
   const profileSet = profileIds ? new Set(profileIds) : null;
   const materialSet = materialIds ? new Set(materialIds) : null;
   const regions = doc.geometry?.regions ?? [];
@@ -75,6 +78,17 @@ export function buildPanelModel({ doc, selection, validation, dirty, canUndo, ca
     };
   }
 
+  const suggestionRow = (j) => {
+    const s = suggestLocation(j, { grids, levels, elementPaths });
+    return {
+      id: j.id, rule: j.rule,
+      suggestion: s ? describeLocation({ axes: s.axes, level_id: s.level_id, level_offset_m: s.level_offset_m }) : null,
+      approximate: s ? !s.exact : false,
+    };
+  };
+  const candidateRows = findCandidates(doc, junctions, elements).map(suggestionRow);
+  const candidateIds = new Set(candidateRows.map((c) => c.id));
+
   return {
     title: doc.id, dirty, canUndo, canRedo,
     header: {
@@ -85,10 +99,21 @@ export function buildPanelModel({ doc, selection, validation, dirty, canUndo, ca
     condition: doc.condition ?? null,
     members, regions: regionRows, parameters, selectedMember, selectedRegion,
     usage: {
-      junctions: findUsages(doc.id, junctions).map((j) => ({
-        id: j.id, location: describeLocation(j.location), overrides: j.detail_overrides ?? {}, mirrored: j.detail_mirrored === true,
-      })),
-      candidates: findCandidates(doc, junctions, elements).map((j) => ({ id: j.id, rule: j.rule })),
+      needsSave: dirty,
+      junctions: findUsages(doc.id, junctions).map((j) => {
+        const { values } = applyOverrides(doc, j.detail_overrides);
+        return {
+          id: j.id, location: describeLocation(j.location), overrides: j.detail_overrides ?? {}, mirrored: j.detail_mirrored === true,
+          parameters: Object.entries(doc.parameters ?? {}).map(([name, p]) => ({
+            name, value: values[name], overridden: name in (j.detail_overrides ?? {}), min: p.min, max: p.max,
+          })),
+          warnings: detailFit(doc, j, elements),
+        };
+      }),
+      candidates: candidateRows,
+      others: junctions
+        .filter((j) => !j.detail_id && !candidateIds.has(j.id))
+        .map((j) => suggestionRow(j)),
     },
     messages: validation.map((m) => ({ ...m, severity: 'error' })),
     saveEnabled: dirty && validation.length === 0,

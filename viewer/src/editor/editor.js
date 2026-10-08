@@ -20,7 +20,8 @@ import { parsePath } from '../loader/loadPath.js';
 import { loadDetailContext } from '../detail-editor/detailStore.js';
 import { buildSnapshot } from '../detail-editor/bundleSnapshot.js';
 import { isTrustedReady, buildOpenerReply, parseSaved } from '../detail-editor/messages.js';
-import { applySavedDetail, refreshDetail, groupsForDetail } from './detailIntegration.js';
+import { parseJunctionMessage } from '../detail-editor/junctionFields.js';
+import { applySavedDetail, applyJunctionUpdate, refreshDetail, groupsForDetail } from './detailIntegration.js';
 import { buildArrayGroup }    from '../array/arrayRenderer.js';
 import { buildSymbolGeometries } from '../loader/loadSymbol.js';
 import { buildGridLineSegments } from '../loader/loadGrid.js';
@@ -801,6 +802,7 @@ async function _loadAndRenderBundle(adapter) {
   const elementPaths = new Map([..._elementRegistry].map(([id, reg]) => [id, parsePath(reg.pathData).points]));
   junctionEditor.loadJunctions(junctions, (j) => junctionPoint(j, { model, grids, elementPaths }));
   junctionEditor.onOpenDetail = (detailId) => _openDetailEditor(detailId);
+  _bundleCtx.positionCtx = { model, grids, elementPaths };
 
   // Fit camera to loaded geometry
   const box = new THREE.Box3().setFromObject(editorScene.modelGroup);
@@ -1546,7 +1548,9 @@ function _openDetailEditor(detailId = null) {
       return;
     }
     const saved = parseSaved(e, { ownOrigin, tab });
-    if (saved) await _onDetailSaved(saved);
+    if (saved) { await _onDetailSaved(saved); return; }
+    const changed = parseJunctionMessage(e, { ownOrigin, tab });
+    if (changed) await _onJunctionUpdated(changed);
   };
   window.addEventListener('message', onMessage);
   const timer = setInterval(() => {
@@ -1554,26 +1558,48 @@ function _openDetailEditor(detailId = null) {
   }, 2000);
 }
 
-/** A detail was saved in the detail editor: persist it if needed, then refresh only what uses it. */
-async function _onDetailSaved(saved) {
-  if (!adapter || !_bundleCtx) return;
-  try {
-    await applySavedDetail(adapter, saved);
-    const model = await adapter.readJson('model.json');
-    const { junctions, grids, libraryMaterials, detailMatMap } = _bundleCtx;
-    const { affected } = await refreshDetail({ readJson: (p) => adapter.readJson(p), model, junctions, grids, detailId: saved.id });
-
-    for (const group of groupsForDetail(editorScene.modelGroup.children, saved.id)) {
+/** Recompute junction geometry for these details and swap only their 3D groups. */
+async function _refreshDetailScene(detailIds) {
+  const model = await adapter.readJson('model.json');
+  const { junctions, grids, libraryMaterials, detailMatMap } = _bundleCtx;
+  let changed = 0;
+  for (const detailId of detailIds) {
+    const { affected } = await refreshDetail({ readJson: (p) => adapter.readJson(p), model, junctions, grids, detailId });
+    for (const group of groupsForDetail(editorScene.modelGroup.children, detailId)) {
       editorScene.modelGroup.remove(group);
       group.traverse((c) => c.geometry?.dispose());
     }
     ensureDetailMaterials(detailMatMap, affected, libraryMaterials, _makeDetailMaterial);
     for (const group of buildJunctionDetailMeshes(affected, detailMatMap)) editorScene.modelGroup.add(group);
+    changed += affected.length;
+  }
+  return changed;
+}
 
+/** A detail was saved in the detail editor: persist it if needed, then refresh only what uses it. */
+async function _onDetailSaved(saved) {
+  if (!adapter || !_bundleCtx) return;
+  try {
+    await applySavedDetail(adapter, saved);
+    const count = await _refreshDetailScene([saved.id]);
     _addDetailToTree(saved.id);
-    statusBar.textContent = `Detail ${saved.id} updated${affected.length ? ` at ${affected.length} junction${affected.length === 1 ? '' : 's'}` : ''}.`;
+    statusBar.textContent = `Detail ${saved.id} updated${count ? ` at ${count} junction${count === 1 ? '' : 's'}` : ''}.`;
   } catch (err) {
     statusBar.textContent = `Detail update failed: ${err.message}`;
+  }
+}
+
+/** The detail editor assigned, moved, unassigned, overrode or mirrored a junction's detail. */
+async function _onJunctionUpdated(update) {
+  if (!adapter || !_bundleCtx) return;
+  try {
+    const live = _bundleCtx.junctions.find((j) => j.id === update.junctionId);
+    const { detailId, detailIds } = await applyJunctionUpdate(adapter, update, live);
+    if (live) junctionEditor?.setDetail(live.id, detailId, junctionPoint(live, _bundleCtx.positionCtx) ?? undefined);
+    await _refreshDetailScene(detailIds);
+    statusBar.textContent = `Junction ${update.junctionId} updated${detailId ? ` (${detailId})` : ' (no detail)'}.`;
+  } catch (err) {
+    statusBar.textContent = `Junction update failed: ${err.message}`;
   }
 }
 

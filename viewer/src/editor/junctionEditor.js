@@ -79,6 +79,19 @@ export class JunctionEditor {
     this._junctions.push({ id, elementIds, point, rule, detailId, sprite: mesh });
   }
 
+  /** The detail editor (re)assigned a detail to this junction; optionally move its marker. */
+  setDetail(junctionId, detailId, position) {
+    const j = this._junctions.find((x) => x.id === junctionId);
+    if (!j) return false;
+    j.detailId = detailId ?? null;
+    j.sprite.userData.detailId = j.detailId;
+    if (position) {
+      j.point = new THREE.Vector3(position.x, position.y, position.z);
+      j.sprite.position.copy(j.point);
+    }
+    return true;
+  }
+
   /** Returns true if a junction sprite was clicked. */
   trySelectJunction(raycaster) {
     const sprites = this._junctions.map(j => j.sprite);
