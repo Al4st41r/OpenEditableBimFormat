@@ -9,6 +9,7 @@
 import * as THREE from 'three';
 import { writeEntity } from './bundleWriter.js';
 import { toDisplay, unitLabel, fromDisplay } from './units.js';
+import { axisEndpoints, axisPlaneGeometry, axisLabel } from '../grid/gridAxis.js';
 
 const GRID_COLOUR   = 0xe87070;
 const GRID_OPACITY  = 0.12;
@@ -56,7 +57,7 @@ export class GridOverlayManager {
 
   /** Add a grid axis interactively (numeric input). */
   async addAxisNumeric() {
-    const dir = window.prompt('Direction (x or y):', 'x');
+    const dir = window.prompt('Direction the axis runs (x = east-west, at a Y value; y = north-south, at an X value):', 'y');
     if (!dir || !['x','y'].includes(dir.toLowerCase())) return;
     const offStr = window.prompt(`Offset (${unitLabel()}):`, '0');
     if (offStr === null) return;
@@ -100,28 +101,17 @@ export class GridOverlayManager {
   _buildAxisObject(direction, offset_m) {
     const group = new THREE.Group();
 
-    // 3D translucent vertical plane
+    // 3D translucent vertical plane (world-space geometry; see grid/gridAxis.js)
     const mat = new THREE.MeshBasicMaterial({
       color: GRID_COLOUR, transparent: true,
       opacity: GRID_OPACITY, side: THREE.DoubleSide, depthWrite: false,
     });
-    const geo = new THREE.PlaneGeometry(100, GRID_HEIGHT);
-    const plane = new THREE.Mesh(geo, mat);
-
-    if (direction === 'x') {
-      plane.position.x = offset_m;
-      plane.rotation.y = Math.PI / 2;
-      plane.position.z = GRID_HEIGHT / 2;
-    } else {
-      plane.position.y = offset_m;
-      plane.position.z = GRID_HEIGHT / 2;
-    }
+    const plane = new THREE.Mesh(axisPlaneGeometry(direction, offset_m, 100, GRID_HEIGHT), mat);
     group.add(plane);
 
     // Dashed line at Z=0 (plan view)
-    const points = direction === 'x'
-      ? [new THREE.Vector3(offset_m, -50, 0), new THREE.Vector3(offset_m, 50, 0)]
-      : [new THREE.Vector3(-50, offset_m, 0), new THREE.Vector3(50, offset_m, 0)];
+    const { a, b } = axisEndpoints(direction, offset_m, -50, 50);
+    const points = [new THREE.Vector3(a.x, a.y, 0), new THREE.Vector3(b.x, b.y, 0)];
     const lineGeo = new THREE.BufferGeometry().setFromPoints(points);
     const lineMat = new THREE.LineDashedMaterial({
       color: GRID_COLOUR, dashSize: 0.5, gapSize: 0.25, depthTest: false,
@@ -142,7 +132,8 @@ export class GridOverlayManager {
 
       const nameSpan = document.createElement('span');
       nameSpan.className = 'tree-item-name';
-      nameSpan.textContent = `${a.label} (${a.direction.toUpperCase()}=${toDisplay(a.offset_m)} ${unitLabel()})`;
+      const { coord, value } = axisLabel(a.direction, a.offset_m);
+      nameSpan.textContent = `${a.label} (${coord}=${toDisplay(value)} ${unitLabel()})`;
 
       const eyeBtn = document.createElement('button');
       eyeBtn.className = 'tree-item-eye';

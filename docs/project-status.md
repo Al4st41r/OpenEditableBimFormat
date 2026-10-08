@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-08
 **Branch:** main
-**Tests:** 545 JS (Vitest, 44 test files) + 222 Python (pytest, plus 7 documented xfails)
+**Tests:** 556 JS (Vitest, 45 test files) + 222 Python (pytest, plus 7 documented xfails)
 
 ---
 
@@ -103,7 +103,6 @@ See `docs/roadmap.md` for the full version-by-version plan.
 | #97 | Bezier and spline path segments | v0.3 | Scope gap; silently skipped today |
 | #98 | Honour sweep_mode, caps, offsets | v0.3 | Scope gap; fields ignored by loader |
 | #100 | Library format differs from spec schemas | v0.3 | Two profile dialects |
-| #102 | Grid axis direction convention mismatch (docs vs viewer) | v0.3 | Blocks #81 location accuracy in editor-made grids |
 | #101 | commands.json, ifc/mapping.json, migrations | Pre-v0.5 | Spec items not delivered |
 
 ---

@@ -21,7 +21,7 @@
             "required": ["id", "direction", "offset_m"],
             "properties": {
               "id":        { "type": "string" },
-              "direction": { "type": "string", "enum": ["x", "y"] },
+              "direction": { "type": "string", "enum": ["x", "y"], "description": "The way the axis runs. 'y': north-south, positioned at x = offset_m. 'x': east-west, positioned at y = offset_m." },
               "offset_m":  { "type": "number" }
             },
             "additionalProperties": false

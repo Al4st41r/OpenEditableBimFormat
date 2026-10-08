@@ -320,7 +320,7 @@ Phases 1 and 2 need no new UI and give a working data model that an LLM can alre
 
 | ID | Risk or question | Mitigation |
 |---|---|---|
-| K1 | Grid axis semantics conflict. `OEBF-GUIDE.md` and the example data say `direction: "y"` runs north-south at the given X offset. `loadGrid.js`, `gridOverlayManager.js` and `loadGrid.test.js` draw it as a line at that Y value, so the example grid renders transposed. | The resolver follows the guide and example (the only reading where axes 2 and B meet at the NE corner). The mismatch is tracked as its own issue; resolver tests pin the convention. |
+| K1 | Grid axis semantics conflicted between the guide/example and the renderers. | Resolved in #102: the documented convention is canonical, implemented once in `grid/gridAxis.js` and used by the loader, the editor overlay and the resolver. Editor-made grids written before the fix use the old convention and need their `direction` swapped. |
 | K2 | Levels live in two places: storeys in `model.json` and `elevations` in the grid. In the example the grid lists GF and FF, while `model.json` has only `storey-gf`. | Decide the single source (D5 chooses storeys). Add an integrity test that every grid elevation matches a storey, or document grid elevations as datums only. |
 | K3 | Corners differ in orientation: a detail drawn for one corner must work for the mirrored corner. | Include `mirror` in member placement in phase 3, with a test that mirrored output equals the reflected polygon. |
 | K4 | Curved and radial grids. | Out of scope. The resolver returns an explicit error. |

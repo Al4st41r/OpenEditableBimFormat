@@ -17,6 +17,10 @@
 
 - `spec/schema/` is the source of truth. After editing a schema run `node scripts/sync-schemas.mjs` to update the example bundle copy; CI fails if they differ (`--check`).
 
+## Grid axes
+
+- `direction` names the way an axis runs: `y` = north-south at x = `offset_m`; `x` = east-west at y = `offset_m`. Implemented once in `viewer/src/grid/gridAxis.js`; do not re-derive it elsewhere.
+
 ## Deployment
 
 - Deployed at `architools.drawingtable.net/oebf/`
@@ -48,7 +52,6 @@ Open issues, in rough priority order:
 | #100 | Unify library profile/material format with the spec schemas |
 | #97 | Feature: bezier and spline path segments |
 | #98 | Feature: honour sweep_mode, caps and offsets |
-| #102 | Bug: grid axis direction convention differs between docs/example and viewer/editor |
 
 Phase 8 issues #69–#77 and #70/#66 are closed.
 

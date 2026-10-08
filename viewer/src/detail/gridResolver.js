@@ -7,9 +7,7 @@
  *   direction 'y' - axis runs north-south, positioned at x = offset_m
  *   direction 'x' - axis runs east-west,   positioned at y = offset_m
  *
- * NOTE: loadGrid.js and gridOverlayManager.js currently draw these the other
- * way round; see the grid convention issue referenced in
- * docs/plans/2026-10-08-junction-detail-system.md (K1).
+ * The convention lives in grid/gridAxis.js and is shared with the renderers (#102).
  */
 
 /**

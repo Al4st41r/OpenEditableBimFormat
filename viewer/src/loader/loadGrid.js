@@ -3,8 +3,11 @@
  *
  * Converts an OEBF Grid entity into line segment data suitable for
  * THREE.LineSegments. One line per axis, spanning the full extent of
- * perpendicular axes. Grid lines lie in the XY plane (Z=0).
+ * crossing axes. Grid lines lie in the XY plane (Z=0). Direction convention:
+ * see grid/gridAxis.js.
  */
+
+import { axisEndpoints } from '../grid/gridAxis.js';
 
 /**
  * Build line segment positions from an OEBF grid entity.
@@ -13,28 +16,23 @@
  * @returns {{ positions: Float32Array }}
  */
 export function buildGridLineSegments(gridDef) {
-  const axes = gridDef.axes ?? [];
+  const axes = (gridDef.axes ?? []).filter(a => a.direction === 'x' || a.direction === 'y');
   if (axes.length === 0) return { positions: new Float32Array(0) };
 
-  const xOffsets = axes.filter(a => a.direction === 'x').map(a => a.offset_m);
-  const yOffsets = axes.filter(a => a.direction === 'y').map(a => a.offset_m);
+  // Convention (see grid/gridAxis.js): 'y' axes sit at x = offset, 'x' axes at y = offset.
+  const xs = axes.filter(a => a.direction === 'y').map(a => a.offset_m);
+  const ys = axes.filter(a => a.direction === 'x').map(a => a.offset_m);
 
-  const xMin = xOffsets.length ? Math.min(...xOffsets) : 0;
-  const xMax = xOffsets.length ? Math.max(...xOffsets) : 0;
-  const yMin = yOffsets.length ? Math.min(...yOffsets) : 0;
-  const yMax = yOffsets.length ? Math.max(...yOffsets) : 0;
+  const range = (v) => (v.length ? [Math.min(...v), Math.max(...v)] : [0, 0]);
+  const [xMin, xMax] = range(xs);
+  const [yMin, yMax] = range(ys);
 
   const pts = [];
+  const push = ({ a, b }) => pts.push(a.x, a.y, 0, b.x, b.y, 0);
 
-  // Y-direction axes → horizontal lines (constant Y, spanning X range)
-  for (const y of yOffsets) {
-    pts.push(xMin, y, 0,  xMax, y, 0);
-  }
-
-  // X-direction axes → vertical lines (constant X, spanning Y range)
-  for (const x of xOffsets) {
-    pts.push(x, yMin, 0,  x, yMax, 0);
-  }
+  // North-south axes first (constant x, spanning the y range), then east-west.
+  for (const x of xs) push(axisEndpoints('y', x, yMin, yMax));
+  for (const y of ys) push(axisEndpoints('x', y, xMin, xMax));
 
   return { positions: new Float32Array(pts) };
 }
