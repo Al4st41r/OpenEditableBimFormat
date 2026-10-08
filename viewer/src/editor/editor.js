@@ -15,6 +15,12 @@ import { buildThreeMesh }     from '../scene/buildMesh.js';
 import { applyJunctionClipping, buildCustomJunctionMesh, buildJunctionDetailMeshes } from '../junction-renderer.js';
 import { ensureDetailMaterials } from '../detail/detailMaterials.js';
 import { loadDetails } from '../detail/loadDetails.js';
+import { junctionPoint } from '../detail/junctionPosition.js';
+import { parsePath } from '../loader/loadPath.js';
+import { loadDetailContext } from '../detail-editor/detailStore.js';
+import { buildSnapshot } from '../detail-editor/bundleSnapshot.js';
+import { isTrustedReady, buildOpenerReply, parseSaved } from '../detail-editor/messages.js';
+import { applySavedDetail, refreshDetail, groupsForDetail } from './detailIntegration.js';
 import { buildArrayGroup }    from '../array/arrayRenderer.js';
 import { buildSymbolGeometries } from '../loader/loadSymbol.js';
 import { buildGridLineSegments } from '../loader/loadGrid.js';
@@ -117,6 +123,8 @@ let floorTool = null;
 let guideTool = null;
 let activeTool = null;
 let junctionEditor = null;
+/** What the detail refresh needs from the last loaded bundle. */
+let _bundleCtx = null; // { junctions, grids, libraryMaterials, detailMatMap }
 let pathEditTool = null;
 let _pendingGuideName = null;
 /** The element id currently selected in the elements tree. */
@@ -556,7 +564,7 @@ async function _loadAndRenderBundle(adapter) {
   } else {
     bundleData = await _loadBundleFromAdapter(adapter);
   }
-  const { meshes, junctions, arrays, grids, materials: libraryMaterials } = bundleData;
+  const { meshes, junctions, arrays, grids, details = [], materials: libraryMaterials } = bundleData;
 
   for (const meshData of meshes) {
     editorScene.modelGroup.add(buildThreeMesh(meshData));
@@ -583,11 +591,9 @@ async function _loadAndRenderBundle(adapter) {
     }
   }
   const detailMatMap = new Map(); // own map: pulled forward so faces flush against a wall do not z-fight
-  ensureDetailMaterials(detailMatMap, junctions, libraryMaterials, (hex) => new THREE.MeshStandardMaterial({
-    color: new THREE.Color(hex), roughness: 0.8, metalness: 0.0, side: THREE.DoubleSide,
-    polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1,
-  }));
+  ensureDetailMaterials(detailMatMap, junctions, libraryMaterials, _makeDetailMaterial);
   for (const group of buildJunctionDetailMeshes(junctions, detailMatMap)) editorScene.modelGroup.add(group);
+  _bundleCtx = { junctions, grids, libraryMaterials, detailMatMap };
   for (const { arrayDef, pathPoints, symbolDef } of arrays) {
     try {
       const symMat = new Map();
@@ -678,13 +684,15 @@ async function _loadAndRenderBundle(adapter) {
   wallSel.innerHTML = '';
   slabSel.innerHTML = '';
   document.getElementById('details-list').innerHTML = '';
+  document.getElementById('subassemblies-list').innerHTML = '';
+  for (const d of details) _addDetailToTree(d.id);
   try {
     const profileNames = await adapter.listDir('profiles');
     for (const name of profileNames) {
       if (!name.endsWith('.json')) continue;
       const id = name.replace('.json', '');
       const data = await readEntity(adapter, `profiles/${id}.json`);
-      if (data.detail) { _addDetailToTree(id); continue; }
+      if (data.detail) { _addSubassemblyToTree(id); continue; }
       const opt = document.createElement('option');
       opt.value = id; opt.textContent = id;
       wallSel.appendChild(opt.cloneNode(true));
@@ -790,7 +798,9 @@ async function _loadAndRenderBundle(adapter) {
     document.getElementById('props-content'),
     adapter,
   );
-  junctionEditor.loadJunctions(junctions);
+  const elementPaths = new Map([..._elementRegistry].map(([id, reg]) => [id, parsePath(reg.pathData).points]));
+  junctionEditor.loadJunctions(junctions, (j) => junctionPoint(j, { model, grids, elementPaths }));
+  junctionEditor.onOpenDetail = (detailId) => _openDetailEditor(detailId);
 
   // Fit camera to loaded geometry
   const box = new THREE.Box3().setFromObject(editorScene.modelGroup);
@@ -902,6 +912,7 @@ function _enableEditorTools() {
   document.getElementById('add-guide-btn').disabled = false;
   document.getElementById('add-height-guide-btn').disabled = false;
   document.getElementById('add-detail-btn').disabled = false;
+  document.getElementById('add-subassembly-btn').disabled = false;
   document.getElementById('add-material-btn').disabled = false;
   document.getElementById('default-wall-profile').disabled = false;
   document.getElementById('default-slab-profile').disabled = false;
@@ -941,7 +952,8 @@ async function _ensureDefaultProfile() {
 }
 
 // ── Detail profile helpers ────────────────────────────────────────────────────
-function _addDetailToTree(id) {
+/** A single-profile sub-assembly (a profile with detail: true); opens in the profile editor. */
+function _addSubassemblyToTree(id) {
   const el = document.createElement('div');
   el.className = 'tree-item';
   const span = document.createElement('span');
@@ -949,7 +961,22 @@ function _addDetailToTree(id) {
   span.textContent = id;
   el.appendChild(span);
   el.addEventListener('click', () => _openDetailInProfileEditor(id));
-  document.getElementById('details-list').appendChild(el);
+  document.getElementById('subassemblies-list').appendChild(el);
+}
+
+/** A Detail entity: a reusable junction detail; opens in the detail editor. */
+function _addDetailToTree(id) {
+  const list = document.getElementById('details-list');
+  if ([...list.children].some((c) => c.dataset.detailId === id)) return;
+  const el = document.createElement('div');
+  el.className = 'tree-item';
+  el.dataset.detailId = id;
+  const span = document.createElement('span');
+  span.className = 'tree-item-name';
+  span.textContent = id;
+  el.appendChild(span);
+  el.addEventListener('click', () => _openDetailEditor(id));
+  list.appendChild(el);
 }
 
 function _openDetailInProfileEditor(id) {
@@ -1001,9 +1028,11 @@ async function _sendMemoryBundleToTab(tab, activeProfileId) {
   });
 }
 
-document.getElementById('add-detail-btn').addEventListener('click', async () => {
+document.getElementById('add-detail-btn').addEventListener('click', () => _openDetailEditor(null));
+
+document.getElementById('add-subassembly-btn').addEventListener('click', async () => {
   if (!adapter) return;
-  const raw = window.prompt('Detail name (e.g. "eaves-standard"):');
+  const raw = window.prompt('Sub-assembly profile name (e.g. "eaves-standard"):');
   if (!raw) return;
   const id = raw.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
   if (!/^[a-z0-9][a-z0-9-]*$/.test(id)) {
@@ -1014,7 +1043,7 @@ document.getElementById('add-detail-btn').addEventListener('click', async () => 
   // Check for duplicate id
   const profileNames = await adapter.listDir('profiles');
   if (profileNames.includes(`${id}.json`)) {
-    alert(`A detail profile named "${id}" already exists.`);
+    alert(`A profile named "${id}" already exists.`);
     return;
   }
 
@@ -1033,7 +1062,7 @@ document.getElementById('add-detail-btn').addEventListener('click', async () => 
     ],
   });
 
-  _addDetailToTree(id);
+  _addSubassemblyToTree(id);
   _openDetailInProfileEditor(id);
 });
 
@@ -1485,3 +1514,90 @@ function _collectSnapTargets() {
 }
 
 export { editorScene };
+
+
+// ── Detail editor (reusable junction details, #81) ────────────────────────────
+function _makeDetailMaterial(hex) {
+  return new THREE.MeshStandardMaterial({
+    color: new THREE.Color(hex), roughness: 0.8, metalness: 0.0, side: THREE.DoubleSide,
+    polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1,
+  });
+}
+
+/**
+ * Open the detail editor page for the current bundle. A file-system bundle is
+ * handed over as a directory handle; an in-memory bundle as a snapshot. Saves
+ * come back as `detail-saved` messages and refresh the 3D view in place.
+ */
+function _openDetailEditor(detailId = null) {
+  if (!adapter) return;
+  const tab = window.open(import.meta.env.BASE_URL + 'detail-editor.html', '_blank');
+  if (!tab) { statusBar.textContent = 'Pop-up blocked — allow pop-ups for this site.'; return; }
+
+  const ownOrigin = window.location.origin;
+  const onMessage = async (e) => {
+    if (isTrustedReady(e, { ownOrigin, tab })) {
+      try {
+        const reply = adapter.type === 'fsa'
+          ? buildOpenerReply({ adapterType: 'fsa', handle: adapter.dirHandle, activeDetailId: detailId })
+          : buildOpenerReply({ adapterType: 'memory', snapshot: buildSnapshot(await loadDetailContext(adapter), detailId), activeDetailId: detailId });
+        tab.postMessage(reply, ownOrigin);
+      } catch (err) { statusBar.textContent = `Detail editor load failed: ${err.message}`; }
+      return;
+    }
+    const saved = parseSaved(e, { ownOrigin, tab });
+    if (saved) await _onDetailSaved(saved);
+  };
+  window.addEventListener('message', onMessage);
+  const timer = setInterval(() => {
+    if (tab.closed) { clearInterval(timer); window.removeEventListener('message', onMessage); }
+  }, 2000);
+}
+
+/** A detail was saved in the detail editor: persist it if needed, then refresh only what uses it. */
+async function _onDetailSaved(saved) {
+  if (!adapter || !_bundleCtx) return;
+  try {
+    await applySavedDetail(adapter, saved);
+    const model = await adapter.readJson('model.json');
+    const { junctions, grids, libraryMaterials, detailMatMap } = _bundleCtx;
+    const { affected } = await refreshDetail({ readJson: (p) => adapter.readJson(p), model, junctions, grids, detailId: saved.id });
+
+    for (const group of groupsForDetail(editorScene.modelGroup.children, saved.id)) {
+      editorScene.modelGroup.remove(group);
+      group.traverse((c) => c.geometry?.dispose());
+    }
+    ensureDetailMaterials(detailMatMap, affected, libraryMaterials, _makeDetailMaterial);
+    for (const group of buildJunctionDetailMeshes(affected, detailMatMap)) editorScene.modelGroup.add(group);
+
+    _addDetailToTree(saved.id);
+    statusBar.textContent = `Detail ${saved.id} updated${affected.length ? ` at ${affected.length} junction${affected.length === 1 ? '' : 's'}` : ''}.`;
+  } catch (err) {
+    statusBar.textContent = `Detail update failed: ${err.message}`;
+  }
+}
+
+// ── Demo mode and a read-only hook for headless checks ────────────────────────
+window.__editor = {
+  adapter: () => adapter,
+  junctions: () => _bundleCtx?.junctions ?? [],
+  detailGroups: (id) => groupsForDetail(editorScene.modelGroup.children, id),
+  junctionMarkers: () => (junctionEditor?._junctions ?? []).map((j) => ({ id: j.id, x: j.point.x, y: j.point.y, z: j.point.z, detailId: j.detailId })),
+  openDetailEditor: _openDetailEditor,
+  showJunction: (id) => { const j = junctionEditor?._junctions.find((x) => x.id === id); if (j) junctionEditor._showProps(j.id, j.elementIds, j.rule); return !!j; },
+  status: () => statusBar.textContent,
+};
+
+if (new URLSearchParams(window.location.search).has('demo')) {
+  (async () => {
+    try {
+      const resp = await fetch(import.meta.env.BASE_URL + 'terraced-house.oebfz');
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      adapter = await MemoryAdapter.fromFile(new File([await resp.blob()], 'terraced-house.oebfz'));
+      await _loadAndRenderBundle(adapter);
+      _enableEditorTools();
+      _setBundleOpen(adapter.name, true);
+      saveBtn.disabled = false;
+    } catch (e) { statusBar.textContent = `Error: ${e.message}`; }
+  })();
+}

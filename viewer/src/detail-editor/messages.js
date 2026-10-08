@@ -6,7 +6,9 @@
  * profile editor's `ready` / `bundle-handle` / `memory-bundle`.
  *
  *   page -> opener   detail-ready
- *                    detail-saved          { id, json, previousId? }
+ *                    detail-saved          { id, json, persisted, previousId? }
+ *                      persisted: the page already wrote the file (file-system and archive bundles);
+ *                      false means the opener must write it (snapshot bundles)
  *   opener -> page   detail-bundle-handle  { handle, activeDetailId }   (file-system bundle)
  *                    detail-snapshot       { snapshot, activeDetailId }  (memory bundle, eg Firefox)
  *
@@ -17,8 +19,8 @@ import { serializeDetail } from './detailSerializer.js';
 
 export const readyMessage = () => ({ type: 'detail-ready' });
 
-export function savedMessage({ doc, previousId }) {
-  const m = { type: 'detail-saved', id: doc.id, json: serializeDetail(doc) };
+export function savedMessage({ doc, previousId, persisted = false }) {
+  const m = { type: 'detail-saved', id: doc.id, json: serializeDetail(doc), persisted };
   if (previousId !== undefined) m.previousId = previousId;
   return m;
 }
@@ -57,4 +59,17 @@ export function buildOpenerReply({ adapterType, handle, snapshot, activeDetailId
     return { type: 'detail-snapshot', snapshot, activeDetailId };
   }
   throw new Error(`Unknown adapter type "${adapterType}"`);
+}
+
+/**
+ * Opener side: parse a detail-saved message from the tab we opened.
+ *
+ * @returns {{ id: string, json: object, previousId: string|null, persisted: boolean }|null}
+ */
+export function parseSaved(event, { ownOrigin, tab }) {
+  if (event?.origin !== ownOrigin || event.source !== tab) return null;
+  const d = event.data;
+  if (!isObject(d) || d.type !== 'detail-saved' || typeof d.id !== 'string') return null;
+  if (!isObject(d.json) || d.json.id !== d.id || d.json.type !== 'Detail') return null;
+  return { id: d.id, json: d.json, previousId: typeof d.previousId === 'string' ? d.previousId : null, persisted: d.persisted === true };
 }

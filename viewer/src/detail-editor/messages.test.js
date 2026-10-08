@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest';
-import { readyMessage, parseIncoming, buildOpenerReply, isTrustedReady, savedMessage } from './messages.js';
+import { readyMessage, parseIncoming, buildOpenerReply, isTrustedReady, savedMessage, parseSaved } from './messages.js';
 import { makeDetail } from '../detail/fixtures.js';
 
 const OWN = 'https://architools.drawingtable.net';
@@ -89,5 +89,39 @@ describe('opener side', () => {
     expect(() => buildOpenerReply({ adapterType: 'cloud' })).toThrow(/adapter/i);
     expect(() => buildOpenerReply({ adapterType: 'fsa' })).toThrow(/handle/i);
     expect(() => buildOpenerReply({ adapterType: 'memory' })).toThrow(/snapshot/i);
+  });
+});
+
+describe('saved message: persisted flag and the opener side', () => {
+  const tab = { name: 'tab' };
+  const c = { ownOrigin: OWN, tab };
+  const good = () => savedMessage({ doc: makeDetail(), persisted: true });
+
+  test('savedMessage says whether the page already wrote the file', () => {
+    expect(savedMessage({ doc: makeDetail() }).persisted).toBe(false);
+    expect(savedMessage({ doc: makeDetail(), persisted: true }).persisted).toBe(true);
+  });
+
+  test('parseSaved accepts a good message from the opened tab', () => {
+    const r = parseSaved({ origin: OWN, source: tab, data: good() }, c);
+    expect(r).toEqual({ id: 'detail-box', json: good().json, previousId: null, persisted: true });
+  });
+
+  test('previousId is carried through when present', () => {
+    const m = savedMessage({ doc: makeDetail(), previousId: 'detail-old' });
+    expect(parseSaved({ origin: OWN, source: tab, data: m }, c).previousId).toBe('detail-old');
+  });
+
+  test('wrong origin, wrong window and wrong type are ignored', () => {
+    expect(parseSaved({ origin: 'https://evil.example', source: tab, data: good() }, c)).toBeNull();
+    expect(parseSaved({ origin: OWN, source: {}, data: good() }, c)).toBeNull();
+    expect(parseSaved({ origin: OWN, source: tab, data: { ...good(), type: 'profile-saved' } }, c)).toBeNull();
+  });
+
+  test('a payload whose json does not match its id or type is ignored', () => {
+    const m = good();
+    for (const data of [{ ...m, id: 'other' }, { ...m, json: { ...m.json, type: 'Junction' } }, { ...m, json: null }, { ...m, id: 3 }, null, 'x']) {
+      expect(parseSaved({ origin: OWN, source: tab, data }, c)).toBeNull();
+    }
   });
 });

@@ -143,6 +143,12 @@
     #welcome-open { background: #333; color: #ddd; }
     #welcome-open:hover { background: #3a3a3a; }
   </style>
+  <script>
+    // Keep uncaught errors where headless checks and bug reports can read them.
+    window.__errors = [];
+    window.addEventListener('error', (e) => window.__errors.push(e.message));
+    window.addEventListener('unhandledrejection', (e) => window.__errors.push(String(e.reason)));
+  </script>
 </head>
 <body>
   <div id="welcome-overlay">
@@ -219,9 +225,15 @@
 
         <div class="tree-section-header">
           Details
-          <button class="tree-section-add" id="add-detail-btn" disabled title="Add detail">+</button>
+          <button class="tree-section-add" id="add-detail-btn" disabled title="Open the detail editor">+</button>
         </div>
         <div class="tree-items" id="details-list"></div>
+
+        <div class="tree-section-header">
+          Sub-assembly profiles
+          <button class="tree-section-add" id="add-subassembly-btn" disabled title="Add sub-assembly profile">+</button>
+        </div>
+        <div class="tree-items" id="subassemblies-list"></div>
 
         <div class="tree-section-header">
           Materials

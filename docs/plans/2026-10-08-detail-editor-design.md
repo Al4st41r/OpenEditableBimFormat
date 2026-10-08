@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-08
 **Issue:** #81, phase 3
-**Status:** Decisions E1 to E7 accepted (2026-10-08). Slices 3a, 3b and 3c complete; 3d and 3e pending.
+**Status:** Decisions E1 to E7 accepted (2026-10-08). Slices 3a to 3d complete; 3e pending.
 **Parent plan:** `docs/plans/2026-10-08-junction-detail-system.md`
 
 ---
@@ -189,7 +189,7 @@ Each slice leaves the tests green and is committed on its own.
 | 3a (complete) | `detailDocument`, `detailValidate`, `detailSerializer`, `detailRefs`, `datum`, mirror in the frame, schema field. | All pure tests pass. Example still renders. No UI. |
 | 3b (complete) | `memberShapes`, `canvasModel`, hit testing, drag handling (`canvasEdit`), optional member `extent`. | Canvas model for the example detail matches expectations in plan and section, and matches the 3D model's orientation. |
 | 3c (complete) | `detail-editor.html`, DOM wiring, handoff, save. | The example detail opens, edits and saves to a bundle; checked headlessly. |
-| 3d | Editor integration: tree section (E2), open from a junction, partial rebuild (E7), junction positions from `location`, `model.details` on save. | Editing a detail updates all four example corners in the editor without a reload. |
+| 3d (complete) | Editor integration: tree section (E2), open from a junction, partial rebuild (E7), junction positions from `location`, `model.details` on save. | Editing a detail updates all four example corners in the editor without a reload. |
 | 3e | Usage and candidates, location picker, parameter preview slider, overrides in the properties panel. | A second junction can be assigned and overridden from the UI. |
 
 Slice 3a is useful on its own: with it, an LLM or script can create and validate details safely.
@@ -224,6 +224,19 @@ Slice 3a is useful on its own: with it, an LLM or script can create and validate
 - Bound coordinates are edited from the region panel (pick a parameter in the vertex row), rather than with a separate canvas tool as the first sketch had. Dragging never changes a bound axis.
 - Checked headlessly with `shot-scraper` against a dev server: 20 interaction checks (select, drag a vertex, undo and redo, rectangle and polygon tools, member offset in mm, zoom, parameter preview, save to the bundle) and the opener handoff (ready, snapshot, edit, save, `detail-saved` received, no page errors). The same checks are kept in `tests/e2e/detail-editor.checks.js` and run by `tests/e2e/detail-editor.spec.js`, but Playwright's browser is not installed on this machine, so that spec has not been run here.
 - Known rough edges: renaming a parameter uses `window.prompt`, and switching detail with unsaved changes uses `window.confirm` (the roadmap already plans to replace prompts with inline UI); the editor side of the handoff (opening the page from the tree or a junction, and calling `buildSnapshot`) is slice 3d; assigning a detail to a junction is slice 3e.
+
+---
+
+## 8d. Slice 3d Outcome
+
+- **Tree (E2):** the editor's Details section now lists Detail entities and opens the detail editor (the `+` opens the page). The old single-profile sub-assemblies (`detail: true` profiles) moved to a new "Sub-assembly profiles" section, with their old behaviour and nothing changed on disk. There was no Profiles group in the tree to put them under, so it is its own section.
+- **Handoff:** the editor opens the page for a file-system bundle with the directory handle and for an in-memory bundle with a snapshot. A page that wrote the file itself sends `detail-saved` with `persisted: true`; a snapshot page sends `persisted: false` and the editor writes it (`applySavedDetail`). `parseSaved` checks the origin, the source window and the payload.
+- **Live refresh (E7):** after a save the editor recomputes geometry for the junctions that use the detail, removes only the 3D groups tagged with that `detailId`, and builds new ones. Other geometry, the camera and the selection are left alone.
+- **Junction markers:** the markers are no longer all at the world origin. A junction with a `location` is placed at its grid intersection and level; one without (the padstone) at the midpoint of the closest end points of its first two elements. `junctionPoint` does both. This retires the "junction sprites render at world origin" known limitation for bundles that have path data.
+- **Open from a junction:** selecting a junction that has a detail shows the detail in the properties panel with an Open detail button.
+- **Bug fixed:** the junction Apply button rewrote the whole junction file from a fixed template, which would have dropped `detail_id`, `location`, `detail_overrides`, `detail_mirrored`, `priority` and `trim_planes` from any junction using a detail (and had been dropping `priority` and `trim_planes` before details existed). It now changes only the rule on an existing junction.
+- **`model.details`:** nothing extra was needed. The editor's save already keeps unknown `model.json` keys, and `saveDetail` keeps `model.details` up to date.
+- **Checked in the real editor** with `shot-scraper` (software WebGL), 17 checks: the tree, marker positions, four detail groups, opening from the tree, an edit in the page raising the corner blocks from 2.7 m to 3.3 m with the four groups replaced in place and the file written, the Open detail button, Apply keeping the detail fields, and no page errors. The scripts are in `viewer/tests/e2e/` with a Playwright wrapper that has not been run here. `editor.html` also gained a `?demo` mode and a read-only `window.__editor` hook for these checks.
 
 ---
 

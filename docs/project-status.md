@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-08
 **Branch:** main
-**Tests:** 1026 JS (Vitest, 68 test files) + 250 Python (pytest, plus 7 documented xfails)
+**Tests:** 1065 JS (Vitest, 70 test files) + 250 Python (pytest, plus 7 documented xfails)
 
 ---
 
@@ -81,9 +81,9 @@ Two suites check the repository against the original design (`docs/plans/2026-02
 
 ---
 
-## Junction Detail System (#81) - Phases 1 and 2 and slices 3a to 3c complete (2026-10-08)
+## Junction Detail System (#81) - Phases 1 and 2 and slices 3a to 3d complete (2026-10-08)
 
-Plan: `docs/plans/2026-10-08-junction-detail-system.md`. Delivered: `detail.schema.json`; optional `detail_id`, `location` and `detail_overrides` on junctions; `details` list in the model schema; example detail used by the four wall corners; pure resolvers in `viewer/src/detail/` (grid, level, location, parameters, usage); schema, integrity and geometry-consistency tests. Phase 2 loads details in all three bundle loaders and renders them: the four example corners are drawn from one shared detail (the SE corner uses a parameter override) in both the viewer and the editor. The demo archive `viewer/public/terraced-house.oebfz` was re-packed and a test now fails if it drifts from the example. Phase 3 slice 3a (2026-10-08) added the editor's pure logic in `viewer/src/detail-editor/`: document operations, validation, serialisation, reference-safe rename and delete, the `bottom` datum, and mirrored use of a detail. Slice 3b added the canvas logic and slice 3c the page itself: `viewer/detail-editor.html` opens a bundle (folder, `.oebfz` or `?demo`), draws a detail in plan or section, edits members, regions and parameters with undo and redo, previews parameter values, and saves. It is not yet linked from the main editor (slice 3d), and assigning details to junctions from the page is slice 3e. Design: `docs/plans/2026-10-08-detail-editor-design.md`.
+Plan: `docs/plans/2026-10-08-junction-detail-system.md`. Delivered: `detail.schema.json`; optional `detail_id`, `location` and `detail_overrides` on junctions; `details` list in the model schema; example detail used by the four wall corners; pure resolvers in `viewer/src/detail/` (grid, level, location, parameters, usage); schema, integrity and geometry-consistency tests. Phase 2 loads details in all three bundle loaders and renders them: the four example corners are drawn from one shared detail (the SE corner uses a parameter override) in both the viewer and the editor. The demo archive `viewer/public/terraced-house.oebfz` was re-packed and a test now fails if it drifts from the example. Phase 3 slice 3a (2026-10-08) added the editor's pure logic in `viewer/src/detail-editor/`: document operations, validation, serialisation, reference-safe rename and delete, the `bottom` datum, and mirrored use of a detail. Slice 3b added the canvas logic and slice 3c the page itself: `viewer/detail-editor.html` opens a bundle (folder, `.oebfz` or `?demo`), draws a detail in plan or section, edits members, regions and parameters with undo and redo, previews parameter values, and saves. Slice 3d links it to the main editor: the Details tree opens it, a junction's properties open its detail, and a save refreshes only the affected 3D groups. Junction markers now sit at their real positions. Assigning details to junctions from the page is slice 3e. Design: `docs/plans/2026-10-08-detail-editor-design.md`.
 
 ---
 
@@ -112,7 +112,7 @@ See `docs/roadmap.md` for the full version-by-version plan.
 | Limitation | Notes |
 |---|---|
 | Storey and guide creation still uses `window.prompt` / `alert` | To be replaced with inline panel UI |
-| Junction sprites placed at world origin for pre-existing junctions | Requires path data registration at load time |
+| ~~Junction sprites placed at world origin for pre-existing junctions~~ | Fixed in slice 3d (location or element end points) |
 | Mesh does not appear after drawing until a default profile is selected | Entities written correctly; visual requires profile |
 | `v0.2.0-editor-alpha` tag not pushed to GitHub | Tag only exists locally |
 

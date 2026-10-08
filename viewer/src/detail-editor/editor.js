@@ -363,6 +363,8 @@ async function save() {
       window.opener.postMessage(savedMessage({ doc: st.doc }), window.location.origin);
     } else {
       await saveDetail(bundle.adapter, st.doc, validationContext());
+      // Tell the main editor so it can refresh the 3D view (the file is already written).
+      if (window.opener && !window.opener.closed) window.opener.postMessage(savedMessage({ doc: st.doc, persisted: true }), window.location.origin);
     }
     const saved = structuredClone(st.doc);
     const at = bundle.ctx.details.findIndex((d) => d.id === saved.id);

@@ -47,6 +47,7 @@ vi.mock('./bundleWriter.js', () => ({
 // ── Minimal document stub for _showProps (runs in Node, no real DOM) ──────────
 
 let capturedClickHandler = null;
+const handlersByLabel = {};
 
 global.document = {
   createElement: (tag) => ({
@@ -57,8 +58,8 @@ global.document = {
     value:       'butt',   // default — select reads this on click
     selected:    false,
     firstChild:  null,
-    addEventListener: (event, fn) => {
-      if (tag === 'button' && event === 'click') capturedClickHandler = fn;
+    addEventListener(event, fn) {
+      if (tag === 'button' && event === 'click') { capturedClickHandler = fn; handlersByLabel[this.textContent] = fn; }
     },
     removeChild:  vi.fn(),
     appendChild:  vi.fn(),
@@ -213,5 +214,69 @@ describe('JunctionEditor adapter write', () => {
     await capturedClickHandler?.();
 
     expect(writeEntityMock).not.toHaveBeenCalled();
+  });
+});
+
+// ── Detail integration (#81 slice 3d) ─────────────────────────────────────────
+
+describe('JunctionEditor: positions and detail links', () => {
+  test('loadJunctions places each sprite where the resolver says, or at the origin without one', () => {
+    const { je } = makeJunctionEditor();
+    je.loadJunctions(
+      [{ id: 'j-1', elements: ['a', 'b'], rule: 'butt' }, { id: 'j-2', elements: ['c', 'd'], rule: 'butt' }, { id: 'j-3', elements: ['e', 'f'], rule: 'butt' }],
+      (j) => (j.id === 'j-1' ? { x: 5.4, y: 8.5, z: 0 } : j.id === 'j-2' ? null : undefined),
+    );
+    expect([je._junctions[0].point.x, je._junctions[0].point.y]).toEqual([5.4, 8.5]);
+    expect(je._junctions[1].point).toMatchObject({ x: 0, y: 0, z: 0 });
+    expect(je._junctions[2].point).toMatchObject({ x: 0, y: 0, z: 0 });
+    expect(je._junctions[0].sprite.position).toMatchObject({ x: 5.4, y: 8.5, z: 0 });
+  });
+
+  test('loadJunctions keeps the detail id on the entry and the sprite', () => {
+    const { je } = makeJunctionEditor();
+    je.loadJunctions([{ id: 'j-1', elements: ['a', 'b'], rule: 'butt', detail_id: 'detail-x' }, { id: 'j-2', elements: ['c', 'd'], rule: 'butt' }]);
+    expect(je._junctions[0].detailId).toBe('detail-x');
+    expect(je._junctions[0].sprite.userData.detailId).toBe('detail-x');
+    expect(je._junctions[1].detailId).toBeNull();
+  });
+
+  test('a junction with a detail shows an Open detail button that calls onOpenDetail', () => {
+    const { je } = makeJunctionEditor();
+    je.loadJunctions([{ id: 'j-1', elements: ['a', 'b'], rule: 'butt', detail_id: 'detail-x' }]);
+    const opened = [];
+    je.onOpenDetail = (id) => opened.push(id);
+    je._showProps('j-1', ['a', 'b'], 'butt');
+    expect(handlersByLabel['Open detail']).toBeTypeOf('function');
+    handlersByLabel['Open detail']();
+    expect(opened).toEqual(['detail-x']);
+  });
+
+  test('a junction without a detail has no Open detail button', () => {
+    for (const k of Object.keys(handlersByLabel)) delete handlersByLabel[k];
+    const { je } = makeJunctionEditor();
+    je.loadJunctions([{ id: 'j-1', elements: ['a', 'b'], rule: 'butt' }]);
+    je._showProps('j-1', ['a', 'b'], 'butt');
+    expect(handlersByLabel['Open detail']).toBeUndefined();
+  });
+
+  test('Apply keeps every other field of an existing junction (detail link, location, priority, trim planes)', async () => {
+    writeEntityMock.mockClear();
+    const existing = {
+      $schema: 'oebf://schema/0.1/junction', id: 'j-1', type: 'Junction', description: 'NE corner',
+      elements: ['a', 'b'], rule: 'butt', priority: ['b'],
+      detail_id: 'detail-x', location: { grid_id: 'g', axes: ['2', 'B'], level_id: 'storey-gf' }, detail_overrides: { w_m: 0.075 }, detail_mirrored: true,
+      trim_planes: [{ element_id: 'a', at_end: 'end', plane_normal: { x: 1, y: 0, z: 0 }, plane_origin: { x: 0, y: 0, z: 0 } }],
+    };
+    const adapter = makeAdapter();
+    await adapter.writeJson('junctions/j-1.json', existing);
+    const { je } = makeJunctionEditor(adapter);
+    je.loadJunctions([existing]);
+    je._showProps('j-1', ['a', 'b'], 'butt');
+    await handlersByLabel['Apply']();
+    const written = writeEntityMock.mock.calls.at(-1)[2];
+    expect(written).toMatchObject({ detail_id: 'detail-x', detail_overrides: { w_m: 0.075 }, detail_mirrored: true, priority: ['b'], description: 'NE corner' });
+    expect(written.location).toEqual(existing.location);
+    expect(written.trim_planes).toHaveLength(1);
+    expect(written.rule).toBeDefined();
   });
 });

@@ -15,6 +15,7 @@ export class JunctionEditor {
     this._overlayGroup = overlayGroup;
     this._propsPanel   = propsPanel;
     this._adapter    = adapter;
+    this.onOpenDetail  = null; // (detailId) => void, set by editor.js
     this._elements     = []; // { id, pathData }
     this._junctions    = []; // { id, elementIds, point, rule, sprite }
   }
@@ -27,12 +28,18 @@ export class JunctionEditor {
     this._detectJunctions();
   }
 
-  /** Load junctions from bundle. */
-  loadJunctions(junctionEntities) {
+  /**
+   * Load junctions from the bundle.
+   *
+   * @param {object[]} junctionEntities
+   * @param {(junction: object) => ({x, y, z}|null|undefined)} [positionOf] where to put each marker
+   *   (see detail/junctionPosition.js); without a position the marker sits at the origin
+   */
+  loadJunctions(junctionEntities, positionOf) {
     for (const j of junctionEntities) {
-      // TODO: Resolve actual position from element path endpoints once paths are registered
-      const pt = new THREE.Vector3(0, 0, 0);
-      this._addJunctionSprite(j.id, j.elements, pt, j.rule ?? 'butt');
+      const p = positionOf?.(j);
+      const pt = new THREE.Vector3(p?.x ?? 0, p?.y ?? 0, p?.z ?? 0);
+      this._addJunctionSprite(j.id, j.elements, pt, j.rule ?? 'butt', j.detail_id ?? null);
     }
   }
 
@@ -61,15 +68,15 @@ export class JunctionEditor {
     }
   }
 
-  _addJunctionSprite(id, elementIds, point, rule) {
+  _addJunctionSprite(id, elementIds, point, rule, detailId = null) {
     const geo  = new THREE.PlaneGeometry(0.15, 0.15);
     const mat  = new THREE.MeshBasicMaterial({ color: 0xffcc00, side: THREE.DoubleSide });
     const mesh = new THREE.Mesh(geo, mat);
     mesh.position.copy(point);
     mesh.rotation.z = Math.PI / 4;
-    mesh.userData   = { junctionId: id, elementIds, rule };
+    mesh.userData   = { junctionId: id, elementIds, rule, detailId };
     this._overlayGroup.add(mesh);
-    this._junctions.push({ id, elementIds, point, rule, sprite: mesh });
+    this._junctions.push({ id, elementIds, point, rule, detailId, sprite: mesh });
   }
 
   /** Returns true if a junction sprite was clicked. */
@@ -120,6 +127,22 @@ export class JunctionEditor {
     ruleRow.append(ruleLabel, ruleSel);
     this._propsPanel.appendChild(ruleRow);
 
+    // Detail link row (the junction's reusable detail, opened in the detail editor)
+    if (junc?.detailId) {
+      const detailRow = document.createElement('div');
+      detailRow.className = 'prop-row';
+      const detailLabel = document.createElement('label');
+      detailLabel.textContent = 'Detail';
+      const detailVal = document.createElement('div');
+      detailVal.style.cssText = 'font-size:11px;opacity:0.7';
+      detailVal.textContent = junc.detailId;
+      const openBtn = document.createElement('button');
+      openBtn.textContent = 'Open detail';
+      openBtn.addEventListener('click', () => this.onOpenDetail?.(junc.detailId));
+      detailRow.append(detailLabel, detailVal, openBtn);
+      this._propsPanel.appendChild(detailRow);
+    }
+
     // Apply button row
     const applyRow = document.createElement('div');
     applyRow.className = 'prop-row';
@@ -132,16 +155,22 @@ export class JunctionEditor {
         junc.sprite.userData.rule = rule;
       }
       if (this._adapter) {
-        await writeEntity(this._adapter, `junctions/${id}.json`, {
-          $schema:  'oebf://schema/0.1/junction',
-          id,
-          type:     'Junction',
-          rule,
-          elements: elementIds,
-          priority: [],
-          trim_planes: [],
-          description: '',
-        });
+        // Keep everything else on an existing junction (priority, trim planes, detail link,
+        // location, overrides); only a junction with no file yet gets the defaults.
+        let existing = null;
+        try { existing = await this._adapter.readJson(`junctions/${id}.json`); } catch { /* new junction */ }
+        await writeEntity(this._adapter, `junctions/${id}.json`, existing
+          ? { ...existing, rule }
+          : {
+            $schema:  'oebf://schema/0.1/junction',
+            id,
+            type:     'Junction',
+            rule,
+            elements: elementIds,
+            priority: [],
+            trim_planes: [],
+            description: '',
+          });
       }
     });
     applyRow.appendChild(applyBtn);
