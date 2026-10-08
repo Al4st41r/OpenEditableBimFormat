@@ -92,6 +92,13 @@ describe('serializeDetail', () => {
     expect(s.type).toBe('Detail');
   });
 
+  test('keeps a member extent, written after placement; omits it when absent', () => {
+    const d = makeDetail(); d.members[0].extent = 'forward';
+    const [a, b] = serializeDetail(d).members;
+    expect(Object.keys(a)).toEqual(['role', 'kind', 'profile_id', 'placement', 'extent']);
+    expect('extent' in b).toBe(false);
+  });
+
   test('does not mutate its input', () => {
     const d = makeDetail(); const before = JSON.stringify(d);
     serializeDetail(d);

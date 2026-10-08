@@ -484,3 +484,40 @@ def test_e6_detail_mirrored_must_be_boolean(bad):
 def test_e5_example_datum_uses_elevation():
     """A plan trim block must rise from the floor level, not from the slab underside."""
     assert example_detail()["datum"]["reference"] == "elevation"
+
+
+# ── Slice 3b: member extent (drawing aid for the canvas) ─────────────────────
+
+@pytest.mark.parametrize("extent", ["centred", "forward", "backward"])
+def test_extent_accepted(extent):
+    d = example_detail()
+    d["members"][0]["extent"] = extent
+    validate(d, DETAIL_ID)
+
+
+@pytest.mark.parametrize("bad", ["left", "", 1, None, "Forward"])
+def test_extent_bad_value_rejected(bad):
+    d = example_detail()
+    d["members"][0]["extent"] = bad
+    with pytest.raises(jsonschema.ValidationError):
+        validate(d, DETAIL_ID)
+
+
+def test_extent_is_optional():
+    d = example_detail()
+    for m in d["members"]:
+        m.pop("extent", None)
+    validate(d, DETAIL_ID)
+
+
+def test_example_states_which_way_each_member_runs():
+    """The through wall leaves the corner and the butting wall arrives at it."""
+    ex = {m["role"]: m.get("extent") for m in example_detail()["members"]}
+    assert ex == {"through-wall": "forward", "butting-wall": "backward"}
+
+
+def test_example_butting_wall_sits_on_the_interior_face_of_the_through_wall():
+    """Profile width 0.29 m: face at 0.145. The butting wall arrives at the interior (-v) face."""
+    d = example_detail()
+    b = next(m for m in d["members"] if m["role"] == "butting-wall")["placement"]
+    assert (b["offset_x_m"], b["offset_y_m"], b["rotation_deg"]) == (0.0, -0.145, 90)

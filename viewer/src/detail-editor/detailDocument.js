@@ -10,7 +10,7 @@
  */
 
 import {
-  KINDS, PLANES, DATUM_KINDS, DATUM_REFERENCES, SLUG, PARAM_NAME, DEFAULT_EXTRUSION_M,
+  KINDS, EXTENTS, PLANES, DATUM_KINDS, DATUM_REFERENCES, SLUG, PARAM_NAME, DEFAULT_EXTRUSION_M,
 } from './detailConstants.js';
 
 export class DetailEditError extends Error {
@@ -149,6 +149,16 @@ export function setMemberKind(doc, role, kind) {
   const d = clone(doc);
   d.members[memberIndex(d, role)].kind = kind;
   return syncCondition(d);
+}
+
+/** How the plan view draws the member along its direction of travel; null clears it (default centred). */
+export function setMemberExtent(doc, role, extent) {
+  if (extent !== null && !EXTENTS.includes(extent)) throw new DetailEditError(`Unknown extent "${extent}"`);
+  const d = clone(doc);
+  const m = d.members[memberIndex(d, role)];
+  if (extent === null) delete m.extent;
+  else m.extent = extent;
+  return d;
 }
 
 export function renameMemberRole(doc, role, newRole) {

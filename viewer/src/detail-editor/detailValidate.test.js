@@ -118,6 +118,19 @@ describe('integrity rules', () => {
   });
 });
 
+describe('member extent', () => {
+  test('forward, backward and centred are accepted', () => {
+    for (const extent of ['forward', 'backward', 'centred']) {
+      const d = makeDetail(); d.members[0].extent = extent;
+      expect(check(d)).toEqual([]);
+    }
+  });
+  test('an unknown extent is reported at its path', () => {
+    const d = makeDetail(); d.members[1].extent = 'sideways';
+    expect(only(d, 'enum').map((m) => m.path)).toEqual(['members[1].extent']);
+  });
+});
+
 describe('structure (mirrors the JSON Schema)', () => {
   const mutate = (fn) => { const d = makeDetail(); fn(d); return d; };
 
@@ -138,6 +151,8 @@ describe('structure (mirrors the JSON Schema)', () => {
     'bad plane':          (d) => { d.plane = 'elevation'; },
     'bad member kind':    (d) => { d.members[0].kind = 'spaceship'; },
     'bad member role':    (d) => { d.members[0].role = 'Bad Role'; },
+    'bad member extent':  (d) => { d.members[0].extent = 'left'; },
+    'extent not a string': (d) => { d.members[0].extent = 1; },
     'missing profile_id': (d) => { delete d.members[0].profile_id; },
     'missing placement':  (d) => { delete d.members[0].placement; },
     'string placement':   (d) => { d.members[0].placement.offset_x_m = '125mm'; },

@@ -61,12 +61,16 @@ export function serializeDetail(doc) {
     out.condition = c;
   }
 
-  out.members = (doc.members ?? []).map((m) => ({
-    role: m.role, kind: m.kind, profile_id: m.profile_id,
-    placement: {
-      offset_x_m: m.placement?.offset_x_m, offset_y_m: m.placement?.offset_y_m, rotation_deg: m.placement?.rotation_deg,
-    },
-  }));
+  out.members = (doc.members ?? []).map((m) => {
+    const o = {
+      role: m.role, kind: m.kind, profile_id: m.profile_id,
+      placement: {
+        offset_x_m: m.placement?.offset_x_m, offset_y_m: m.placement?.offset_y_m, rotation_deg: m.placement?.rotation_deg,
+      },
+    };
+    if (m.extent !== undefined) o.extent = m.extent;
+    return o;
+  });
 
   if (doc.datum) out.datum = { kind: doc.datum.kind, reference: doc.datum.reference };
   if (doc.plane !== undefined) out.plane = doc.plane;

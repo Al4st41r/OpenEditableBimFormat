@@ -35,7 +35,8 @@ describe('frame', () => {
   test('section: mirroring flips u (across the member) only', () => {
     const a = buildDetailFrame(section(), makeJunction(), ctx([1, 0]));
     const m = buildDetailFrame(section(), mirrored(), ctx([1, 0]));
-    expect(m.u).toEqual({ x: 0, y: -1, z: 0 });
+    expect(a.u).toEqual({ x: 0, y: -1, z: 0 });
+    expect(m.u).toEqual({ x: 0, y: 1, z: 0 });
     expect(m.v).toEqual(a.v);
     expect(m.w).toEqual(a.w);
   });

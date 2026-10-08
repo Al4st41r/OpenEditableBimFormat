@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-08
 **Branch:** main
-**Tests:** 820 JS (Vitest, 58 test files) + 239 Python (pytest, plus 7 documented xfails)
+**Tests:** 910 JS (Vitest, 61 test files) + 250 Python (pytest, plus 7 documented xfails)
 
 ---
 
@@ -81,9 +81,9 @@ Two suites check the repository against the original design (`docs/plans/2026-02
 
 ---
 
-## Junction Detail System (#81) - Phases 1 and 2 and slice 3a complete (2026-10-08)
+## Junction Detail System (#81) - Phases 1 and 2 and slices 3a and 3b complete (2026-10-08)
 
-Plan: `docs/plans/2026-10-08-junction-detail-system.md`. Delivered: `detail.schema.json`; optional `detail_id`, `location` and `detail_overrides` on junctions; `details` list in the model schema; example detail used by the four wall corners; pure resolvers in `viewer/src/detail/` (grid, level, location, parameters, usage); schema, integrity and geometry-consistency tests. Phase 2 loads details in all three bundle loaders and renders them: the four example corners are drawn from one shared detail (the SE corner uses a parameter override) in both the viewer and the editor. The demo archive `viewer/public/terraced-house.oebfz` was re-packed and a test now fails if it drifts from the example. Phase 3 slice 3a (2026-10-08) added the editor's pure logic in `viewer/src/detail-editor/`: document operations, validation, serialisation, reference-safe rename and delete, the `bottom` datum, and mirrored use of a detail. There is no detail editor UI yet (slices 3b to 3e, then phase 4). Design: `docs/plans/2026-10-08-detail-editor-design.md`.
+Plan: `docs/plans/2026-10-08-junction-detail-system.md`. Delivered: `detail.schema.json`; optional `detail_id`, `location` and `detail_overrides` on junctions; `details` list in the model schema; example detail used by the four wall corners; pure resolvers in `viewer/src/detail/` (grid, level, location, parameters, usage); schema, integrity and geometry-consistency tests. Phase 2 loads details in all three bundle loaders and renders them: the four example corners are drawn from one shared detail (the SE corner uses a parameter override) in both the viewer and the editor. The demo archive `viewer/public/terraced-house.oebfz` was re-packed and a test now fails if it drifts from the example. Phase 3 slice 3a (2026-10-08) added the editor's pure logic in `viewer/src/detail-editor/`: document operations, validation, serialisation, reference-safe rename and delete, the `bottom` datum, and mirrored use of a detail. Slice 3b added the canvas logic: member shapes, canvas model, hit testing and drag handling (still no UI; slices 3c to 3e, then phase 4). Design: `docs/plans/2026-10-08-detail-editor-design.md`.
 
 ---
 

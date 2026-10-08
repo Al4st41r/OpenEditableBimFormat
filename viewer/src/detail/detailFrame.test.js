@@ -56,11 +56,11 @@ describe('buildDetailFrame', () => {
     expect(f.v).toEqual({ x: -1, y: 0, z: 0 });
   });
 
-  test('section frame: u across the member, v up, w along the member', () => {
+  test('section frame: u to the right of travel (as the profile editor draws it), v up, w against travel', () => {
     const f = buildDetailFrame(makeDetail({ plane: 'section' }), makeJunction(), ctx([1, 0]));
-    expect(f.u).toEqual({ x: 0, y: 1, z: 0 });
+    expect(f.u).toEqual({ x: 0, y: -1, z: 0 });   // right of travel along +x is -y
     expect(f.v).toEqual({ x: 0, y: 0, z: 1 });
-    expect(f.w).toEqual({ x: 1, y: 0, z: 0 });
+    expect(f.w).toEqual({ x: -1, y: 0, z: 0 });
   });
 
   test('every frame is right-handed (u x v = w)', () => {
@@ -76,7 +76,7 @@ describe('buildDetailFrame', () => {
   test('primary member is priority[0]; falls back to elements[0]', () => {
     const j = makeJunction('j', { priority: ['element-b'] });
     const viaB = buildDetailFrame(makeDetail(), j, ctx([1, 0]));
-    expect(viaB.u).toEqual({ x: 0, y: 1, z: 0 }); // element-b runs +y when element-a runs +x
+    expect(viaB.u).toEqual({ x: 0, y: 1, z: 0 }); // plan: u = travel direction; element-b runs +y when element-a runs +x
     const k = makeJunction('k', { priority: [] });
     expect(buildDetailFrame(makeDetail(), k, ctx([1, 0])).u).toEqual({ x: 1, y: 0, z: 0 });
   });

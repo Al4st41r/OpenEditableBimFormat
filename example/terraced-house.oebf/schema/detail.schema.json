@@ -32,6 +32,7 @@
           "role":       { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$", "description": "Label, unique within the detail (eg through-wall)." },
           "kind":       { "$ref": "#/definitions/kind" },
           "profile_id": { "type": "string" },
+          "extent": { "type": "string", "enum": ["centred", "forward", "backward"], "description": "Drawing aid for the editor canvas, not geometry. How a plan view draws this member relative to its origin along its local x (the direction of travel): centred on it, forward (runs away from it) or backward (arrives at it). Default centred." },
           "placement": {
             "type": "object",
             "required": ["offset_x_m", "offset_y_m", "rotation_deg"],

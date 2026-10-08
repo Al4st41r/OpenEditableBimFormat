@@ -6,6 +6,7 @@ export const PLANES = ['section', 'plan'];
 export const VIEW_DIRECTIONS = ['along_path', 'across_path'];
 export const DATUM_KINDS = ['storey', 'grid_elevation'];
 export const DATUM_REFERENCES = ['top', 'bottom', 'elevation'];
+export const EXTENTS = ['centred', 'forward', 'backward'];
 export const RULES = ['butt', 'mitre', 'lap', 'halving', 'notch', 'custom'];
 
 /** Entity ids and member roles. */

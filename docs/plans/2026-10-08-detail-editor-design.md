@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-08
 **Issue:** #81, phase 3
-**Status:** Decisions E1 to E7 accepted (2026-10-08). Slice 3a complete; slices 3b to 3e pending.
+**Status:** Decisions E1 to E7 accepted (2026-10-08). Slices 3a and 3b complete; 3c to 3e pending.
 **Parent plan:** `docs/plans/2026-10-08-junction-detail-system.md`
 
 ---
@@ -39,7 +39,7 @@ Each has a recommendation. Reply with changes, or accept all.
 | E1 | Where does the canvas live? | A separate page, `detail-editor.html`, opened like the profile editor. | A panel inside `editor.html`. Faster to open, but the editor page is already large and the profile editor sets the precedent. |
 | E2 | What does the tree's "Details" section show? | Detail entities. Existing `detail: true` profiles move to a "Sub-assembly profiles" group under Profiles, unchanged on disk. | Keep both under "Details" with an icon to tell them apart. Cheaper, but the name stays ambiguous. |
 | E3 | How do detail members map to a junction's elements? | By order: member 0 is the primary member (`priority[0]`, else `elements[0]`), and the remaining members take the remaining elements in `elements` order. The editor warns when a member's profile differs from its element's profile. | An explicit `detail_roles` map on the junction (`{ "through-wall": "element-wall-east-gf" }`). Unambiguous, but one more field to keep in step. |
-| E4 | What does member `placement` mean? | The member's own frame is placed in detail space. For a `plan` detail the member runs along its local x and its profile's across-axis is local y, with the profile origin on the centreline. For a `section` detail local x is across and local y is up, as in the profile editor. `offset_*` moves the member, `rotation_deg` turns it about its profile origin, anticlockwise. | Store the member as a polygon. Loses the link to the profile, so edits to the profile would stop flowing through. |
+| E4 | What does member `placement` mean? | The member's own frame is placed in detail space. For a `plan` detail the member runs along its local x (its direction of travel) and the across axis is local y = -(profile x), because the 3D model puts the first layer on the left of travel. For a `section` detail local x is profile x (to the right) and local y is up, as in the profile editor. `offset_*` moves the member, `rotation_deg` turns it about its profile origin, anticlockwise. An optional `extent` (`centred`, `forward`, `backward`) says how far a plan strip runs from its origin; it is a drawing aid, not geometry. | Store the member as a polygon. Loses the link to the profile, so edits to the profile would stop flowing through. |
 | E5 | What do `datum.reference` `top` and `bottom` mean (open question Q3)? | Defined from the model: slabs hang below the storey elevation (the example ground slab spans -0.15 to 0 m). `top` is the storey elevation. `bottom` is the elevation minus the thickness of the slab whose `parent_group_id` is the storey. A storey with no slab and `bottom` is an error. `elevation` is unchanged. | Remove `top` and `bottom` from the schema until slabs link to storeys more formally. |
 | E6 | How is mirroring handled (risk K3)? | A boolean `detail_mirrored` on the junction. The frame flips v, and face winding is reversed so volumes stay positive. One detail then serves both hands of a corner. | Mirror per member in the detail. More flexible, but a mirrored corner would need a second detail. |
 | E7 | How does a save reach the 3D view? | The page sends `detail-saved` to the opener. The editor reloads that detail, rebuilds geometry for its referencing junctions, and replaces only the groups tagged with that `detailId`. | Reload the whole bundle. Simpler, but resets the camera and selection. |
@@ -187,7 +187,7 @@ Each slice leaves the tests green and is committed on its own.
 | Slice | Scope | Exit criteria |
 |---|---|---|
 | 3a (complete) | `detailDocument`, `detailValidate`, `detailSerializer`, `detailRefs`, `datum`, mirror in the frame, schema field. | All pure tests pass. Example still renders. No UI. |
-| 3b | `memberShapes`, `canvasModel` and hit testing. | Canvas model for the example detail matches expectations in plan and section. |
+| 3b (complete) | `memberShapes`, `canvasModel`, hit testing, drag handling (`canvasEdit`), optional member `extent`. | Canvas model for the example detail matches expectations in plan and section, and matches the 3D model's orientation. |
 | 3c | `detail-editor.html`, DOM wiring, handoff, save. | The example detail opens, edits and saves to a bundle in Chrome; checked by screenshot. |
 | 3d | Editor integration: tree section (E2), open from a junction, partial rebuild (E7), junction positions from `location`, `model.details` on save. | Editing a detail updates all four example corners in the editor without a reload. |
 | 3e | Usage and candidates, location picker, parameter preview slider, overrides in the properties panel. | A second junction can be assigned and overridden from the UI. |
@@ -204,6 +204,15 @@ Slice 3a is useful on its own: with it, an LLM or script can create and validate
 - The example detail's datum changed from `bottom` to `elevation`. A plan trim block should rise from the floor level, not from the slab underside, and a schema test now guards it.
 - Validation is tested against about 40 deliberately broken documents that mirror the JSON Schema rules, plus nine unknown-field cases. The viewer has no JSON Schema validator, so `detailValidate.js` re-implements the schema rules; the Python schema tests remain the authority.
 - Parameter-bound coordinates round computed offsets to 1e-9, so saved files do not carry floating point noise.
+
+---
+
+## 8b. Slice 3b Outcome
+
+- New modules in `viewer/src/detail-editor/`: `memberShapes.js` (profile to plan or section polygons, with placement), `canvasModel.js` (draw primitives, handles for the selection, view box, ruler, hit testing), `canvasEdit.js` (pointer drags to document operations, with snapping; bound coordinates are locked while dragging and reported). About 90 new tests.
+- A visual check of the model (rendered to SVG) found a real orientation error in the first draft: the canvas put the brick layer on the right of travel, but the 3D model puts it on the left in all four example walls. The plan mapping is now `-(profile x)`, with a test that pins it to the example, and the section frame now uses the right-hand perpendicular so it matches the profile editor.
+- That check also showed that no single default extent suits both a wall that leaves a junction and one that arrives at it, so members gained an optional `extent`. The example sets the through wall `forward` and the butting wall `backward`, with the butting wall placed at the through wall's interior face (0.145 m from the centreline).
+- The example profile `profile-cavity-250` is 290 mm wide (layers 102 + 75 + 100 + 13), not 250 mm as its name and description say. The name comes from the original design document. The example detail now uses the real half-width, 0.145 m.
 
 ---
 

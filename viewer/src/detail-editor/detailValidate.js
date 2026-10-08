@@ -10,7 +10,7 @@
  */
 
 import {
-  KINDS, PLANES, VIEW_DIRECTIONS, DATUM_KINDS, DATUM_REFERENCES, RULES, SLUG, PARAM_NAME, SCHEMA_ID,
+  KINDS, EXTENTS, PLANES, VIEW_DIRECTIONS, DATUM_KINDS, DATUM_REFERENCES, RULES, SLUG, PARAM_NAME, SCHEMA_ID,
 } from './detailConstants.js';
 import { evaluateCoordinate } from './detailDocument.js';
 import { signedArea, isSelfIntersecting } from '../detail/regionGeometry.js';
@@ -58,7 +58,8 @@ export function validateDetail(doc, ctx) {
   members.forEach((m, i) => {
     const p = `members[${i}]`;
     if (!isObj(m)) { add(p, 'member', 'A member must be an object'); return; }
-    noExtra(m, ['role', 'kind', 'profile_id', 'placement'], p);
+    noExtra(m, ['role', 'kind', 'profile_id', 'extent', 'placement'], p);
+    if (m.extent !== undefined && !EXTENTS.includes(m.extent)) add(`${p}.extent`, 'enum', `extent must be one of ${EXTENTS.join(', ')}`);
     if (typeof m.role !== 'string' || !SLUG.test(m.role)) add(`${p}.role`, 'role', 'role must be lower-case letters, numbers and hyphens');
     else if (seenRoles.has(m.role)) add(`${p}.role`, 'role-duplicate', `Role "${m.role}" is used more than once`);
     else seenRoles.add(m.role);

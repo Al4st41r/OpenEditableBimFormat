@@ -15,6 +15,7 @@ describe('purity', () => {
     rotateMember: (d) => D.rotateMember(d, 'a', 45),
     setMemberProfile: (d) => D.setMemberProfile(d, 'a', 'p9'),
     setMemberKind: (d) => D.setMemberKind(d, 'a', 'slab'),
+    setMemberExtent: (d) => D.setMemberExtent(d, 'a', 'forward'),
     renameMemberRole: (d) => D.renameMemberRole(d, 'a', 'through-wall'),
     addRegion: (d) => D.addRegion(d, { material_id: 'm', vertices: [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 0, y: 1 }] }),
     addRect: (d) => D.addRect(d, 'm', { x: 0, y: 0 }, { x: 1, y: 1 }),
@@ -108,6 +109,14 @@ describe('members', () => {
     expect(D.setMemberProfile(base(), 'a', 'p9').members[0].profile_id).toBe('p9');
     expect(D.setMemberKind(base(), 'a', 'slab').members[0].kind).toBe('slab');
     expect(() => D.setMemberKind(base(), 'a', 'x')).toThrow(/kind/);
+  });
+
+  test('setMemberExtent sets and clears the drawing extent', () => {
+    expect(D.setMemberExtent(base(), 'a', 'backward').members[0].extent).toBe('backward');
+    const cleared = D.setMemberExtent(D.setMemberExtent(base(), 'a', 'forward'), 'a', null);
+    expect('extent' in cleared.members[0]).toBe(false);
+    expect(() => D.setMemberExtent(base(), 'a', 'sideways')).toThrow(/extent/i);
+    expect(() => D.setMemberExtent(base(), 'zz', 'forward')).toThrow(/zz/);
   });
 
   test('renameMemberRole keeps order; duplicate or invalid names throw', () => {

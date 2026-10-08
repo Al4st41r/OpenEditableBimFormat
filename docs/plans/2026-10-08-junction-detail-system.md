@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-08
 **Issue:** #81 (extended)
-**Status:** Phases 1 and 2 complete; phase 3 slice 3a complete (2026-10-08); the rest of phases 3 to 5 pending
+**Status:** Phases 1 and 2 complete; phase 3 slices 3a and 3b complete (2026-10-08); the rest of phases 3 to 5 pending
 **Supersedes:** the "Junction detail editor" section of `docs/roadmap.md` (v0.4)
 
 ---
@@ -162,9 +162,9 @@ A detail's 2D space is mapped onto a junction by a right-handed frame. The origi
 | `plane` | u (detail x) | v (detail y) | w (extrusion) |
 |---|---|---|---|
 | `plan` | `t` | `t` rotated 90 degrees anticlockwise | up (z), from 0 to `extrusion_m` |
-| `section` | `t` rotated 90 degrees anticlockwise | up (z) | `t`, from `-extrusion_m/2` to `+extrusion_m/2` |
+| `section` | `t` rotated 90 degrees clockwise (right of travel) | up (z) | `-t`, from `-extrusion_m/2` to `+extrusion_m/2` |
 
-Consequence: a detail looks the same relative to the primary member wherever it is used. Walls drawn clockwise have the exterior on the left of travel (positive v in plan). Mirrored use of a detail is not yet supported (K3).
+Consequence: a detail looks the same relative to the primary member wherever it is used. In the 3D model the first profile layer (profile -x, eg the brick leaf) lies on the **left** of travel; in the example all four walls are drawn clockwise, so that is the exterior. In a plan detail that side is +v. A section detail is drawn with profile +x to the right, as in the profile editor. Mirrored use is `detail_mirrored` (E6).
 
 ---
 

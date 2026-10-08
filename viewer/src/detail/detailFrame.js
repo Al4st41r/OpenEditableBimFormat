@@ -8,7 +8,10 @@
  *           (primary = junction.priority[0], else elements[0])
  *
  *   plan    u = t,           v = t rotated 90 degrees anticlockwise, w = up
- *   section u = across (t rotated 90 degrees anticlockwise), v = up, w = t
+ *   section u = across to the RIGHT of travel (t rotated 90 degrees clockwise),
+ *           v = up, w = -t. This is how the profile editor draws a profile
+ *           (profile +x to the right), and how the 3D model lays it out: the
+ *           first layer (profile -x) lies on the left of travel.
  *
  * Unmirrored frames are right-handed (u x v = w). For plan details the region
  * is extruded upwards along w; for section details along the member, centred.
@@ -72,7 +75,8 @@ export function buildDetailFrame(detail, junction, ctx) {
 
   const t = pathTangentAt(points, origin);
   const T = { x: t.x, y: t.y, z: 0 };
-  const P = { x: n(-t.y), y: n(t.x), z: 0 };
+  const P = { x: n(-t.y), y: n(t.x), z: 0 };            // left of travel
+  const R = { x: n(t.y), y: n(-t.x), z: 0 };            // right of travel
   const UP = { x: 0, y: 0, z: 1 };
 
   const mirrored = junction.detail_mirrored === true;
@@ -80,5 +84,5 @@ export function buildDetailFrame(detail, junction, ctx) {
 
   return (detail.plane ?? 'section') === 'plan'
     ? { origin, u: T, v: mirrored ? flip(P) : P, w: UP, mirrored }
-    : { origin, u: mirrored ? flip(P) : P, v: UP, w: T, mirrored };
+    : { origin, u: mirrored ? P : R, v: UP, w: flip(T), mirrored };
 }
