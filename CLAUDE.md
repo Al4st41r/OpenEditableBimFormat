@@ -60,6 +60,7 @@ Phase 8 issues #69–#77 and #70/#66 are closed.
 | # | Title |
 |---|---|
 | #101 | Spec items not yet delivered (commands.json, ifc/mapping.json, migrations) |
+| #105 | Feature: smart cursor tooltips and direct length/size editing (Vectorworks/ArchiCAD style); extends #82, #83 — future scope |
 | #104 | Feature: parametric grid frame generator (sliders place columns, floors, roof, beams) — future scope |
 | #83 | Object properties panel — full entity field display and inline editing |
 | #82 | Snapping tools — grid, endpoint, angle, midpoint |
