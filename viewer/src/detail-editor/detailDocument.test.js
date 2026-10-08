@@ -20,6 +20,7 @@ describe('purity', () => {
     addRegion: (d) => D.addRegion(d, { material_id: 'm', vertices: [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 0, y: 1 }] }),
     addRect: (d) => D.addRect(d, 'm', { x: 0, y: 0 }, { x: 1, y: 1 }),
     removeRegion: (d) => D.removeRegion(d, 0),
+    setRegionMaterial: (d) => D.setRegionMaterial(d, 0, 'mat-z'),
     moveVertex: (d) => D.moveVertex(d, 0, 0, { x: 5 }),
     bindCoordinate: (d) => D.bindCoordinate(d, 0, 0, 'x', { param: 'w' }),
     unbindCoordinate: (d) => D.unbindCoordinate(D.bindCoordinate(d, 0, 0, 'x', { param: 'w' }), 0, 0, 'x'),
@@ -153,6 +154,18 @@ describe('regions and vertices', () => {
 
   test('addRect refuses a zero-size rectangle', () => {
     expect(() => D.addRect(base(), 'm', { x: 0, y: 0 }, { x: 0, y: 1 })).toThrow(/size|area/i);
+  });
+
+  test('setRegionMaterial changes only the material of that region', () => {
+    const d = D.setRegionMaterial(base(), 0, 'mat-z');
+    expect(d.geometry.regions[0].material_id).toBe('mat-z');
+    expect(d.geometry.regions[0].vertices).toEqual(base().geometry.regions[0].vertices);
+  });
+
+  test('setRegionMaterial rejects a missing region or an empty material', () => {
+    expect(() => D.setRegionMaterial(base(), 3, 'm')).toThrow(/region/i);
+    expect(() => D.setRegionMaterial(base(), 0, '')).toThrow(/material/i);
+    expect(() => D.setRegionMaterial(base(), 0, undefined)).toThrow(/material/i);
   });
 
   test('removeRegion removes by index and keeps geometry when the last goes', () => {

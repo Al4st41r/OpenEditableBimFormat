@@ -1,0 +1,96 @@
+/**
+ * panelModel.js
+ *
+ * Everything the detail editor's side panels show, as plain data, so the DOM
+ * layer only has to render rows. Derived from the document, the selection, the
+ * validation messages and the bundle context.
+ */
+
+import { findUsages, findCandidates } from '../detail/detailUsage.js';
+import { evaluateCoordinate } from './detailDocument.js';
+
+const tidy = (x) => Math.round(x * 1e9) / 1e9 + 0;
+const boundParam = (c) => (c && typeof c === 'object' ? c.param : null);
+
+function describeLocation(loc) {
+  if (!loc) return null;
+  const offset = loc.level_offset_m ? ` ${loc.level_offset_m > 0 ? '+' : ''}${loc.level_offset_m}` : '';
+  return `${loc.axes.join(' / ')} @ ${loc.level_id}${offset}`;
+}
+
+/**
+ * @param {{ doc, selection, validation, dirty, canUndo, canRedo, profileIds?: string[], materialIds?: string[], junctions?: object[], elements?: object }} input
+ */
+export function buildPanelModel({ doc, selection, validation, dirty, canUndo, canRedo, profileIds, materialIds, junctions = [], elements = {} }) {
+  const profileSet = profileIds ? new Set(profileIds) : null;
+  const materialSet = materialIds ? new Set(materialIds) : null;
+  const regions = doc.geometry?.regions ?? [];
+
+  const members = (doc.members ?? []).map((m) => ({
+    role: m.role, kind: m.kind, profileId: m.profile_id, extent: m.extent ?? 'centred',
+    selected: selection?.type === 'member' && selection.role === m.role,
+    profileMissing: profileSet ? !profileSet.has(m.profile_id) : false,
+  }));
+
+  const usedBy = {};
+  const regionRows = regions.map((r, index) => {
+    let boundCount = 0;
+    for (const v of r.vertices ?? []) {
+      for (const axis of ['x', 'y']) {
+        const p = boundParam(v[axis]);
+        if (p) { boundCount++; usedBy[p] = (usedBy[p] ?? 0) + 1; }
+      }
+    }
+    return {
+      index, materialId: r.material_id, vertexCount: r.vertices?.length ?? 0, boundCount,
+      selected: selection?.type === 'region' && selection.index === index,
+      materialMissing: materialSet ? !materialSet.has(r.material_id) : false,
+    };
+  });
+
+  const parameters = Object.entries(doc.parameters ?? {}).map(([name, p]) => ({
+    name, default: p.default, min: p.min, max: p.max, usedBy: usedBy[name] ?? 0,
+  }));
+
+  let selectedMember = null;
+  if (selection?.type === 'member') {
+    const m = (doc.members ?? []).find((x) => x.role === selection.role);
+    if (m) {
+      selectedMember = {
+        role: m.role, kind: m.kind, profileId: m.profile_id, extent: m.extent ?? 'centred',
+        offset_x_m: m.placement?.offset_x_m ?? 0, offset_y_m: m.placement?.offset_y_m ?? 0, rotation_deg: m.placement?.rotation_deg ?? 0,
+      };
+    }
+  }
+
+  let selectedRegion = null;
+  if (selection?.type === 'region' && regions[selection.index]) {
+    const r = regions[selection.index];
+    selectedRegion = {
+      index: selection.index, materialId: r.material_id,
+      vertices: r.vertices.map((v, i) => ({
+        x: tidy(evaluateCoordinate(v.x, doc.parameters)), y: tidy(evaluateCoordinate(v.y, doc.parameters)),
+        boundX: boundParam(v.x), boundY: boundParam(v.y), selected: selection.vertex === i,
+      })),
+    };
+  }
+
+  return {
+    title: doc.id, dirty, canUndo, canRedo,
+    header: {
+      description: doc.description, plane: doc.plane ?? 'section',
+      datumKind: doc.datum?.kind, datumReference: doc.datum?.reference,
+      extrusion_m: doc.geometry?.extrusion_m ?? null,
+    },
+    condition: doc.condition ?? null,
+    members, regions: regionRows, parameters, selectedMember, selectedRegion,
+    usage: {
+      junctions: findUsages(doc.id, junctions).map((j) => ({
+        id: j.id, location: describeLocation(j.location), overrides: j.detail_overrides ?? {}, mirrored: j.detail_mirrored === true,
+      })),
+      candidates: findCandidates(doc, junctions, elements).map((j) => ({ id: j.id, rule: j.rule })),
+    },
+    messages: validation.map((m) => ({ ...m, severity: 'error' })),
+    saveEnabled: dirty && validation.length === 0,
+  };
+}

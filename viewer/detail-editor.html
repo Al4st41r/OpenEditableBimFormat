@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OEBF Detail Editor</title>
+  <link rel="icon" href="/oebf/icons/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #1a1a1a; color: #ddd; font-family: 'Barlow', sans-serif; font-size: 13px; display: flex; flex-direction: column; height: 100vh; }
+    button, select, input { font: inherit; }
+    #header { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 6px 12px; background: #222; border-bottom: 1px solid #333; flex-shrink: 0; }
+    #header select, #header input, .panel select, .panel input[type=text], .panel input[type=number] { background: #333; color: #ddd; border: 1px solid #555; padding: 3px 6px; border-radius: 3px; }
+    button { padding: 4px 10px; cursor: pointer; background: #333; color: #ddd; border: 1px solid #555; border-radius: 3px; }
+    button:hover:not(:disabled) { background: #444; }
+    button:disabled { opacity: 0.4; cursor: default; }
+    button.primary { background: #2a4a2a; color: #8f8; }
+    button.primary:hover:not(:disabled) { background: #3a5a3a; }
+    button.active { background: #1e3a5a; border-color: #4a8aaa; color: #fff; }
+    .sep { width: 1px; align-self: stretch; background: #333; margin: 0 4px; }
+    #project-name { opacity: 0.6; }
+    #status { margin-left: auto; opacity: 0.8; font-size: 12px; max-width: 40%; text-align: right; }
+    #status.error { color: #f88; opacity: 1; }
+    #dirty { color: #fc6; font-size: 18px; line-height: 1; }
+    #main { display: flex; flex: 1; min-height: 0; }
+    .panel { overflow-y: auto; padding: 8px 12px; background: #1e1e1e; flex-shrink: 0; }
+    #left-panel { width: 250px; border-right: 1px solid #333; }
+    #right-panel { width: 340px; border-left: 1px solid #333; }
+    #canvas-wrap { flex: 1; min-width: 0; position: relative; background: #f2f1ed; }
+    #canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; user-select: none; }
+    #empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #888; font-size: 14px; text-align: center; padding: 24px; pointer-events: none; }
+    #empty[hidden] { display: none; }
+    h3 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: #999; margin: 12px 0 6px; }
+    h3:first-child { margin-top: 0; }
+    .row { display: flex; align-items: center; gap: 6px; margin: 3px 0; }
+    .row > label { flex: 0 0 82px; opacity: 0.7; font-size: 12px; }
+    .row > input, .row > select { flex: 1; min-width: 0; }
+    .item { padding: 4px 8px; border-radius: 3px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+    .item:hover { background: #2a2a2a; }
+    .item.selected { background: #1e3a5a; }
+    .item .meta { opacity: 0.55; font-size: 11px; margin-left: auto; }
+    .item .swatch { width: 10px; height: 10px; border: 1px solid #555; flex-shrink: 0; }
+    .warn { color: #fc6; }
+    .err { color: #f88; }
+    .note { opacity: 0.55; font-size: 11px; margin: 4px 0; }
+    .msg { font-size: 12px; margin: 3px 0; }
+    .box { border: 1px solid #333; border-radius: 3px; padding: 6px 8px; margin: 6px 0; }
+    .param { margin: 6px 0; padding: 6px 8px; border: 1px solid #333; border-radius: 3px; }
+    .param input[type=range] { width: 100%; }
+    .vtx { display: grid; grid-template-columns: 18px 1fr 1fr; gap: 4px; align-items: center; margin: 3px 0; }
+    .vtx.selected { background: #1e3a5a; border-radius: 3px; }
+    .bound { color: #8cf; font-size: 11px; }
+    dialog { background: #222; color: #ddd; border: 1px solid #555; border-radius: 4px; padding: 16px; }
+    dialog::backdrop { background: rgba(0,0,0,0.5); }
+  </style>
+  <script>
+    // Keep uncaught errors where headless checks and bug reports can read them.
+    window.__errors = [];
+    window.addEventListener('error', (e) => window.__errors.push(e.message));
+    window.addEventListener('unhandledrejection', (e) => window.__errors.push(String(e.reason)));
+  </script>
+</head>
+<body>
+  <div id="header">
+    <span id="project-name">No bundle open</span>
+    <select id="detail-select" disabled><option value="">— select detail —</option></select>
+    <button id="new-btn" disabled>New</button>
+    <span class="sep"></span>
+    <button id="open-btn">Open folder</button>
+    <button id="open-file-btn">Open .oebfz</button>
+    <button id="demo-btn">Demo</button>
+    <button id="zip-btn" hidden>Download bundle</button>
+    <span class="sep"></span>
+    <button id="tool-select" class="active" title="Select and move (V)">Select</button>
+    <button id="tool-rect" title="Rectangle region (R)">Rect</button>
+    <button id="tool-polygon" title="Polygon region (P)">Polygon</button>
+    <select id="material-select" title="Material for new regions" disabled></select>
+    <span class="sep"></span>
+    <button id="undo-btn" disabled title="Undo (Ctrl+Z)">Undo</button>
+    <button id="redo-btn" disabled title="Redo (Ctrl+Y)">Redo</button>
+    <button id="fit-btn" title="Fit to view (F)">Fit</button>
+    <select id="units-select" title="Display units"><option value="mm" selected>mm</option><option value="m">m</option></select>
+    <span class="sep"></span>
+    <span id="dirty" hidden title="Unsaved changes">●</span>
+    <button id="save-btn" class="primary" disabled title="Save (Ctrl+S)">Save</button>
+    <span id="status"></span>
+  </div>
+  <div id="main">
+    <div id="left-panel" class="panel"></div>
+    <div id="canvas-wrap">
+      <svg id="canvas" xmlns="http://www.w3.org/2000/svg"></svg>
+      <div id="empty">Open a bundle or the demo, then choose a detail.</div>
+    </div>
+    <div id="right-panel" class="panel"></div>
+  </div>
+  <dialog id="new-dialog"></dialog>
+  <input id="oebfz-input" type="file" accept=".oebfz" hidden>
+  <script type="module" src="/src/detail-editor/editor.js"></script>
+</body>
+</html>

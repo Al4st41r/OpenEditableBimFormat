@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-08
 **Issue:** #81, phase 3
-**Status:** Decisions E1 to E7 accepted (2026-10-08). Slices 3a and 3b complete; 3c to 3e pending.
+**Status:** Decisions E1 to E7 accepted (2026-10-08). Slices 3a, 3b and 3c complete; 3d and 3e pending.
 **Parent plan:** `docs/plans/2026-10-08-junction-detail-system.md`
 
 ---
@@ -188,7 +188,7 @@ Each slice leaves the tests green and is committed on its own.
 |---|---|---|
 | 3a (complete) | `detailDocument`, `detailValidate`, `detailSerializer`, `detailRefs`, `datum`, mirror in the frame, schema field. | All pure tests pass. Example still renders. No UI. |
 | 3b (complete) | `memberShapes`, `canvasModel`, hit testing, drag handling (`canvasEdit`), optional member `extent`. | Canvas model for the example detail matches expectations in plan and section, and matches the 3D model's orientation. |
-| 3c | `detail-editor.html`, DOM wiring, handoff, save. | The example detail opens, edits and saves to a bundle in Chrome; checked by screenshot. |
+| 3c (complete) | `detail-editor.html`, DOM wiring, handoff, save. | The example detail opens, edits and saves to a bundle; checked headlessly. |
 | 3d | Editor integration: tree section (E2), open from a junction, partial rebuild (E7), junction positions from `location`, `model.details` on save. | Editing a detail updates all four example corners in the editor without a reload. |
 | 3e | Usage and candidates, location picker, parameter preview slider, overrides in the properties panel. | A second junction can be assigned and overridden from the UI. |
 
@@ -213,6 +213,17 @@ Slice 3a is useful on its own: with it, an LLM or script can create and validate
 - A visual check of the model (rendered to SVG) found a real orientation error in the first draft: the canvas put the brick layer on the right of travel, but the 3D model puts it on the left in all four example walls. The plan mapping is now `-(profile x)`, with a test that pins it to the example, and the section frame now uses the right-hand perpendicular so it matches the profile editor.
 - That check also showed that no single default extent suits both a wall that leaves a junction and one that arrives at it, so members gained an optional `extent`. The example sets the through wall `forward` and the butting wall `backward`, with the butting wall placed at the through wall's interior face (0.145 m from the centreline).
 - The example profile `profile-cavity-250` is 290 mm wide (layers 102 + 75 + 100 + 13), not 250 mm as its name and description say. The name comes from the original design document. The example detail now uses the real half-width, 0.145 m.
+
+---
+
+## 8c. Slice 3c Outcome
+
+- The page is `viewer/detail-editor.html` with `src/detail-editor/editor.js`, `render.js` and `panels.js` as the only DOM code. It is added to the Vite build as `detailEditor`.
+- New pure, tested modules (about 180 tests): `pageState` (document, undo and redo with a 100-step cap, selection, dirty tracking), `viewTransform` (zoom about the cursor, pan, fit), `canvasController` (select, drag, pan, rectangle and polygon tools as a state machine), `messages` (the `detail-*` postMessage protocol, origin and source checks), `bundleSnapshot` (the Firefox handoff), `detailStore` (load, and validate-then-save that also lists a new detail in `model.details`), and `panelModel`.
+- Three ways to open a bundle: a folder (Chromium), a `.oebfz` archive, and `?demo` or the Demo button. A bundle opened from the main editor arrives by `detail-bundle-handle` (file system) or `detail-snapshot` (memory), and a save from a snapshot goes back to the opener as `detail-saved`.
+- Bound coordinates are edited from the region panel (pick a parameter in the vertex row), rather than with a separate canvas tool as the first sketch had. Dragging never changes a bound axis.
+- Checked headlessly with `shot-scraper` against a dev server: 20 interaction checks (select, drag a vertex, undo and redo, rectangle and polygon tools, member offset in mm, zoom, parameter preview, save to the bundle) and the opener handoff (ready, snapshot, edit, save, `detail-saved` received, no page errors). The same checks are kept in `tests/e2e/detail-editor.checks.js` and run by `tests/e2e/detail-editor.spec.js`, but Playwright's browser is not installed on this machine, so that spec has not been run here.
+- Known rough edges: renaming a parameter uses `window.prompt`, and switching detail with unsaved changes uses `window.confirm` (the roadmap already plans to replace prompts with inline UI); the editor side of the handoff (opening the page from the tree or a junction, and calling `buildSnapshot`) is slice 3d; assigning a detail to a junction is slice 3e.
 
 ---
 

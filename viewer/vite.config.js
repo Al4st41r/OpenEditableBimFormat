@@ -28,6 +28,7 @@ export default defineConfig({
         viewer:        resolve(__dirname2, 'viewer.html'),
         editor:        resolve(__dirname2, 'editor.html'),
         profileEditor: resolve(__dirname2, 'profile-editor.html'),
+        detailEditor:  resolve(__dirname2, 'detail-editor.html'),
       },
     },
   },

@@ -18,3 +18,35 @@ export function deepFreeze(o) {
   }
   return o;
 }
+
+/** Read-only adapter over the example bundle on disk, with the same shape as the editor's adapters. */
+export function makeFsAdapter(dir = BUNDLE) {
+  return {
+    type: 'fsa-test',
+    name: 'terraced-house',
+    readJson: async (rel) => {
+      const p = path.join(dir, rel);
+      if (!fs.existsSync(p)) throw new Error(`Missing file in bundle: ${rel}`);
+      return JSON.parse(fs.readFileSync(p, 'utf8'));
+    },
+    listDir: async (rel) => {
+      const p = path.join(dir, rel);
+      return fs.existsSync(p) ? fs.readdirSync(p) : [];
+    },
+  };
+}
+
+/** A writable in-memory copy of the example bundle (the editor's MemoryAdapter). */
+export async function makeMemoryAdapter() {
+  const { MemoryAdapter } = await import('../editor/storageAdapter.js');
+  const map = new Map();
+  const walk = (d, prefix) => {
+    for (const name of fs.readdirSync(d)) {
+      const p = path.join(d, name);
+      if (fs.statSync(p).isDirectory()) walk(p, `${prefix}${name}/`);
+      else if (name.endsWith('.json')) map.set(`${prefix}${name}`, fs.readFileSync(p, 'utf8'));
+    }
+  };
+  walk(BUNDLE, '');
+  return new MemoryAdapter(map, 'terraced-house');
+}

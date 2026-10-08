@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-08
 **Issue:** #81 (extended)
-**Status:** Phases 1 and 2 complete; phase 3 slices 3a and 3b complete (2026-10-08); the rest of phases 3 to 5 pending
+**Status:** Phases 1 and 2 complete; phase 3 slices 3a to 3c complete (2026-10-08); the rest of phases 3 to 5 pending
 **Supersedes:** the "Junction detail editor" section of `docs/roadmap.md` (v0.4)
 
 ---

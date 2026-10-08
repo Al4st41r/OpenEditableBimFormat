@@ -200,6 +200,13 @@ export function removeRegion(doc, index) {
   return d;
 }
 
+export function setRegionMaterial(doc, index, material_id) {
+  if (typeof material_id !== 'string' || material_id === '') throw new DetailEditError('A region needs a material_id');
+  const d = clone(doc);
+  regionAt(d, index).material_id = material_id;
+  return d;
+}
+
 /** Set one or both axes of a vertex to plain numbers (this unbinds a bound axis). */
 export function moveVertex(doc, r, v, { x, y } = {}) {
   for (const c of [x, y]) if (c !== undefined && !isNum(c)) throw new DetailEditError('Coordinates must be finite numbers');
