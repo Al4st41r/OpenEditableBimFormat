@@ -214,3 +214,99 @@ def test_importing_a_plain_ifc_is_unchanged(minimal_wall_ifc, tmp_path):
     import_ifc(minimal_wall_ifc, out)
     m = load(out / "model.json")
     assert m["junctions"] == [] and m.get("details", []) == []
+
+
+# ── import completeness (issue #106) ─────────────────────────────────────────
+# An OEBF export carries the entities it cannot express in IFC (paths, element and slab
+# files, profiles with their SVG, materials) in OEBF_Bundle, so an OEBF import restores a
+# complete bundle. IFC from other tools has no such record and gets a placeholder profile.
+
+SCHEMAS = REPO / "spec" / "schema"
+
+
+def test_the_imported_bundle_validates_cleanly(round_trip):
+    assert validate_bundle(round_trip) == []
+
+
+def test_the_schemas_are_copied_into_the_imported_bundle(round_trip):
+    names = {p.name for p in (round_trip / "schema").glob("*.schema.json")}
+    assert names == {p.name for p in SCHEMAS.glob("*.schema.json")}
+    assert load(round_trip / "schema" / "element.schema.json") == load(SCHEMAS / "element.schema.json")
+    assert (round_trip / "schema" / "oebf-schema.json").is_file()
+
+
+def test_profiles_come_back_with_their_svg(round_trip):
+    assert load(round_trip / "profiles" / "profile-cavity-250.json") == load(EXAMPLE / "profiles" / "profile-cavity-250.json")
+    assert (round_trip / "profiles" / "profile-cavity-250.svg").read_text() == (EXAMPLE / "profiles" / "profile-cavity-250.svg").read_text()
+
+
+def test_materials_come_back_with_their_properties(round_trip):
+    back = {m["id"]: m for m in load(round_trip / "materials" / "library.json")["materials"]}
+    want = {m["id"]: m for m in load(EXAMPLE / "materials" / "library.json")["materials"]}
+    assert back == want
+
+
+def test_elements_keep_their_profile_group_and_properties(round_trip):
+    for name in ("element-wall-south-gf", "element-wall-east-gf"):
+        assert load(round_trip / "elements" / f"{name}.json") == load(EXAMPLE / "elements" / f"{name}.json")
+        assert load(round_trip / "paths" / f"path-{name[len('element-'):]}.json") == load(EXAMPLE / "paths" / f"path-{name[len('element-'):]}.json")
+
+
+def test_the_slab_comes_back_as_a_slab_not_an_element(round_trip):
+    assert load(round_trip / "slabs" / "slab-gf.json") == load(EXAMPLE / "slabs" / "slab-gf.json")
+    assert load(round_trip / "paths" / "path-slab-gf.json") == load(EXAMPLE / "paths" / "path-slab-gf.json")
+    m = load(round_trip / "model.json")
+    assert m["slabs"] == ["slab-gf"] and "slab-gf" not in m["elements"]
+    assert not (round_trip / "elements" / "slab-gf.json").exists()
+
+
+def test_the_imported_bundle_can_be_exported_again_with_the_slab(round_trip, tmp_path):
+    again = tmp_path / "again.ifc"
+    export_ifc(round_trip, again)
+    model = ifcopenshell.open(str(again))
+    assert len(model.by_type("IfcWall")) == 4 and len(model.by_type("IfcSlab")) == 1
+
+
+@pytest.fixture
+def foreign(bundle, tmp_path):
+    """The export with every OEBF property set removed: IFC as another tool would write it."""
+    import ifcopenshell.api.pset
+    ifc = tmp_path / "plain.ifc"
+    export_ifc(bundle, ifc)
+    model = ifcopenshell.open(str(ifc))
+    for product in list(model.by_type("IfcProduct")) + list(model.by_type("IfcProject")):
+        for pset in (ifc_element.get_psets(product) or {}):
+            if pset.startswith("OEBF_"):
+                ifcopenshell.api.pset.remove_pset(model, product=product, pset=model.by_id(ifc_element.get_psets(product)[pset]["id"]))
+    model.write(str(ifc))
+    out = tmp_path / "foreign.oebf"
+    import_ifc(ifc, out)
+    return out
+
+
+def test_ifc_from_another_tool_still_gets_a_valid_bundle(foreign):
+    assert validate_bundle(foreign) == []
+
+
+def test_foreign_elements_get_a_parent_group(foreign):
+    elements = list((foreign / "elements").glob("*.json"))
+    assert elements
+    groups = {load(p)["parent_group_id"] for p in elements}
+    assert len(groups) == 1 and groups != {None}
+
+
+def test_a_foreign_slab_becomes_a_slab_from_its_outline(foreign):
+    slabs = list((foreign / "slabs").glob("*.json"))
+    assert len(slabs) == 1
+    slab = load(slabs[0])
+    assert slab["type"] == "Slab" and slab["thickness_m"] == pytest.approx(0.15)
+    path = load(foreign / "paths" / f"{slab['boundary_path_id']}.json")
+    assert path["closed"] is True and len(path["segments"]) == 4
+    assert slabs[0].stem in load(foreign / "model.json")["slabs"]
+
+
+def test_the_foreign_fixture_really_has_no_oebf_record(foreign):
+    """Guards the three tests above: they must exercise the fallback, not the restored sidecar."""
+    for p in (foreign / "elements").glob("*.json"):
+        assert load(p)["profile_id"] == "profile-imported-placeholder"
+    assert load(next((foreign / "slabs").glob("*.json")))["material_id"] == "mat-imported"

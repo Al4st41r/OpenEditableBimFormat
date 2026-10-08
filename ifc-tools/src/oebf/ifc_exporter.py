@@ -55,7 +55,7 @@ def export_ifc(oebf_dir: Path, ifc_path: Path) -> None:
             exported[slab_id] = entity
 
     _export_junctions(ifc, oebf_dir, model_data, exported)
-    _export_bundle_extensions(ifc, project, oebf_dir, model_data)
+    _export_bundle_extensions(ifc, project, oebf_dir, model_data, exported)
 
     ifc.write(str(ifc_path))
 
@@ -379,8 +379,11 @@ def _levels(oebf_dir, model_data) -> list:
     return out
 
 
-def _export_bundle_extensions(ifc, project, oebf_dir, model_data):
-    """Details, grids and levels as JSON text on the project, so an OEBF import can restore detail locations."""
+def _export_bundle_extensions(ifc, project, oebf_dir, model_data, exported=None):
+    """Details, grids, levels and the entities IFC cannot express, as JSON text on the project.
+
+    An OEBF import restores a complete bundle from these (issue #106): the element, slab and
+    path files, the profiles (with their SVG) that elements and details use, and the materials."""
     details = {}
     for detail_id in model_data.get("details", []):
         d = _read_json(oebf_dir / "details" / f"{detail_id}.json")
@@ -389,8 +392,35 @@ def _export_bundle_extensions(ifc, project, oebf_dir, model_data):
     grids = [g for g in (_read_json(oebf_dir / "grids" / f"{i}.json") for i in model_data.get("grids", [])) if g]
     levels = _levels(oebf_dir, model_data)
 
+    elements, slabs, paths, profile_ids = {}, {}, {}, set()
+    for entity_id in (exported or {}):
+        element = _read_json(oebf_dir / "elements" / f"{entity_id}.json")
+        slab = None if element else _read_json(oebf_dir / "slabs" / f"{entity_id}.json")
+        if element:
+            elements[entity_id] = element
+            profile_ids.add(element.get("profile_id"))
+            path_id = element.get("path_id")
+        elif slab:
+            slabs[entity_id] = slab
+            path_id = slab.get("boundary_path_id")
+        else:
+            continue
+        path = _read_json(oebf_dir / "paths" / f"{path_id}.json")
+        if path:
+            paths[path_id] = path
+    for detail in details.values():
+        profile_ids.update(m.get("profile_id") for m in detail.get("members", []))
+    profiles = {}
+    for profile_id in sorted(p for p in profile_ids if p):
+        profile = _read_json(oebf_dir / "profiles" / f"{profile_id}.json")
+        if profile:
+            svg_path = oebf_dir / "profiles" / f"{profile_id}.svg"
+            profiles[profile_id] = {"json": profile, "svg": svg_path.read_text() if svg_path.is_file() else None}
+    materials = (_read_json(oebf_dir / "materials" / "library.json") or {}).get("materials", [])
+
     props = {}
-    for key, value in (("Details", details), ("Grids", grids), ("Levels", levels)):
+    for key, value in (("Details", details), ("Grids", grids), ("Levels", levels), ("Elements", elements), ("Slabs", slabs),
+                       ("Paths", paths), ("Profiles", profiles), ("Materials", materials)):
         if value:
             props[key] = ifc.create_entity("IfcText", wrappedValue=json.dumps(value, ensure_ascii=False))
     if props:

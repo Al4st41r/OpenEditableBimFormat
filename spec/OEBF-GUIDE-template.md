@@ -627,11 +627,17 @@ that other IFC tools ignore and an OEBF import restores:
 |--------------|----|------------|
 | `OEBF_Element` | every exported element and slab | `OebfId` |
 | `OEBF_Junction_<id>` | each member element of a junction | `JunctionId` `Rule` `Priority` `Elements` `DetailId` `GridId` `AxisA` `AxisB` `LevelId` `LevelOffsetM` `Mirrored` `Override_<parameter>` |
-| `OEBF_Bundle` | the project | `Details` `Grids` `Levels` (JSON text) |
+| `OEBF_Bundle` | the project | `Details` `Grids` `Levels` `Elements` `Slabs` `Paths` `Profiles` `Materials` (JSON text) |
 
 Importing an IFC file written by OEBF restores element ids, junctions with their
 `detail_id`, `location`, overrides and mirror flag, and the detail, grid and
-level data they refer to. Imported elements get a placeholder profile.
+level data they refer to. The bundle is restored complete: the element, slab and
+path files, the profiles (with their SVG) and the materials come back as they were,
+and the schemas are copied in, so `oebf validate` passes on the imported bundle.
+IFC from other tools has no such record: its elements get a placeholder profile and
+material and the first level (or `storey-imported`) as `parent_group_id`, and a slab
+with a polyline outline becomes a `Slab` with a closed boundary path. Geometry edited
+in another tool is not read back when the OEBF record is present.
 
 ---
 
