@@ -109,3 +109,32 @@ describe('setPathSegmentLength', () => {
     expect(JSON.stringify(paths)).toBe(before);
   });
 });
+
+import { metresPerPixel, snapReference } from './planSnap.js';
+
+describe('metresPerPixel', () => {
+  test('orthographic: the view height over zoom and pixels', () => {
+    expect(metresPerPixel({ isOrthographicCamera: true, top: 10, bottom: -10, zoom: 2 }, 400, 0)).toBeCloseTo(0.025);
+  });
+  test('perspective: grows with distance, uses the vertical field of view', () => {
+    const cam = { fov: 90 };
+    expect(metresPerPixel(cam, 500, 10)).toBeCloseTo(0.04);
+    expect(metresPerPixel(cam, 500, 20)).toBeCloseTo(0.08);
+  });
+  test('a zero-height canvas does not divide by zero', () => {
+    expect(Number.isFinite(metresPerPixel({ fov: 50 }, 0, 5))).toBe(true);
+  });
+});
+
+describe('snapReference', () => {
+  const segs = [line(0, 0, 4, 0), line(4, 0, 4, 3)];
+  test('the dragged start refers to the far end of its segment', () => {
+    expect(snapReference(segs, 0, 'start')).toEqual({ x: 4, y: 0 });
+  });
+  test('the dragged end refers to the near end of its segment', () => {
+    expect(snapReference(segs, 1, 'end')).toEqual({ x: 4, y: 0 });
+  });
+  test('an unknown segment gives null', () => {
+    expect(snapReference(segs, 9, 'end')).toBeNull();
+  });
+});

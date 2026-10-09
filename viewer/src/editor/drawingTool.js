@@ -15,6 +15,7 @@
 import * as THREE from 'three';
 import { fromDisplay, toDisplay, unitLabel, getUnit } from './units.js';
 import { buildTooltip } from '../snap/tooltip.js';
+import { metresPerPixel } from './planSnap.js';
 
 const SNAP_RADIUS = 0.1; // metres
 const SNAP_PIXELS = 10;  // snap reach on screen, so snapping feels the same at any zoom
@@ -130,10 +131,7 @@ export class DrawingTool {
   /** Metres covered by one screen pixel at a point on the construction plane. */
   _metresPerPixel(pos) {
     const cam = this._getCamera();
-    const h = this._canvas.getBoundingClientRect().height || 1;
-    if (cam.isOrthographicCamera) return (cam.top - cam.bottom) / cam.zoom / h;
-    const dist = cam.position.distanceTo(pos);
-    return (2 * dist * Math.tan((cam.fov * Math.PI) / 360)) / h;
+    return metresPerPixel(cam, this._canvas.getBoundingClientRect().height, cam.position.distanceTo(pos));
   }
 
   _onMouseMove(e) {

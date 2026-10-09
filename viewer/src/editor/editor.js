@@ -794,9 +794,11 @@ async function _loadAndRenderBundle(adapter) {
     () => _collectSnapTargets(),
   );
   pathEditTool.setAdapter(adapter);
-  pathEditTool.onEditCommitted = () => {
+  pathEditTool.snapFn = _planSnap;
+  pathEditTool.onEditCommitted = async () => {
     const elementId = pathEditTool._elementId;
-    if (elementId) _reRenderElement(elementId, pathEditTool._pathData);
+    if (elementId) await _reRenderElement(elementId, pathEditTool._pathData);
+    await _syncJunctionMarkers();
   };
   pathEditTool.onDragStart = () => { editorScene.controls.enabled = false; };
   pathEditTool.onDragEnd   = () => { editorScene.controls.enabled = true; };
@@ -1401,6 +1403,23 @@ function _addLengthRows(panel, elementId, reg) {
   });
 }
 
+/** After a path moved, put each junction marker (and its detail geometry) where the walls now meet. */
+async function _syncJunctionMarkers() {
+  if (!junctionEditor || !_bundleCtx?.positionCtx) return;
+  try {
+    _bundleCtx.positionCtx.elementPaths = new Map([..._elementRegistry].map(([id, reg]) => [id, parsePath(reg.pathData).points]));
+    for (const j of _bundleCtx.junctions ?? []) {
+      const p = junctionPoint(j, _bundleCtx.positionCtx);
+      const live = junctionEditor._junctions.find((x) => x.id === j.id);
+      if (p && live) junctionEditor.setDetail(j.id, live.detailId, p);
+    }
+    const detailIds = [...new Set((_bundleCtx.junctions ?? []).map((j) => j.detail_id).filter(Boolean))];
+    if (detailIds.length) await _refreshDetailScene(detailIds);
+  } catch (err) {
+    console.warn('[OEBF] junction markers not refreshed:', err.message);
+  }
+}
+
 async function _applySegmentLength(elementId, segIndex, inp, previous) {
   const reg = _elementRegistry.get(elementId);
   if (!reg) return;
@@ -1419,6 +1438,7 @@ async function _applySegmentLength(elementId, segIndex, inp, previous) {
       for (const [elId, r] of _elementRegistry) if (r.pathData?.id === pathId) await _reRenderElement(elId, data);
     }
     statusBar.textContent = `Length set to ${inp.value}${changedPathIds.length > 1 ? ` (${changedPathIds.length - 1} attached path${changedPathIds.length > 2 ? 's' : ''} followed)` : ''}`;
+    await _syncJunctionMarkers();
     await _showElementProps(elementId);
   } catch (e) {
     statusBar.textContent = `Length not changed: ${e.message}`;
@@ -1584,12 +1604,13 @@ _snapBtn.addEventListener('click', () => {
 });
 
 /** Snap function handed to the drawing tools: the shared engine over every path and grid axis. */
-function _planSnap(point, { lastPoint = null, suspend = false, tolerance = 0.1 } = {}) {
+function _planSnap(point, { lastPoint = null, suspend = false, tolerance = 0.1, excludePathId } = {}) {
   if (!_snapOn) return { point, kind: 'none', label: '', source: null, guides: [], snapped: false };
   const scene = buildPlanSnapScene({
     paths: [..._elementRegistry.values()].map((r) => r.pathData).filter(Boolean),
     axes: gridManager.getAxes(),
     lastPoint,
+    excludePathId,
   });
   return snapPoint(point, scene, { tolerance, kinds: SNAP_KINDS, angleStep: 45, suspend });
 }
@@ -1726,6 +1747,7 @@ window.__editor = {
   status: () => statusBar.textContent,
   registryPaths: () => [..._elementRegistry.values()].map((r) => r.pathData).filter(Boolean),
   planSnap: _planSnap,
+  junctionMarkers2: () => (junctionEditor?._junctions ?? []).map((j) => ({ id: j.id, x: j.point.x, y: j.point.y })),
   registry: () => [..._elementRegistry].map(([id, r]) => [id, r.pathData?.id, r.pathData?.segments?.map((g) => [g.start.x, g.start.y, g.end.x, g.end.y])]),
   selectedId: () => _selectedElementId,
   worldToScreen: (x, y, z = 0) => {

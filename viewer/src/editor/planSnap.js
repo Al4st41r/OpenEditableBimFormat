@@ -80,3 +80,23 @@ export function setPathSegmentLength(paths, pathId, segIndex, length, anchor = '
   }
   return { changedPathIds: [...changed] };
 }
+
+/**
+ * Metres covered by one screen pixel, so snap reach feels the same at any zoom.
+ *
+ * @param {object} camera - a Three.js camera (only isOrthographicCamera, top, bottom, zoom, fov are read)
+ * @param {number} heightPx - canvas height in pixels
+ * @param {number} distance - camera distance to the point (ignored for orthographic cameras)
+ */
+export function metresPerPixel(camera, heightPx, distance) {
+  const h = heightPx || 1;
+  if (camera.isOrthographicCamera) return (camera.top - camera.bottom) / camera.zoom / h;
+  return (2 * distance * Math.tan((camera.fov * Math.PI) / 360)) / h;
+}
+
+/** The point a dragged node is measured from (angle, perpendicular and parallel snaps): the other end of its segment. */
+export function snapReference(segments, segIdx, role) {
+  const seg = segments?.[segIdx];
+  if (!seg) return null;
+  return flat(role === 'start' ? seg.end : seg.start);
+}

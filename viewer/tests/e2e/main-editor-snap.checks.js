@@ -55,6 +55,25 @@
     const bad = document.getElementById('seg-length-0');
     bad.value = 'abc'; bad.dispatchEvent(new Event('change', { bubbles: true })); await sleep(300);
     note(/Could not read/.test(E.status()) && path('path-wall-south-gf').segments[0].start.x === south.start.x, 'invalid text is refused and nothing changes', E.status());
+    // dragging a node with the smart cursor (#107)
+    document.getElementById('tool-path-edit').click(); await sleep(500);
+    const drag = async (to, extra = {}) => {
+      const from = path('path-wall-south-gf').segments[0].start;
+      ev('mousedown', from.x, from.y);
+      window.dispatchEvent(new MouseEvent('mousemove', { ...E.worldToScreen(to.x, to.y), bubbles: true, ...extra }));
+      await sleep(100);
+      const tip = [...document.querySelectorAll('body > div')].some((d) => d.style.whiteSpace === 'pre' && d.style.display === 'block' && /X /.test(d.textContent));
+      window.dispatchEvent(new MouseEvent('mouseup', { ...E.worldToScreen(to.x, to.y), bubbles: true, ...extra }));
+      await sleep(500);
+      return { at: path('path-wall-south-gf').segments[0].start, tip };
+    };
+    const cursor = { x: 5.37, y: 1.3 };
+    const snapped = await drag(cursor);
+    note(Math.hypot(snapped.at.x - cursor.x, snapped.at.y - cursor.y) > 1e-6, 'node drag snaps (the result differs from the raw cursor)', snapped.at);
+    note(snapped.tip, 'node drag shows the tooltip');
+    document.getElementById('tool-path-edit').click(); await sleep(300);
+    const raw = await drag({ x: 5.2, y: 2.1 }, { altKey: true });
+    note(Math.abs(raw.at.x - 5.2) < 0.1 && Math.abs(raw.at.y - 2.1) < 0.1, 'Alt suspends snapping during a node drag', raw.at);
     note(window.__errors === undefined || window.__errors.length === 0, 'no page errors', window.__errors);
     log.push('DONE'); show();
   })().catch((e) => { log.push('ERROR ' + e.message); log.push('DONE'); show(); });

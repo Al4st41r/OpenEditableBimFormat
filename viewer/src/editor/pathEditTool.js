@@ -8,6 +8,11 @@
 
 import * as THREE from 'three';
 import { writeEntity } from './bundleWriter.js';
+import { buildTooltip } from '../snap/tooltip.js';
+import { metresPerPixel, snapReference } from './planSnap.js';
+import { getUnit } from './units.js';
+
+const SNAP_PIXELS = 10;   // snap reach on screen
 
 const HANDLE_RADIUS   = 0.08; // metres
 const MIDPOINT_RADIUS = 0.05;
@@ -58,6 +63,12 @@ export class PathEditTool {
     this._onNodeSelected = onNodeSelected ?? (() => {});
     this._getSnapTargets = getSnapTargets ?? null;
     this._snapIndicator  = null;
+    /**
+     * Optional smart cursor (issue #107): (point {x, y}, { lastPoint, suspend, tolerance, excludePathId }) => snap
+     * result from the shared engine. Without it, nodes snap to other paths' end points only.
+     */
+    this.snapFn = null;
+    this._tipEl = null;
     /** Called after every committed edit (mouseup, insert, delete). */
     this.onEditCommitted = null;
     this._raycaster      = new THREE.Raycaster();
@@ -125,6 +136,7 @@ export class PathEditTool {
   dispose() {
     this.deactivate();
     this._overlayGroup.remove(this._handleGroup);
+    this._tipEl?.remove();
   }
 
   // ── Private ────────────────────────────────────────────────────────────────
@@ -203,9 +215,19 @@ export class PathEditTool {
     const rawPos = this._getConstructionPlanePos(e);
     if (!rawPos) return;
 
-    // Apply endpoint snap
     let pos = { x: rawPos.x, y: rawPos.y, z: rawPos.z };
-    if (this._getSnapTargets) {
+    if (this.snapFn) {
+      const { segIdx: si, role: r } = this._dragHandle;
+      const cam = this._getCamera();
+      const lastPoint = snapReference(this._pathData.segments, si, r);
+      const snap = this.snapFn({ x: pos.x, y: pos.y }, {
+        lastPoint, suspend: !!e.altKey, excludePathId: this._pathId,
+        tolerance: SNAP_PIXELS * metresPerPixel(cam, this._canvas.getBoundingClientRect().height, cam.position.distanceTo(rawPos)),
+      });
+      pos = { x: snap.point.x, y: snap.point.y, z: pos.z };
+      if (snap.snapped) this._showSnapIndicator(pos); else this._hideSnapIndicator();
+      this._showTip(snap, lastPoint, e);
+    } else if (this._getSnapTargets) {
       const snapped = snapToTargets(pos, this._getSnapTargets(), SNAP_RADIUS);
       if (snapped) {
         pos = snapped;
@@ -250,6 +272,7 @@ export class PathEditTool {
     window.removeEventListener('mousemove', this._boundMouseMove);
     window.removeEventListener('mouseup',   this._boundMouseUp);
     this._hideSnapIndicator();
+    this._hideTip();
     this.onDragEnd?.();
     // Full handle rebuild once drag ends
     this._buildHandles();
@@ -293,6 +316,21 @@ export class PathEditTool {
       m.midPos = mid;
     }
   }
+
+  _showTip(snap, lastPoint, e) {
+    if (!this._tipEl) {
+      this._tipEl = document.createElement('div');
+      this._tipEl.style.cssText = 'position:fixed;pointer-events:none;z-index:200;background:rgba(0,0,0,0.65);color:#7090e8;font-family:monospace;font-size:11px;padding:2px 8px;border-radius:3px;white-space:pre';
+      document.body.appendChild(this._tipEl);
+    }
+    const t = buildTooltip({ snap, lastPoint, unit: getUnit() });
+    this._tipEl.textContent = [t.title, ...t.lines, t.coords].filter(Boolean).join('\n');
+    this._tipEl.style.display = 'block';
+    this._tipEl.style.left = (e.clientX + 14) + 'px';
+    this._tipEl.style.top  = (e.clientY - 24) + 'px';
+  }
+
+  _hideTip() { if (this._tipEl) this._tipEl.style.display = 'none'; }
 
   _onKeyDown(e) {
     if (!this._selectedHandle) return;
