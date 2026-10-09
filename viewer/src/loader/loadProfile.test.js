@@ -399,3 +399,80 @@ describe('libraryProfileToBundle (what the library browser writes)', () => {
     expect(b.map((s) => s.materialId)).toEqual(a.map((s) => s.materialId));
   });
 });
+
+// ── Library dialect to bundle dialect (issue #100) ───────────────────────────
+// The editor's default library keeps its own dialect (ids without "mat-", carbon and density fields, layers[]).
+// Importing converts it, so the bundle validates against the spec schemas.
+
+import { libraryMaterialToBundle, bundleMaterialId } from './loadProfile.js';
+
+const SPEC = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../../spec/schema');
+const schema = (name) => JSON.parse(fs.readFileSync(path.join(SPEC, `${name}.schema.json`), 'utf8'));
+const LIB_MATERIALS = JSON.parse(fs.readFileSync(path.join(LIB, '../materials/library.json'), 'utf8')).materials;
+
+/** What the spec's additionalProperties:false, required and pattern keywords say about one object. */
+function problems(obj, s) {
+  const out = [];
+  for (const k of s.required ?? []) if (!(k in obj)) out.push(`missing ${k}`);
+  if (s.additionalProperties === false) for (const k of Object.keys(obj)) if (!(k in (s.properties ?? {}))) out.push(`unexpected ${k}`);
+  for (const [k, p] of Object.entries(s.properties ?? {})) {
+    if (k in obj && p.pattern && typeof obj[k] === 'string' && !new RegExp(p.pattern).test(obj[k])) out.push(`${k} does not match ${p.pattern}`);
+    if (k in obj && p.const !== undefined && obj[k] !== p.const) out.push(`${k} is not ${p.const}`);
+  }
+  return out;
+}
+
+describe('bundleMaterialId', () => {
+  test('adds the mat- prefix once', () => {
+    expect(bundleMaterialId('clay-brick-general')).toBe('mat-clay-brick-general');
+    expect(bundleMaterialId('mat-clay-brick-general')).toBe('mat-clay-brick-general');
+  });
+});
+
+describe('libraryMaterialToBundle', () => {
+  const item = schema('materials').properties.materials.items;
+
+  test('every material in the default library converts to one the materials schema accepts', () => {
+    expect(LIB_MATERIALS.length).toBeGreaterThanOrEqual(40);
+    for (const m of LIB_MATERIALS) expect(problems(libraryMaterialToBundle(m), item), m.id).toEqual([]);
+  });
+
+  test('keeps the name, category and colour, and gives the id its prefix', () => {
+    const b = libraryMaterialToBundle(LIB_MATERIALS.find((m) => m.id === 'clay-brick-general'));
+    expect(b).toMatchObject({ id: 'mat-clay-brick-general', type: 'Material', name: 'Clay Brick (General Purpose)', category: 'masonry', colour_hex: '#C17A5C' });
+  });
+
+  test('moves the technical fields into properties instead of dropping them', () => {
+    const b = libraryMaterialToBundle(LIB_MATERIALS.find((m) => m.id === 'clay-brick-general'));
+    expect(b.properties).toMatchObject({ carbon_kgCO2e_per_kg: 0.24, density_kg_per_m3: 1700, thermal_conductivity_W_mK: 0.77, source: 'ICE' });
+    expect(b).not.toHaveProperty('carbon_kgCO2e_per_kg');
+  });
+
+  test('the input is not mutated', () => {
+    const m = Object.freeze({ ...LIB_MATERIALS[0] });
+    expect(() => libraryMaterialToBundle(m)).not.toThrow();
+  });
+});
+
+describe('libraryProfileToBundle with the import mapping', () => {
+  const mapped = (name) => libraryProfileToBundle(libProfile(name), { mapMaterial: bundleMaterialId });
+
+  test('layer materials use the converted ids, an air cavity stays unset', () => {
+    const b = mapped('cavity-wall');
+    expect(b.assembly[0].material_id).toBe('mat-clay-brick-general');
+    expect(b.assembly[1].material_id).toBe('mat-unset');
+  });
+
+  test('every converted profile validates and refers only to materials the converted library has', () => {
+    const ids = new Set(LIB_MATERIALS.map((m) => libraryMaterialToBundle(m).id));
+    for (const name of ['cavity-wall', 'solid-wall', 'concrete-slab']) {
+      const b = mapped(name);
+      expect(problems(b, schema('profile')), name).toEqual([]);
+      for (const l of b.assembly) if (l.material_id !== 'mat-unset') expect(ids.has(l.material_id), `${name}: ${l.material_id}`).toBe(true);
+    }
+  });
+
+  test('without a mapping the ids are left as they were (older bundles keep working)', () => {
+    expect(libraryProfileToBundle(libProfile('cavity-wall')).assembly[0].material_id).toBe('clay-brick-general');
+  });
+});

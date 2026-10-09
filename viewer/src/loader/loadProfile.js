@@ -21,13 +21,40 @@
 const round6 = (x) => Math.round(x * 1e6) / 1e6;
 const UNSET_MATERIAL = 'mat-unset';
 
+/** A library material id as it is written into a bundle: materials.schema.json requires the "mat-" prefix. */
+export const bundleMaterialId = (id) => (String(id).startsWith('mat-') ? String(id) : `mat-${id}`);
+
+const MATERIAL_FIELDS = new Set(['id', 'type', 'name', 'category', 'colour_hex', 'ifc_material_name', 'properties', 'interactions']);
+
+/**
+ * A material from the editor's default library (viewer/public/library) in the bundle's format
+ * (issue #100): prefixed id, type, and the library-only fields (carbon, density, conductivity,
+ * source, notes) kept under `properties`, since the schema allows nothing else.
+ */
+export function libraryMaterialToBundle(lib) {
+  const extras = Object.fromEntries(Object.entries(lib).filter(([k]) => !MATERIAL_FIELDS.has(k)));
+  return {
+    id: bundleMaterialId(lib.id),
+    type: 'Material',
+    name: lib.name ?? lib.id,
+    category: lib.category ?? 'imported',
+    colour_hex: lib.colour_hex ?? '#888888',
+    ...(lib.ifc_material_name ? { ifc_material_name: lib.ifc_material_name } : {}),
+    properties: { ...extras, ...(lib.properties ?? {}) },
+    interactions: lib.interactions ?? {},
+  };
+}
+
 /**
  * Convert a library profile (layers[], thickness_m, origin_x; see public/library/profiles/)
  * to the bundle profile format (assembly[], thickness, origin) the viewer and schema use.
  * A layer with no material (an air cavity) gets the placeholder 'mat-unset'. origin_x of 0
  * or absent means "centred on the path", like a profile made in the profile editor.
+ *
+ * With `mapMaterial` (the library browser passes bundleMaterialId) layer material ids are
+ * rewritten to match the converted materials; without it they are left as they are.
  */
-export function libraryProfileToBundle(lib) {
+export function libraryProfileToBundle(lib, { mapMaterial = (id) => id } = {}) {
   const layers = lib.layers ?? [];
   const width = round6(layers.reduce((sum, l) => sum + (l.thickness_m ?? 0), 0));
   const originX = lib.origin_x > 0 ? lib.origin_x : round6(width / 2);
@@ -45,7 +72,7 @@ export function libraryProfileToBundle(lib) {
     assembly:     layers.map((l, i) => ({
       layer:       i + 1,
       name:        l.name ?? l.id ?? `Layer ${i + 1}`,
-      material_id: l.material_id ?? UNSET_MATERIAL,
+      material_id: l.material_id ? mapMaterial(l.material_id) : UNSET_MATERIAL,
       thickness:   l.thickness_m,
       function:    l.function ?? 'structure',
     })),

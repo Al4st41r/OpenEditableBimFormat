@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-08
 **Branch:** main
-**Tests:** 1396 JS (Vitest, 81 test files) + 342 Python (pytest, plus 7 documented xfails)
+**Tests:** 1404 JS (Vitest, 81 test files) + 346 Python (pytest, plus 3 documented xfails)
 
 ---
 
@@ -77,7 +77,7 @@ Phases 1–6 are complete. v0.1.0 is tagged and published. The v0.2 editor alpha
 
 ## Scope Conformance (2026-10-08)
 
-Two suites check the repository against the original design (`docs/plans/2026-02-22-oebf-format-design.md`): `viewer/src/scope-conformance.test.js` and `ifc-tools/tests/test_scope_conformance.py`. Documented gaps (7 Python xfails, 3 Vitest `test.fails`): bezier/spline paths (#97), ignored sweep mode, caps and offsets (#98), library format drift (#100), and undelivered spec items (#101).
+Two suites check the repository against the original design (`docs/plans/2026-02-22-oebf-format-design.md`): `viewer/src/scope-conformance.test.js` and `ifc-tools/tests/test_scope_conformance.py`. Documented gaps (3 Python xfails, 3 Vitest `test.fails`): bezier/spline paths (#97), ignored sweep mode, caps and offsets (#98), and undelivered spec items (#101). The default library keeps its own dialect and is converted on import (#100).
 
 ---
 

@@ -287,13 +287,19 @@ def test_bundle_contains_llm_guide():
 
 # ── 4. Default library shipped with the editor ───────────────────────────────
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="DRIFT: viewer/public/library/materials/library.json has no $schema and does not "
-           "satisfy oebf://schema/0.1/materials; the editor library format diverges from the spec.",
-)
-def test_default_material_library_validates_against_spec_schema():
-    jsonschema.validate(load(LIBRARY / "materials" / "library.json"), SCHEMAS["oebf://schema/0.1/materials"])
+# The editor's default library (viewer/public/library) keeps its own dialect on purpose: material ids
+# without the "mat-" prefix, carbon/density/conductivity fields, and profiles as layers[]/thickness_m/
+# origin_x. Importing into a bundle converts it (viewer/src/loader/loadProfile.js: libraryMaterialToBundle,
+# libraryProfileToBundle), and viewer/src/loader/loadProfile.test.js checks the converted files against
+# the spec schemas (issue #100). These tests check the library has what the converter needs.
+
+LIBRARY_MATERIAL_FIELDS = ("id", "name", "category", "colour_hex")
+
+
+def test_default_material_library_has_the_fields_the_import_converter_needs():
+    for m in load(LIBRARY / "materials" / "library.json")["materials"]:
+        for k in LIBRARY_MATERIAL_FIELDS:
+            assert m.get(k), f"{m.get('id')}: {k}"
 
 
 def test_default_material_library_unique_ids_and_colours():
@@ -315,14 +321,12 @@ def test_default_profiles_reference_default_materials(f):
             assert layer["material_id"] in mats, layer["material_id"]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="DRIFT: library profiles use layers[]/thickness_m/origin_x; the spec profile schema "
-           "requires assembly[]/thickness/origin/svg_file. Two profile dialects are in circulation.",
-)
 @pytest.mark.parametrize("f", sorted((LIBRARY / "profiles").glob("*.json")), ids=lambda f: f.name)
-def test_default_profiles_validate_against_spec_schema(f):
-    jsonschema.validate(load(f), SCHEMAS["oebf://schema/0.1/profile"])
+def test_default_profiles_have_what_the_import_converter_needs(f):
+    prof = load(f)
+    assert prof["id"] == f.stem
+    for layer in prof["layers"]:
+        assert layer["thickness_m"] > 0 and layer["function"], layer
 
 
 # ── 5. Spec promises not yet delivered ───────────────────────────────────────

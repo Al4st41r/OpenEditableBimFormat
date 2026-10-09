@@ -52,7 +52,6 @@ Open issues, in rough priority order:
 | # | Title |
 |---|---|
 | #96 | Problems with profile manager and detail tagging |
-| #100 | Unify library profile/material format with the spec schemas |
 | #97 | Feature: bezier and spline path segments |
 | #98 | Feature: honour sweep_mode, caps and offsets |
 

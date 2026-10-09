@@ -7,6 +7,7 @@
  */
 
 import { writeEntity } from './bundleWriter.js';
+import { libraryMaterialToBundle, bundleMaterialId } from '../loader/loadProfile.js';
 import { libraryProfileToBundle } from '../loader/loadProfile.js';
 
 let _adapter            = null;
@@ -75,7 +76,8 @@ async function _loadInProject() {
   if (!_adapter) return s;
   try {
     const existing = await _adapter.readJson('materials/library.json');
-    (existing.materials ?? []).forEach(m => s.add(m.id));
+    // the library lists ids without "mat-"; a bundle holds them with it
+    (existing.materials ?? []).forEach(m => { s.add(m.id); s.add(String(m.id).replace(/^mat-/, '')); });
   } catch { /* no library yet */ }
   // Check which library profiles are already in the bundle
   for (const prof of (_profiles ?? [])) {
@@ -268,7 +270,7 @@ async function _renderModal(library, profiles) {
               }
             }
             // The library stores profiles as layers[]; a bundle needs assembly[] (issue #91)
-            await writeEntity(_adapter, `profiles/${prof.id}.json`, libraryProfileToBundle(prof));
+            await writeEntity(_adapter, `profiles/${prof.id}.json`, libraryProfileToBundle(prof, { mapMaterial: bundleMaterialId }));
           }
           inProject.add(prof.id); // update in-place — no extra readJson needed
           _renderProfileList(inProject); // refresh to show "In project"
@@ -324,11 +326,13 @@ async function _renderModal(library, profiles) {
 
 async function _importMaterial(mat) {
   if (!_adapter) return;
-  let existing = { '$schema': 'oebf://schema/0.1/materials', version: '1.0', materials: [] };
+  let existing = { '$schema': 'oebf://schema/0.1/materials', materials: [] };
   try { existing = await _adapter.readJson('materials/library.json'); } catch { /* create new */ }
-  if (!(existing.materials ?? []).some(m => m.id === mat.id)) {
-    existing.materials = [...(existing.materials ?? []), mat];
+  // The library has its own dialect (issue #100); a bundle holds the schema's.
+  const converted = libraryMaterialToBundle(mat);
+  if (!(existing.materials ?? []).some(m => m.id === converted.id)) {
+    existing.materials = [...(existing.materials ?? []), converted];
     await writeEntity(_adapter, 'materials/library.json', existing);
-    if (_onMaterialImported) _onMaterialImported(mat);
+    if (_onMaterialImported) _onMaterialImported(converted);
   }
 }
