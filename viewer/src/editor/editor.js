@@ -14,6 +14,10 @@ import { loadBundle }         from '../loader/loadBundle.js';
 import { buildThreeMesh }     from '../scene/buildMesh.js';
 import { applyJunctionClipping, buildCustomJunctionMesh, buildJunctionDetailMeshes } from '../junction-renderer.js';
 import { sweepOptionsFromElement } from '../geometry/sweep.js';
+import {
+  elementFieldSpecs, slabFieldSpecs, storeyFieldSpecs, parseFieldValue, applyFieldValue,
+  pathSummary, setPathNodeAxis, storeyHeights, IFC_ELEMENT_TYPES,
+} from './entityFields.js';
 import { ensureDetailMaterials } from '../detail/detailMaterials.js';
 import { loadDetails } from '../detail/loadDetails.js';
 import { junctionPoint } from '../detail/junctionPosition.js';
@@ -715,7 +719,7 @@ async function _loadAndRenderBundle(adapter) {
     try {
       const el   = await readEntity(adapter, `elements/${elementId}.json`);
       const path = await readEntity(adapter, `paths/${el.path_id}.json`);
-      _elementRegistry.set(elementId, { pathData: path, profileId: el.profile_id, description: el.description ?? 'Wall', sweep: sweepOptionsFromElement(el) });
+      _elementRegistry.set(elementId, { pathData: path, profileId: el.profile_id, description: el.description ?? 'Wall', kind: 'element', sweep: sweepOptionsFromElement(el) });
       _addElementToTree(elementId, 'Wall');
     } catch { /* skip missing */ }
   }
@@ -723,7 +727,7 @@ async function _loadAndRenderBundle(adapter) {
     try {
       const slab = await readEntity(adapter, `slabs/${slabId}.json`);
       const path = await readEntity(adapter, `paths/${slab.boundary_path_id}.json`);
-      _elementRegistry.set(slabId, { pathData: path, profileId: slab.profile_id, description: slab.description ?? 'Slab' });
+      _elementRegistry.set(slabId, { pathData: path, profileId: slab.profile_id, description: slab.description ?? 'Slab', kind: 'slab' });
       _addElementToTree(slabId, 'Slab');
     } catch { /* skip missing */ }
   }
@@ -746,7 +750,7 @@ async function _loadAndRenderBundle(adapter) {
       _modelState.elements.push(info.id);
       _modelState.paths.push(info.pathId);
       if (junctionEditor) junctionEditor.addElement(info.id, info.pathData);
-      _elementRegistry.set(info.id, { pathData: info.pathData, profileId: info.profileId, description: 'Wall' });
+      _elementRegistry.set(info.id, { pathData: info.pathData, profileId: info.profileId, description: 'Wall', kind: 'element', sweep: sweepOptionsFromElement({}) });
       _addElementToTree(info.id, 'Wall');
       _selectElement(info.id);
       editorScene.setRenderMode(editorScene.getRenderMode());
@@ -775,7 +779,7 @@ async function _loadAndRenderBundle(adapter) {
       }
       _modelState.paths.push(info.pathId);
       const label = info.type === 'slab' ? 'Slab' : 'Floor';
-      _elementRegistry.set(info.id, { pathData: info.pathData, profileId: info.profileId, description: label });
+      _elementRegistry.set(info.id, { pathData: info.pathData, profileId: info.profileId, description: label, kind: info.type === 'slab' ? 'slab' : 'element', sweep: sweepOptionsFromElement({}) });
       _addElementToTree(info.id, label);
       _selectElement(info.id);
       editorScene.setRenderMode(editorScene.getRenderMode());
@@ -1316,7 +1320,7 @@ async function _reRenderElement(elementId, updatedPathData) {
 
     if (gen !== _renderGen) return;
 
-    if (reg.description === 'Slab') {
+    if (reg.kind === 'slab') {
       // Slab: re-build from boundary path
       try {
         const slabJson = await readEntity(adapter, `slabs/${elementId}.json`);
@@ -1398,15 +1402,21 @@ async function _showElementProps(id) {
   profileSel.addEventListener('change', () => _changeElementProfile(id, profileSel.value));
   _propRowWidget(panel, 'Profile', profileSel);
 
-  // Description
-  const descInp = document.createElement('input');
-  descInp.type = 'text'; descInp.value = reg.description ?? '';
-  descInp.style.cssText = 'background:#2a2a2a;color:#ddd;border:1px solid #444;padding:4px 8px;border-radius:3px;font-size:12px;width:100%';
-  descInp.addEventListener('change', () => { reg.description = descInp.value; });
-  _propRowWidget(panel, 'Description', descInp);
+  // Entity fields (IFC type, description, sweep mode, caps, offsets; slab material), written back on change
+  const entityPath = reg.kind === 'slab' ? `slabs/${id}.json` : `elements/${id}.json`;
+  let entity = null;
+  try { entity = await readEntity(adapter, entityPath); } catch { /* panel still shows the rest */ }
+  if (gen !== _propsGen) return;
+  if (entity) {
+    const specs = reg.kind === 'slab'
+      ? slabFieldSpecs().map((s) => (s.key === 'material_id' ? { ...s, options: Object.keys(activeProfileMap) } : s))
+      : elementFieldSpecs(entity);
+    _fieldRows(panel, specs, entity, (key, value) => _commitEntityField(id, reg, entityPath, key, value));
+  }
 
   // Segment lengths: type a new length, 2400, 2.4m or 1200+300 (issue #105)
   _addLengthRows(panel, id, reg);
+  _addPathRows(panel, id, reg);
 
   // Edit profile button
   if (adapter && reg.profileId) {
@@ -1788,6 +1798,8 @@ window.__editor = {
   openDetailEditor: _openDetailEditor,
   focusJunction: _focusJunction,
   elementMeshes: (id) => editorScene.modelGroup.children.filter((c) => c.userData?.elementId === id).length,
+  storeys: () => storeyManager,
+  scene: () => editorScene.modelGroup,
   cameraTarget: () => ({ x: editorScene.controls.target.x, y: editorScene.controls.target.y, z: editorScene.controls.target.z }),
   showJunction: (id) => { const j = junctionEditor?._junctions.find((x) => x.id === id); if (j) junctionEditor._showProps(j.id, j.elementIds, j.rule); return !!j; },
   status: () => statusBar.textContent,
@@ -1816,3 +1828,145 @@ if (new URLSearchParams(window.location.search).has('demo')) {
     } catch (e) { statusBar.textContent = `Error: ${e.message}`; }
   })();
 }
+
+// ─── Properties panel: generic fields, path nodes, storeys (#83) ─────────────
+
+const FIELD_CSS = 'background:#2a2a2a;color:#ddd;border:1px solid #444;padding:4px 8px;border-radius:3px;font-size:12px;width:100%';
+
+/**
+ * One row per field spec. Edits are parsed and validated by parseFieldValue; a bad
+ * value is reported in the status bar and the field reverts. `commit(key, value)`
+ * does the write-back.
+ */
+function _fieldRows(panel, specs, entity, commit) {
+  const unit = getUnit();
+  for (const spec of specs) {
+    const current = entity[spec.key];
+    let widget;
+    if (spec.kind === 'enum') {
+      widget = document.createElement('select');
+      const options = [...(spec.options ?? [])];
+      if (current && !options.includes(current)) options.unshift(current);
+      for (const o of options) widget.append(Object.assign(document.createElement('option'), { value: o, textContent: o, selected: o === current }));
+    } else {
+      widget = document.createElement('input');
+      widget.type = 'text';
+      if (spec.kind === 'ifc') {
+        const listId = 'ifc-types-list';
+        if (!document.getElementById(listId)) {
+          const dl = document.createElement('datalist'); dl.id = listId;
+          for (const t of IFC_ELEMENT_TYPES) dl.append(Object.assign(document.createElement('option'), { value: t }));
+          document.body.appendChild(dl);
+        }
+        widget.setAttribute('list', listId);
+      }
+      widget.value = spec.kind === 'length' ? String(toDisplay(current ?? 0)) : String(current ?? (spec.kind === 'number' ? 0 : ''));
+    }
+    widget.id = `field-${spec.key}`;
+    widget.style.cssText = FIELD_CSS;
+    if (spec.hint) widget.title = spec.hint;
+    const shown = widget.value;
+    widget.addEventListener('change', () => {
+      const r = parseFieldValue(spec, widget.value, { unit });
+      if (!r.ok) { statusBar.textContent = r.error; widget.value = shown; return; }
+      commit(spec.key, r.value);
+    });
+    _propRowWidget(panel, spec.kind === 'length' ? `${spec.label} (${unitLabel()})` : spec.label, widget);
+  }
+}
+
+/** Write one element or slab field back to its file and refresh whatever depends on it. */
+async function _commitEntityField(id, reg, entityPath, key, value) {
+  try {
+    const entity = applyFieldValue(await readEntity(adapter, entityPath), key, value);
+    await writeEntity(adapter, entityPath, entity);
+    if (reg.kind === 'slab') {
+      if (key === 'material_id') await _reRenderElement(id, reg.pathData);
+    } else {
+      reg.sweep = sweepOptionsFromElement(entity);
+      if (key === 'description') reg.description = value;
+      if (['sweep_mode', 'cap_start', 'cap_end', 'start_offset', 'end_offset', 'twist_per_metre'].includes(key)) {
+        await _reRenderElement(id, reg.pathData);
+      }
+    }
+    statusBar.textContent = `${key.replace(/_/g, ' ')} set to ${value}`;
+    if (key === 'sweep_mode') await _showElementProps(id);   // the twist rate row appears or goes
+  } catch (e) {
+    statusBar.textContent = `Not saved: ${e.message}`;
+  }
+}
+
+/** Path id, total length and every node, each coordinate editable. */
+function _addPathRows(panel, elementId, reg) {
+  const path = reg.pathData;
+  if (!path?.segments?.length) return;
+  const { length, nodes } = pathSummary(path);
+  const unit = getUnit();
+  const h = document.createElement('h3');
+  h.textContent = 'Path';
+  panel.appendChild(h);
+  _propRow(panel, 'Path ID', path.id ?? '', true);
+  _propRow(panel, `Length (${unitLabel()})`, String(toDisplay(length)), true);
+
+  nodes.forEach((node, n) => {
+    const row = document.createElement('div');
+    row.className = 'prop-row';
+    const lbl = document.createElement('label');
+    lbl.textContent = `Node ${n + 1}`;
+    const axes = document.createElement('div');
+    axes.style.cssText = 'display:flex;gap:4px';
+    for (const axis of ['x', 'y', 'z']) {
+      const inp = document.createElement('input');
+      inp.type = 'text'; inp.id = `node-${n}-${axis}`; inp.title = `${axis.toUpperCase()} (${unitLabel()})`;
+      inp.style.cssText = FIELD_CSS + ';min-width:0';
+      const shown = String(toDisplay(node[axis]));
+      inp.value = shown;
+      inp.addEventListener('change', () => _applyNodeAxis(elementId, node, axis, inp, shown, unit));
+      axes.appendChild(inp);
+    }
+    row.append(lbl, axes);
+    panel.appendChild(row);
+  });
+}
+
+async function _applyNodeAxis(elementId, node, axis, inp, previous, unit) {
+  const reg = _elementRegistry.get(elementId);
+  const metres = parseDimension(inp.value, { unit });
+  if (!reg || metres === null) {
+    statusBar.textContent = `Could not read "${inp.value}" as a coordinate.`;
+    inp.value = previous;
+    return;
+  }
+  try {
+    setPathNodeAxis(reg.pathData, node, axis, metres);
+    await writeEntity(adapter, `paths/${reg.pathData.id}.json`, reg.pathData);
+    for (const [elId, r] of _elementRegistry) if (r.pathData?.id === reg.pathData.id) await _reRenderElement(elId, reg.pathData);
+    await _syncJunctionMarkers();
+    statusBar.textContent = `Node ${axis.toUpperCase()} set to ${inp.value}`;
+    await _showElementProps(elementId);
+  } catch (e) {
+    statusBar.textContent = `Node not changed: ${e.message}`;
+    inp.value = previous;
+  }
+}
+
+/** Storey: name and elevation editable; height (to the next storey) is derived. */
+function _showStoreyProps(id) {
+  const s = storeyManager.getAll().find((x) => x.id === id);
+  const panel = document.getElementById('props-content');
+  ++_propsGen;
+  panel.innerHTML = '';
+  if (!s) { panel.innerHTML = '<p id="props-empty">Storey not found.</p>'; return; }
+  const h3 = document.createElement('h3');
+  h3.textContent = 'Storey';
+  panel.appendChild(h3);
+  _propRow(panel, 'ID', s.id, true);
+  _fieldRows(panel, storeyFieldSpecs(), { name: s.name, z_m: s.z_m }, async (key, value) => {
+    await storeyManager.updateStorey(id, { [key]: value });
+    statusBar.textContent = `${key === 'z_m' ? 'Elevation' : 'Name'} saved`;
+    _showStoreyProps(id);
+  });
+  const height = storeyHeights(storeyManager.getAll()).get(id);
+  _propRow(panel, `Height (${unitLabel()})`, height === null ? 'top storey' : String(toDisplay(height)), true);
+}
+storeyManager.onSelect = _showStoreyProps;

@@ -144,7 +144,7 @@ export class StoreyManager {
       eyeBtn.title = 'Toggle visibility';
       eyeBtn.textContent = s.visible ? '●' : '○';
 
-      nameSpan.addEventListener('click', () => this._setActive(s.id));
+      nameSpan.addEventListener('click', () => { this._setActive(s.id); this.onSelect?.(s.id); });
       eyeBtn.addEventListener('click', e => {
         e.stopPropagation();
         this.toggleVisibility(s.id);

@@ -64,7 +64,6 @@ Phase 8 issues #69–#77 and #70/#66 are closed.
 | #107 | Smart cursor: use the snap engine in 3D path node editing |
 | #101 | Spec items not yet delivered (commands.json, ifc/mapping.json, migrations) |
 | #104 | Feature: parametric grid frame generator (sliders place columns, floors, roof, beams) — future scope |
-| #83 | Object properties panel — full entity field display and inline editing |
 | #82 | Snapping tools — grid, endpoint, angle, midpoint |
 | #81 | Junction detail system — reusable details by level and grid (plan: docs/plans/2026-10-08-junction-detail-system.md) |
 | #10 | Desktop wrapper: Tauri v2 and file watching |
