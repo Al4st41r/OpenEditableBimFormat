@@ -49,6 +49,7 @@ camera.up.set(0, 0, 1);
 const controls = new OrbitControls(camera, canvas);
 controls.target.set(2.7, 4.25, 1.2);
 controls.update();
+window.__viewer = { camera, controls, scene: () => currentGroup };
 
 // --- Ground grid (XY plane, 1 m cells, 20 m span) ---
 const grid = new THREE.GridHelper(20, 20, 0x444444, 0x333333);

@@ -2,6 +2,7 @@ import { describe, test, expect } from 'vitest';
 import * as THREE from 'three';
 import {
   buildClippingPlaneMap,
+  CLIP_TOLERANCE,
   applyJunctionClipping,
   clearJunctionClipping,
   buildCustomJunctionMesh,
@@ -87,7 +88,7 @@ describe('buildClippingPlaneMap — plane construction', () => {
     // normal = (-1,0,0), origin = (5.4,0,0) → constant = -(-1*5.4) = 5.4
     const map = buildClippingPlaneMap([JUNCTION_BUTT]);
     const plane = map.get('element-wall-north-gf')[0];
-    expect(plane.constant).toBeCloseTo(5.4, 6);
+    expect(plane.constant).toBeCloseTo(5.4, 3);   // plus CLIP_TOLERANCE (0.1 mm), see the next test
   });
 
   test('two junctions affecting same element accumulate planes', () => {
@@ -107,6 +108,22 @@ describe('buildClippingPlaneMap — plane construction', () => {
 });
 
 // ─── applyJunctionClipping ──────────────────────────────────────────────────
+
+describe('buildClippingPlaneMap — faces lying on the plane (issue #103)', () => {
+  test('a face exactly on the trim plane is on the kept side, so it is not clipped at random', () => {
+    // The butting wall's flat end cap lies exactly on the trim plane. The depth test then flickers
+    // between kept and clipped fragments and shows a speckled strip, so the plane is moved 0.1 mm outwards.
+    const plane = buildClippingPlaneMap([JUNCTION_BUTT]).get('element-wall-north-gf')[0];
+    const onPlane = new THREE.Vector3(5.4, 1, 1);
+    expect(plane.distanceToPoint(onPlane)).toBeGreaterThanOrEqual(CLIP_TOLERANCE - 1e-12);
+    expect(CLIP_TOLERANCE).toBeLessThanOrEqual(0.001);
+  });
+
+  test('geometry well beyond the plane is still clipped', () => {
+    const plane = buildClippingPlaneMap([JUNCTION_BUTT]).get('element-wall-north-gf')[0];
+    expect(plane.distanceToPoint(new THREE.Vector3(5.5, 0, 0))).toBeLessThan(0);
+  });
+});
 
 describe('applyJunctionClipping', () => {
   test('assigns clipping planes to mesh whose elementId matches', () => {

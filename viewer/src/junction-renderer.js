@@ -19,6 +19,13 @@ import * as THREE from 'three';
 import { oebfTrimPlanesToPlanes } from './junction-trimmer.js';
 
 /**
+ * How far (metres) each trim plane is moved to the discarded side. A butting wall's flat end cap
+ * usually lies exactly on its trim plane; a fragment on a clipping plane is kept or clipped at random
+ * by the GPU, which shows as a speckled strip (issue #103). 0.1 mm is invisible and removes the tie.
+ */
+export const CLIP_TOLERANCE = 1e-4;
+
+/**
  * Build a map from element ID to the list of THREE.Plane objects that should
  * be applied to that element's material.
  *
@@ -40,7 +47,7 @@ export function buildClippingPlaneMap(junctions) {
         const normal = new THREE.Vector3(...p.normal);
         const constant = -(p.normal[0] * p.origin[0] +
                            p.normal[1] * p.origin[1] +
-                           p.normal[2] * p.origin[2]);
+                           p.normal[2] * p.origin[2]) + CLIP_TOLERANCE;
         return new THREE.Plane(normal, constant);
       });
 
