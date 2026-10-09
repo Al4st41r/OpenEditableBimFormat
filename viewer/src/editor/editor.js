@@ -43,6 +43,7 @@ import { updateNodeAxis } from './nodeUtils.js';
 import { snapPoint, SNAP_KINDS } from '../snap/snapEngine.js';
 import { buildPlanSnapScene, setPathSegmentLength } from './planSnap.js';
 import { parseDimension } from '../snap/dimension.js';
+import { findSimilar, normaliseColour, buildMaterial } from './materialForm.js';
 import { importIfcText } from '../ifc/ifcImporter.js';
 import { exportBundleToIfc } from '../ifc/ifcExporter.js';
 import * as THREE from 'three';
@@ -1081,24 +1082,68 @@ document.getElementById('add-subassembly-btn').addEventListener('click', async (
 
 document.getElementById('add-material-btn').addEventListener('click', async () => {
   if (!adapter) return;
-  const name = window.prompt('Material name:')?.trim();
-  if (!name) return;
-  const colour = window.prompt('Colour hex (e.g. #C4693A):', '#888888')?.trim() || '#888888';
-  const id = 'mat-' + name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-
   // Read existing library (or start fresh)
   let lib = { '$schema': 'oebf://schema/0.1/materials', materials: [] };
   try { lib = await readEntity(adapter, 'materials/library.json'); } catch { /* new bundle */ }
   if (!Array.isArray(lib.materials)) lib.materials = [];
 
-  const mat = { id, type: 'Material', name, colour_hex: colour, interactions: {} };
+  const input = await _askMaterial(lib.materials);
+  if (!input) return;
+
+  const mat = buildMaterial(input.name, input.colour, lib.materials);
   lib.materials.push(mat);
   await writeEntity(adapter, 'materials/library.json', lib);
 
-  activeProfileMap[id] = mat;
+  activeProfileMap[mat.id] = mat;
   _addMaterialToTree(mat);
-  statusBar.textContent = `Material added: ${name}`;
+  statusBar.textContent = `Material added: ${mat.name}`;
 });
+
+/**
+ * The Add material dialog: name and colour, with the existing library listed below so a duplicate
+ * is easy to spot (issue #95). Resolves { name, colour } or null when cancelled.
+ */
+function _askMaterial(existing) {
+  const dlg = document.getElementById('material-dialog');
+  const name = document.getElementById('material-name');
+  const colour = document.getElementById('material-colour');
+  const hex = document.getElementById('material-colour-hex');
+  const warning = document.getElementById('material-warning');
+  const list = document.getElementById('material-existing');
+  document.getElementById('material-existing-title').textContent = existing.length
+    ? `In this project (${existing.length})` : 'No materials in this project yet.';
+  name.value = ''; colour.value = '#888888'; hex.value = '#888888'; warning.textContent = '';
+
+  const paint = () => {
+    const similar = new Set(findSimilar(existing, name.value).map((m) => m.id));
+    list.replaceChildren(...existing.map((m) => {
+      const row = document.createElement('div');
+      row.className = `mat-row${similar.has(m.id) ? ' similar' : ''}`;
+      const sw = document.createElement('span');
+      sw.className = 'mat-swatch'; sw.style.background = m.colour_hex ?? '#888';
+      row.append(sw, document.createTextNode(m.name ?? m.id));
+      return row;
+    }));
+    warning.textContent = similar.size ? `Similar to ${similar.size === 1 ? 'an existing material' : similar.size + ' existing materials'} (highlighted). A new one is still allowed.` : '';
+  };
+  name.oninput = paint;
+  colour.oninput = () => { hex.value = colour.value.toUpperCase(); };
+  hex.oninput = () => { const c = normaliseColour(hex.value); if (/^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.test(hex.value.trim())) colour.value = c.toLowerCase(); };
+  paint();
+
+  return new Promise((resolve) => {
+    const finish = (value) => { dlg.onclose = null; if (dlg.open) dlg.close(); resolve(value); };
+    document.getElementById('material-cancel').onclick = () => finish(null);
+    document.getElementById('material-form').onsubmit = (e) => {
+      e.preventDefault();
+      if (!name.value.trim()) { warning.textContent = 'Give the material a name.'; name.focus(); return; }
+      finish({ name: name.value.trim(), colour: hex.value });
+    };
+    dlg.onclose = () => resolve(null);
+    dlg.showModal();
+    name.focus();
+  });
+}
 
 // ── Canvas click — element pick + junction pick (Select / Path Edit mode) ─────
 canvas.addEventListener('click', (e) => {

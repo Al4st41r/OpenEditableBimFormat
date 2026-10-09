@@ -52,7 +52,6 @@ Open issues, in rough priority order:
 | # | Title |
 |---|---|
 | #96 | Problems with profile manager and detail tagging |
-| #95 | Feature: Add material panel should display existing library below the create form |
 | #100 | Unify library profile/material format with the spec schemas |
 | #97 | Feature: bezier and spline path segments |
 | #98 | Feature: honour sweep_mode, caps and offsets |
