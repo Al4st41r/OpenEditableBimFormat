@@ -4,7 +4,8 @@
  * Loads an OEBF bundle from a FileSystemDirectoryHandle (File System Access API)
  * and runs the full geometry pipeline for each element:
  *
- *   parsePath → buildProfileShape → sweepProfile → material colour lookup
+ *   parsePath → buildProfileShape → sweepProfile (honouring the element's
+ *   sweep_mode, caps and offsets) → material colour lookup
  *
  * Returns flat mesh data objects (typed arrays + metadata) ready for
  * buildThreeMesh() in scene/buildMesh.js.
@@ -18,7 +19,7 @@
 
 import { parsePath }           from './loadPath.js';
 import { buildProfileShape }   from './loadProfile.js';
-import { sweepProfile }        from '../geometry/sweep.js';
+import { sweepProfile, sweepOptionsFromElement } from '../geometry/sweep.js';
 import { buildSlabMeshData }   from './loadSlab.js';
 import { buildOpeningOutline } from './loadOpening.js';
 import { loadDetails }         from '../detail/loadDetails.js';
@@ -47,7 +48,7 @@ export async function loadBundle(dirHandle) {
 
       const parsedPath    = parsePath(pathData);
       const profileShapes = buildProfileShape(profData);
-      const sweptMeshes   = sweepProfile(parsedPath.points, profileShapes);
+      const sweptMeshes   = sweepProfile(parsedPath.points, profileShapes, sweepOptionsFromElement(element));
 
       for (const sm of sweptMeshes) {
         const mat = matMap[sm.materialId];

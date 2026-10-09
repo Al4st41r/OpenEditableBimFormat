@@ -13,7 +13,7 @@ import { loadDetails } from '../detail/loadDetails.js';
 import { decompress } from 'fzstd';
 import { parsePath }           from './loadPath.js';
 import { buildProfileShape }   from './loadProfile.js';
-import { sweepProfile }        from '../geometry/sweep.js';
+import { sweepProfile, sweepOptionsFromElement } from '../geometry/sweep.js';
 import { buildSlabMeshData }   from './loadSlab.js';
 import { buildOpeningOutline } from './loadOpening.js';
 
@@ -95,7 +95,7 @@ export async function loadBundleZstd(file) {
       const profData = readJson(`profiles/${element.profile_id}.json`);
       const parsedPath    = parsePath(pathData);
       const profileShapes = buildProfileShape(profData);
-      const sweptMeshes   = sweepProfile(parsedPath.points, profileShapes);
+      const sweptMeshes   = sweepProfile(parsedPath.points, profileShapes, sweepOptionsFromElement(element));
       for (const sm of sweptMeshes) {
         const mat = matMap[sm.materialId];
         meshes.push({ ...sm, elementId, colour: mat?.colour_hex ?? '#888888', description: element.description });

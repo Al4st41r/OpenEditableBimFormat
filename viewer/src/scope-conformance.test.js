@@ -229,9 +229,8 @@ describe('sweep', () => {
     expect(open).toBe(0);
   });
 
-  // GAP: element.sweep_mode, cap_start/cap_end, start_offset/end_offset are
-  // schema-valid but loadBundle ignores them (all walls are perpendicular, capped).
-  test.fails('loadBundle honours element start_offset (GAP: ignored)', async () => {
+  // element.sweep_mode, cap_start/cap_end, start_offset/end_offset (#98)
+  test('loadBundle honours element start_offset', async () => {
     const dir = fsHandle(BUNDLE);
     const base = await loadBundle(dir);
     const baseMesh = base.meshes.find((m) => m.elementId === 'element-wall-south-gf');

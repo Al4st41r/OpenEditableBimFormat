@@ -53,7 +53,6 @@ Open issues, in rough priority order:
 |---|---|
 | #96 | Problems with profile manager and detail tagging |
 | #97 | Feature: bezier and spline path segments |
-| #98 | Feature: honour sweep_mode, caps and offsets |
 
 Phase 8 issues #69–#77 and #70/#66 are closed.
 

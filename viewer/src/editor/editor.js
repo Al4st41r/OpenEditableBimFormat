@@ -13,6 +13,7 @@ import { initEditorScene } from './editorScene.js';
 import { loadBundle }         from '../loader/loadBundle.js';
 import { buildThreeMesh }     from '../scene/buildMesh.js';
 import { applyJunctionClipping, buildCustomJunctionMesh, buildJunctionDetailMeshes } from '../junction-renderer.js';
+import { sweepOptionsFromElement } from '../geometry/sweep.js';
 import { ensureDetailMaterials } from '../detail/detailMaterials.js';
 import { loadDetails } from '../detail/loadDetails.js';
 import { junctionPoint } from '../detail/junctionPosition.js';
@@ -714,7 +715,7 @@ async function _loadAndRenderBundle(adapter) {
     try {
       const el   = await readEntity(adapter, `elements/${elementId}.json`);
       const path = await readEntity(adapter, `paths/${el.path_id}.json`);
-      _elementRegistry.set(elementId, { pathData: path, profileId: el.profile_id, description: el.description ?? 'Wall' });
+      _elementRegistry.set(elementId, { pathData: path, profileId: el.profile_id, description: el.description ?? 'Wall', sweep: sweepOptionsFromElement(el) });
       _addElementToTree(elementId, 'Wall');
     } catch { /* skip missing */ }
   }
@@ -834,7 +835,7 @@ async function _loadAndRenderBundle(adapter) {
 async function _loadBundleFromAdapter(adapter) {
   const { parsePath }         = await import('../loader/loadPath.js');
   const { buildProfileShape } = await import('../loader/loadProfile.js');
-  const { sweepProfile }      = await import('../geometry/sweep.js');
+  const { sweepProfile, sweepOptionsFromElement } = await import('../geometry/sweep.js');
   const { buildSlabMeshData } = await import('../loader/loadSlab.js');
 
   const model    = await adapter.readJson('model.json');
@@ -850,7 +851,7 @@ async function _loadBundleFromAdapter(adapter) {
       const profData      = await adapter.readJson(`profiles/${element.profile_id}.json`);
       const parsedPath    = parsePath(pathData);
       const profileShapes = buildProfileShape(profData);
-      const sweptMeshes   = sweepProfile(parsedPath.points, profileShapes);
+      const sweptMeshes   = sweepProfile(parsedPath.points, profileShapes, sweepOptionsFromElement(element));
       for (const sm of sweptMeshes) {
         const mat = matMap[sm.materialId];
         meshes.push({ ...sm, elementId, colour: mat?.colour_hex ?? '#888888', description: element.description });
@@ -1338,7 +1339,7 @@ async function _reRenderElement(elementId, updatedPathData) {
       if (gen !== _renderGen) return;
       const profileShapes = buildProfileShape(profData);
       const { points: pathPoints } = parsePath(updatedPathData);
-      const layerMeshes = sweepProfile(pathPoints, profileShapes);
+      const layerMeshes = sweepProfile(pathPoints, profileShapes, reg.sweep);
       if (gen !== _renderGen) return;
       for (const layerData of layerMeshes) {
         const matData = activeProfileMap[layerData.materialId];
@@ -1526,7 +1527,7 @@ async function _changeElementProfile(elementId, newProfileId) {
     const profData      = await readEntity(adapter, `profiles/${newProfileId}.json`);
     const profileShapes = buildProfileShape(profData);
     const { points: pathPoints } = parsePath(reg.pathData);
-    const layerMeshes   = sweepProfile(pathPoints, profileShapes);
+    const layerMeshes   = sweepProfile(pathPoints, profileShapes, reg.sweep);
 
     if (layerMeshes.length === 0) {
       statusBar.textContent = 'Profile change: new profile produced no geometry.';

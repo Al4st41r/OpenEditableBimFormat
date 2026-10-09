@@ -169,6 +169,17 @@ Openings are found via their Object's `opening_id` — no separate registration.
 }
 ```
 
+How the optional sweep fields behave:
+- `sweep_mode`: `perpendicular` follows the path; `fixed` keeps the first
+  orientation along the whole path; `twisted` turns the profile about the path
+  at `twist_per_metre` degrees per metre.
+- `cap_start` / `cap_end`: `open` leaves that end uncapped. `flat`, `angled` and
+  `junction` are all drawn with a flat cap (junction ends are trimmed by the
+  Junction entity afterwards; `angled` has no angle field yet).
+- `start_offset` / `end_offset`: metres removed from that end of the path
+  (negative values extend it). Offsets that would remove the whole path are ignored.
+
+
 **Step 3.** Register in `model.json`:
 - Add `"element-wall-internal-01"` to `elements[]`
 - Add `"element-wall-internal-01"` to `hierarchy > storey-gf > children[]`

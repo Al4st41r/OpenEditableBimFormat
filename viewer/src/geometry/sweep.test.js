@@ -243,3 +243,130 @@ describe('sweepProfile — edge cases', () => {
     expect(meshes[3].materialId).toBe('mat-gypsum-plaster');
   });
 });
+
+// ─── element options (#98): offsets, caps, sweep modes ──────────────────────
+
+import { offsetPolyline, sweepOptionsFromElement } from './sweep.js';
+
+const P = (x, y, z = 0) => ({ x, y, z });
+const bounds = (verts, axis) => {
+  const v = [];
+  for (let i = axis; i < verts.length; i += 3) v.push(verts[i]);
+  return [Math.min(...v), Math.max(...v)];
+};
+
+describe('offsetPolyline', () => {
+  test('positive offsets shorten each end along the path', () => {
+    const out = offsetPolyline([P(0, 0), P(10, 0)], 1, 2);
+    expect(out[0].x).toBeCloseTo(1);
+    expect(out.at(-1).x).toBeCloseTo(8);
+  });
+  test('negative offsets extend along the end tangents', () => {
+    const out = offsetPolyline([P(0, 0), P(10, 0)], -1, -0.5);
+    expect(out[0].x).toBeCloseTo(-1);
+    expect(out.at(-1).x).toBeCloseTo(10.5);
+  });
+  test('offsets walk round corners and drop the points they pass', () => {
+    const out = offsetPolyline([P(0, 0), P(4, 0), P(4, 4)], 5, 0);
+    expect(out[0].x).toBeCloseTo(4);
+    expect(out[0].y).toBeCloseTo(1);
+    expect(out).toHaveLength(2);
+  });
+  test('zero offsets return the same points', () => {
+    const pts = [P(0, 0), P(3, 0)];
+    expect(offsetPolyline(pts, 0, 0)).toEqual(pts);
+  });
+  test('offsets that consume the whole path are ignored', () => {
+    const pts = [P(0, 0), P(3, 0)];
+    expect(offsetPolyline(pts, 2, 2)).toEqual(pts);
+  });
+  test('does not mutate the input', () => {
+    const pts = [P(0, 0), P(3, 0)];
+    offsetPolyline(pts, 1, 0);
+    expect(pts[0].x).toBe(0);
+  });
+});
+
+describe('sweepProfile — offsets', () => {
+  test('start and end offsets shorten the mesh', () => {
+    const path = [P(0, 0), P(10, 0)];
+    const full = sweepProfile(path, [layerFrom(rect(-0.1, 0.1))])[0];
+    const cut  = sweepProfile(path, [layerFrom(rect(-0.1, 0.1))], { startOffset: 1, endOffset: 2 })[0];
+    expect(bounds(full.vertices, 0)).toEqual([0, 10]);
+    const [a, b] = bounds(cut.vertices, 0);
+    expect(a).toBeCloseTo(1); expect(b).toBeCloseTo(8);
+  });
+});
+
+describe('sweepProfile — caps', () => {
+  const path = [P(0, 0), P(4, 0)];
+  const layer = [layerFrom(rect(-0.1, 0.1))];
+  const count = (o) => sweepProfile(path, layer, o)[0];
+
+  test('flat caps add two cap rings (default)', () => {
+    expect(count({}).vertices.length / 3).toBe(2 * 4 + 2 * 4);
+  });
+  test('open start omits the start cap', () => {
+    const m = count({ capStart: 'open' });
+    expect(m.vertices.length / 3).toBe(2 * 4 + 4);
+    expect(m.indices.length).toBe(1 * 4 * 6 + 2 * 3);
+  });
+  test('open at both ends leaves only the tube', () => {
+    const m = count({ capStart: 'open', capEnd: 'open' });
+    expect(m.vertices.length / 3).toBe(2 * 4);
+    expect(m.indices.length).toBe(1 * 4 * 6);
+  });
+  test('angled and junction are capped like flat', () => {
+    expect(count({ capStart: 'angled', capEnd: 'junction' }).indices.length).toBe(count({}).indices.length);
+  });
+});
+
+describe('sweepProfile — sweep modes', () => {
+  // A path that turns a right angle. The default frames follow the path.
+  const path = [P(0, 0), P(4, 0), P(4, 4)];
+  const layer = [layerFrom(rect(-0.1, 0.1))];
+
+  test('perpendicular is the default and matches the old output', () => {
+    const a = sweepProfile(path, layer)[0];
+    const b = sweepProfile(path, layer, { sweepMode: 'perpendicular' })[0];
+    expect(Array.from(b.vertices)).toEqual(Array.from(a.vertices));
+  });
+  test('fixed keeps the first frame orientation along the whole path', () => {
+    const m = sweepProfile(path, layer, { sweepMode: 'fixed' })[0];
+    // First segment runs +x, so the binormal is +/-y. With a fixed frame every
+    // ring is offset in y only, so the y extent is 4 + 0.2 and x extent is 4.
+    const [y0, y1] = bounds(m.vertices, 1);
+    expect(y1 - y0).toBeCloseTo(4.2, 3);
+    const [x0, x1] = bounds(m.vertices, 0);
+    expect(x1 - x0).toBeCloseTo(4, 3);
+  });
+  test('twisted rotates the profile about the path', () => {
+    const straight = [P(0, 0), P(4, 0)];
+    const flat = sweepProfile(straight, [layerFrom(rect(-0.1, 0.1, 1))], { sweepMode: 'twisted', twistPerMetre: 0 })[0];
+    const turned = sweepProfile(straight, [layerFrom(rect(-0.1, 0.1, 1))], { sweepMode: 'twisted', twistPerMetre: 22.5 })[0];
+    // 4 m at 22.5 deg/m is a quarter turn: a tall thin profile ends up wide and flat.
+    const zSpan = (m) => { const [a, b] = bounds(m.vertices.slice(m.vertices.length - 12), 2); return b - a; };
+    expect(zSpan(flat)).toBeCloseTo(1, 3);
+    expect(zSpan(turned)).toBeCloseTo(0.2, 3);
+  });
+  test('twisted with no rate does not rotate', () => {
+    const straight = [P(0, 0), P(4, 0)];
+    const a = sweepProfile(straight, layer, { sweepMode: 'twisted' })[0];
+    const b = sweepProfile(straight, layer)[0];
+    expect(bounds(a.vertices, 2)).toEqual(bounds(b.vertices, 2));
+  });
+});
+
+describe('sweepOptionsFromElement', () => {
+  test('maps the element fields', () => {
+    expect(sweepOptionsFromElement({
+      sweep_mode: 'fixed', cap_start: 'open', cap_end: 'angled', start_offset: 0.5, end_offset: 1, twist_per_metre: 3,
+    })).toEqual({ sweepMode: 'fixed', capStart: 'open', capEnd: 'angled', startOffset: 0.5, endOffset: 1, twistPerMetre: 3 });
+  });
+  test('missing fields give the defaults', () => {
+    expect(sweepOptionsFromElement({})).toEqual({
+      sweepMode: 'perpendicular', capStart: 'flat', capEnd: 'flat', startOffset: 0, endOffset: 0, twistPerMetre: 0,
+    });
+    expect(sweepOptionsFromElement(undefined).sweepMode).toBe('perpendicular');
+  });
+});

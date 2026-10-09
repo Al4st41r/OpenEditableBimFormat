@@ -18,6 +18,7 @@
     "cap_end":         { "type": "string", "enum": ["flat", "angled", "open", "junction"] },
     "start_offset":    { "type": "number" },
     "end_offset":      { "type": "number" },
+    "twist_per_metre": { "type": "number" },
     "parent_group_id": { "type": "string" },
     "properties":      { "type": "object" }
   }

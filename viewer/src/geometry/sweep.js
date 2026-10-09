@@ -32,15 +32,123 @@
  */
 
 /**
+ * Sweep options, taken from an element's fields (see sweepOptionsFromElement).
+ *
+ * @typedef {object} SweepOptions
+ * @property {'perpendicular'|'fixed'|'twisted'} [sweepMode='perpendicular']
+ *   perpendicular: the profile follows the path. fixed: the orientation of the
+ *   first frame is kept along the whole path. twisted: the profile turns about
+ *   the path at twistPerMetre.
+ * @property {'flat'|'angled'|'open'|'junction'} [capStart='flat']
+ * @property {'flat'|'angled'|'open'|'junction'} [capEnd='flat']
+ *   open leaves the end uncapped. angled and junction are capped flat here:
+ *   angled has no angle field yet, and junction ends are trimmed afterwards
+ *   by the junction renderer.
+ * @property {number} [startOffset=0] - metres removed from the start (negative extends)
+ * @property {number} [endOffset=0]   - metres removed from the end (negative extends)
+ * @property {number} [twistPerMetre=0] - degrees per metre, twisted mode only
+ */
+
+/** Read the sweep options from an element entity. Missing fields give the defaults. */
+export function sweepOptionsFromElement(element) {
+  const e = element ?? {};
+  return {
+    sweepMode:     e.sweep_mode ?? 'perpendicular',
+    capStart:      e.cap_start ?? 'flat',
+    capEnd:        e.cap_end ?? 'flat',
+    startOffset:   e.start_offset ?? 0,
+    endOffset:     e.end_offset ?? 0,
+    twistPerMetre: e.twist_per_metre ?? 0,
+  };
+}
+
+/**
+ * Shorten (positive) or extend (negative) a polyline at each end, measured
+ * along the path. Offsets that would consume the whole path are ignored.
+ *
+ * @param {Array<{x,y,z}>} points
+ * @param {number} startOffset - metres
+ * @param {number} endOffset   - metres
+ * @returns {Array<{x,y,z}>} new array; the input is not mutated
+ */
+export function offsetPolyline(points, startOffset = 0, endOffset = 0) {
+  if (points.length < 2 || (!startOffset && !endOffset)) return points;
+  let total = 0;
+  for (let i = 1; i < points.length; i++) total += _len(_sub(points[i], points[i - 1]));
+  if (startOffset + endOffset >= total - 1e-9) return points;
+
+  let pts = points.map(p => ({ ...p }));
+  pts = _trimEnd(pts, startOffset, true);
+  pts = _trimEnd(pts, endOffset, false);
+  return pts;
+}
+
+/** Trim (or extend) one end of a polyline by `d` metres. */
+function _trimEnd(pts, d, atStart) {
+  if (!d) return pts;
+  if (atStart) pts = pts.reverse();
+  // pts now ends at the end being adjusted
+  const n = pts.length;
+  if (d < 0) {
+    const dir = _normalize(_sub(pts[n - 1], pts[n - 2]));
+    const e = pts[n - 1];
+    pts[n - 1] = { x: e.x - dir.x * d, y: e.y - dir.y * d, z: e.z - dir.z * d };
+  } else {
+    let remaining = d;
+    while (pts.length > 2) {
+      const seg = _len(_sub(pts[pts.length - 1], pts[pts.length - 2]));
+      if (seg > remaining) break;
+      remaining -= seg;
+      pts.pop();
+    }
+    const m = pts.length;
+    const a = pts[m - 2], b = pts[m - 1];
+    const dir = _normalize(_sub(b, a));
+    pts[m - 1] = { x: b.x - dir.x * remaining, y: b.y - dir.y * remaining, z: b.z - dir.z * remaining };
+  }
+  return atStart ? pts.reverse() : pts;
+}
+
+/**
  * Sweep a profile along a polyline path.
  *
  * @param {Array<{x,y,z}>} pathPoints - Pre-tessellated 3D polyline.
  * @param {Array<{materialId:string, points:Array<{x,y}>}>} profileShapes - Per-layer shapes.
+ * @param {SweepOptions} [options]
  * @returns {Array<{materialId:string, vertices:Float32Array, normals:Float32Array, indices:Uint32Array}>}
  */
-export function sweepProfile(pathPoints, profileShapes) {
-  const frames = _computeFrames(pathPoints);
-  return profileShapes.map(shape => _sweepShape(frames, shape.points, shape.materialId));
+export function sweepProfile(pathPoints, profileShapes, options = {}) {
+  const {
+    sweepMode = 'perpendicular', capStart = 'flat', capEnd = 'flat',
+    startOffset = 0, endOffset = 0, twistPerMetre = 0,
+  } = options;
+  const points = offsetPolyline(pathPoints, startOffset, endOffset);
+  const frames = _applyMode(_computeFrames(points), sweepMode, twistPerMetre);
+  const caps = { start: capStart !== 'open', end: capEnd !== 'open' };
+  return profileShapes.map(shape => _sweepShape(frames, shape.points, shape.materialId, caps));
+}
+
+/** Adjust the frames for the sweep mode. perpendicular leaves them alone. */
+function _applyMode(frames, mode, twistPerMetre) {
+  if (mode === 'fixed') {
+    const f0 = frames[0];
+    return frames.map(f => ({ ...f0, origin: f.origin }));
+  }
+  if (mode === 'twisted' && twistPerMetre) {
+    let dist = 0;
+    return frames.map((f, i) => {
+      if (i > 0) dist += _len(_sub(f.origin, frames[i - 1].origin));
+      const t = dist * twistPerMetre * Math.PI / 180;
+      const c = Math.cos(t), s = Math.sin(t);
+      const mix = (a, b, ka, kb) => ({ x: a.x * ka + b.x * kb, y: a.y * ka + b.y * kb, z: a.z * ka + b.z * kb });
+      return {
+        ...f,
+        binormal: mix(f.binormal, f.normal, c, s),
+        up:       mix(f.binormal, f.normal, -s, c),
+      };
+    });
+  }
+  return frames;
 }
 
 // ─── Frame computation ───────────────────────────────────────────────────────
@@ -83,7 +191,17 @@ function _computeFrames(points) {
 
 // ─── Shape sweep ────────────────────────────────────────────────────────────
 
-function _sweepShape(frames, profilePoints, materialId) {
+/** World position of profile point p in a frame. Profile y is world Z unless the frame has its own up. */
+function _place(frame, p) {
+  const up = frame.up;
+  return [
+    frame.origin.x + p.x * frame.binormal.x + (up ? p.y * up.x : 0),
+    frame.origin.y + p.x * frame.binormal.y + (up ? p.y * up.y : 0),
+    frame.origin.z + p.x * frame.binormal.z + (up ? p.y * up.z : p.y),
+  ];
+}
+
+function _sweepShape(frames, profilePoints, materialId, caps = { start: true, end: true }) {
   const nFrames = frames.length;
   const nVerts  = profilePoints.length;
 
@@ -94,11 +212,7 @@ function _sweepShape(frames, profilePoints, materialId) {
   // Tube grid: nFrames × nVerts vertices
   for (const frame of frames) {
     for (const p of profilePoints) {
-      positions.push(
-        frame.origin.x + p.x * frame.binormal.x,
-        frame.origin.y + p.x * frame.binormal.y,
-        frame.origin.z + p.x * frame.binormal.z + p.y,
-      );
+      positions.push(..._place(frame, p));
       normals.push(frame.binormal.x, frame.binormal.y, frame.binormal.z);
     }
   }
@@ -116,8 +230,8 @@ function _sweepShape(frames, profilePoints, materialId) {
   }
 
   // End caps (separate vertices to allow independent normals)
-  _addCap(positions, normals, indices, frames[0],           profilePoints, false);
-  _addCap(positions, normals, indices, frames[nFrames - 1], profilePoints, true);
+  if (caps.start) _addCap(positions, normals, indices, frames[0],           profilePoints, false);
+  if (caps.end)   _addCap(positions, normals, indices, frames[nFrames - 1], profilePoints, true);
 
   return {
     materialId,
@@ -141,11 +255,7 @@ function _addCap(positions, normals, indices, frame, profilePoints, flip) {
   const sign = flip ? 1 : -1;
 
   for (const p of profilePoints) {
-    positions.push(
-      frame.origin.x + p.x * frame.binormal.x,
-      frame.origin.y + p.x * frame.binormal.y,
-      frame.origin.z + p.x * frame.binormal.z + p.y,
-    );
+    positions.push(..._place(frame, p));
     normals.push(
       frame.tangent.x * sign,
       frame.tangent.y * sign,
