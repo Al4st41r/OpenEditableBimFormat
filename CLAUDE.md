@@ -51,7 +51,6 @@ Open issues, in rough priority order:
 
 | # | Title |
 |---|---|
-| #91 | Bug: Changing wall profile in properties panel causes wall to disappear |
 | #96 | Problems with profile manager and detail tagging |
 | #95 | Feature: Add material panel should display existing library below the create form |
 | #100 | Unify library profile/material format with the spec schemas |
@@ -64,9 +63,9 @@ Phase 8 issues #69–#77 and #70/#66 are closed.
 
 | # | Title |
 |---|---|
-| #106 | IFC importer: imported bundles do not pass oebf validate (schemas, profiles, materials, parent_group_id, slabs) |
+| #108 | IFC import from other tools: profiles, per-layer materials and property sets are not reconstructed |
+| #107 | Smart cursor: use the snap engine in 3D path node editing |
 | #101 | Spec items not yet delivered (commands.json, ifc/mapping.json, migrations) |
-| #105 | Feature: smart cursor tooltips and direct length/size editing (Vectorworks/ArchiCAD style); extends #82, #83 — future scope |
 | #104 | Feature: parametric grid frame generator (sliders place columns, floors, roof, beams) — future scope |
 | #83 | Object properties panel — full entity field display and inline editing |
 | #82 | Snapping tools — grid, endpoint, angle, midpoint |
