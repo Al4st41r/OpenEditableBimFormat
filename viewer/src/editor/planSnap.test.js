@@ -138,3 +138,20 @@ describe('snapReference', () => {
     expect(snapReference(segs, 9, 'end')).toBeNull();
   });
 });
+
+import { snapPoint as _snapPoint } from '../snap/snapEngine.js';
+describe('buildPlanSnapScene guides', () => {
+  test('snaps to a guide line crossing a grid axis', () => {
+    const guides = [{ visible: true, segments: [{ type: 'line', start: { x: 0, y: 2 }, end: { x: 10, y: 2 } }] }];
+    const axes = [{ direction: 'y', offset_m: 4 }];
+    const scene = buildPlanSnapScene({ guides, axes });
+    const r = _snapPoint({ x: 4.02, y: 2.03 }, scene, { tolerance: 0.1, angleStep: 0 });
+    expect(r.kind).toBe('intersection');
+    expect(r.point).toEqual({ x: 4, y: 2 });
+  });
+  test('ignores hidden and Z guides', () => {
+    const seg = [{ type: 'line', start: { x: 0, y: 0 }, end: { x: 1, y: 1 } }];
+    const scene = buildPlanSnapScene({ guides: [{ visible: false, segments: seg }, { isZGuide: true, segments: seg }] });
+    expect(scene.segments).toHaveLength(0);
+  });
+});

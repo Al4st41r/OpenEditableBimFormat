@@ -124,6 +124,10 @@ const guideManager = new GuideManager(
   (pathId) => {
     if (!_modelState.paths.includes(pathId)) _modelState.paths.push(pathId);
   },
+  (pathId) => {
+    const i = _modelState.paths.indexOf(pathId);
+    if (i >= 0) _modelState.paths.splice(i, 1);
+  },
 );
 
 // ── State ────────────────────────────────────────────────────────────────────
@@ -1665,6 +1669,7 @@ function _planSnap(point, { lastPoint = null, suspend = false, tolerance = 0.1, 
   const scene = buildPlanSnapScene({
     paths: [..._elementRegistry.values()].map((r) => r.pathData).filter(Boolean),
     axes: gridManager.getAxes(),
+    guides: guideManager.getGuides(),
     lastPoint,
     excludePathId,
   });

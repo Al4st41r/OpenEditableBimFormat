@@ -42,6 +42,13 @@ export class FsaAdapter {
     await writer.close();
   }
 
+  async deleteFile(path) {
+    const parts = path.split('/');
+    let handle = this.dirHandle;
+    for (let i = 0; i < parts.length - 1; i++) handle = await handle.getDirectoryHandle(parts[i]);
+    await handle.removeEntry(parts.at(-1));
+  }
+
   async listDir(path) {
     try {
       const parts = path.split('/');
@@ -98,6 +105,10 @@ export class MemoryAdapter {
 
   async writeRaw(path, text) {
     this._map.set(path, text);
+  }
+
+  async deleteFile(path) {
+    this._map.delete(path);
   }
 
   async listDir(path) {

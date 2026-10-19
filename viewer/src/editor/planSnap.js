@@ -13,11 +13,12 @@ const flat = (p) => ({ x: p.x, y: p.y });
  * @param {Array<{id: string, segments: object[]}>} [input.paths]
  * @param {Array<{label?: string, direction: 'x'|'y', offset_m: number, visible?: boolean}>} [input.axes]
  *        grid axes: direction 'y' is the line x = offset, 'x' is the line y = offset
+ * @param {Array<{segments?: object[], visible?: boolean, isZGuide?: boolean}>} [input.guides] reference lines (plan view)
  * @param {string} [input.excludePathId] a path being edited (left out)
  * @param {{x, y}|null} [input.lastPoint]
  * @param {number} [input.step] ruler step in metres
  */
-export function buildPlanSnapScene({ paths = [], axes = [], excludePathId, lastPoint = null, step = 0 } = {}) {
+export function buildPlanSnapScene({ paths = [], axes = [], guides = [], excludePathId, lastPoint = null, step = 0 } = {}) {
   const points = [];
   const segments = [];
   for (const path of paths) {
@@ -26,6 +27,14 @@ export function buildPlanSnapScene({ paths = [], axes = [], excludePathId, lastP
       if (seg.start) points.push(flat(seg.start));
       if (seg.end) points.push(flat(seg.end));
       if (seg.type === 'line' && seg.start && seg.end) segments.push({ a: flat(seg.start), b: flat(seg.end) });
+    }
+  }
+  for (const g of guides) {
+    if (g.visible === false || g.isZGuide) continue;
+    for (const seg of g.segments ?? []) {
+      if (seg.type !== 'line' || !seg.start || !seg.end) continue;
+      points.push(flat(seg.start), flat(seg.end));
+      segments.push({ a: flat(seg.start), b: flat(seg.end) });
     }
   }
   const scene = {

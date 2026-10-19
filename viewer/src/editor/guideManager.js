@@ -7,7 +7,8 @@
 
 import * as THREE from 'three';
 import { writeEntity } from './bundleWriter.js';
-import { toDisplay, unitLabel } from './units.js';
+import { toDisplay, unitLabel, fromDisplay } from './units.js';
+import { wireRow, makeRemoveButton } from './treeMenu.js';
 
 const GUIDE_COLOUR       = 0x7090e8;
 const GUIDE_OPACITY      = 0.12;
@@ -15,10 +16,11 @@ const GUIDE_HEIGHT       = 10;
 const GUIDE_PLANE_SIZE   = 50; // metres — horizontal Z-guide plane extent
 
 export class GuideManager {
-  constructor(overlayGroup, listEl, onGuideAdded) {
+  constructor(overlayGroup, listEl, onGuideAdded, onGuideRemoved) {
     this._overlayGroup  = overlayGroup;
     this._listEl        = listEl;
     this._onGuideAdded  = onGuideAdded ?? null;
+    this._onGuideRemoved = onGuideRemoved ?? null;
     this._guides        = [];
     this._adapter     = null;
   }
@@ -96,6 +98,59 @@ export class GuideManager {
 
   getGuides() { return this._guides; }
 
+  /** Prompt to rename a guide (and change the height of a Z guide), then save. */
+  async editGuide(id) {
+    const g = this._guides.find(x => x.id === id);
+    if (!g) return;
+    const name = window.prompt('Guide name:', g.name);
+    if (!name) return;
+    let z_m = g.z_m;
+    if (g.isZGuide) {
+      const zStr = window.prompt(`Z height (${unitLabel()}):`, String(toDisplay(g.z_m)));
+      if (zStr === null) return;
+      z_m = fromDisplay(parseFloat(zStr));
+      if (!Number.isFinite(z_m)) return;
+    }
+    g.name = name;
+    if (g.isZGuide && z_m !== g.z_m) {
+      g.z_m = z_m;
+      this._overlayGroup.remove(g.object3d);
+      g.object3d.traverse(c => { c.geometry?.dispose(); c.material?.dispose(); });
+      g.object3d = _buildZGuideObject(z_m);
+      g.object3d.visible = g.visible;
+      this._overlayGroup.add(g.object3d);
+    }
+    this._renderList();
+    if (!this._adapter) return;
+    const file = `paths/${id}.json`;
+    let entity;
+    try { entity = await this._adapter.readJson(file); }
+    catch { return; }
+    entity.description = name;
+    if (g.isZGuide) entity.z_m = z_m;
+    await writeEntity(this._adapter, file, entity);
+  }
+
+  /** Remove a guide from the scene, the bundle's path file and model.json. */
+  async removeGuide(id) {
+    const i = this._guides.findIndex(x => x.id === id);
+    if (i < 0) return;
+    const g = this._guides[i];
+    if (!window.confirm(`Remove guide "${g.name}"?`)) return;
+    this._overlayGroup.remove(g.object3d);
+    g.object3d.traverse(c => { c.geometry?.dispose(); c.material?.dispose(); });
+    this._guides.splice(i, 1);
+    this._renderList();
+    if (this._onGuideRemoved) this._onGuideRemoved(id);
+    if (!this._adapter) return;
+    try {
+      const model = await this._adapter.readJson('model.json');
+      model.paths = (model.paths ?? []).filter(p => p !== id);
+      await writeEntity(this._adapter, 'model.json', model);
+      await this._adapter.deleteFile?.(`paths/${id}.json`);
+    } catch { /* bundle not yet saved: nothing to remove */ }
+  }
+
   // ── Private ────────────────────────────────────────────────────────────────
 
   _addGuide(id, name, segments, visible) {
@@ -136,7 +191,8 @@ export class GuideManager {
         this.toggleVisibility(g.id);
       });
 
-      item.append(nameSpan, eyeBtn);
+      item.append(nameSpan, eyeBtn, makeRemoveButton(() => this.removeGuide(g.id)));
+      wireRow(item, { onEdit: () => this.editGuide(g.id), onRemove: () => this.removeGuide(g.id) });
       this._listEl.appendChild(item);
     }
   }

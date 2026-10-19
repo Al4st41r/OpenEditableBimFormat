@@ -9,6 +9,7 @@
 import * as THREE from 'three';
 import { writeEntity } from './bundleWriter.js';
 import { toDisplay, unitLabel, fromDisplay } from './units.js';
+import { wireRow, makeRemoveButton } from './treeMenu.js';
 import { axisEndpoints, axisPlaneGeometry, axisLabel } from '../grid/gridAxis.js';
 
 const GRID_COLOUR   = 0xe87070;
@@ -88,6 +89,37 @@ export class GridOverlayManager {
 
   getAxes() { return this._axes; }
 
+  /** Prompt for new label, direction and offset of an axis, then save. */
+  async editAxis(id) {
+    const a = this._axes.find(x => x.id === id);
+    if (!a) return;
+    const label = window.prompt('Label:', a.label);
+    if (!label) return;
+    const dir = window.prompt('Direction the axis runs (x = east-west, at a Y value; y = north-south, at an X value):', a.direction);
+    if (!dir || !['x', 'y'].includes(dir.toLowerCase())) return;
+    const offStr = window.prompt(`Offset (${unitLabel()}):`, String(toDisplay(a.offset_m)));
+    if (offStr === null) return;
+    const offset = fromDisplay(parseFloat(offStr));
+    if (Number.isNaN(offset)) return;
+    this._overlayGroup.remove(a.object3d);
+    Object.assign(a, { label, direction: dir.toLowerCase(), offset_m: offset });
+    a.object3d = this._buildAxisObject(a.direction, a.offset_m);
+    a.object3d.visible = a.visible;
+    this._overlayGroup.add(a.object3d);
+    this._renderList();
+    await this._saveGrid();
+  }
+
+  async removeAxis(id) {
+    const i = this._axes.findIndex(x => x.id === id);
+    if (i < 0) return;
+    if (!window.confirm(`Remove grid axis ${this._axes[i].label}?`)) return;
+    this._overlayGroup.remove(this._axes[i].object3d);
+    this._axes.splice(i, 1);
+    this._renderList();
+    await this._saveGrid();
+  }
+
   // ── Private ────────────────────────────────────────────────────────────────
 
   _addAxis(id, label, direction, offset_m, visible) {
@@ -145,7 +177,8 @@ export class GridOverlayManager {
         this.toggleVisibility(a.id);
       });
 
-      item.append(nameSpan, eyeBtn);
+      item.append(nameSpan, eyeBtn, makeRemoveButton(() => this.removeAxis(a.id)));
+      wireRow(item, { onEdit: () => this.editAxis(a.id), onRemove: () => this.removeAxis(a.id) });
       this._listEl.appendChild(item);
     }
   }
