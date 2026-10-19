@@ -1,0 +1,26 @@
+{
+  "$schema": "oebf://schema/0.1/path",
+  "id": "path-upstand-column-se",
+  "type": "Path",
+  "description": "Masonry upstand under glulam column se",
+  "closed": false,
+  "segments": [
+    {
+      "type": "line",
+      "start": {
+        "x": 8.384,
+        "y": 0.43599999999999994,
+        "z": -0.12
+      },
+      "end": {
+        "x": 8.744,
+        "y": 0.43599999999999994,
+        "z": -0.12
+      }
+    }
+  ],
+  "tags": [
+    "upstand",
+    "gf"
+  ]
+}

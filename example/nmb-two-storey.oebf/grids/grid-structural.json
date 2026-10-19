@@ -1,0 +1,56 @@
+{
+  "$schema": "oebf://schema/0.1/grid",
+  "id": "grid-structural",
+  "type": "Grid",
+  "description": "Structural grid: four lines at 3 m (1-4) and two at 6 m (A-B)",
+  "ifc_type": "IfcGrid",
+  "axes": [
+    {
+      "id": "1",
+      "direction": "y",
+      "offset_m": 0.0
+    },
+    {
+      "id": "2",
+      "direction": "y",
+      "offset_m": 3.0
+    },
+    {
+      "id": "3",
+      "direction": "y",
+      "offset_m": 6.0
+    },
+    {
+      "id": "4",
+      "direction": "y",
+      "offset_m": 9.0
+    },
+    {
+      "id": "A",
+      "direction": "x",
+      "offset_m": 0.0
+    },
+    {
+      "id": "B",
+      "direction": "x",
+      "offset_m": 6.0
+    }
+  ],
+  "elevations": [
+    {
+      "id": "GF",
+      "z_m": 0.0,
+      "description": "Ground floor, finished floor level"
+    },
+    {
+      "id": "FF",
+      "z_m": 3.0,
+      "description": "First floor, finished floor level"
+    },
+    {
+      "id": "RF",
+      "z_m": 5.902,
+      "description": "Roof structure, top face (roof detail datum)"
+    }
+  ]
+}

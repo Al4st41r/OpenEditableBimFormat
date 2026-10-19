@@ -1,0 +1,492 @@
+{
+  "$schema": "oebf://schema/0.1/detail",
+  "id": "detail-nmb-gs-glulam-column-section",
+  "type": "Detail",
+  "description": "Glulam column on the ground floor slab, section. NMB Details v1.0 (2023), pp. 64-65. Datum is the internal finished floor level. Timber base at or above FFL on a masonry upstand; DPC protrudes 100 mm beyond the timber; end-grain sealer to the column base; acoustic flanking strip and L-shaped slab connection brackets (324).",
+  "condition": {
+    "rule": "butt",
+    "member_count": 2,
+    "member_kinds": [
+      "column",
+      "slab"
+    ]
+  },
+  "members": [
+    {
+      "role": "wall",
+      "kind": "column",
+      "profile_id": "profile-nmb-glulam-column",
+      "placement": {
+        "offset_x_m": 0.0,
+        "offset_y_m": 0.0,
+        "rotation_deg": 0
+      }
+    },
+    {
+      "role": "slab",
+      "kind": "slab",
+      "profile_id": "profile-nmb-fl-02",
+      "placement": {
+        "offset_x_m": 0.0,
+        "offset_y_m": 0.0,
+        "rotation_deg": 0
+      }
+    }
+  ],
+  "datum": {
+    "kind": "storey",
+    "reference": "elevation"
+  },
+  "plane": "section",
+  "view_direction": "across_path",
+  "geometry": {
+    "extrusion_m": 1.0,
+    "regions": [
+      {
+        "material_id": "mat-nmb-glulam",
+        "vertices": [
+          {
+            "x": -0.15,
+            "y": 0.03
+          },
+          {
+            "x": 0.15,
+            "y": 0.03
+          },
+          {
+            "x": 0.15,
+            "y": 1.0
+          },
+          {
+            "x": -0.15,
+            "y": 1.0
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-dpc",
+        "vertices": [
+          {
+            "x": -0.25,
+            "y": 0.02
+          },
+          {
+            "x": 0.25,
+            "y": 0.02
+          },
+          {
+            "x": 0.25,
+            "y": 0.03
+          },
+          {
+            "x": -0.25,
+            "y": 0.03
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-upstand-masonry",
+        "vertices": [
+          {
+            "x": -0.16,
+            "y": -0.12
+          },
+          {
+            "x": 0.16,
+            "y": -0.12
+          },
+          {
+            "x": 0.16,
+            "y": 0.02
+          },
+          {
+            "x": -0.16,
+            "y": 0.02
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-wall-lining-board",
+        "vertices": [
+          {
+            "x": -0.216,
+            "y": -0.12
+          },
+          {
+            "x": -0.15,
+            "y": -0.12
+          },
+          {
+            "x": -0.15,
+            "y": 1.0
+          },
+          {
+            "x": -0.216,
+            "y": 1.0
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-acoustic-strip",
+        "vertices": [
+          {
+            "x": -0.23,
+            "y": -0.12
+          },
+          {
+            "x": -0.22,
+            "y": -0.12
+          },
+          {
+            "x": -0.22,
+            "y": 0.034
+          },
+          {
+            "x": -0.23,
+            "y": 0.034
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-steel-bracket",
+        "vertices": [
+          {
+            "x": -0.156,
+            "y": -0.11
+          },
+          {
+            "x": -0.15,
+            "y": -0.11
+          },
+          {
+            "x": -0.15,
+            "y": 0.084
+          },
+          {
+            "x": -0.156,
+            "y": 0.084
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-steel-bracket",
+        "vertices": [
+          {
+            "x": -0.29,
+            "y": -0.116
+          },
+          {
+            "x": -0.15,
+            "y": -0.116
+          },
+          {
+            "x": -0.15,
+            "y": -0.11
+          },
+          {
+            "x": -0.29,
+            "y": -0.11
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-floor-finish",
+        "vertices": [
+          {
+            "x": -0.6,
+            "y": -0.025
+          },
+          {
+            "x": -0.23,
+            "y": -0.025
+          },
+          {
+            "x": -0.23,
+            "y": 0.0
+          },
+          {
+            "x": -0.6,
+            "y": 0.0
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-screed",
+        "vertices": [
+          {
+            "x": -0.6,
+            "y": -0.12
+          },
+          {
+            "x": -0.23,
+            "y": -0.12
+          },
+          {
+            "x": -0.23,
+            "y": -0.025
+          },
+          {
+            "x": -0.6,
+            "y": -0.025
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-concrete",
+        "vertices": [
+          {
+            "x": -0.6,
+            "y": -0.37
+          },
+          {
+            "x": -0.23,
+            "y": -0.37
+          },
+          {
+            "x": -0.23,
+            "y": -0.12
+          },
+          {
+            "x": -0.6,
+            "y": -0.12
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-waterproofing",
+        "vertices": [
+          {
+            "x": -0.6,
+            "y": -0.373
+          },
+          {
+            "x": -0.23,
+            "y": -0.373
+          },
+          {
+            "x": -0.23,
+            "y": -0.37
+          },
+          {
+            "x": -0.6,
+            "y": -0.37
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-ground-insulation",
+        "vertices": [
+          {
+            "x": -0.6,
+            "y": -0.578
+          },
+          {
+            "x": -0.23,
+            "y": -0.578
+          },
+          {
+            "x": -0.23,
+            "y": -0.373
+          },
+          {
+            "x": -0.6,
+            "y": -0.373
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-wall-lining-board",
+        "vertices": [
+          {
+            "x": 0.15,
+            "y": -0.12
+          },
+          {
+            "x": 0.216,
+            "y": -0.12
+          },
+          {
+            "x": 0.216,
+            "y": 1.0
+          },
+          {
+            "x": 0.15,
+            "y": 1.0
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-acoustic-strip",
+        "vertices": [
+          {
+            "x": 0.22,
+            "y": -0.12
+          },
+          {
+            "x": 0.23,
+            "y": -0.12
+          },
+          {
+            "x": 0.23,
+            "y": 0.034
+          },
+          {
+            "x": 0.22,
+            "y": 0.034
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-steel-bracket",
+        "vertices": [
+          {
+            "x": 0.15,
+            "y": -0.11
+          },
+          {
+            "x": 0.156,
+            "y": -0.11
+          },
+          {
+            "x": 0.156,
+            "y": 0.084
+          },
+          {
+            "x": 0.15,
+            "y": 0.084
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-steel-bracket",
+        "vertices": [
+          {
+            "x": 0.15,
+            "y": -0.116
+          },
+          {
+            "x": 0.29,
+            "y": -0.116
+          },
+          {
+            "x": 0.29,
+            "y": -0.11
+          },
+          {
+            "x": 0.15,
+            "y": -0.11
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-floor-finish",
+        "vertices": [
+          {
+            "x": 0.23,
+            "y": -0.025
+          },
+          {
+            "x": 0.6,
+            "y": -0.025
+          },
+          {
+            "x": 0.6,
+            "y": 0.0
+          },
+          {
+            "x": 0.23,
+            "y": 0.0
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-screed",
+        "vertices": [
+          {
+            "x": 0.23,
+            "y": -0.12
+          },
+          {
+            "x": 0.6,
+            "y": -0.12
+          },
+          {
+            "x": 0.6,
+            "y": -0.025
+          },
+          {
+            "x": 0.23,
+            "y": -0.025
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-concrete",
+        "vertices": [
+          {
+            "x": 0.23,
+            "y": -0.37
+          },
+          {
+            "x": 0.6,
+            "y": -0.37
+          },
+          {
+            "x": 0.6,
+            "y": -0.12
+          },
+          {
+            "x": 0.23,
+            "y": -0.12
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-waterproofing",
+        "vertices": [
+          {
+            "x": 0.23,
+            "y": -0.373
+          },
+          {
+            "x": 0.6,
+            "y": -0.373
+          },
+          {
+            "x": 0.6,
+            "y": -0.37
+          },
+          {
+            "x": 0.23,
+            "y": -0.37
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-ground-insulation",
+        "vertices": [
+          {
+            "x": 0.23,
+            "y": -0.578
+          },
+          {
+            "x": 0.6,
+            "y": -0.578
+          },
+          {
+            "x": 0.6,
+            "y": -0.373
+          },
+          {
+            "x": 0.23,
+            "y": -0.373
+          }
+        ]
+      }
+    ]
+  },
+  "tags": [
+    "nmb",
+    "ground-slab"
+  ]
+}

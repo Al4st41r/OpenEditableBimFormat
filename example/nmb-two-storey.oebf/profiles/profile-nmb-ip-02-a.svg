@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+     viewBox="0 0 0.113 2.700"
+     width="113mm" height="2700mm">
+  <!-- Skim and paint: 0-3 mm -->
+  <rect x="0.000" y="0" width="0.003" height="2.700" fill="#F7F7F2" stroke="#888" stroke-width="0.002"/>
+  <!-- Wall lining board: 3-16 mm -->
+  <rect x="0.003" y="0" width="0.013" height="2.700" fill="#E6E6E0" stroke="#888" stroke-width="0.002"/>
+  <!-- Wall lining system with insulation between studs: 16-86 mm -->
+  <rect x="0.016" y="0" width="0.070" height="2.700" fill="#E5E0B8" stroke="#888" stroke-width="0.002"/>
+  <!-- Wall lining board: 86-99 mm -->
+  <rect x="0.086" y="0" width="0.013" height="2.700" fill="#E6E6E0" stroke="#888" stroke-width="0.002"/>
+  <!-- Robust self adhesive waterproofing membrane: 99-102 mm -->
+  <rect x="0.099" y="0" width="0.003" height="2.700" fill="#52B6C9" stroke="#888" stroke-width="0.002"/>
+  <!-- Bathroom wall finish, e.g. tiles: 102-113 mm -->
+  <rect x="0.102" y="0" width="0.011" height="2.700" fill="#C9D6DC" stroke="#888" stroke-width="0.002"/>
+  <circle cx="0.057" cy="0" r="0.005" fill="red"/>
+  <line x1="0.057" y1="-0.020" x2="0.057" y2="0.020" stroke="red" stroke-width="0.002"/>
+</svg>

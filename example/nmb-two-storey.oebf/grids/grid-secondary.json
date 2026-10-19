@@ -1,0 +1,69 @@
+{
+  "$schema": "oebf://schema/0.1/grid",
+  "id": "grid-secondary",
+  "type": "Grid",
+  "description": "Secondary grid: the structural lines plus mid-bay lines (1-2, 2-3, 3-4) and mid-depth lines (A-M at 1.5 m, A-B at 3 m, M-B at 4.5 m), so details can be placed away from the corners",
+  "ifc_type": "IfcGrid",
+  "axes": [
+    {
+      "id": "1",
+      "direction": "y",
+      "offset_m": 0.0
+    },
+    {
+      "id": "2",
+      "direction": "y",
+      "offset_m": 3.0
+    },
+    {
+      "id": "3",
+      "direction": "y",
+      "offset_m": 6.0
+    },
+    {
+      "id": "4",
+      "direction": "y",
+      "offset_m": 9.0
+    },
+    {
+      "id": "1-2",
+      "direction": "y",
+      "offset_m": 1.5
+    },
+    {
+      "id": "2-3",
+      "direction": "y",
+      "offset_m": 4.5
+    },
+    {
+      "id": "3-4",
+      "direction": "y",
+      "offset_m": 7.5
+    },
+    {
+      "id": "A",
+      "direction": "x",
+      "offset_m": 0.0
+    },
+    {
+      "id": "A-M",
+      "direction": "x",
+      "offset_m": 1.5
+    },
+    {
+      "id": "A-B",
+      "direction": "x",
+      "offset_m": 3.0
+    },
+    {
+      "id": "M-B",
+      "direction": "x",
+      "offset_m": 4.5
+    },
+    {
+      "id": "B",
+      "direction": "x",
+      "offset_m": 6.0
+    }
+  ]
+}

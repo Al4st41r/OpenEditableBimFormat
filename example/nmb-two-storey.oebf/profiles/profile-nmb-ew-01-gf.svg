@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+     viewBox="0 0 0.582 2.850"
+     width="582mm" height="2850mm">
+  <!-- Cladding (333): 0-20 mm -->
+  <rect x="0.000" y="0" width="0.020" height="2.850" fill="#8B6B4A" stroke="#888" stroke-width="0.002"/>
+  <!-- Fixing system (331): 20-85 mm -->
+  <rect x="0.020" y="0" width="0.065" height="2.850" fill="#CFE3EA" stroke="#888" stroke-width="0.002"/>
+  <!-- Rainscreen insulation (332): 85-385 mm -->
+  <rect x="0.085" y="0" width="0.300" height="2.850" fill="#D8D26A" stroke="#888" stroke-width="0.002"/>
+  <!-- Breather membrane (351): 385-386 mm -->
+  <rect x="0.385" y="0" width="0.001" height="2.850" fill="#4FA8B0" stroke="#888" stroke-width="0.002"/>
+  <!-- Sheathing board (323): 386-398 mm -->
+  <rect x="0.386" y="0" width="0.012" height="2.850" fill="#B8A98A" stroke="#888" stroke-width="0.002"/>
+  <!-- Light steel framing (321) with insulation (322): 398-548 mm -->
+  <rect x="0.398" y="0" width="0.150" height="2.850" fill="#9AA7B5" stroke="#888" stroke-width="0.002"/>
+  <!-- Vapour barrier (352): 548-549 mm -->
+  <rect x="0.548" y="0" width="0.001" height="2.850" fill="#6EC8C8" stroke="#888" stroke-width="0.002"/>
+  <!-- Wall lining board (311): 549-564 mm -->
+  <rect x="0.549" y="0" width="0.015" height="2.850" fill="#E6E6E0" stroke="#888" stroke-width="0.002"/>
+  <!-- Wall lining board (311): 564-579 mm -->
+  <rect x="0.564" y="0" width="0.015" height="2.850" fill="#E6E6E0" stroke="#888" stroke-width="0.002"/>
+  <!-- Skim and paint: 579-582 mm -->
+  <rect x="0.579" y="0" width="0.003" height="2.850" fill="#F7F7F2" stroke="#888" stroke-width="0.002"/>
+  <circle cx="0.291" cy="0" r="0.005" fill="red"/>
+  <line x1="0.291" y1="-0.020" x2="0.291" y2="0.020" stroke="red" stroke-width="0.002"/>
+</svg>

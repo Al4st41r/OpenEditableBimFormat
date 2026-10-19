@@ -1,0 +1,294 @@
+{
+  "$schema": "oebf://schema/0.1/detail",
+  "id": "detail-nmb-roof-core-section",
+  "type": "Detail",
+  "description": "Roof junction with a core wall rising through the roof, section. NMB Details v1.0 (2023), pp. 74-75. Datum is the roof structure top face. Core walls continue above the roof as a parapet clad in the external wall system. Waterproofing is turned up 150 mm minimum behind the cladding; green roof and gravel upstand guard at the edge.",
+  "condition": {
+    "rule": "butt",
+    "member_count": 3,
+    "member_kinds": [
+      "wall",
+      "wall",
+      "roof"
+    ]
+  },
+  "members": [
+    {
+      "role": "core-wall",
+      "kind": "wall",
+      "profile_id": "profile-nmb-iw-01-a",
+      "placement": {
+        "offset_x_m": 0.0,
+        "offset_y_m": 0.0,
+        "rotation_deg": 0
+      }
+    },
+    {
+      "role": "facade",
+      "kind": "wall",
+      "profile_id": "profile-nmb-ew-01-gf",
+      "placement": {
+        "offset_x_m": -0.55,
+        "offset_y_m": 0.0,
+        "rotation_deg": 0
+      }
+    },
+    {
+      "role": "roof",
+      "kind": "roof",
+      "profile_id": "profile-nmb-rf-01",
+      "placement": {
+        "offset_x_m": 0.55,
+        "offset_y_m": 0.0,
+        "rotation_deg": 0
+      }
+    }
+  ],
+  "datum": {
+    "kind": "storey",
+    "reference": "elevation"
+  },
+  "plane": "section",
+  "view_direction": "across_path",
+  "geometry": {
+    "extrusion_m": 1.0,
+    "regions": [
+      {
+        "material_id": "mat-nmb-roof-buildup",
+        "vertices": [
+          {
+            "x": -1.0,
+            "y": 0.0
+          },
+          {
+            "x": -0.12,
+            "y": 0.0
+          },
+          {
+            "x": -0.12,
+            "y": 0.35
+          },
+          {
+            "x": -1.0,
+            "y": 0.35
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-vapour-barrier",
+        "vertices": [
+          {
+            "x": -1.0,
+            "y": -0.004
+          },
+          {
+            "x": -0.12,
+            "y": -0.004
+          },
+          {
+            "x": -0.12,
+            "y": 0.0
+          },
+          {
+            "x": -1.0,
+            "y": 0.0
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-roof-structure",
+        "vertices": [
+          {
+            "x": -1.0,
+            "y": -0.212
+          },
+          {
+            "x": -0.12,
+            "y": -0.212
+          },
+          {
+            "x": -0.12,
+            "y": -0.004
+          },
+          {
+            "x": -1.0,
+            "y": -0.004
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-wall-lining-board",
+        "vertices": [
+          {
+            "x": -1.0,
+            "y": -0.242
+          },
+          {
+            "x": -0.12,
+            "y": -0.242
+          },
+          {
+            "x": -0.12,
+            "y": -0.212
+          },
+          {
+            "x": -1.0,
+            "y": -0.212
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-end-grain-sealer",
+        "vertices": [
+          {
+            "x": -0.123,
+            "y": -0.35
+          },
+          {
+            "x": -0.113,
+            "y": -0.35
+          },
+          {
+            "x": -0.113,
+            "y": 0.0
+          },
+          {
+            "x": -0.123,
+            "y": 0.0
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-cavity-barrier-horizontal",
+        "vertices": [
+          {
+            "x": -0.4,
+            "y": 0.45
+          },
+          {
+            "x": -0.2,
+            "y": 0.45
+          },
+          {
+            "x": -0.2,
+            "y": 0.52
+          },
+          {
+            "x": -0.4,
+            "y": 0.52
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-cavity-tray",
+        "vertices": [
+          {
+            "x": -0.12,
+            "y": 0.0
+          },
+          {
+            "x": -0.116,
+            "y": 0.0
+          },
+          {
+            "x": -0.116,
+            "y": 0.15
+          },
+          {
+            "x": -0.12,
+            "y": 0.15
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-cavity-tray",
+        "vertices": [
+          {
+            "x": -0.2,
+            "y": 0.15
+          },
+          {
+            "x": -0.12,
+            "y": 0.15
+          },
+          {
+            "x": -0.12,
+            "y": 0.156
+          },
+          {
+            "x": -0.2,
+            "y": 0.156
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-gap-sealer",
+        "vertices": [
+          {
+            "x": -0.153,
+            "y": -0.268
+          },
+          {
+            "x": -0.138,
+            "y": -0.268
+          },
+          {
+            "x": -0.138,
+            "y": -0.238
+          },
+          {
+            "x": -0.153,
+            "y": -0.238
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-roof-green",
+        "vertices": [
+          {
+            "x": -0.9,
+            "y": 0.35
+          },
+          {
+            "x": -0.5,
+            "y": 0.35
+          },
+          {
+            "x": -0.5,
+            "y": 0.5
+          },
+          {
+            "x": -0.9,
+            "y": 0.5
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-roof-gravel",
+        "vertices": [
+          {
+            "x": -0.5,
+            "y": 0.35
+          },
+          {
+            "x": -0.2,
+            "y": 0.35
+          },
+          {
+            "x": -0.2,
+            "y": 0.45
+          },
+          {
+            "x": -0.5,
+            "y": 0.45
+          }
+        ]
+      }
+    ]
+  },
+  "tags": [
+    "nmb",
+    "roof",
+    "core"
+  ]
+}

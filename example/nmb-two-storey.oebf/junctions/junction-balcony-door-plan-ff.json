@@ -1,0 +1,25 @@
+{
+  "$schema": "oebf://schema/0.1/junction",
+  "id": "junction-balcony-door-plan-ff",
+  "type": "Junction",
+  "description": "South facade, bay 3-4: balcony door threshold, plan",
+  "elements": [
+    "element-wall-south-ff",
+    "element-wall-south-gf"
+  ],
+  "detail_id": "detail-nmb-balcony-door-plan",
+  "location": {
+    "grid_id": "grid-secondary",
+    "axes": [
+      "3-4",
+      "A"
+    ],
+    "level_id": "storey-ff",
+    "level_offset_m": 0.0
+  },
+  "rule": "butt",
+  "priority": [
+    "element-wall-south-ff"
+  ],
+  "trim_method": "none"
+}

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+     viewBox="0 0 0.102 2.700"
+     width="102mm" height="2700mm">
+  <!-- Skim and paint: 0-3 mm -->
+  <rect x="0.000" y="0" width="0.003" height="2.700" fill="#F7F7F2" stroke="#888" stroke-width="0.002"/>
+  <!-- Wall lining board: 3-16 mm -->
+  <rect x="0.003" y="0" width="0.013" height="2.700" fill="#E6E6E0" stroke="#888" stroke-width="0.002"/>
+  <!-- Wall lining system with insulation between studs: 16-86 mm -->
+  <rect x="0.016" y="0" width="0.070" height="2.700" fill="#E5E0B8" stroke="#888" stroke-width="0.002"/>
+  <!-- Wall lining board: 86-99 mm -->
+  <rect x="0.086" y="0" width="0.013" height="2.700" fill="#E6E6E0" stroke="#888" stroke-width="0.002"/>
+  <!-- Skim and paint: 99-102 mm -->
+  <rect x="0.099" y="0" width="0.003" height="2.700" fill="#F7F7F2" stroke="#888" stroke-width="0.002"/>
+  <circle cx="0.051" cy="0" r="0.005" fill="red"/>
+  <line x1="0.051" y1="-0.020" x2="0.051" y2="0.020" stroke="red" stroke-width="0.002"/>
+</svg>

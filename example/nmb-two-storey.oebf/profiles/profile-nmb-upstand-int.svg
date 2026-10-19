@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+     viewBox="0 0 0.200 0.140"
+     width="200mm" height="140mm">
+  <!-- Masonry upstand: 0-200 mm -->
+  <rect x="0.000" y="0" width="0.200" height="0.140" fill="#C9C6BD" stroke="#888" stroke-width="0.002"/>
+  <circle cx="0.100" cy="0" r="0.005" fill="red"/>
+  <line x1="0.100" y1="-0.020" x2="0.100" y2="0.020" stroke="red" stroke-width="0.002"/>
+</svg>

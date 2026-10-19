@@ -1,0 +1,19 @@
+{
+  "$schema": "oebf://schema/0.1/slab",
+  "id": "slab-ff-screedboard",
+  "type": "Slab",
+  "description": "NMB-FL-01: screedboard, 20 mm",
+  "ifc_type": "IfcSlab",
+  "boundary_path_id": "path-slab-perimeter",
+  "thickness_m": 0.02,
+  "material_id": "mat-nmb-screedboard",
+  "elevation_m": 2.98,
+  "parent_group_id": "storey-ff",
+  "properties": {
+    "slab_type": "SCREED"
+  },
+  "tags": [
+    "slab",
+    "nmb"
+  ]
+}

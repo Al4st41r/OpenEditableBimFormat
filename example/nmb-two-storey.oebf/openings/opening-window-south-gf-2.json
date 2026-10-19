@@ -1,0 +1,13 @@
+{
+  "$schema": "oebf://schema/0.1/opening",
+  "id": "opening-window-south-gf-2",
+  "type": "Opening",
+  "description": "Window, south wall, ground floor, centre x = 4.106 m, 506 mm from the grid line 2 CLT wall",
+  "host_element_id": "element-wall-south-gf",
+  "path_id": "path-wall-south-gf",
+  "path_position": 4.294,
+  "width_m": 1.2,
+  "height_m": 1.2,
+  "sill_height_m": 0.75,
+  "ifc_type": "IfcWindow"
+}

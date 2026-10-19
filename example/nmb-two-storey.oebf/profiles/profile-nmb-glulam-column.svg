@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+     viewBox="0 0 0.360 2.777"
+     width="360mm" height="2777mm">
+  <!-- Wall lining board (311): 0-15 mm -->
+  <rect x="0.000" y="0" width="0.015" height="2.777" fill="#E6E6E0" stroke="#888" stroke-width="0.002"/>
+  <!-- Wall lining board (311): 15-30 mm -->
+  <rect x="0.015" y="0" width="0.015" height="2.777" fill="#E6E6E0" stroke="#888" stroke-width="0.002"/>
+  <!-- Glulam column (303): 30-330 mm -->
+  <rect x="0.030" y="0" width="0.300" height="2.777" fill="#C9A25A" stroke="#888" stroke-width="0.002"/>
+  <!-- Wall lining board (311): 330-345 mm -->
+  <rect x="0.330" y="0" width="0.015" height="2.777" fill="#E6E6E0" stroke="#888" stroke-width="0.002"/>
+  <!-- Wall lining board (311): 345-360 mm -->
+  <rect x="0.345" y="0" width="0.015" height="2.777" fill="#E6E6E0" stroke="#888" stroke-width="0.002"/>
+  <circle cx="0.180" cy="0" r="0.005" fill="red"/>
+  <line x1="0.180" y1="-0.020" x2="0.180" y2="0.020" stroke="red" stroke-width="0.002"/>
+</svg>

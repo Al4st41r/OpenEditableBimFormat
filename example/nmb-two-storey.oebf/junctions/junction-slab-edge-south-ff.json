@@ -1,0 +1,25 @@
+{
+  "$schema": "oebf://schema/0.1/junction",
+  "id": "junction-slab-edge-south-ff",
+  "type": "Junction",
+  "description": "South facade at the first floor edge: FF wall over GF wall",
+  "elements": [
+    "element-wall-south-ff",
+    "element-wall-south-gf"
+  ],
+  "detail_id": "detail-nmb-ew-slab-edge-section",
+  "location": {
+    "grid_id": "grid-secondary",
+    "axes": [
+      "1-2",
+      "A"
+    ],
+    "level_id": "storey-ff",
+    "level_offset_m": 0.0
+  },
+  "rule": "butt",
+  "priority": [
+    "element-wall-south-ff"
+  ],
+  "trim_method": "none"
+}

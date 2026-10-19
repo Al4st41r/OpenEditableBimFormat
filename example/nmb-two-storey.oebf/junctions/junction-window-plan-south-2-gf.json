@@ -1,0 +1,25 @@
+{
+  "$schema": "oebf://schema/0.1/junction",
+  "id": "junction-window-plan-south-2-gf",
+  "type": "Junction",
+  "description": "South facade: windows 506 mm either side of the grid line 2 CLT wall, plan",
+  "elements": [
+    "element-wall-south-gf",
+    "element-wall-clt-2-gf"
+  ],
+  "detail_id": "detail-nmb-ew-window-plan",
+  "location": {
+    "grid_id": "grid-secondary",
+    "axes": [
+      "2",
+      "A"
+    ],
+    "level_id": "storey-gf",
+    "level_offset_m": 0.0
+  },
+  "rule": "butt",
+  "priority": [
+    "element-wall-south-gf"
+  ],
+  "trim_method": "none"
+}

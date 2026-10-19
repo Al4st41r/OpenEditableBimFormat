@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+     viewBox="0 0 0.582 0.270"
+     width="582mm" height="270mm">
+  <!-- Masonry upstand outer leaf: 0-98 mm -->
+  <rect x="0.000" y="0" width="0.098" height="0.270" fill="#C9C6BD" stroke="#888" stroke-width="0.002"/>
+  <!-- Closed cell perimeter insulation (327): 98-408 mm -->
+  <rect x="0.098" y="0" width="0.310" height="0.270" fill="#BFC3BA" stroke="#888" stroke-width="0.002"/>
+  <!-- Concrete upstand: 408-582 mm -->
+  <rect x="0.408" y="0" width="0.174" height="0.270" fill="#9A9A9A" stroke="#888" stroke-width="0.002"/>
+  <circle cx="0.291" cy="0" r="0.005" fill="red"/>
+  <line x1="0.291" y1="-0.020" x2="0.291" y2="0.020" stroke="red" stroke-width="0.002"/>
+</svg>

@@ -1,0 +1,25 @@
+{
+  "$schema": "oebf://schema/0.1/junction",
+  "id": "junction-balcony-connection-plan-2-ff",
+  "type": "Junction",
+  "description": "Balcony connection at the grid line 2 CLT wall, plan",
+  "elements": [
+    "element-wall-south-ff",
+    "element-wall-clt-2-ff"
+  ],
+  "detail_id": "detail-nmb-balcony-connection-plan",
+  "location": {
+    "grid_id": "grid-secondary",
+    "axes": [
+      "2",
+      "A"
+    ],
+    "level_id": "storey-ff",
+    "level_offset_m": 0.0
+  },
+  "rule": "butt",
+  "priority": [
+    "element-wall-south-ff"
+  ],
+  "trim_method": "none"
+}

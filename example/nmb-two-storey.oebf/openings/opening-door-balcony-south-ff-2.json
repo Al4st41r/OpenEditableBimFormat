@@ -1,0 +1,13 @@
+{
+  "$schema": "oebf://schema/0.1/opening",
+  "id": "opening-door-balcony-south-ff-2",
+  "type": "Opening",
+  "description": "Balcony door, south wall, first floor, centre x = 7.5 m",
+  "host_element_id": "element-wall-south-ff",
+  "path_id": "path-wall-south-ff",
+  "path_position": 0.9,
+  "width_m": 1.2,
+  "height_m": 2.1,
+  "sill_height_m": 0.0,
+  "ifc_type": "IfcDoor"
+}

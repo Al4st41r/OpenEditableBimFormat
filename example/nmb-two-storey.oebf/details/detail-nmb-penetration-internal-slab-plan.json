@@ -1,0 +1,136 @@
+{
+  "$schema": "oebf://schema/0.1/detail",
+  "id": "detail-nmb-penetration-internal-slab-plan",
+  "type": "Detail",
+  "description": "Service penetration through internal walls and slab, plan. NMB Details v1.0 (2023), pp. 102-103. K2-60 encapsulation boxes in services so all mass timber elements and openings are fully encapsulated; intumescent fire stop collar (315) fixed to the manufacturer's requirements; mineral wool in voids. Positions indicative.",
+  "condition": {
+    "rule": "butt",
+    "member_count": 2,
+    "member_kinds": [
+      "wall",
+      "wall"
+    ]
+  },
+  "members": [
+    {
+      "role": "wall",
+      "kind": "wall",
+      "profile_id": "profile-nmb-iw-03-a",
+      "placement": {
+        "offset_x_m": 0.0,
+        "offset_y_m": 0.0,
+        "rotation_deg": 0
+      }
+    },
+    {
+      "role": "return-wall",
+      "kind": "wall",
+      "profile_id": "profile-nmb-iw-03-a",
+      "placement": {
+        "offset_x_m": 0.0,
+        "offset_y_m": 0.0,
+        "rotation_deg": 90
+      },
+      "extent": "forward"
+    }
+  ],
+  "datum": {
+    "kind": "storey",
+    "reference": "elevation"
+  },
+  "plane": "plan",
+  "view_direction": "along_path",
+  "geometry": {
+    "extrusion_m": 0.25,
+    "regions": [
+      {
+        "material_id": "mat-nmb-pipe",
+        "vertices": [
+          {
+            "x": 0.33,
+            "y": -0.03
+          },
+          {
+            "x": 0.39,
+            "y": -0.03
+          },
+          {
+            "x": 0.39,
+            "y": 0.03
+          },
+          {
+            "x": 0.33,
+            "y": 0.03
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-firestop-collar",
+        "vertices": [
+          {
+            "x": 0.3,
+            "y": -0.06
+          },
+          {
+            "x": 0.42,
+            "y": -0.06
+          },
+          {
+            "x": 0.42,
+            "y": 0.06
+          },
+          {
+            "x": 0.3,
+            "y": 0.06
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-ablative-batt",
+        "vertices": [
+          {
+            "x": 0.25,
+            "y": -0.12
+          },
+          {
+            "x": 0.47,
+            "y": -0.12
+          },
+          {
+            "x": 0.47,
+            "y": -0.06
+          },
+          {
+            "x": 0.25,
+            "y": -0.06
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-end-grain-sealer",
+        "vertices": [
+          {
+            "x": 0.24,
+            "y": -0.2
+          },
+          {
+            "x": 0.25,
+            "y": -0.2
+          },
+          {
+            "x": 0.25,
+            "y": 0.2
+          },
+          {
+            "x": 0.24,
+            "y": 0.2
+          }
+        ]
+      }
+    ]
+  },
+  "tags": [
+    "nmb",
+    "penetration"
+  ]
+}

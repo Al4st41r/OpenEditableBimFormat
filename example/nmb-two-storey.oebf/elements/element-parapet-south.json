@@ -1,0 +1,19 @@
+{
+  "$schema": "oebf://schema/0.1/element",
+  "id": "element-parapet-south",
+  "type": "Element",
+  "description": "South parapet (NMB-EW-01), no timber",
+  "ifc_type": "IfcWall",
+  "path_id": "path-parapet-south",
+  "profile_id": "profile-nmb-ew-01-parapet",
+  "sweep_mode": "perpendicular",
+  "cap_start": "junction",
+  "cap_end": "junction",
+  "start_offset": 0.291,
+  "end_offset": 0.291,
+  "parent_group_id": "storey-roof",
+  "properties": {
+    "nmb_wall_type": "NMB-EW-01",
+    "note": "Parapets must not be built from CLT or other timber"
+  }
+}

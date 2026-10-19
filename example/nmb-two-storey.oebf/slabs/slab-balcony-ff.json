@@ -1,0 +1,19 @@
+{
+  "$schema": "oebf://schema/0.1/slab",
+  "id": "slab-balcony-ff",
+  "type": "Slab",
+  "description": "Non-combustible balcony deck, 120 mm, thermally broken from the structure",
+  "ifc_type": "IfcSlab",
+  "boundary_path_id": "path-slab-balcony",
+  "thickness_m": 0.12,
+  "material_id": "mat-nmb-balcony-deck",
+  "elevation_m": 2.85,
+  "parent_group_id": "storey-ff",
+  "properties": {
+    "slab_type": "BALCONY"
+  },
+  "tags": [
+    "slab",
+    "nmb"
+  ]
+}

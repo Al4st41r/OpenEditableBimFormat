@@ -1,0 +1,25 @@
+{
+  "$schema": "oebf://schema/0.1/junction",
+  "id": "junction-se-corner-gf",
+  "type": "Junction",
+  "description": "SE corner, ground floor: south wall butts into east wall",
+  "elements": [
+    "element-wall-south-gf",
+    "element-wall-east-gf"
+  ],
+  "detail_id": "detail-nmb-ew-column-plan",
+  "location": {
+    "grid_id": "grid-structural",
+    "axes": [
+      "4",
+      "A"
+    ],
+    "level_id": "storey-gf",
+    "level_offset_m": 0.0
+  },
+  "rule": "butt",
+  "priority": [
+    "element-wall-east-gf"
+  ],
+  "trim_method": "none"
+}
