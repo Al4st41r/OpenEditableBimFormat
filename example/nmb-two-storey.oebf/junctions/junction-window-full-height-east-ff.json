@@ -1,0 +1,25 @@
+{
+  "$schema": "oebf://schema/0.1/junction",
+  "id": "junction-window-full-height-east-ff",
+  "type": "Junction",
+  "description": "East facade: full height window over the first floor edge, y = 1.5 m",
+  "elements": [
+    "element-wall-east-ff",
+    "element-wall-east-gf"
+  ],
+  "detail_id": "detail-nmb-ew-window-full-height-section",
+  "location": {
+    "grid_id": "grid-secondary",
+    "axes": [
+      "4",
+      "A-M"
+    ],
+    "level_id": "storey-ff",
+    "level_offset_m": 0.0
+  },
+  "rule": "butt",
+  "priority": [
+    "element-wall-east-ff"
+  ],
+  "trim_method": "none"
+}

@@ -1,0 +1,304 @@
+{
+  "$schema": "oebf://schema/0.1/detail",
+  "id": "detail-nmb-ew-slab-edge-section",
+  "type": "Detail",
+  "description": "External wall NMB-EW-01 at a party floor edge, section. NMB Details v1.0 (2023), pp. 28-29. Datum is the finished floor level. Cavity barrier aligns with the floor compartment; linear firestop seals the gap between the light steel frame and the CLT edge; full fill insulation (325) to the ceiling soffit.",
+  "condition": {
+    "rule": "butt",
+    "member_count": 2,
+    "member_kinds": [
+      "wall",
+      "slab"
+    ]
+  },
+  "members": [
+    {
+      "role": "through-wall",
+      "kind": "wall",
+      "profile_id": "profile-nmb-ew-01-gf",
+      "placement": {
+        "offset_x_m": 0.0,
+        "offset_y_m": 0.0,
+        "rotation_deg": 0
+      }
+    },
+    {
+      "role": "floor",
+      "kind": "slab",
+      "profile_id": "profile-nmb-fl-01",
+      "placement": {
+        "offset_x_m": 0.293,
+        "offset_y_m": 0.0,
+        "rotation_deg": 0
+      }
+    }
+  ],
+  "datum": {
+    "kind": "storey",
+    "reference": "elevation"
+  },
+  "plane": "section",
+  "view_direction": "across_path",
+  "geometry": {
+    "extrusion_m": 1.0,
+    "regions": [
+      {
+        "material_id": "mat-nmb-floor-finish",
+        "vertices": [
+          {
+            "x": 0.293,
+            "y": -0.02
+          },
+          {
+            "x": 0.91,
+            "y": -0.02
+          },
+          {
+            "x": 0.91,
+            "y": 0.0
+          },
+          {
+            "x": 0.293,
+            "y": 0.0
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-screedboard",
+        "vertices": [
+          {
+            "x": 0.293,
+            "y": -0.04
+          },
+          {
+            "x": 0.91,
+            "y": -0.04
+          },
+          {
+            "x": 0.91,
+            "y": -0.02
+          },
+          {
+            "x": 0.293,
+            "y": -0.02
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-ufh-insulation",
+        "vertices": [
+          {
+            "x": 0.293,
+            "y": -0.075
+          },
+          {
+            "x": 0.91,
+            "y": -0.075
+          },
+          {
+            "x": 0.91,
+            "y": -0.04
+          },
+          {
+            "x": 0.293,
+            "y": -0.04
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-acoustic-matting",
+        "vertices": [
+          {
+            "x": 0.293,
+            "y": -0.083
+          },
+          {
+            "x": 0.91,
+            "y": -0.083
+          },
+          {
+            "x": 0.91,
+            "y": -0.075
+          },
+          {
+            "x": 0.293,
+            "y": -0.075
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-clt",
+        "vertices": [
+          {
+            "x": 0.293,
+            "y": -0.223
+          },
+          {
+            "x": 0.91,
+            "y": -0.223
+          },
+          {
+            "x": 0.91,
+            "y": -0.083
+          },
+          {
+            "x": 0.293,
+            "y": -0.083
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-wall-lining-board",
+        "vertices": [
+          {
+            "x": 0.293,
+            "y": -0.253
+          },
+          {
+            "x": 0.91,
+            "y": -0.253
+          },
+          {
+            "x": 0.91,
+            "y": -0.223
+          },
+          {
+            "x": 0.293,
+            "y": -0.223
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-acoustic-strip",
+        "vertices": [
+          {
+            "x": 0.283,
+            "y": -0.083
+          },
+          {
+            "x": 0.293,
+            "y": -0.083
+          },
+          {
+            "x": 0.293,
+            "y": 0.0
+          },
+          {
+            "x": 0.283,
+            "y": 0.0
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-linear-firestop",
+        "vertices": [
+          {
+            "x": 0.251,
+            "y": -0.207
+          },
+          {
+            "x": 0.283,
+            "y": -0.207
+          },
+          {
+            "x": 0.283,
+            "y": -0.07
+          },
+          {
+            "x": 0.251,
+            "y": -0.07
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-cavity-barrier-horizontal",
+        "vertices": [
+          {
+            "x": -0.231,
+            "y": -0.17
+          },
+          {
+            "x": 0.094,
+            "y": -0.17
+          },
+          {
+            "x": 0.094,
+            "y": -0.084
+          },
+          {
+            "x": -0.231,
+            "y": -0.084
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-full-fill-insulation",
+        "vertices": [
+          {
+            "x": 0.107,
+            "y": -0.482
+          },
+          {
+            "x": 0.243,
+            "y": -0.482
+          },
+          {
+            "x": 0.243,
+            "y": 0.07
+          },
+          {
+            "x": 0.107,
+            "y": 0.07
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-steel-bracket",
+        "vertices": [
+          {
+            "x": 0.293,
+            "y": -0.083
+          },
+          {
+            "x": 0.457,
+            "y": -0.083
+          },
+          {
+            "x": 0.457,
+            "y": -0.077
+          },
+          {
+            "x": 0.293,
+            "y": -0.077
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-gap-sealer",
+        "vertices": [
+          {
+            "x": 0.268,
+            "y": -0.253
+          },
+          {
+            "x": 0.291,
+            "y": -0.253
+          },
+          {
+            "x": 0.291,
+            "y": -0.223
+          },
+          {
+            "x": 0.268,
+            "y": -0.223
+          }
+        ]
+      }
+    ]
+  },
+  "tags": [
+    "nmb",
+    "slab-edge",
+    "external-wall"
+  ]
+}

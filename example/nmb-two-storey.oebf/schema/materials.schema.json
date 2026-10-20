@@ -1,0 +1,29 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "oebf://schema/0.1/materials",
+  "title": "OEBF Material Library",
+  "type": "object",
+  "required": ["$schema", "materials"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "materials": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "type", "name", "category"],
+        "additionalProperties": false,
+        "properties": {
+          "id":                 { "type": "string", "pattern": "^mat-[a-z0-9][a-z0-9-]*$", "description": "Unique slug ID. Must start with 'mat-'. The 'oebf-std:' prefix is reserved for the v0.2 standard library and is not valid in v0.1 project materials." },
+          "type":               { "type": "string", "const": "Material" },
+          "name":               { "type": "string" },
+          "category":           { "type": "string" },
+          "colour_hex":         { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" },
+          "ifc_material_name":  { "type": "string" },
+          "properties":         { "type": "object" },
+          "interactions":       { "type": "object" }
+        }
+      }
+    }
+  }
+}

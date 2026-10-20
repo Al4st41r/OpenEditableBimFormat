@@ -1,0 +1,26 @@
+{
+  "$schema": "oebf://schema/0.1/path",
+  "id": "path-upstand-east",
+  "type": "Path",
+  "description": "Masonry upstand under the east external wall",
+  "closed": false,
+  "segments": [
+    {
+      "type": "line",
+      "start": {
+        "x": 9.0,
+        "y": 6.0,
+        "z": -0.12
+      },
+      "end": {
+        "x": 9.0,
+        "y": 0,
+        "z": -0.12
+      }
+    }
+  ],
+  "tags": [
+    "upstand",
+    "gf"
+  ]
+}

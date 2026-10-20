@@ -1,0 +1,409 @@
+{
+  "$schema": "oebf://schema/0.1/detail",
+  "id": "detail-nmb-balcony-door-section",
+  "type": "Detail",
+  "description": "External balcony door threshold in NMB-EW-01, section. NMB Details v1.0 (2023), pp. 92-93. Balcony bracketry must not obstruct waterproofing to the door threshold. Cavity fire barriers to doors coordinated with those to primary brackets.",
+  "condition": {
+    "rule": "butt",
+    "member_count": 2,
+    "member_kinds": [
+      "wall",
+      "slab"
+    ]
+  },
+  "members": [
+    {
+      "role": "through-wall",
+      "kind": "wall",
+      "profile_id": "profile-nmb-ew-01-gf",
+      "placement": {
+        "offset_x_m": 0.0,
+        "offset_y_m": 0.0,
+        "rotation_deg": 0
+      }
+    },
+    {
+      "role": "floor",
+      "kind": "slab",
+      "profile_id": "profile-nmb-fl-01",
+      "placement": {
+        "offset_x_m": 0.293,
+        "offset_y_m": 0.0,
+        "rotation_deg": 0
+      }
+    }
+  ],
+  "datum": {
+    "kind": "storey",
+    "reference": "elevation"
+  },
+  "plane": "section",
+  "view_direction": "across_path",
+  "geometry": {
+    "extrusion_m": 1.0,
+    "regions": [
+      {
+        "material_id": "mat-nmb-floor-finish",
+        "vertices": [
+          {
+            "x": 0.293,
+            "y": -0.02
+          },
+          {
+            "x": 0.9,
+            "y": -0.02
+          },
+          {
+            "x": 0.9,
+            "y": 0.0
+          },
+          {
+            "x": 0.293,
+            "y": 0.0
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-screedboard",
+        "vertices": [
+          {
+            "x": 0.293,
+            "y": -0.04
+          },
+          {
+            "x": 0.9,
+            "y": -0.04
+          },
+          {
+            "x": 0.9,
+            "y": -0.02
+          },
+          {
+            "x": 0.293,
+            "y": -0.02
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-ufh-insulation",
+        "vertices": [
+          {
+            "x": 0.293,
+            "y": -0.075
+          },
+          {
+            "x": 0.9,
+            "y": -0.075
+          },
+          {
+            "x": 0.9,
+            "y": -0.04
+          },
+          {
+            "x": 0.293,
+            "y": -0.04
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-acoustic-matting",
+        "vertices": [
+          {
+            "x": 0.293,
+            "y": -0.083
+          },
+          {
+            "x": 0.9,
+            "y": -0.083
+          },
+          {
+            "x": 0.9,
+            "y": -0.075
+          },
+          {
+            "x": 0.293,
+            "y": -0.075
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-clt",
+        "vertices": [
+          {
+            "x": 0.293,
+            "y": -0.223
+          },
+          {
+            "x": 0.9,
+            "y": -0.223
+          },
+          {
+            "x": 0.9,
+            "y": -0.083
+          },
+          {
+            "x": 0.293,
+            "y": -0.083
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-wall-lining-board",
+        "vertices": [
+          {
+            "x": 0.293,
+            "y": -0.253
+          },
+          {
+            "x": 0.9,
+            "y": -0.253
+          },
+          {
+            "x": 0.9,
+            "y": -0.223
+          },
+          {
+            "x": 0.293,
+            "y": -0.223
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-glulam",
+        "vertices": [
+          {
+            "x": 0.293,
+            "y": -0.55
+          },
+          {
+            "x": 0.5,
+            "y": -0.55
+          },
+          {
+            "x": 0.5,
+            "y": -0.223
+          },
+          {
+            "x": 0.293,
+            "y": -0.223
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-balcony-connection",
+        "vertices": [
+          {
+            "x": -0.6,
+            "y": -0.178
+          },
+          {
+            "x": 0.107,
+            "y": -0.178
+          },
+          {
+            "x": 0.107,
+            "y": -0.158
+          },
+          {
+            "x": -0.6,
+            "y": -0.158
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-balcony-frame",
+        "vertices": [
+          {
+            "x": -0.6,
+            "y": -0.14
+          },
+          {
+            "x": -0.291,
+            "y": -0.14
+          },
+          {
+            "x": -0.291,
+            "y": -0.12
+          },
+          {
+            "x": -0.6,
+            "y": -0.12
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-thermal-break",
+        "vertices": [
+          {
+            "x": 0.094,
+            "y": -0.22
+          },
+          {
+            "x": 0.107,
+            "y": -0.22
+          },
+          {
+            "x": 0.107,
+            "y": -0.08
+          },
+          {
+            "x": 0.094,
+            "y": -0.08
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-cavity-barrier-horizontal",
+        "vertices": [
+          {
+            "x": -0.231,
+            "y": -0.17
+          },
+          {
+            "x": 0.094,
+            "y": -0.17
+          },
+          {
+            "x": 0.094,
+            "y": -0.084
+          },
+          {
+            "x": -0.231,
+            "y": -0.084
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-cavity-barrier-window",
+        "vertices": [
+          {
+            "x": -0.231,
+            "y": -0.445
+          },
+          {
+            "x": 0.094,
+            "y": -0.445
+          },
+          {
+            "x": 0.094,
+            "y": -0.36
+          },
+          {
+            "x": -0.231,
+            "y": -0.36
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-linear-firestop",
+        "vertices": [
+          {
+            "x": 0.251,
+            "y": -0.207
+          },
+          {
+            "x": 0.283,
+            "y": -0.207
+          },
+          {
+            "x": 0.283,
+            "y": -0.07
+          },
+          {
+            "x": 0.251,
+            "y": -0.07
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-full-fill-insulation",
+        "vertices": [
+          {
+            "x": 0.107,
+            "y": -0.6
+          },
+          {
+            "x": 0.243,
+            "y": -0.6
+          },
+          {
+            "x": 0.243,
+            "y": 0.07
+          },
+          {
+            "x": 0.107,
+            "y": 0.07
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-epdm",
+        "vertices": [
+          {
+            "x": -0.291,
+            "y": 0.02
+          },
+          {
+            "x": -0.271,
+            "y": 0.02
+          },
+          {
+            "x": -0.271,
+            "y": 0.04
+          },
+          {
+            "x": -0.291,
+            "y": 0.04
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-window-frame",
+        "vertices": [
+          {
+            "x": -0.05,
+            "y": 0.02
+          },
+          {
+            "x": 0.05,
+            "y": 0.02
+          },
+          {
+            "x": 0.05,
+            "y": 2.12
+          },
+          {
+            "x": -0.05,
+            "y": 2.12
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-gap-sealer",
+        "vertices": [
+          {
+            "x": 0.268,
+            "y": -0.253
+          },
+          {
+            "x": 0.291,
+            "y": -0.253
+          },
+          {
+            "x": 0.291,
+            "y": -0.223
+          },
+          {
+            "x": 0.268,
+            "y": -0.223
+          }
+        ]
+      }
+    ]
+  },
+  "tags": [
+    "nmb",
+    "balcony",
+    "door"
+  ]
+}

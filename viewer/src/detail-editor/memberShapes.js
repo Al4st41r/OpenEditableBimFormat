@@ -53,6 +53,37 @@ function boundsOf(shapes) {
 }
 
 /**
+ * A slab profile with its alignment on a face stacks its layers away from that face (top-face: downwards from y = 0;
+ * bottom-face: upwards), across the profile's width. The profile editor's own slab profiles (alignment centre) keep
+ * their layers across x like a wall, and are not stacked.
+ */
+export function isStackedSlab(profile) {
+  return profile?.profile_type === 'slab' && (profile.alignment === 'top-face' || profile.alignment === 'bottom-face');
+}
+
+function stackedSlabShapes(member, profile, { plane, x0, x1, origin, originX }) {
+  const placement = member.placement ?? {};
+  const width = profile.width > 0 ? profile.width : 1;
+  const down = profile.alignment === 'top-face' ? -1 : 1;
+  const shapes = [];
+  let cursor = 0;
+  profile.assembly.forEach((layer, i) => {
+    if (layer.type === 'region') return;
+    const t = layer.thickness ?? 0;
+    if (!(t > 0)) return;
+    const a = down * cursor, b = down * (cursor + t);
+    cursor += t;
+    // Section: the layer is a strip across the width. Plan: from above only the top layer shows, as a footprint.
+    if (plane === 'plan' && i > 0) return;
+    const local = plane === 'section'
+      ? [{ x: -originX, y: a }, { x: width - originX, y: a }, { x: width - originX, y: b }, { x: -originX, y: b }]
+      : [{ x: x0, y: -originX }, { x: x1, y: -originX }, { x: x1, y: width - originX }, { x: x0, y: width - originX }];
+    shapes.push({ points: ccw(local.map((p) => placePoint(placement, p))), materialId: layer.material_id, function: layer.function, layer: i });
+  });
+  return { shapes, origin, bounds: boundsOf(shapes), warnings: [] };
+}
+
+/**
  * @param {object} member - { role, kind, profile_id, placement }
  * @param {object|undefined} profile - bundle profile (assembly dialect)
  * @param {{ plane: 'plan'|'section', length?: number, extent?: 'centred'|'forward'|'backward', heightM?: number }} opts
@@ -74,6 +105,8 @@ export function buildMemberShapes(member, profile, opts = {}) {
   const originX = profile.origin?.x ?? (profile.width ?? 0) / 2;
   const mode = opts.extent ?? member.extent ?? 'centred';
   const [x0, x1] = mode === 'forward' ? [0, length] : mode === 'backward' ? [-length, 0] : [-length / 2, length / 2];
+
+  if (isStackedSlab(profile)) return stackedSlabShapes(member, profile, { plane, x0, x1, origin, originX });
 
   const shapes = [];
   let cursor = 0;

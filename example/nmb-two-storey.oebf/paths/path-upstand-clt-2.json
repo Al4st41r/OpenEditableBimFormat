@@ -1,0 +1,26 @@
+{
+  "$schema": "oebf://schema/0.1/path",
+  "id": "path-upstand-clt-2",
+  "type": "Path",
+  "description": "Masonry upstand under the CLT wall on grid line 2",
+  "closed": false,
+  "segments": [
+    {
+      "type": "line",
+      "start": {
+        "x": 3.0,
+        "y": 0,
+        "z": -0.12
+      },
+      "end": {
+        "x": 3.0,
+        "y": 6.0,
+        "z": -0.12
+      }
+    }
+  ],
+  "tags": [
+    "upstand",
+    "gf"
+  ]
+}

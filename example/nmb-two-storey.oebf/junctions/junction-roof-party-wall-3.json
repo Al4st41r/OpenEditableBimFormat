@@ -1,0 +1,25 @@
+{
+  "$schema": "oebf://schema/0.1/junction",
+  "id": "junction-roof-party-wall-3",
+  "type": "Junction",
+  "description": "CLT wall on grid line 3 at the roof, mid-depth",
+  "elements": [
+    "element-wall-clt-3-ff",
+    "element-wall-clt-3-gf"
+  ],
+  "detail_id": "detail-nmb-roof-party-wall-section",
+  "location": {
+    "grid_id": "grid-secondary",
+    "axes": [
+      "3",
+      "A-B"
+    ],
+    "level_id": "storey-roof",
+    "level_offset_m": 0.0
+  },
+  "rule": "butt",
+  "priority": [
+    "element-wall-clt-3-ff"
+  ],
+  "trim_method": "none"
+}

@@ -1,0 +1,727 @@
+{
+  "$schema": "oebf://schema/0.1/materials",
+  "materials": [
+    {
+      "id": "mat-nmb-clt",
+      "type": "Material",
+      "name": "CLT panel (wall, floor and roof)",
+      "category": "timber",
+      "colour_hex": "#D9B36B",
+      "ifc_material_name": "CLT panel (wall, floor and roof)",
+      "properties": {
+        "fire": "Euroclass D-s2, d0; fully encapsulated (REI via encapsulation)",
+        "fixing": "Steel anchor bolts and straps screw fixed to CLT panel",
+        "nmb_item": "301/302/363"
+      },
+      "interactions": {}
+    },
+    {
+      "id": "mat-nmb-glulam",
+      "type": "Material",
+      "name": "Glulam column / beam",
+      "category": "timber",
+      "colour_hex": "#C9A25A",
+      "ifc_material_name": "Glulam column / beam",
+      "properties": {
+        "fire": "Euroclass D-s2, d0; fully encapsulated",
+        "nmb_item": "303/305"
+      },
+      "interactions": {}
+    },
+    {
+      "id": "mat-nmb-wall-lining-board",
+      "type": "Material",
+      "name": "Wall lining board (fire board)",
+      "category": "plasterboard",
+      "colour_hex": "#E6E6E0",
+      "ifc_material_name": "Wall lining board (fire board)",
+      "properties": {
+        "fire": "K2 60 encapsulation; Euroclass A2-s3, d2 or better; minimum 2 layers",
+        "fixing": "Mechanically fixed to LSF or wall lining system",
+        "nmb_item": "311"
+      },
+      "interactions": {}
+    },
+    {
+      "id": "mat-nmb-skim",
+      "type": "Material",
+      "name": "Skim and paint",
+      "category": "plaster",
+      "colour_hex": "#F7F7F2",
+      "ifc_material_name": "Skim and paint",
+      "properties": {},
+      "interactions": {}
+    },
+    {
+      "id": "mat-nmb-wall-lining-system",
+      "type": "Material",
+      "name": "Wall lining system (318) with insulation between studs (317)",
+      "category": "insulation",
+      "colour_hex": "#E5E0B8",
+      "ifc_material_name": "Wall lining system (318) with insulation between studs (317)",
+      "properties": {
+        "fire": "N/A",
+        "nmb_item": "317/318"
+      },
+      "interactions": {}
+    },
+    {
+      "id": "mat-nmb-lsf",
+      "type": "Material",
+      "name": "Light steel framing system (321) with insulation (322)",
+      "category": "steel",
+      "colour_hex": "#9AA7B5",
+      "ifc_material_name": "Light steel framing system (321) with insulation (322)",
+      "properties": {
+        "depth_mm": 150,
+        "nmb_item": "321/322"
+      },
+      "interactions": {}
+    },
+    {
+      "id": "mat-nmb-rainscreen-insulation",
+      "type": "Material",
+      "name": "Rainscreen insulation",
+      "category": "insulation",
+      "colour_hex": "#D8D26A",
+      "ifc_material_name": "Rainscreen insulation",
+      "properties": {
+        "thickness_mm": 300,
+        "nmb_item": "332"
+      },
+      "interactions": {}
+    },
+    {
+      "id": "mat-nmb-breather-membrane",
+      "type": "Material",
+      "name": "Breather membrane",
+      "category": "membrane",
+      "colour_hex": "#4FA8B0",
+      "ifc_material_name": "Breather membrane",
+      "properties": {
+        "nmb_item": "351"
+      },
+      "interactions": {}
+    },
+    {
+      "id": "mat-nmb-vapour-barrier",
+      "type": "Material",
+      "name": "Vapour barrier (AVCL)",
+      "category": "membrane",
+      "colour_hex": "#6EC8C8",
+      "ifc_material_name": "Vapour barrier (AVCL)",
+      "properties": {
+        "note": "Sealed to the engineered timber for continuous airtightness",
+        "nmb_item": "352"
+      },
+      "interactions": {}
+    },
+    {
+      "id": "mat-nmb-sheathing-board",
+      "type": "Material",
+      "name": "Sheathing board",
+      "category": "board",
+      "colour_hex": "#B8A98A",
+      "ifc_material_name": "Sheathing board",
+      "properties": {
+        "nmb_item": "323"
+      },
+      "interactions": {}
+    },
+    {
+      "id": "mat-nmb-fixing-system",
+      "type": "Material",
+      "name": "Cladding fixing system / ventilated cavity",
+      "category": "cavity",
+      "colour_hex": "#CFE3EA",
+      "ifc_material_name": "Cladding fixing system / ventilated cavity",
+      "properties": {
+        "nmb_item": "331"
+      },
+      "interactions": {}
+    },
+    {
+      "id": "mat-nmb-cladding",
+      "type": "Material",
+      "name": "Cladding",
+      "category": "cladding",
+      "colour_hex": "#8B6B4A",
+      "ifc_material_name": "Cladding",
+      "properties": {
+        "note": "Thickness varies by cladding choice; 20 mm assumed in this example",
+        "nmb_item": "333"
+      },
+      "interactions": {}
+    },
+    {
+      "id": "mat-nmb-floor-finish",
+      "type": "Material",
+      "name": "Internal floor finish allowance",
+      "category": "finish",
+      "colour_hex": "#BFA98C",
+      "ifc_material_name": "Internal floor finish allowance",
+      "properties": {},
+      "interactions": {}
+    },
+    {
+      "id": "mat-nmb-screedboard",
+      "type": "Material",
+      "name": "Screedboard",
+      "category": "board",
+      "colour_hex": "#C9C9C0",
+      "ifc_material_name": "Screedboard",
+      "properties": {
+        "nmb_item": "FL-01"
+      },
+      "interactions": {}
+    },
+    {
+      "id": "mat-nmb-ufh-insulation",
+      "type": "Material",
+      "name": "Rigid insulation with underfloor heating",
+      "category": "insulation",
+      "colour_hex": "#E3D98A",
+      "ifc_material_name": "Rigid insulation with underfloor heating",
+      "properties": {
+        "nmb_item": "FL-01"
+      },
+      "interactions": {}
+    },
+    {
+      "id": "mat-nmb-acoustic-matting",
+      "type": "Material",
+      "name": "Acoustic matting",
+      "category": "acoustic",
+      "colour_hex": "#7B8FA3",
+      "ifc_material_name": "Acoustic matting",
+      "properties": {
+        "nmb_item": "FL-01"
+      },
+      "interactions": {}
+    },
+    {
+      "id": "mat-nmb-screed",
+      "type": "Material",
+      "name": "Screed (bonded)",
+      "category": "screed",
+      "colour_hex": "#B5B5AD",
+      "ifc_material_name": "Screed (bonded)",
+      "properties": {
+        "nmb_item": "FL-02"
+      },
+      "interactions": {}
+    },
+    {
+      "id": "mat-nmb-concrete",
+      "type": "Material",
+      "name": "Reinforced concrete (in-situ)",
+      "category": "concrete",
+      "colour_hex": "#9A9A9A",
+      "ifc_material_name": "Reinforced concrete (in-situ)",
+      "properties": {
+        "note": "To structural engineer design and specification",
+        "nmb_item": "FL-02"
+      },
+      "interactions": {}
+    },
+    {
+      "id": "mat-nmb-ground-insulation",
+      "type": "Material",
+      "name": "Rigid closed cell insulation",
+      "category": "insulation",
+      "colour_hex": "#E8DC7E",
+      "ifc_material_name": "Rigid closed cell insulation",
+      "properties": {
+        "nmb_item": "FL-02"
+      },
+      "interactions": {}
+    },
+    {
+      "id": "mat-nmb-roof-buildup",
+      "type": "Material",
+      "name": "BROOF (t4) roof build up",
+      "category": "roofing",
+      "colour_hex": "#5E6670",
+      "ifc_material_name": "BROOF (t4) roof build up",
+      "properties": {
+        "fire": "BROOF(t4); minimum 30 minutes REI where part of a means of escape",
+        "nmb_item": "361"
+      },
+      "interactions": {}
+    },
+    {
+      "id": "mat-nmb-steel-bracket",
+      "type": "Material",
+      "name": "Steel bracket",
+      "category": "steel",
+      "colour_hex": "#7F8791",
+      "ifc_material_name": "Steel bracket",
+      "properties": {
+        "fixing": "Screw fixed to timber elements",
+        "fire": "Fire resistance provided through encapsulation",
+        "nmb_item": "304"
+      },
+      "interactions": {}
+    },
+    {
+      "id": "mat-nmb-gap-sealer",
+      "type": "Material",
+      "name": "Fire resistant gap sealer",
+      "category": "sealant",
+      "colour_hex": "#D9363E",
+      "ifc_material_name": "Fire resistant gap sealer",
+      "properties": {
+        "fire": "60 minutes",
+        "reaction": "Euroclass A2-s3, d2 or better",
+        "location": "Head and base junctions to wall lining boards",
+        "nmb_item": "312"
+      },
+      "interactions": {}
+    },
+    {
+      "id": "mat-nmb-cavity-closer",
+      "type": "Material",
+      "name": "Cavity closer",
+      "category": "board",
+      "colour_hex": "#B9B5AC",
+      "ifc_material_name": "Cavity closer",
+      "properties": {
+        "fire": "30 minutes integrity, 15 minutes insulation",
+        "min_thickness_mm": 12,
+        "description": "Calcium silicate, cement-based or gypsum-based board",
+        "nmb_item": "313"
+      },
+      "interactions": {}
+    },
+    {
+      "id": "mat-nmb-firestop-wrap",
+      "type": "Material",
+      "name": "Intumescent firestop wrap",
+      "category": "firestop",
+      "colour_hex": "#E06A6A",
+      "ifc_material_name": "Intumescent firestop wrap",
+      "properties": {
+        "fire": "60 minutes",
+        "nmb_item": "314"
+      },
+      "interactions": {}
+    },
+    {
+      "id": "mat-nmb-firestop-collar",
+      "type": "Material",
+      "name": "Intumescent firestop collar",
+      "category": "firestop",
+      "colour_hex": "#C8323C",
+      "ifc_material_name": "Intumescent firestop collar",
+      "properties": {
+        "fire": "60 minutes",
+        "nmb_item": "315"
+      },
+      "interactions": {}
+    },
+    {
+      "id": "mat-nmb-fire-rated-duct",
+      "type": "Material",
+      "name": "Fire rated duct",
+      "category": "services",
+      "colour_hex": "#D9363E",
+      "ifc_material_name": "Fire rated duct",
+      "properties": {
+        "fire": "60 minutes",
+        "nmb_item": "316"
+      },
+      "interactions": {}
+    },
+    {
+      "id": "mat-nmb-shaft-lining-system",
+      "type": "Material",
+      "name": "Shaft lining system",
+      "category": "steel",
+      "colour_hex": "#B8BCC4",
+      "ifc_material_name": "Shaft lining system",
+      "properties": {
+        "description": "Wall framing system providing non-loadbearing partition to service riser",
+        "nmb_item": "319"
+      },
+      "interactions": {}
+    },
+    {
+      "id": "mat-nmb-shaft-lining-board",
+      "type": "Material",
+      "name": "Shaft lining board",
+      "category": "plasterboard",
+      "colour_hex": "#DCDCD6",
+      "ifc_material_name": "Shaft lining board",
+      "properties": {
+        "fire": "60 minutes",
+        "reaction": "Euroclass A1 in accordance with BS EN 13501-1",
+        "min_layers": 2,
+        "nmb_item": "320"
+      },
+      "interactions": {}
+    },
+    {
+      "id": "mat-nmb-full-fill-insulation",
+      "type": "Material",
+      "name": "Full fill insulation",
+      "category": "insulation",
+      "colour_hex": "#F2A9BE",
+      "ifc_material_name": "Full fill insulation",
+      "properties": {
+        "description": "Full fill stone mineral wool slab insulation for steel frames",
+        "reaction": "Euroclass A2-s1, d2 or better",
+        "nmb_item": "325"
+      },
+      "interactions": {}
+    },
+    {
+      "id": "mat-nmb-balcony-connection",
+      "type": "Material",
+      "name": "Balcony connection",
+      "category": "steel",
+      "colour_hex": "#6E7580",
+      "ifc_material_name": "Balcony connection",
+      "properties": {
+        "description": "Bespoke steel balcony connection, fully encapsulated with K2-60 protection",
+        "nmb_item": "326"
+      },
+      "interactions": {}
+    },
+    {
+      "id": "mat-nmb-closed-cell-insulation",
+      "type": "Material",
+      "name": "Closed cell perimeter insulation",
+      "category": "insulation",
+      "colour_hex": "#BFC3BA",
+      "ifc_material_name": "Closed cell perimeter insulation",
+      "properties": {
+        "location": "Junction of GF slab and external facade, below DPC",
+        "nmb_item": "327"
+      },
+      "interactions": {}
+    },
+    {
+      "id": "mat-nmb-linear-firestop",
+      "type": "Material",
+      "name": "Linear firestop",
+      "category": "firestop",
+      "colour_hex": "#E0364A",
+      "ifc_material_name": "Linear firestop",
+      "properties": {
+        "fire": "60 minutes",
+        "dimension": "150 mm, up to 3 layers for minimum 5% compression",
+        "nmb_item": "341"
+      },
+      "interactions": {}
+    },
+    {
+      "id": "mat-nmb-cavity-barrier-horizontal",
+      "type": "Material",
+      "name": "Horizontal cavity barrier",
+      "category": "firestop",
+      "colour_hex": "#E8485A",
+      "ifc_material_name": "Horizontal cavity barrier",
+      "properties": {
+        "fire": "60 minutes",
+        "description": "Open state stone mineral wool intumescent cavity barrier",
+        "nmb_item": "342"
+      },
+      "interactions": {}
+    },
+    {
+      "id": "mat-nmb-cavity-barrier-vertical",
+      "type": "Material",
+      "name": "Vertical cavity barrier",
+      "category": "firestop",
+      "colour_hex": "#F0586A",
+      "ifc_material_name": "Vertical cavity barrier",
+      "properties": {
+        "fire": "60 minutes",
+        "description": "Stone mineral wool vertical cavity barrier",
+        "nmb_item": "343"
+      },
+      "interactions": {}
+    },
+    {
+      "id": "mat-nmb-cavity-barrier-window",
+      "type": "Material",
+      "name": "Cavity barrier to windows",
+      "category": "firestop",
+      "colour_hex": "#F28A98",
+      "ifc_material_name": "Cavity barrier to windows",
+      "properties": {
+        "fire": "30 minutes integrity, 15 minutes insulation",
+        "nmb_item": "344"
+      },
+      "interactions": {}
+    },
+    {
+      "id": "mat-nmb-ablative-batt",
+      "type": "Material",
+      "name": "Ablative coated batt",
+      "category": "insulation",
+      "colour_hex": "#F2C4CC",
+      "ifc_material_name": "Ablative coated batt",
+      "properties": {
+        "description": "Mineral wool insulation, pre-coated on both sides with ablative coating",
+        "nmb_item": "345"
+      },
+      "interactions": {}
+    },
+    {
+      "id": "mat-nmb-fire-board",
+      "type": "Material",
+      "name": "Fire board",
+      "category": "board",
+      "colour_hex": "#F2B5C4",
+      "ifc_material_name": "Fire board",
+      "properties": {
+        "fire": "60 minutes",
+        "description": "Calcium silicate or cement-based board suitable for external use",
+        "nmb_item": "346"
+      },
+      "interactions": {}
+    },
+    {
+      "id": "mat-nmb-roof-structure",
+      "type": "Material",
+      "name": "Lightweight timber roof structure",
+      "category": "timber",
+      "colour_hex": "#D8B67A",
+      "ifc_material_name": "Lightweight timber roof structure",
+      "properties": {
+        "description": "Timber decking board with timber joists",
+        "nmb_item": "362"
+      },
+      "interactions": {}
+    },
+    {
+      "id": "mat-nmb-roof-sheeting",
+      "type": "Material",
+      "name": "Non-combustible roof sheeting",
+      "category": "board",
+      "colour_hex": "#B0B3AA",
+      "ifc_material_name": "Non-combustible roof sheeting",
+      "properties": {
+        "description": "Non-combustible cement bonded particle board, horizontal application",
+        "nmb_item": "364"
+      },
+      "interactions": {}
+    },
+    {
+      "id": "mat-nmb-waterproofing",
+      "type": "Material",
+      "name": "Robust waterproofing layer",
+      "category": "membrane",
+      "colour_hex": "#3FA3B8",
+      "ifc_material_name": "Robust waterproofing layer",
+      "properties": {
+        "note": "Installed to a minimum of 1.2 m AFFL in wet areas"
+      },
+      "interactions": {}
+    },
+    {
+      "id": "mat-nmb-tanking-membrane",
+      "type": "Material",
+      "name": "Self adhesive waterproofing membrane",
+      "category": "membrane",
+      "colour_hex": "#52B6C9",
+      "ifc_material_name": "Self adhesive waterproofing membrane",
+      "properties": {},
+      "interactions": {}
+    },
+    {
+      "id": "mat-nmb-bathroom-finish",
+      "type": "Material",
+      "name": "Bathroom wall finish (tiles)",
+      "category": "finish",
+      "colour_hex": "#C9D6DC",
+      "ifc_material_name": "Bathroom wall finish (tiles)",
+      "properties": {},
+      "interactions": {}
+    },
+    {
+      "id": "mat-nmb-service-void",
+      "type": "Material",
+      "name": "Servicing void",
+      "category": "cavity",
+      "colour_hex": "#F4F4F0",
+      "ifc_material_name": "Servicing void",
+      "properties": {
+        "note": "200 mm void for SVP"
+      },
+      "interactions": {}
+    },
+    {
+      "id": "mat-nmb-dpc",
+      "type": "Material",
+      "name": "DPC membrane",
+      "category": "membrane",
+      "colour_hex": "#3C3C3C",
+      "ifc_material_name": "DPC membrane",
+      "properties": {
+        "note": "Extends a minimum of 100 mm beyond the timber thickness"
+      },
+      "interactions": {}
+    },
+    {
+      "id": "mat-nmb-dpm",
+      "type": "Material",
+      "name": "DPM waterproofing membrane",
+      "category": "membrane",
+      "colour_hex": "#2E8FD6",
+      "ifc_material_name": "DPM waterproofing membrane",
+      "properties": {},
+      "interactions": {}
+    },
+    {
+      "id": "mat-nmb-acoustic-strip",
+      "type": "Material",
+      "name": "Acoustic flanking strip",
+      "category": "acoustic",
+      "colour_hex": "#1F1F1F",
+      "ifc_material_name": "Acoustic flanking strip",
+      "properties": {},
+      "interactions": {}
+    },
+    {
+      "id": "mat-nmb-upstand-masonry",
+      "type": "Material",
+      "name": "Masonry upstand",
+      "category": "masonry",
+      "colour_hex": "#C9C6BD",
+      "ifc_material_name": "Masonry upstand",
+      "properties": {
+        "note": "Minimum 150 mm above external ground level"
+      },
+      "interactions": {}
+    },
+    {
+      "id": "mat-nmb-cavity-tray",
+      "type": "Material",
+      "name": "Non-combustible cavity tray",
+      "category": "membrane",
+      "colour_hex": "#4DB8C8",
+      "ifc_material_name": "Non-combustible cavity tray",
+      "properties": {},
+      "interactions": {}
+    },
+    {
+      "id": "mat-nmb-epdm",
+      "type": "Material",
+      "name": "EPDM seal",
+      "category": "membrane",
+      "colour_hex": "#2B2B2B",
+      "ifc_material_name": "EPDM seal",
+      "properties": {},
+      "interactions": {}
+    },
+    {
+      "id": "mat-nmb-window-frame",
+      "type": "Material",
+      "name": "Window frame and glazing",
+      "category": "glazing",
+      "colour_hex": "#B7D3E0",
+      "ifc_material_name": "Window frame and glazing",
+      "properties": {},
+      "interactions": {}
+    },
+    {
+      "id": "mat-nmb-roof-green",
+      "type": "Material",
+      "name": "Green roof substrate and vegetation",
+      "category": "roofing",
+      "colour_hex": "#7FA85A",
+      "ifc_material_name": "Green roof substrate and vegetation",
+      "properties": {},
+      "interactions": {}
+    },
+    {
+      "id": "mat-nmb-roof-gravel",
+      "type": "Material",
+      "name": "Gravel upstand guard",
+      "category": "roofing",
+      "colour_hex": "#C9C9C0",
+      "ifc_material_name": "Gravel upstand guard",
+      "properties": {},
+      "interactions": {}
+    },
+    {
+      "id": "mat-nmb-coping",
+      "type": "Material",
+      "name": "Parapet coping",
+      "category": "metal",
+      "colour_hex": "#A8A8A8",
+      "ifc_material_name": "Parapet coping",
+      "properties": {},
+      "interactions": {}
+    },
+    {
+      "id": "mat-nmb-balcony-frame",
+      "type": "Material",
+      "name": "Non-combustible balcony support frame",
+      "category": "steel",
+      "colour_hex": "#9096A0",
+      "ifc_material_name": "Non-combustible balcony support frame",
+      "properties": {},
+      "interactions": {}
+    },
+    {
+      "id": "mat-nmb-thermal-break",
+      "type": "Material",
+      "name": "Balcony thermal break",
+      "category": "insulation",
+      "colour_hex": "#52B6C9",
+      "ifc_material_name": "Balcony thermal break",
+      "properties": {},
+      "interactions": {}
+    },
+    {
+      "id": "mat-nmb-pipe",
+      "type": "Material",
+      "name": "Pipe or non-fire rated duct",
+      "category": "services",
+      "colour_hex": "#EDEDED",
+      "ifc_material_name": "Pipe or non-fire rated duct",
+      "properties": {
+        "note": "PVCu to BS 4514:2001 or BS 5255:1989; maximum opening 160 mm"
+      },
+      "interactions": {}
+    },
+    {
+      "id": "mat-nmb-end-grain-sealer",
+      "type": "Material",
+      "name": "End grain sealer",
+      "category": "sealant",
+      "colour_hex": "#2F7DC8",
+      "ifc_material_name": "End grain sealer",
+      "properties": {
+        "note": "Coloured sealer to all cut openings; continue 50 mm along the adjacent face"
+      },
+      "interactions": {}
+    },
+    {
+      "id": "mat-nmb-balcony-deck",
+      "type": "Material",
+      "name": "Non-combustible balcony deck",
+      "category": "steel",
+      "colour_hex": "#8A8F98",
+      "ifc_material_name": "Non-combustible balcony deck",
+      "properties": {
+        "note": "Thermally broken from the structure; cavity barriers coordinated with the compartmentation",
+        "nmb_item": "326"
+      },
+      "interactions": {}
+    },
+    {
+      "id": "mat-nmb-sub-base",
+      "type": "Material",
+      "name": "Sub-base and blinding",
+      "category": "ground",
+      "colour_hex": "#B8B2A4",
+      "ifc_material_name": "Sub-base and blinding",
+      "properties": {},
+      "interactions": {}
+    }
+  ]
+}

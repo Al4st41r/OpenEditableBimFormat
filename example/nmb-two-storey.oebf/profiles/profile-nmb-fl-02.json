@@ -1,0 +1,52 @@
+{
+  "$schema": "oebf://schema/0.1/profile",
+  "id": "profile-nmb-fl-02",
+  "type": "Profile",
+  "description": "NMB-FL-02 ground floor slab: no fire rating",
+  "svg_file": "profiles/profile-nmb-fl-02.svg",
+  "width": 1.0,
+  "height": 0.578,
+  "origin": {
+    "x": 0.5,
+    "y": 0.0
+  },
+  "alignment": "top-face",
+  "profile_type": "slab",
+  "assembly": [
+    {
+      "layer": 1,
+      "name": "Internal floor finish allowance",
+      "material_id": "mat-nmb-floor-finish",
+      "thickness": 0.025,
+      "function": "finish"
+    },
+    {
+      "layer": 2,
+      "name": "Screed (bonded)",
+      "material_id": "mat-nmb-screed",
+      "thickness": 0.095,
+      "function": "finish"
+    },
+    {
+      "layer": 3,
+      "name": "Reinforced concrete (in-situ), to SE design",
+      "material_id": "mat-nmb-concrete",
+      "thickness": 0.25,
+      "function": "structure"
+    },
+    {
+      "layer": 4,
+      "name": "Waterproof membrane",
+      "material_id": "mat-nmb-waterproofing",
+      "thickness": 0.003,
+      "function": "membrane"
+    },
+    {
+      "layer": 5,
+      "name": "Rigid closed cell insulation",
+      "material_id": "mat-nmb-ground-insulation",
+      "thickness": 0.205,
+      "function": "insulation"
+    }
+  ]
+}

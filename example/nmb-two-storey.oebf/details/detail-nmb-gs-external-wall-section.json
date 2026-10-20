@@ -1,0 +1,413 @@
+{
+  "$schema": "oebf://schema/0.1/detail",
+  "id": "detail-nmb-gs-external-wall-section",
+  "type": "Detail",
+  "description": "NMB-EW-01 on the ground floor slab perimeter upstand, section. NMB Details v1.0 (2023), pp. 68-69. Datum is the finished floor level at external ground level. Upstand minimum 150 mm above ground; the facade is a continuous non-load-bearing light steel frame supported from the slab above and seated on the upstand. The DPM connects to the DPC at the top of the upstand. In the example the ground floor wall starts at the top of the upstand.",
+  "condition": {
+    "rule": "butt",
+    "member_count": 2,
+    "member_kinds": [
+      "wall",
+      "slab"
+    ]
+  },
+  "members": [
+    {
+      "role": "through-wall",
+      "kind": "wall",
+      "profile_id": "profile-nmb-ew-01-gf",
+      "placement": {
+        "offset_x_m": 0.0,
+        "offset_y_m": 0.0,
+        "rotation_deg": 0
+      }
+    },
+    {
+      "role": "slab",
+      "kind": "slab",
+      "profile_id": "profile-nmb-fl-02",
+      "placement": {
+        "offset_x_m": 0.3,
+        "offset_y_m": 0.0,
+        "rotation_deg": 0
+      }
+    }
+  ],
+  "datum": {
+    "kind": "storey",
+    "reference": "elevation"
+  },
+  "plane": "section",
+  "view_direction": "across_path",
+  "geometry": {
+    "extrusion_m": 1.0,
+    "regions": [
+      {
+        "material_id": "mat-nmb-floor-finish",
+        "vertices": [
+          {
+            "x": 0.3,
+            "y": -0.025
+          },
+          {
+            "x": 0.95,
+            "y": -0.025
+          },
+          {
+            "x": 0.95,
+            "y": 0.0
+          },
+          {
+            "x": 0.3,
+            "y": 0.0
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-screed",
+        "vertices": [
+          {
+            "x": 0.3,
+            "y": -0.12
+          },
+          {
+            "x": 0.95,
+            "y": -0.12
+          },
+          {
+            "x": 0.95,
+            "y": -0.025
+          },
+          {
+            "x": 0.3,
+            "y": -0.025
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-concrete",
+        "vertices": [
+          {
+            "x": 0.3,
+            "y": -0.37
+          },
+          {
+            "x": 0.95,
+            "y": -0.37
+          },
+          {
+            "x": 0.95,
+            "y": -0.12
+          },
+          {
+            "x": 0.3,
+            "y": -0.12
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-waterproofing",
+        "vertices": [
+          {
+            "x": 0.3,
+            "y": -0.373
+          },
+          {
+            "x": 0.95,
+            "y": -0.373
+          },
+          {
+            "x": 0.95,
+            "y": -0.37
+          },
+          {
+            "x": 0.3,
+            "y": -0.37
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-ground-insulation",
+        "vertices": [
+          {
+            "x": 0.3,
+            "y": -0.578
+          },
+          {
+            "x": 0.95,
+            "y": -0.578
+          },
+          {
+            "x": 0.95,
+            "y": -0.373
+          },
+          {
+            "x": 0.3,
+            "y": -0.373
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-upstand-masonry",
+        "vertices": [
+          {
+            "x": -0.294,
+            "y": -0.144
+          },
+          {
+            "x": -0.196,
+            "y": -0.144
+          },
+          {
+            "x": -0.196,
+            "y": 0.144
+          },
+          {
+            "x": -0.294,
+            "y": 0.144
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-closed-cell-insulation",
+        "vertices": [
+          {
+            "x": -0.196,
+            "y": -0.136
+          },
+          {
+            "x": 0.114,
+            "y": -0.136
+          },
+          {
+            "x": 0.114,
+            "y": 0.144
+          },
+          {
+            "x": -0.196,
+            "y": 0.144
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-dpm",
+        "vertices": [
+          {
+            "x": 0.114,
+            "y": -0.136
+          },
+          {
+            "x": 0.118,
+            "y": -0.136
+          },
+          {
+            "x": 0.118,
+            "y": 0.15
+          },
+          {
+            "x": 0.114,
+            "y": 0.15
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-dpm",
+        "vertices": [
+          {
+            "x": -0.302,
+            "y": -0.378
+          },
+          {
+            "x": -0.298,
+            "y": -0.378
+          },
+          {
+            "x": -0.298,
+            "y": -0.144
+          },
+          {
+            "x": -0.302,
+            "y": -0.144
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-dpm",
+        "vertices": [
+          {
+            "x": -0.302,
+            "y": -0.378
+          },
+          {
+            "x": 0.95,
+            "y": -0.378
+          },
+          {
+            "x": 0.95,
+            "y": -0.373
+          },
+          {
+            "x": -0.302,
+            "y": -0.373
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-cavity-barrier-horizontal",
+        "vertices": [
+          {
+            "x": -0.23,
+            "y": 0.61
+          },
+          {
+            "x": 0.1,
+            "y": 0.61
+          },
+          {
+            "x": 0.1,
+            "y": 0.674
+          },
+          {
+            "x": -0.23,
+            "y": 0.674
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-cavity-tray",
+        "vertices": [
+          {
+            "x": -0.294,
+            "y": 0.144
+          },
+          {
+            "x": -0.03,
+            "y": 0.144
+          },
+          {
+            "x": -0.03,
+            "y": 0.15
+          },
+          {
+            "x": -0.294,
+            "y": 0.15
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-cavity-tray",
+        "vertices": [
+          {
+            "x": -0.03,
+            "y": 0.144
+          },
+          {
+            "x": 0.11,
+            "y": 0.274
+          },
+          {
+            "x": 0.114,
+            "y": 0.274
+          },
+          {
+            "x": 0.11,
+            "y": 0.268
+          },
+          {
+            "x": -0.026,
+            "y": 0.144
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-full-fill-insulation",
+        "vertices": [
+          {
+            "x": 0.107,
+            "y": 0.15
+          },
+          {
+            "x": 0.257,
+            "y": 0.15
+          },
+          {
+            "x": 0.257,
+            "y": 0.27
+          },
+          {
+            "x": 0.107,
+            "y": 0.27
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-concrete",
+        "vertices": [
+          {
+            "x": -0.294,
+            "y": -0.37
+          },
+          {
+            "x": 0.3,
+            "y": -0.37
+          },
+          {
+            "x": 0.3,
+            "y": -0.12
+          },
+          {
+            "x": -0.294,
+            "y": -0.12
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-concrete",
+        "vertices": [
+          {
+            "x": 0.114,
+            "y": -0.12
+          },
+          {
+            "x": 0.291,
+            "y": -0.12
+          },
+          {
+            "x": 0.291,
+            "y": 0.144
+          },
+          {
+            "x": 0.114,
+            "y": 0.144
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-ground-insulation",
+        "vertices": [
+          {
+            "x": -0.294,
+            "y": -0.578
+          },
+          {
+            "x": 0.3,
+            "y": -0.578
+          },
+          {
+            "x": 0.3,
+            "y": -0.373
+          },
+          {
+            "x": -0.294,
+            "y": -0.373
+          }
+        ]
+      }
+    ]
+  },
+  "tags": [
+    "nmb",
+    "ground-slab",
+    "external-wall"
+  ]
+}

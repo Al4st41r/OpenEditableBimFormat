@@ -1,0 +1,13 @@
+{
+  "$schema": "oebf://schema/0.1/opening",
+  "id": "opening-window-east-ff",
+  "type": "Opening",
+  "description": "Full height window, east wall, first floor, centre y = 1.5 m",
+  "host_element_id": "element-wall-east-ff",
+  "path_id": "path-wall-east-ff",
+  "path_position": 3.9,
+  "width_m": 1.2,
+  "height_m": 2.1,
+  "sill_height_m": 0.0,
+  "ifc_type": "IfcWindow"
+}

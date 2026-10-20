@@ -1,0 +1,16 @@
+{
+  "$schema": "oebf://schema/0.1/element",
+  "id": "element-upstand-column-north",
+  "type": "Element",
+  "description": "Masonry upstand under glulam column north",
+  "ifc_type": "IfcWall",
+  "path_id": "path-upstand-column-north",
+  "profile_id": "profile-nmb-upstand-col",
+  "sweep_mode": "perpendicular",
+  "cap_start": "flat",
+  "cap_end": "flat",
+  "start_offset": 0.0,
+  "end_offset": 0.0,
+  "parent_group_id": "storey-gf",
+  "properties": {}
+}

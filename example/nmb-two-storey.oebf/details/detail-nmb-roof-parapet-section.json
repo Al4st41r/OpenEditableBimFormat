@@ -1,0 +1,283 @@
+{
+  "$schema": "oebf://schema/0.1/detail",
+  "id": "detail-nmb-roof-parapet-section",
+  "type": "Detail",
+  "description": "Parapet junction, NMB-EW-01 rising above a flat roof, section. NMB Details v1.0 (2023), pp. 76-77. Parapets must not be built from CLT or other timber components. Horizontal cavity barrier at the head, DPC under the coping, waterproofing turned up at least 300 mm.",
+  "condition": {
+    "rule": "butt",
+    "member_count": 2,
+    "member_kinds": [
+      "wall",
+      "roof"
+    ]
+  },
+  "members": [
+    {
+      "role": "parapet-wall",
+      "kind": "wall",
+      "profile_id": "profile-nmb-ew-01-gf",
+      "placement": {
+        "offset_x_m": 0.0,
+        "offset_y_m": 0.0,
+        "rotation_deg": 0
+      }
+    },
+    {
+      "role": "roof",
+      "kind": "roof",
+      "profile_id": "profile-nmb-rf-01",
+      "placement": {
+        "offset_x_m": 0.8,
+        "offset_y_m": 0.0,
+        "rotation_deg": 0
+      }
+    }
+  ],
+  "datum": {
+    "kind": "storey",
+    "reference": "elevation"
+  },
+  "plane": "section",
+  "view_direction": "across_path",
+  "geometry": {
+    "extrusion_m": 1.0,
+    "regions": [
+      {
+        "material_id": "mat-nmb-roof-buildup",
+        "vertices": [
+          {
+            "x": 0.291,
+            "y": 0.0
+          },
+          {
+            "x": 1.2,
+            "y": 0.0
+          },
+          {
+            "x": 1.2,
+            "y": 0.35
+          },
+          {
+            "x": 0.291,
+            "y": 0.35
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-vapour-barrier",
+        "vertices": [
+          {
+            "x": 0.291,
+            "y": -0.004
+          },
+          {
+            "x": 1.2,
+            "y": -0.004
+          },
+          {
+            "x": 1.2,
+            "y": 0.0
+          },
+          {
+            "x": 0.291,
+            "y": 0.0
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-roof-structure",
+        "vertices": [
+          {
+            "x": 0.291,
+            "y": -0.212
+          },
+          {
+            "x": 1.2,
+            "y": -0.212
+          },
+          {
+            "x": 1.2,
+            "y": -0.004
+          },
+          {
+            "x": 0.291,
+            "y": -0.004
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-wall-lining-board",
+        "vertices": [
+          {
+            "x": 0.291,
+            "y": -0.242
+          },
+          {
+            "x": 1.2,
+            "y": -0.242
+          },
+          {
+            "x": 1.2,
+            "y": -0.212
+          },
+          {
+            "x": 0.291,
+            "y": -0.212
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-coping",
+        "vertices": [
+          {
+            "x": -0.35,
+            "y": 0.98
+          },
+          {
+            "x": 0.3,
+            "y": 0.98
+          },
+          {
+            "x": 0.3,
+            "y": 1.01
+          },
+          {
+            "x": -0.35,
+            "y": 1.01
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-dpc",
+        "vertices": [
+          {
+            "x": -0.3,
+            "y": 0.975
+          },
+          {
+            "x": 0.3,
+            "y": 0.975
+          },
+          {
+            "x": 0.3,
+            "y": 0.98
+          },
+          {
+            "x": -0.3,
+            "y": 0.98
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-cavity-barrier-horizontal",
+        "vertices": [
+          {
+            "x": -0.231,
+            "y": 0.88
+          },
+          {
+            "x": -0.09,
+            "y": 0.88
+          },
+          {
+            "x": -0.09,
+            "y": 0.96
+          },
+          {
+            "x": -0.231,
+            "y": 0.96
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-cavity-tray",
+        "vertices": [
+          {
+            "x": 0.291,
+            "y": 0.0
+          },
+          {
+            "x": 0.296,
+            "y": 0.0
+          },
+          {
+            "x": 0.296,
+            "y": 0.3
+          },
+          {
+            "x": 0.291,
+            "y": 0.3
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-roof-green",
+        "vertices": [
+          {
+            "x": 0.9,
+            "y": 0.35
+          },
+          {
+            "x": 1.2,
+            "y": 0.35
+          },
+          {
+            "x": 1.2,
+            "y": 0.5
+          },
+          {
+            "x": 0.9,
+            "y": 0.5
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-roof-gravel",
+        "vertices": [
+          {
+            "x": 0.4,
+            "y": 0.35
+          },
+          {
+            "x": 0.9,
+            "y": 0.35
+          },
+          {
+            "x": 0.9,
+            "y": 0.45
+          },
+          {
+            "x": 0.4,
+            "y": 0.45
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-gap-sealer",
+        "vertices": [
+          {
+            "x": 0.268,
+            "y": -0.253
+          },
+          {
+            "x": 0.291,
+            "y": -0.253
+          },
+          {
+            "x": 0.291,
+            "y": -0.223
+          },
+          {
+            "x": 0.268,
+            "y": -0.223
+          }
+        ]
+      }
+    ]
+  },
+  "tags": [
+    "nmb",
+    "roof",
+    "parapet"
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "$schema": "oebf://schema/0.1/slab",
+  "id": "slab-roof-clt",
+  "type": "Slab",
+  "description": "NMB-RF-01: CLT roof panel, 208 mm",
+  "ifc_type": "IfcRoof",
+  "boundary_path_id": "path-slab-perimeter",
+  "thickness_m": 0.208,
+  "material_id": "mat-nmb-clt",
+  "elevation_m": 5.902,
+  "parent_group_id": "storey-ff",
+  "properties": {
+    "slab_type": "ROOF",
+    "load_bearing": true
+  },
+  "tags": [
+    "slab",
+    "nmb"
+  ]
+}

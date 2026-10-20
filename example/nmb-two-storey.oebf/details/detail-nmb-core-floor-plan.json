@@ -1,0 +1,178 @@
+{
+  "$schema": "oebf://schema/0.1/detail",
+  "id": "detail-nmb-core-floor-plan",
+  "type": "Detail",
+  "description": "Core wall NMB-IW-02-A junction with a CLT floor, plan at the floor. NMB Details v1.0 (2023), pp. 56-57. Steel brackets (304) under the floor finish are over-boarded with K2-60 encapsulation; sockets recessed with REI 60 back boxes. Fire resistant gap sealer at the plasterboard junctions. Plan region positions are indicative.",
+  "condition": {
+    "rule": "butt",
+    "member_count": 2,
+    "member_kinds": [
+      "wall",
+      "slab"
+    ]
+  },
+  "members": [
+    {
+      "role": "core-wall",
+      "kind": "wall",
+      "profile_id": "profile-nmb-iw-02-a",
+      "placement": {
+        "offset_x_m": 0.0,
+        "offset_y_m": 0.0,
+        "rotation_deg": 0
+      }
+    },
+    {
+      "role": "floor",
+      "kind": "slab",
+      "profile_id": "profile-nmb-fl-01",
+      "placement": {
+        "offset_x_m": 0.0,
+        "offset_y_m": -0.5,
+        "rotation_deg": 0
+      }
+    }
+  ],
+  "datum": {
+    "kind": "storey",
+    "reference": "elevation"
+  },
+  "plane": "plan",
+  "view_direction": "along_path",
+  "geometry": {
+    "extrusion_m": 0.25,
+    "regions": [
+      {
+        "material_id": "mat-nmb-gap-sealer",
+        "vertices": [
+          {
+            "x": -0.131,
+            "y": 0.238
+          },
+          {
+            "x": -0.121,
+            "y": 0.238
+          },
+          {
+            "x": -0.121,
+            "y": 0.253
+          },
+          {
+            "x": -0.131,
+            "y": 0.253
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-gap-sealer",
+        "vertices": [
+          {
+            "x": 0.121,
+            "y": 0.238
+          },
+          {
+            "x": 0.131,
+            "y": 0.238
+          },
+          {
+            "x": 0.131,
+            "y": 0.253
+          },
+          {
+            "x": 0.121,
+            "y": 0.253
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-steel-bracket",
+        "vertices": [
+          {
+            "x": -0.4,
+            "y": -0.006
+          },
+          {
+            "x": -0.13,
+            "y": -0.006
+          },
+          {
+            "x": -0.13,
+            "y": -0.0
+          },
+          {
+            "x": -0.4,
+            "y": -0.0
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-steel-bracket",
+        "vertices": [
+          {
+            "x": 0.13,
+            "y": -0.006
+          },
+          {
+            "x": 0.4,
+            "y": -0.006
+          },
+          {
+            "x": 0.4,
+            "y": -0.0
+          },
+          {
+            "x": 0.13,
+            "y": -0.0
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-steel-bracket",
+        "vertices": [
+          {
+            "x": -0.4,
+            "y": -0.566
+          },
+          {
+            "x": 0.4,
+            "y": -0.566
+          },
+          {
+            "x": 0.4,
+            "y": -0.56
+          },
+          {
+            "x": -0.4,
+            "y": -0.56
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-acoustic-strip",
+        "vertices": [
+          {
+            "x": -0.131,
+            "y": 0.2
+          },
+          {
+            "x": -0.121,
+            "y": 0.2
+          },
+          {
+            "x": -0.121,
+            "y": 0.253
+          },
+          {
+            "x": -0.131,
+            "y": 0.253
+          }
+        ]
+      }
+    ]
+  },
+  "tags": [
+    "nmb",
+    "core",
+    "floor"
+  ]
+}

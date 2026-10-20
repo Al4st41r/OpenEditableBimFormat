@@ -1,0 +1,129 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "oebf://schema/0.1/detail",
+  "title": "OEBF Detail",
+  "description": "A reusable junction detail. Junctions reference it by detail_id and place it with a location (grid axes plus level). Detail space is a 2D drawing plane: x across the primary member, y up (section) or along the second axis (plan).",
+  "type": "object",
+  "required": ["$schema", "id", "type", "description", "members", "datum"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema":     { "type": "string" },
+    "id":          { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+    "type":        { "type": "string", "const": "Detail" },
+    "description": { "type": "string", "minLength": 1 },
+    "condition": {
+      "type": "object",
+      "description": "Advisory only. Describes the situation this detail is for so the editor can suggest candidate junctions. It never applies a detail automatically.",
+      "additionalProperties": false,
+      "properties": {
+        "rule":         { "type": "string", "enum": ["butt", "mitre", "lap", "halving", "notch", "custom"] },
+        "member_count": { "type": "integer", "minimum": 2 },
+        "member_kinds": { "type": "array", "items": { "$ref": "#/definitions/kind" }, "description": "Multiset of element kinds. A wall-to-wall corner is [\"wall\", \"wall\"]." }
+      }
+    },
+    "members": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "required": ["role", "kind", "profile_id", "placement"],
+        "additionalProperties": false,
+        "properties": {
+          "role":       { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$", "description": "Label, unique within the detail (eg through-wall)." },
+          "kind":       { "$ref": "#/definitions/kind" },
+          "profile_id": { "type": "string" },
+          "extent": { "type": "string", "enum": ["centred", "forward", "backward"], "description": "Drawing aid for the editor canvas, not geometry. How a plan view draws this member relative to its origin along its local x (the direction of travel): centred on it, forward (runs away from it) or backward (arrives at it). Default centred." },
+          "placement": {
+            "type": "object",
+            "required": ["offset_x_m", "offset_y_m", "rotation_deg"],
+            "additionalProperties": false,
+            "properties": {
+              "offset_x_m":   { "type": "number" },
+              "offset_y_m":   { "type": "number" },
+              "rotation_deg": { "type": "number" }
+            }
+          }
+        }
+      }
+    },
+    "datum": {
+      "type": "object",
+      "description": "Where detail-space y = 0 sits relative to the location's level.",
+      "required": ["kind", "reference"],
+      "additionalProperties": false,
+      "properties": {
+        "kind":      { "type": "string", "enum": ["storey", "grid_elevation"] },
+        "reference": { "type": "string", "enum": ["top", "bottom", "elevation"] }
+      }
+    },
+    "plane": { "type": "string", "enum": ["section", "plan"], "default": "section" },
+    "view_direction": { "type": "string", "enum": ["along_path", "across_path"] },
+    "geometry": {
+      "type": "object",
+      "description": "Extra regions drawn in detail space and extruded into 3D. For a 'plan' detail the extrusion rises from the level (datum) by extrusion_m. For a 'section' detail it runs along the primary member (junction priority[0], else elements[0]), centred on the location.",
+      "required": ["extrusion_m"],
+      "additionalProperties": false,
+      "properties": {
+        "extrusion_m": { "type": "number", "exclusiveMinimum": 0 },
+        "regions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["material_id", "vertices"],
+            "additionalProperties": false,
+            "properties": {
+              "material_id": { "type": "string" },
+              "vertices": {
+                "type": "array",
+                "minItems": 3,
+                "items": {
+                  "type": "object",
+                  "required": ["x", "y"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "x": { "$ref": "#/definitions/coordinate" },
+                    "y": { "$ref": "#/definitions/coordinate" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "parameters": {
+      "type": "object",
+      "description": "Named values a junction may override through detail_overrides. Bounds are checked by the integrity tests and the resolver, not by JSON Schema.",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["default"],
+        "additionalProperties": false,
+        "properties": {
+          "default": { "type": "number" },
+          "min":     { "type": "number" },
+          "max":     { "type": "number" }
+        }
+      }
+    },
+    "tags": { "type": "array", "items": { "type": "string" } }
+  },
+  "definitions": {
+    "coordinate": {
+      "description": "A number in metres, or a parameter expression: value = offset + scale * parameter.",
+      "oneOf": [
+        { "type": "number" },
+        {
+          "type": "object",
+          "required": ["param"],
+          "additionalProperties": false,
+          "properties": {
+            "param":  { "type": "string", "minLength": 1 },
+            "scale":  { "type": "number", "default": 1 },
+            "offset": { "type": "number", "default": 0 }
+          }
+        }
+      ]
+    },
+    "kind": { "type": "string", "enum": ["wall", "slab", "beam", "column", "roof", "other"] }
+  }
+}

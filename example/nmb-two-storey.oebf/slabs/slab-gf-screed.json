@@ -1,0 +1,19 @@
+{
+  "$schema": "oebf://schema/0.1/slab",
+  "id": "slab-gf-screed",
+  "type": "Slab",
+  "description": "NMB-FL-02: bonded screed, 95 mm",
+  "ifc_type": "IfcSlab",
+  "boundary_path_id": "path-slab-perimeter",
+  "thickness_m": 0.095,
+  "material_id": "mat-nmb-screed",
+  "elevation_m": -0.025,
+  "parent_group_id": "storey-gf",
+  "properties": {
+    "slab_type": "SCREED"
+  },
+  "tags": [
+    "slab",
+    "nmb"
+  ]
+}

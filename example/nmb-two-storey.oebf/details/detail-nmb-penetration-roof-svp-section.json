@@ -1,0 +1,325 @@
+{
+  "$schema": "oebf://schema/0.1/detail",
+  "id": "detail-nmb-penetration-roof-svp-section",
+  "type": "Detail",
+  "description": "Soil vent pipe through the roof, section. NMB Details v1.0 (2023), pp. 110-111. Service sealed and taped to the structural deck during construction; waterproofing lapped at least 150 mm above the roof finish with an apron flashing bonded to the pipe; full fill mineral wool and intumescent collar at the soffit; maximum internal diameter 160 mm.",
+  "condition": {
+    "rule": "butt",
+    "member_count": 2,
+    "member_kinds": [
+      "roof",
+      "wall"
+    ]
+  },
+  "members": [
+    {
+      "role": "roof",
+      "kind": "roof",
+      "profile_id": "profile-nmb-rf-01",
+      "placement": {
+        "offset_x_m": 0.0,
+        "offset_y_m": 0.0,
+        "rotation_deg": 0
+      }
+    },
+    {
+      "role": "pipe-wall",
+      "kind": "wall",
+      "profile_id": "profile-nmb-ip-03-a",
+      "placement": {
+        "offset_x_m": 0.0,
+        "offset_y_m": 0.0,
+        "rotation_deg": 0
+      }
+    }
+  ],
+  "datum": {
+    "kind": "storey",
+    "reference": "elevation"
+  },
+  "plane": "section",
+  "view_direction": "across_path",
+  "geometry": {
+    "extrusion_m": 1.0,
+    "regions": [
+      {
+        "material_id": "mat-nmb-pipe",
+        "vertices": [
+          {
+            "x": -0.085,
+            "y": -0.6
+          },
+          {
+            "x": 0.085,
+            "y": -0.6
+          },
+          {
+            "x": 0.085,
+            "y": 0.6
+          },
+          {
+            "x": -0.085,
+            "y": 0.6
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-waterproofing",
+        "vertices": [
+          {
+            "x": 0.085,
+            "y": 0.0
+          },
+          {
+            "x": 0.09,
+            "y": 0.0
+          },
+          {
+            "x": 0.09,
+            "y": 0.3
+          },
+          {
+            "x": 0.085,
+            "y": 0.3
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-waterproofing",
+        "vertices": [
+          {
+            "x": -0.09,
+            "y": 0.0
+          },
+          {
+            "x": -0.085,
+            "y": 0.0
+          },
+          {
+            "x": -0.085,
+            "y": 0.3
+          },
+          {
+            "x": -0.09,
+            "y": 0.3
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-roof-buildup",
+        "vertices": [
+          {
+            "x": 0.09,
+            "y": 0.0
+          },
+          {
+            "x": 1.2,
+            "y": 0.0
+          },
+          {
+            "x": 1.2,
+            "y": 0.35
+          },
+          {
+            "x": 0.09,
+            "y": 0.35
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-roof-buildup",
+        "vertices": [
+          {
+            "x": -1.2,
+            "y": 0.0
+          },
+          {
+            "x": -0.09,
+            "y": 0.0
+          },
+          {
+            "x": -0.09,
+            "y": 0.35
+          },
+          {
+            "x": -1.2,
+            "y": 0.35
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-roof-structure",
+        "vertices": [
+          {
+            "x": 0.09,
+            "y": -0.212
+          },
+          {
+            "x": 1.2,
+            "y": -0.212
+          },
+          {
+            "x": 1.2,
+            "y": -0.004
+          },
+          {
+            "x": 0.09,
+            "y": -0.004
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-roof-structure",
+        "vertices": [
+          {
+            "x": -1.2,
+            "y": -0.212
+          },
+          {
+            "x": -0.09,
+            "y": -0.212
+          },
+          {
+            "x": -0.09,
+            "y": -0.004
+          },
+          {
+            "x": -1.2,
+            "y": -0.004
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-full-fill-insulation",
+        "vertices": [
+          {
+            "x": 0.09,
+            "y": -0.208
+          },
+          {
+            "x": 0.2,
+            "y": -0.208
+          },
+          {
+            "x": 0.2,
+            "y": 0.0
+          },
+          {
+            "x": 0.09,
+            "y": 0.0
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-full-fill-insulation",
+        "vertices": [
+          {
+            "x": -0.2,
+            "y": -0.208
+          },
+          {
+            "x": -0.09,
+            "y": -0.208
+          },
+          {
+            "x": -0.09,
+            "y": 0.0
+          },
+          {
+            "x": -0.2,
+            "y": 0.0
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-firestop-collar",
+        "vertices": [
+          {
+            "x": 0.09,
+            "y": -0.242
+          },
+          {
+            "x": 0.13,
+            "y": -0.242
+          },
+          {
+            "x": 0.13,
+            "y": -0.212
+          },
+          {
+            "x": 0.09,
+            "y": -0.212
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-firestop-collar",
+        "vertices": [
+          {
+            "x": -0.13,
+            "y": -0.242
+          },
+          {
+            "x": -0.09,
+            "y": -0.242
+          },
+          {
+            "x": -0.09,
+            "y": -0.212
+          },
+          {
+            "x": -0.13,
+            "y": -0.212
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-gap-sealer",
+        "vertices": [
+          {
+            "x": 0.09,
+            "y": -0.242
+          },
+          {
+            "x": 0.105,
+            "y": -0.242
+          },
+          {
+            "x": 0.105,
+            "y": -0.212
+          },
+          {
+            "x": 0.09,
+            "y": -0.212
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-gap-sealer",
+        "vertices": [
+          {
+            "x": -0.105,
+            "y": -0.242
+          },
+          {
+            "x": -0.09,
+            "y": -0.242
+          },
+          {
+            "x": -0.09,
+            "y": -0.212
+          },
+          {
+            "x": -0.105,
+            "y": -0.212
+          }
+        ]
+      }
+    ]
+  },
+  "tags": [
+    "nmb",
+    "penetration",
+    "roof"
+  ]
+}

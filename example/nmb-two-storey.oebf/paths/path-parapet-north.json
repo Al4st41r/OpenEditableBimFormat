@@ -1,0 +1,26 @@
+{
+  "$schema": "oebf://schema/0.1/path",
+  "id": "path-parapet-north",
+  "type": "Path",
+  "description": "North parapet",
+  "closed": false,
+  "segments": [
+    {
+      "type": "line",
+      "start": {
+        "x": 0,
+        "y": 6.0,
+        "z": 6.251999999999999
+      },
+      "end": {
+        "x": 9.0,
+        "y": 6.0,
+        "z": 6.251999999999999
+      }
+    }
+  ],
+  "tags": [
+    "parapet",
+    "roof"
+  ]
+}

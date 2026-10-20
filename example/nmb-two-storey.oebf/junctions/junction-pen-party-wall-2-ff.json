@@ -1,0 +1,25 @@
+{
+  "$schema": "oebf://schema/0.1/junction",
+  "id": "junction-pen-party-wall-2-ff",
+  "type": "Junction",
+  "description": "Services through the grid line 2 CLT wall beneath the first floor, y = 1.5 m",
+  "elements": [
+    "element-wall-clt-2-ff",
+    "element-wall-clt-2-gf"
+  ],
+  "detail_id": "detail-nmb-penetration-party-wall-section",
+  "location": {
+    "grid_id": "grid-secondary",
+    "axes": [
+      "2",
+      "A-M"
+    ],
+    "level_id": "storey-ff",
+    "level_offset_m": 0.0
+  },
+  "rule": "butt",
+  "priority": [
+    "element-wall-clt-2-ff"
+  ],
+  "trim_method": "none"
+}

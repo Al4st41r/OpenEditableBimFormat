@@ -72,3 +72,54 @@ export async function loadStoreyGroups(readJson, model) {
   }
   return groups;
 }
+
+/**
+ * Storeys described by model.hierarchy, as storey groups ({ id, ifc_type, name, z_m }) for the editor's storey
+ * list. The editor reads groups/<id>.json; bundles that describe their levels in the hierarchy (the examples do)
+ * have no such files, so their storeys would not show.
+ */
+export function hierarchyStoreyGroups(model) {
+  return listLevels(model).map((l) => {
+    const node = findStorey(model?.hierarchy, l.id);
+    return { id: l.id, type: 'Group', ifc_type: 'IfcBuildingStorey', name: node.description ?? l.id, description: node.description ?? l.id, z_m: l.elevation };
+  });
+}
+
+/**
+ * The editor's storeys, hierarchy and group files together. The hierarchy wins for a storey in both, as it does in
+ * withStoreyGroups, so the editor and the resolvers always agree on a level's height.
+ */
+export function mergeStoreyGroups(model, groups) {
+  const fromHierarchy = hierarchyStoreyGroups(model);
+  const known = new Set(fromHierarchy.map((g) => g.id));
+  return [...fromHierarchy, ...(groups ?? []).filter((g) => g?.id && !known.has(g.id))];
+}
+
+/**
+ * model.hierarchy with the editor's storeys written into it: a storey already there takes the editor's name and
+ * elevation; one that is not is added under the first Building (or at the top when there is none). The input is not
+ * changed. Returns the input untouched when the model has no hierarchy.
+ *
+ * @param {object} hierarchy - model.hierarchy
+ * @param {Array<{id: string, name?: string, z_m: number}>} storeys
+ */
+export function syncHierarchyStoreys(hierarchy, storeys) {
+  if (!hierarchy) return hierarchy;
+  const copy = structuredClone(hierarchy);
+  const missing = [];
+  for (const s of storeys ?? []) {
+    const node = findStorey(copy, s.id);
+    if (node) { node.elevation = s.z_m; if (s.name) node.description = s.name; } else missing.push(s);
+  }
+  if (missing.length) {
+    const findBuilding = (n) => {
+      if (n?.type === 'Building') return n;
+      for (const c of n?.children ?? []) { const hit = typeof c === 'object' ? findBuilding(c) : null; if (hit) return hit; }
+      return null;
+    };
+    const parent = findBuilding(copy) ?? copy;
+    parent.children = [...(parent.children ?? []),
+      ...missing.map((s) => ({ type: 'Storey', id: s.id, description: s.name ?? s.id, elevation: s.z_m, children: [] }))];
+  }
+  return copy;
+}

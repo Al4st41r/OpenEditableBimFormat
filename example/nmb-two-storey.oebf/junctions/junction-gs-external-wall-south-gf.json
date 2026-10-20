@@ -1,0 +1,25 @@
+{
+  "$schema": "oebf://schema/0.1/junction",
+  "id": "junction-gs-external-wall-south-gf",
+  "type": "Junction",
+  "description": "South facade on the ground floor upstand, bay 2-3",
+  "elements": [
+    "element-wall-south-gf",
+    "element-upstand-south"
+  ],
+  "detail_id": "detail-nmb-gs-external-wall-section",
+  "location": {
+    "grid_id": "grid-secondary",
+    "axes": [
+      "2-3",
+      "A"
+    ],
+    "level_id": "storey-gf",
+    "level_offset_m": 0.0
+  },
+  "rule": "butt",
+  "priority": [
+    "element-wall-south-gf"
+  ],
+  "trim_method": "none"
+}

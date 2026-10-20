@@ -1,0 +1,283 @@
+{
+  "$schema": "oebf://schema/0.1/detail",
+  "id": "detail-nmb-roof-party-wall-section",
+  "type": "Detail",
+  "description": "Roof junction with a party wall, section. NMB Details v1.0 (2023), pp. 80-81. Where the building height exceeds 15 m, roof decking within 1.5 m of a separating wall is non-combustible (364). Not required for MultiMax-scale buildings under 11 m; included for completeness of the NMB details.",
+  "condition": {
+    "rule": "butt",
+    "member_count": 2,
+    "member_kinds": [
+      "wall",
+      "roof"
+    ]
+  },
+  "members": [
+    {
+      "role": "party-wall",
+      "kind": "wall",
+      "profile_id": "profile-nmb-iw-01-a",
+      "placement": {
+        "offset_x_m": 0.0,
+        "offset_y_m": 0.0,
+        "rotation_deg": 0
+      }
+    },
+    {
+      "role": "roof",
+      "kind": "roof",
+      "profile_id": "profile-nmb-rf-01",
+      "placement": {
+        "offset_x_m": 0.8,
+        "offset_y_m": 0.0,
+        "rotation_deg": 0
+      }
+    }
+  ],
+  "datum": {
+    "kind": "storey",
+    "reference": "elevation"
+  },
+  "plane": "section",
+  "view_direction": "across_path",
+  "geometry": {
+    "extrusion_m": 1.0,
+    "regions": [
+      {
+        "material_id": "mat-nmb-roof-buildup",
+        "vertices": [
+          {
+            "x": 0.173,
+            "y": 0.0
+          },
+          {
+            "x": 1.2,
+            "y": 0.0
+          },
+          {
+            "x": 1.2,
+            "y": 0.35
+          },
+          {
+            "x": 0.173,
+            "y": 0.35
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-vapour-barrier",
+        "vertices": [
+          {
+            "x": 0.173,
+            "y": -0.004
+          },
+          {
+            "x": 1.2,
+            "y": -0.004
+          },
+          {
+            "x": 1.2,
+            "y": 0.0
+          },
+          {
+            "x": 0.173,
+            "y": 0.0
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-roof-structure",
+        "vertices": [
+          {
+            "x": 0.173,
+            "y": -0.212
+          },
+          {
+            "x": 1.2,
+            "y": -0.212
+          },
+          {
+            "x": 1.2,
+            "y": -0.004
+          },
+          {
+            "x": 0.173,
+            "y": -0.004
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-wall-lining-board",
+        "vertices": [
+          {
+            "x": 0.173,
+            "y": -0.242
+          },
+          {
+            "x": 1.2,
+            "y": -0.242
+          },
+          {
+            "x": 1.2,
+            "y": -0.212
+          },
+          {
+            "x": 0.173,
+            "y": -0.212
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-roof-buildup",
+        "vertices": [
+          {
+            "x": -1.2,
+            "y": 0.0
+          },
+          {
+            "x": -0.173,
+            "y": 0.0
+          },
+          {
+            "x": -0.173,
+            "y": 0.35
+          },
+          {
+            "x": -1.2,
+            "y": 0.35
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-vapour-barrier",
+        "vertices": [
+          {
+            "x": -1.2,
+            "y": -0.004
+          },
+          {
+            "x": -0.173,
+            "y": -0.004
+          },
+          {
+            "x": -0.173,
+            "y": 0.0
+          },
+          {
+            "x": -1.2,
+            "y": 0.0
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-roof-structure",
+        "vertices": [
+          {
+            "x": -1.2,
+            "y": -0.212
+          },
+          {
+            "x": -0.173,
+            "y": -0.212
+          },
+          {
+            "x": -0.173,
+            "y": -0.004
+          },
+          {
+            "x": -1.2,
+            "y": -0.004
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-wall-lining-board",
+        "vertices": [
+          {
+            "x": -1.2,
+            "y": -0.242
+          },
+          {
+            "x": -0.173,
+            "y": -0.242
+          },
+          {
+            "x": -0.173,
+            "y": -0.212
+          },
+          {
+            "x": -1.2,
+            "y": -0.212
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-roof-sheeting",
+        "vertices": [
+          {
+            "x": 0.173,
+            "y": -0.004
+          },
+          {
+            "x": 1.673,
+            "y": -0.004
+          },
+          {
+            "x": 1.673,
+            "y": 0.014
+          },
+          {
+            "x": 0.173,
+            "y": 0.014
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-roof-sheeting",
+        "vertices": [
+          {
+            "x": -1.673,
+            "y": -0.004
+          },
+          {
+            "x": -0.173,
+            "y": -0.004
+          },
+          {
+            "x": -0.173,
+            "y": 0.014
+          },
+          {
+            "x": -1.673,
+            "y": 0.014
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-end-grain-sealer",
+        "vertices": [
+          {
+            "x": -0.09,
+            "y": -0.012
+          },
+          {
+            "x": 0.09,
+            "y": -0.012
+          },
+          {
+            "x": 0.09,
+            "y": -0.004
+          },
+          {
+            "x": -0.09,
+            "y": -0.004
+          }
+        ]
+      }
+    ]
+  },
+  "tags": [
+    "nmb",
+    "roof",
+    "party-wall"
+  ]
+}

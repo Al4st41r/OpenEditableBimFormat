@@ -1,0 +1,198 @@
+{
+  "$schema": "oebf://schema/0.1/detail",
+  "id": "detail-nmb-balcony-connection-plan",
+  "type": "Detail",
+  "description": "Typical balcony connection through NMB-EW-01, plan. NMB Details v1.0 (2023), pp. 86-87. Encapsulated steel balcony brackets (326) at the facade slab connections (324); liquid applied waterproofing sealant to fixings; bracketry sealed to sheathing board and breather membrane; balcony thermally broken. Positions indicative.",
+  "condition": {
+    "rule": "butt",
+    "member_count": 2,
+    "member_kinds": [
+      "wall",
+      "slab"
+    ]
+  },
+  "members": [
+    {
+      "role": "through-wall",
+      "kind": "wall",
+      "profile_id": "profile-nmb-ew-01-gf",
+      "placement": {
+        "offset_x_m": 0.0,
+        "offset_y_m": 0.0,
+        "rotation_deg": 0
+      }
+    },
+    {
+      "role": "floor",
+      "kind": "slab",
+      "profile_id": "profile-nmb-fl-01",
+      "placement": {
+        "offset_x_m": 0.0,
+        "offset_y_m": -0.8,
+        "rotation_deg": 0
+      }
+    }
+  ],
+  "datum": {
+    "kind": "storey",
+    "reference": "elevation"
+  },
+  "plane": "plan",
+  "view_direction": "along_path",
+  "geometry": {
+    "extrusion_m": 0.3,
+    "regions": [
+      {
+        "material_id": "mat-nmb-balcony-connection",
+        "vertices": [
+          {
+            "x": -0.6,
+            "y": -0.3
+          },
+          {
+            "x": -0.51,
+            "y": -0.3
+          },
+          {
+            "x": -0.51,
+            "y": -0.19
+          },
+          {
+            "x": -0.6,
+            "y": -0.19
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-balcony-connection",
+        "vertices": [
+          {
+            "x": -0.2,
+            "y": -0.3
+          },
+          {
+            "x": -0.11,
+            "y": -0.3
+          },
+          {
+            "x": -0.11,
+            "y": -0.19
+          },
+          {
+            "x": -0.2,
+            "y": -0.19
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-balcony-connection",
+        "vertices": [
+          {
+            "x": 0.2,
+            "y": -0.3
+          },
+          {
+            "x": 0.29,
+            "y": -0.3
+          },
+          {
+            "x": 0.29,
+            "y": -0.19
+          },
+          {
+            "x": 0.2,
+            "y": -0.19
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-balcony-connection",
+        "vertices": [
+          {
+            "x": 0.6,
+            "y": -0.3
+          },
+          {
+            "x": 0.69,
+            "y": -0.3
+          },
+          {
+            "x": 0.69,
+            "y": -0.19
+          },
+          {
+            "x": 0.6,
+            "y": -0.19
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-gap-sealer",
+        "vertices": [
+          {
+            "x": -0.6,
+            "y": -0.297
+          },
+          {
+            "x": 0.6,
+            "y": -0.297
+          },
+          {
+            "x": 0.6,
+            "y": -0.291
+          },
+          {
+            "x": -0.6,
+            "y": -0.291
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-full-fill-insulation",
+        "vertices": [
+          {
+            "x": -0.7,
+            "y": -0.246
+          },
+          {
+            "x": 0.7,
+            "y": -0.246
+          },
+          {
+            "x": 0.7,
+            "y": -0.107
+          },
+          {
+            "x": -0.7,
+            "y": -0.107
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-waterproofing",
+        "vertices": [
+          {
+            "x": -0.7,
+            "y": -0.097
+          },
+          {
+            "x": 0.7,
+            "y": -0.097
+          },
+          {
+            "x": 0.7,
+            "y": -0.094
+          },
+          {
+            "x": -0.7,
+            "y": -0.094
+          }
+        ]
+      }
+    ]
+  },
+  "tags": [
+    "nmb",
+    "balcony"
+  ]
+}

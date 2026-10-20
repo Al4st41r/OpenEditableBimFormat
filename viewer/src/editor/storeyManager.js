@@ -33,6 +33,8 @@ export class StoreyManager {
     this._storeys         = [];
     this._activeId        = null;
     this._adapter       = null;
+    /** (storeyId) => Promise, set by the editor: called after a storey file is written. */
+    this.onWritten      = null;
   }
 
   setAdapter(adapter) {
@@ -165,5 +167,6 @@ export class StoreyManager {
       id: s.id, type: 'Group', ifc_type: 'IfcBuildingStorey',
       name: s.name, z_m: s.z_m, description: s.name ?? '',
     });
+    await this.onWritten?.(id);
   }
 }

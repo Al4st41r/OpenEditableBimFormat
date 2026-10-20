@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+     viewBox="0 0 1.000 0.578"
+     width="1000mm" height="578mm">
+  <!-- Internal floor finish allowance: 0-25 mm from the top face -->
+  <rect x="0" y="0.000" width="1.000" height="0.025" fill="#BFA98C" stroke="#888" stroke-width="0.002"/>
+  <!-- Screed (bonded): 25-120 mm from the top face -->
+  <rect x="0" y="0.025" width="1.000" height="0.095" fill="#B5B5AD" stroke="#888" stroke-width="0.002"/>
+  <!-- Reinforced concrete (in-situ), to SE design: 120-370 mm from the top face -->
+  <rect x="0" y="0.120" width="1.000" height="0.250" fill="#9A9A9A" stroke="#888" stroke-width="0.002"/>
+  <!-- Waterproof membrane: 370-373 mm from the top face -->
+  <rect x="0" y="0.370" width="1.000" height="0.003" fill="#3FA3B8" stroke="#888" stroke-width="0.002"/>
+  <!-- Rigid closed cell insulation: 373-578 mm from the top face -->
+  <rect x="0" y="0.373" width="1.000" height="0.205" fill="#E8DC7E" stroke="#888" stroke-width="0.002"/>
+</svg>

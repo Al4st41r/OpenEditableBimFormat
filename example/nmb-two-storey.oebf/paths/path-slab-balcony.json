@@ -1,0 +1,65 @@
+{
+  "$schema": "oebf://schema/0.1/path",
+  "id": "path-slab-balcony",
+  "type": "Path",
+  "description": "Balcony deck boundary, south of the first floor, clockwise",
+  "closed": true,
+  "segments": [
+    {
+      "type": "line",
+      "start": {
+        "x": 3.0,
+        "y": -1.5,
+        "z": 0.0
+      },
+      "end": {
+        "x": 3.0,
+        "y": -0.291,
+        "z": 0.0
+      }
+    },
+    {
+      "type": "line",
+      "start": {
+        "x": 3.0,
+        "y": -0.291,
+        "z": 0.0
+      },
+      "end": {
+        "x": 9.0,
+        "y": -0.291,
+        "z": 0.0
+      }
+    },
+    {
+      "type": "line",
+      "start": {
+        "x": 9.0,
+        "y": -0.291,
+        "z": 0.0
+      },
+      "end": {
+        "x": 9.0,
+        "y": -1.5,
+        "z": 0.0
+      }
+    },
+    {
+      "type": "line",
+      "start": {
+        "x": 9.0,
+        "y": -1.5,
+        "z": 0.0
+      },
+      "end": {
+        "x": 3.0,
+        "y": -1.5,
+        "z": 0.0
+      }
+    }
+  ],
+  "tags": [
+    "slab",
+    "balcony"
+  ]
+}

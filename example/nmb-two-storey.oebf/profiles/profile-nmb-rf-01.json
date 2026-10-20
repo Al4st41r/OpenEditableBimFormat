@@ -1,0 +1,52 @@
+{
+  "$schema": "oebf://schema/0.1/profile",
+  "id": "profile-nmb-rf-01",
+  "type": "Profile",
+  "description": "NMB-RF-01 flat roof, fall 1:40 to 1:5.5: lightweight timber structure, BROOF(t4)",
+  "svg_file": "profiles/profile-nmb-rf-01.svg",
+  "width": 1.0,
+  "height": 0.591,
+  "origin": {
+    "x": 0.5,
+    "y": 0.0
+  },
+  "alignment": "top-face",
+  "profile_type": "slab",
+  "assembly": [
+    {
+      "layer": 1,
+      "name": "BROOF (t4) roof build up (361)",
+      "material_id": "mat-nmb-roof-buildup",
+      "thickness": 0.35,
+      "function": "finish"
+    },
+    {
+      "layer": 2,
+      "name": "Lightweight roof structure (362)",
+      "material_id": "mat-nmb-roof-structure",
+      "thickness": 0.208,
+      "function": "structure"
+    },
+    {
+      "layer": 3,
+      "name": "Wall lining board (311)",
+      "material_id": "mat-nmb-wall-lining-board",
+      "thickness": 0.015,
+      "function": "finish"
+    },
+    {
+      "layer": 4,
+      "name": "Wall lining board (311)",
+      "material_id": "mat-nmb-wall-lining-board",
+      "thickness": 0.015,
+      "function": "finish"
+    },
+    {
+      "layer": 5,
+      "name": "Skim and paint",
+      "material_id": "mat-nmb-skim",
+      "thickness": 0.003,
+      "function": "finish"
+    }
+  ]
+}

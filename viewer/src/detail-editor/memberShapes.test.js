@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest';
-import { buildMemberShapes, placePoint } from './memberShapes.js';
+import { buildMemberShapes, placePoint, isStackedSlab } from './memberShapes.js';
 import { readExample, deepFreeze } from './testUtils.js';
 import { signedArea } from '../detail/regionGeometry.js';
 
@@ -192,5 +192,65 @@ describe('problems', () => {
   test('inputs are not mutated', () => {
     expect(() => buildMemberShapes(deepFreeze(member()), deepFreeze(PROFILE()), { plane: 'section' })).not.toThrow();
     expect(() => buildMemberShapes(deepFreeze(member()), deepFreeze(PROFILE()), { plane: 'plan' })).not.toThrow();
+  });
+});
+
+describe('stacked slab profiles', () => {
+  const slab = {
+    id: 'profile-fl', profile_type: 'slab', alignment: 'top-face', width: 1.0, origin: { x: 0.5, y: 0 },
+    assembly: [
+      { layer: 1, name: 'finish', material_id: 'mat-a', thickness: 0.02, function: 'finish' },
+      { layer: 2, name: 'clt', material_id: 'mat-b', thickness: 0.14, function: 'structure' },
+    ],
+  };
+  const member = { role: 'floor', kind: 'slab', profile_id: 'profile-fl', placement: { offset_x_m: 0, offset_y_m: 0, rotation_deg: 0 } };
+  const ys = (shape) => shape.points.map((p) => p.y);
+  const xs = (shape) => shape.points.map((p) => p.x);
+
+  test('only top-face and bottom-face slab profiles are stacked', () => {
+    expect(isStackedSlab(slab)).toBe(true);
+    expect(isStackedSlab({ ...slab, alignment: 'bottom-face' })).toBe(true);
+    expect(isStackedSlab({ ...slab, alignment: 'center' })).toBe(false);      // the profile editor's own slab profiles
+    expect(isStackedSlab({ ...slab, profile_type: 'wall' })).toBe(false);
+    expect(isStackedSlab(undefined)).toBe(false);
+  });
+
+  test('section: layers hang down from the top face, across the width', () => {
+    const { shapes, warnings } = buildMemberShapes(member, slab, { plane: 'section' });
+    expect(warnings).toEqual([]);
+    expect(shapes.map((s) => s.materialId)).toEqual(['mat-a', 'mat-b']);
+    expect(Math.min(...ys(shapes[0]))).toBeCloseTo(-0.02, 9);
+    expect(Math.max(...ys(shapes[0]))).toBe(0);
+    expect(Math.min(...ys(shapes[1]))).toBeCloseTo(-0.16, 9);
+    expect(Math.max(...ys(shapes[1]))).toBeCloseTo(-0.02, 9);
+    expect(Math.min(...xs(shapes[0]))).toBeCloseTo(-0.5, 9);
+    expect(Math.max(...xs(shapes[0]))).toBeCloseTo(0.5, 9);
+  });
+
+  test('bottom-face stacks upwards', () => {
+    const { shapes } = buildMemberShapes(member, { ...slab, alignment: 'bottom-face' }, { plane: 'section' });
+    expect(Math.min(...ys(shapes[0]))).toBe(0);
+    expect(Math.max(...ys(shapes[1]))).toBeCloseTo(0.16, 9);
+  });
+
+  test('the placement moves and rotates the stack', () => {
+    const moved = { ...member, placement: { offset_x_m: 2, offset_y_m: 1, rotation_deg: 0 } };
+    const { shapes } = buildMemberShapes(moved, slab, { plane: 'section' });
+    expect(Math.max(...ys(shapes[0]))).toBe(1);
+    expect(Math.min(...xs(shapes[0]))).toBeCloseTo(1.5, 9);
+  });
+
+  test('plan: one footprint, in the top layer\'s material', () => {
+    const { shapes } = buildMemberShapes(member, slab, { plane: 'plan', length: 0.6 });
+    expect(shapes).toHaveLength(1);
+    expect(shapes[0].materialId).toBe('mat-a');
+    expect(Math.max(...xs(shapes[0])) - Math.min(...xs(shapes[0]))).toBeCloseTo(0.6, 9);
+    expect(Math.max(...ys(shapes[0])) - Math.min(...ys(shapes[0]))).toBeCloseTo(1.0, 9);
+  });
+
+  test('a wall-style profile is unchanged', () => {
+    const wall = { id: 'w', width: 0.2, origin: { x: 0.1, y: 0 }, assembly: [{ layer: 1, material_id: 'm', thickness: 0.2, function: 'structure' }] };
+    const { shapes } = buildMemberShapes(member, wall, { plane: 'section', heightM: 2 });
+    expect(Math.max(...ys(shapes[0]))).toBe(2);
   });
 });

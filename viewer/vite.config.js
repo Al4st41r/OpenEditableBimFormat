@@ -29,6 +29,7 @@ export default defineConfig({
         editor:        resolve(__dirname2, 'editor.html'),
         profileEditor: resolve(__dirname2, 'profile-editor.html'),
         detailEditor:  resolve(__dirname2, 'detail-editor.html'),
+        detailAxo:     resolve(__dirname2, 'detail-axo.html'),
       },
     },
   },

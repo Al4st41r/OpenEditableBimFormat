@@ -221,7 +221,8 @@
 
         <div class="tree-section-header">
           Reference Grids
-          <button class="tree-section-add" id="add-grid-btn" disabled title="Add grid axis">+</button>
+          <button class="tree-section-add" id="add-grid-btn" disabled title="Add grid axis (to the active grid)">+</button>
+          <button class="tree-section-add" id="add-gridset-btn" disabled title="Start another grid, eg a secondary grid of mid-bay lines. Click a grid name to make it the active one.">G</button>
         </div>
         <div class="tree-items" id="grids-list"></div>
 
@@ -236,6 +237,12 @@
           Elements
         </div>
         <div class="tree-items" id="elements-list"></div>
+
+        <div class="tree-section-header">
+          Junctions
+          <button class="tree-section-add" id="add-junction-btn" disabled title="Make a junction: pick elements, a place on a grid and a detail">+</button>
+        </div>
+        <div class="tree-items" id="junctions-list"></div>
 
         <div class="tree-section-header">
           Details

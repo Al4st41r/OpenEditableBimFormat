@@ -1,0 +1,178 @@
+{
+  "$schema": "oebf://schema/0.1/detail",
+  "id": "detail-nmb-penetration-facade-cavity-closed-section",
+  "type": "Detail",
+  "description": "Service penetration through NMB-EW-01 with the cavity closed locally, section. NMB Details v1.0 (2023), pp. 108-109. Cavity barriers rated for 60 minutes (REI 60) around the penetration if fire rated ducts and collars are not installed (343); maximum opening 300 mm; voids between internal lining and the penetration sealed with intumescent gap sealer (312).",
+  "condition": {
+    "rule": "butt",
+    "member_count": 2,
+    "member_kinds": [
+      "wall",
+      "other"
+    ]
+  },
+  "members": [
+    {
+      "role": "through-wall",
+      "kind": "wall",
+      "profile_id": "profile-nmb-ew-01-gf",
+      "placement": {
+        "offset_x_m": 0.0,
+        "offset_y_m": 0.0,
+        "rotation_deg": 0
+      }
+    },
+    {
+      "role": "penetration",
+      "kind": "other",
+      "profile_id": "profile-nmb-iw-05-a",
+      "placement": {
+        "offset_x_m": 0.0,
+        "offset_y_m": 0.0,
+        "rotation_deg": 90
+      }
+    }
+  ],
+  "datum": {
+    "kind": "storey",
+    "reference": "elevation"
+  },
+  "plane": "section",
+  "view_direction": "across_path",
+  "geometry": {
+    "extrusion_m": 1.0,
+    "regions": [
+      {
+        "material_id": "mat-nmb-pipe",
+        "vertices": [
+          {
+            "x": -0.291,
+            "y": -0.15
+          },
+          {
+            "x": 0.291,
+            "y": -0.15
+          },
+          {
+            "x": 0.291,
+            "y": 0.15
+          },
+          {
+            "x": -0.291,
+            "y": 0.15
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-cavity-barrier-window",
+        "vertices": [
+          {
+            "x": -0.231,
+            "y": 0.15
+          },
+          {
+            "x": 0.094,
+            "y": 0.15
+          },
+          {
+            "x": 0.094,
+            "y": 0.25
+          },
+          {
+            "x": -0.231,
+            "y": 0.25
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-cavity-barrier-window",
+        "vertices": [
+          {
+            "x": -0.231,
+            "y": -0.25
+          },
+          {
+            "x": 0.094,
+            "y": -0.25
+          },
+          {
+            "x": 0.094,
+            "y": -0.15
+          },
+          {
+            "x": -0.231,
+            "y": -0.15
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-full-fill-insulation",
+        "vertices": [
+          {
+            "x": 0.107,
+            "y": -0.275
+          },
+          {
+            "x": 0.257,
+            "y": -0.275
+          },
+          {
+            "x": 0.257,
+            "y": -0.15
+          },
+          {
+            "x": 0.107,
+            "y": -0.15
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-full-fill-insulation",
+        "vertices": [
+          {
+            "x": 0.107,
+            "y": 0.15
+          },
+          {
+            "x": 0.257,
+            "y": 0.15
+          },
+          {
+            "x": 0.257,
+            "y": 0.275
+          },
+          {
+            "x": 0.107,
+            "y": 0.275
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-gap-sealer",
+        "vertices": [
+          {
+            "x": 0.258,
+            "y": -0.158
+          },
+          {
+            "x": 0.291,
+            "y": -0.158
+          },
+          {
+            "x": 0.291,
+            "y": -0.15
+          },
+          {
+            "x": 0.258,
+            "y": -0.15
+          }
+        ]
+      }
+    ]
+  },
+  "tags": [
+    "nmb",
+    "penetration",
+    "facade"
+  ]
+}
