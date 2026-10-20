@@ -42,6 +42,19 @@ export class FsaAdapter {
     await writer.close();
   }
 
+  /** Write a text file as given (eg a profile's SVG), creating folders as needed. */
+  async writeRaw(path, text) {
+    const parts = path.split('/');
+    let handle = this.dirHandle;
+    for (let i = 0; i < parts.length - 1; i++) {
+      handle = await handle.getDirectoryHandle(parts[i], { create: true });
+    }
+    const fh     = await handle.getFileHandle(parts.at(-1), { create: true });
+    const writer = await fh.createWritable();
+    await writer.write(text);
+    await writer.close();
+  }
+
   async deleteFile(path) {
     const parts = path.split('/');
     let handle = this.dirHandle;

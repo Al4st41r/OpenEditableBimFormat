@@ -13,12 +13,11 @@
  *   section  the polygon lies in the vertical plane (u across, v up), and w runs along the member,
  *            centred on the location, from -extrusion_m / 2 to +extrusion_m / 2.
  *
- * Members are drawn from their profile layers (buildMemberShapes). Slab and roof profiles stack their
- * layers top to bottom, which the member shape builder does not draw, and the detail's regions already
- * carry the floor or roof build-up, so those members are skipped and listed in `skipped`.
+ * Members are drawn from their profile layers (buildMemberShapes). A slab or roof profile that stacks its layers
+ * top to bottom is skipped and listed in `skipped`: the detail's regions already carry the floor or roof build-up.
  */
 
-import { buildMemberShapes } from '../detail-editor/memberShapes.js';
+import { buildMemberShapes, isStackedSlab } from '../detail-editor/memberShapes.js';
 import { signedArea } from '../detail/regionGeometry.js';
 
 const ccw = (pts) => (signedArea(pts) < 0 ? [...pts].reverse() : pts);
@@ -61,7 +60,7 @@ export function buildAxoModel(detail, ctx = {}) {
   for (const member of detail.members ?? []) {
     const profile = profileOf(member.profile_id);
     if (!profile) { warnings.push(`Profile "${member.profile_id}" for member "${member.role}" was not found`); continue; }
-    if (profile.profile_type === 'slab' || /-(fl|rf)-\d\d$/.test(profile.id ?? '')) {
+    if (isStackedSlab(profile)) {
       skipped.push(member.role);
       continue;
     }

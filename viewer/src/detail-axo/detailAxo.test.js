@@ -9,7 +9,7 @@ const wallProfile = {
     { layer: 2, name: 'inner', material_id: 'mat-b', thickness: 0.1, function: 'structure' },
   ],
 };
-const slabProfile = { id: 'profile-fl-01', type: 'Profile', profile_type: 'slab', width: 1, origin: { x: 0.5, y: 0 },
+const slabProfile = { id: 'profile-fl-01', type: 'Profile', profile_type: 'slab', alignment: 'top-face', width: 1, origin: { x: 0.5, y: 0 },
   assembly: [{ layer: 1, name: 'clt', material_id: 'mat-c', thickness: 0.14, function: 'structure' }] };
 const profiles = new Map([[wallProfile.id, wallProfile], [slabProfile.id, slabProfile]]);
 

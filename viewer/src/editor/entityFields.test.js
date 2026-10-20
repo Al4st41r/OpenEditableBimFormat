@@ -24,8 +24,16 @@ describe('field specs', () => {
     expect(spec(specs, 'sweep_mode').options).toEqual(['perpendicular', 'fixed', 'twisted']);
     expect(spec(specs, 'cap_start').options).toEqual(['flat', 'angled', 'open', 'junction']);
   });
-  test('slab fields are ifc type, description and material', () => {
-    expect(slabFieldSpecs().map((s) => s.key)).toEqual(['ifc_type', 'description', 'material_id']);
+  test('slab fields are ifc type, description, material, thickness and top face', () => {
+    expect(slabFieldSpecs().map((s) => s.key)).toEqual(['ifc_type', 'description', 'material_id', 'thickness_m', 'elevation_m']);
+  });
+  test('slab thickness must be positive; the top face can be below zero', () => {
+    const slab = slabFieldSpecs();
+    expect(parseFieldValue(spec(slab, 'thickness_m'), '0.25m')).toEqual({ ok: true, value: 0.25 });
+    expect(parseFieldValue(spec(slab, 'thickness_m'), '0').ok).toBe(false);
+    expect(parseFieldValue(spec(slab, 'thickness_m'), '-20').ok).toBe(false);
+    expect(parseFieldValue(spec(slab, 'elevation_m'), '-0.12m')).toEqual({ ok: true, value: -0.12 });
+    expect(parseFieldValue(spec(slab, 'elevation_m'), 'high').ok).toBe(false);
   });
   test('storey fields are name and elevation', () => {
     expect(storeyFieldSpecs().map((s) => s.key)).toEqual(['name', 'z_m']);

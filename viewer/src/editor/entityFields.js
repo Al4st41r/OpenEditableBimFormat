@@ -37,12 +37,14 @@ export function elementFieldSpecs(element) {
   return specs;
 }
 
-/** Fields of a slab. material_id is chosen from the project's materials by the panel. */
+/** Fields of a slab. material_id is chosen from the project's materials by the panel; thickness and top face set its vertical extent. */
 export function slabFieldSpecs() {
   return [
     { key: 'ifc_type',    label: 'IFC type',    kind: 'ifc' },
     { key: 'description', label: 'Description', kind: 'text' },
     { key: 'material_id', label: 'Material',    kind: 'enum', options: null },
+    { key: 'thickness_m', label: 'Thickness',   kind: 'length', positive: true, hint: 'Metres, measured down from the top face' },
+    { key: 'elevation_m', label: 'Top face Z',  kind: 'length', hint: 'Height of the slab top face; defaults to the storey level' },
   ];
 }
 
@@ -76,7 +78,9 @@ export function parseFieldValue(spec, raw, { unit = 'mm' } = {}) {
     }
     case 'length': {
       const m = parseDimension(text, { unit });
-      return m === null ? { ok: false, error: `Could not read "${text}" as a length. Try 250, 0.25m or 100+150.` } : { ok: true, value: m };
+      if (m === null) return { ok: false, error: `Could not read "${text}" as a length. Try 250, 0.25m or 100+150.` };
+      if (spec.positive && !(m > 0)) return { ok: false, error: `${spec.label} must be greater than zero.` };
+      return { ok: true, value: m };
     }
     case 'number': {
       const n = Number(text.trim());

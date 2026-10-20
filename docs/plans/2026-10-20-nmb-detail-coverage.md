@@ -67,3 +67,34 @@ Every junction is at a distinct grid point and level, so no two details overlap.
 - The model gained: 4 external and 2 CLT upstands, 4 glulam columns (8 storey pieces, with 4 ground floor upstands), a riser wall at each storey, 4 parapets, a balcony deck and two balcony doors, a roof storey, a full height window, and two more ground floor windows.
 - While adding the roof storey, two level errors in the earlier model were found and fixed: the first floor CLT walls started 223 mm too high (they now stand on the CLT floor at 2.917 m), and the roof levels were derived from a wrong formula (the roof panel now runs 5.694 m to 5.902 m, with the build-up to 6.252 m).
 - A test checks that no two junction details share a grid point, level and offset, that the three unplaced details are exactly those named above, and that every element and slab loads into a mesh.
+
+## 4. Editor review
+
+The example must be something a person can make in the editor, not only something the viewer can show. The bundle was opened in the real editor (headless Chromium, Playwright) and a blank bundle was built up to the same kinds of content. The review found problems that the viewer checks could not.
+
+### Found and fixed
+
+| Problem | Effect | Fix |
+|---|---|---|
+| The grid manager merged every grid into one list and wrote all axes to the last grid, with `elevations: []` and a fixed description | Editing any axis of a bundle with two grids, or with elevations, destroyed data | Grids are kept whole (`viewer/src/grid/gridSet.js`). Each grid keeps its description, elevations and radial axes. A "G" button starts another grid, and a grid name in the tree makes it the active one |
+| Storeys were read only from `groups/*.json` | A bundle that describes its levels in `model.json` (both examples) showed no storeys, so nothing could be drawn at a level | Storeys are read from the hierarchy as well. An edit goes back into the hierarchy |
+| New storeys, grids and elements were registered in `model.json` only on Save | Anything that reloaded the bundle from its files before Save dropped them | Storeys register at once. The model writer is shared by Save and by anything that reloads |
+| Slab thickness was fixed at 200 mm and the top face at the storey level, neither editable | The floor, roof and ground slab layers could not be made | Thickness and top face Z are fields on a slab |
+| No way to make an opening | Doors and windows could not be authored | A wall's properties list its openings with editable position, size and cill, plus Add door and Add window. Outlines are drawn in the 3D view |
+| Junctions were created only where two path ends meet | Stacked walls, a partition meeting a facade mid-wall, and a column beside a wall could not be made | A Junctions list, and a dialog to make one: elements, primary member, rule, a place on a grid at a level with an offset, and an optional detail |
+| The auto-created default wall profile had no `svg_file` | Every blank bundle failed `oebf validate` as soon as a wall was drawn | The profile gets an SVG; the folder adapter gained `writeRaw` |
+| Member shapes drew a top-face slab profile as vertical strips | Floor members in the detail editor looked wrong | Top-face and bottom-face slab profiles stack their layers |
+
+### Checked and passing
+
+- The bundle opens with every element and slab rendered, 41 junction markers, 3D groups for each placed detail, 31 details in the tree, and no page errors.
+- The detail editor opens all 31 details without a validation error.
+- Editing a grid, a storey height, adding a junction with a detail and adding a door each save a bundle that passes `oebf validate`.
+- A blank bundle built in the editor passes `oebf validate`: storeys at a height, two grids, stacked walls, a column (IFC type edit), a start offset, a slab with its own thickness and top face, a door and a window, and a junction at a grid location.
+
+### Not fixed
+
+- **Material properties.** A material made by hand has a name, category and colour. The specification references (`nmb_item`), fire ratings and densities can only come from a library import.
+- **Slab profile layout.** The profile editor treats `profile_type: slab` as a label and lays layers across x. The stacked slab profiles in the example are drawn correctly in the detail editor but are not editable in the profile editor.
+- **Folder mode.** The headless checks use the archive path (an in-memory bundle). The folder picker is a browser dialog and was not driven; its adapter is covered by a unit test.
+- **Three failing end-to-end tests.** Two homepage tests and the viewer screenshot test fail on this machine. This branch changes none of the files they use, so they are not caused by this work (the homepage tests look for cards on `index.html`, which are on `launch.html`; the screenshot test compares pixels from a different Chromium build than the one the baseline was made with). They were not investigated further.

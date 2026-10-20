@@ -1,5 +1,7 @@
 import { describe, test, expect } from 'vitest';
-import { resolveLevelZ, listLevels, withStoreyGroups, loadStoreyGroups } from './levelResolver.js';
+import {
+  resolveLevelZ, listLevels, withStoreyGroups, loadStoreyGroups, hierarchyStoreyGroups, mergeStoreyGroups, syncHierarchyStoreys,
+} from './levelResolver.js';
 
 const MODEL = {
   hierarchy: {
@@ -128,5 +130,45 @@ describe('loadStoreyGroups', () => {
   test('no storeys list gives an empty array', async () => {
     expect(await loadStoreyGroups(read, {})).toEqual([]);
     expect(await loadStoreyGroups(read, undefined)).toEqual([]);
+  });
+});
+
+describe('editor storeys from the hierarchy', () => {
+  test('hierarchyStoreyGroups lists every storey with its elevation and name', () => {
+    const groups = hierarchyStoreyGroups({ hierarchy: { type: 'Project', children: [{ type: 'Storey', id: 'storey-a', description: 'Ground', elevation: 0.5 }] } });
+    expect(groups).toEqual([{ id: 'storey-a', type: 'Group', ifc_type: 'IfcBuildingStorey', name: 'Ground', description: 'Ground', z_m: 0.5 }]);
+  });
+
+  test('mergeStoreyGroups: the hierarchy wins for a storey in both, group-only storeys are kept', () => {
+    const merged = mergeStoreyGroups(MODEL, [
+      { id: 'storey-gf', name: 'Old name', z_m: 9 },
+      { id: 'storey-roof', name: 'Roof', z_m: 6 },
+    ]);
+    expect(merged.map((g) => g.id)).toEqual(['storey-gf', 'storey-ff', 'storey-basement', 'storey-roof']);
+    expect(merged.find((g) => g.id === 'storey-gf').z_m).toBe(0);
+  });
+
+  test('mergeStoreyGroups with no hierarchy returns the groups', () => {
+    const groups = [{ id: 'storey-ground', z_m: 0 }];
+    expect(mergeStoreyGroups({}, groups)).toEqual(groups);
+  });
+
+  test('syncHierarchyStoreys updates elevation and name, and adds a new storey under the building', () => {
+    const out = syncHierarchyStoreys(MODEL.hierarchy, [
+      { id: 'storey-ff', name: 'First', z_m: 3.1 },
+      { id: 'storey-roof', name: 'Roof', z_m: 6 },
+    ]);
+    const levels = listLevels({ hierarchy: out });
+    expect(levels.find((l) => l.id === 'storey-ff').elevation).toBe(3.1);
+    expect(levels.find((l) => l.id === 'storey-roof').elevation).toBe(6);
+    const building = out.children[0].children[0];
+    expect(building.children.map((c) => c.id)).toContain('storey-roof');
+  });
+
+  test('syncHierarchyStoreys leaves the input alone and passes a missing hierarchy through', () => {
+    const before = JSON.stringify(MODEL.hierarchy);
+    syncHierarchyStoreys(MODEL.hierarchy, [{ id: 'storey-gf', z_m: 1 }]);
+    expect(JSON.stringify(MODEL.hierarchy)).toBe(before);
+    expect(syncHierarchyStoreys(undefined, [{ id: 'x', z_m: 0 }])).toBeUndefined();
   });
 });

@@ -41,6 +41,15 @@ import { JunctionEditor } from './junctionEditor.js';
 import { DrawingTool } from './drawingTool.js';
 import { PathEditTool } from './pathEditTool.js';
 import { FsaAdapter, MemoryAdapter } from './storageAdapter.js';
+import { mergeStoreyGroups, syncHierarchyStoreys } from '../detail/levelResolver.js';
+import { buildOpeningOutline } from '../loader/loadOpening.js';
+import {
+  openingFieldSpecs, nextOpeningId, newOpening, openingProblems, openingsOf, overlappingOpenings,
+  withOpeningRegistered, withOpeningUnregistered,
+} from './openingModel.js';
+import {
+  JUNCTION_RULES, nextJunctionId, axisChoices, validateNewJunction, buildJunction, withJunctionRegistered,
+} from './junctionModel.js';
 import { createNewBundle } from './newBundle.js';
 import { openLibraryBrowser, setAdapter as setLibraryAdapter } from './libraryBrowser.js';
 import { setUnit, getUnit, toDisplay, fromDisplay, unitLabel } from './units.js';
@@ -93,6 +102,19 @@ const storeyManager = new StoreyManager(
   (z) => editorScene.setStoreyZ(z),
 );
 
+// A storey edit is registered in model.json at once (the list, and the hierarchy when there is one, which the resolvers read),
+// so a reopened bundle keeps the new storey and its height.
+storeyManager.onWritten = async () => {
+  if (!adapter) return;
+  try {
+    const m = await readEntity(adapter, 'model.json');
+    const all = storeyManager.getAll();
+    const next = { ...m, storeys: all.map(s => s.id) };   // registered now, so a reload sees a storey made a moment ago
+    if (m.hierarchy) next.hierarchy = syncHierarchyStoreys(m.hierarchy, all.map(s => ({ id: s.id, name: s.name, z_m: s.z_m })));
+    await writeEntity(adapter, 'model.json', next);
+  } catch { /* the Save button writes it again */ }
+};
+
 document.getElementById('add-storey-btn').addEventListener('click', () => {
   storeyManager.createStorey();
 });
@@ -112,6 +134,12 @@ const gridManager = new GridOverlayManager(
     if (!_modelState.grids.includes(gridId)) _modelState.grids.push(gridId);
   },
 );
+
+document.getElementById('add-gridset-btn').addEventListener('click', () => gridManager.addGrid());
+
+// A junction places its detail at grid axes; renaming or removing one of them would break that.
+gridManager.isAxisUsed = (gridId, axisId) =>
+  (_bundleCtx?.junctions ?? []).some(j => j.location?.grid_id === gridId && (j.location.axes ?? []).includes(axisId));
 
 document.getElementById('add-grid-btn').addEventListener('click', () => {
   gridManager.addAxisNumeric();
@@ -566,6 +594,7 @@ async function _loadAndRenderBundle(adapter) {
   // Reset session state for this bundle
   _selectedElementId = null;
   _elementRegistry.clear();
+  _clearOpenings();
   _modelState.elements.length  = 0;
   _modelState.slabs.length     = 0;
   _modelState.junctions.length = 0;
@@ -656,7 +685,8 @@ async function _loadAndRenderBundle(adapter) {
       try { storeyGroups.push(await readEntity(adapter, `groups/${id}.json`)); }
       catch { /* skip missing */ }
     }
-    storeyManager.loadFromBundle(storeyGroups);
+    // Bundles that describe their levels in model.hierarchy (the examples) have no group files: take them from there.
+    storeyManager.loadFromBundle(mergeStoreyGroups(model, storeyGroups));
   } catch { /* ignore */ }
 
   // Load reference grids
@@ -735,6 +765,9 @@ async function _loadAndRenderBundle(adapter) {
       _addElementToTree(slabId, 'Slab');
     } catch { /* skip missing */ }
   }
+
+  await _loadOpenings(model);
+  _populateJunctionList();
 
   // Create wall tool bound to this bundle
   wallTool = new WallTool({
@@ -932,9 +965,11 @@ function _enableEditorTools() {
   document.getElementById('tool-guide').disabled     = false;
   document.getElementById('tool-path-edit').disabled = false;
   document.getElementById('add-grid-btn').disabled  = false;
+  document.getElementById('add-gridset-btn').disabled = false;
   document.getElementById('add-guide-btn').disabled = false;
   document.getElementById('add-height-guide-btn').disabled = false;
   document.getElementById('add-detail-btn').disabled = false;
+  document.getElementById('add-junction-btn').disabled = false;
   document.getElementById('add-subassembly-btn').disabled = false;
   document.getElementById('add-material-btn').disabled = false;
   document.getElementById('default-wall-profile').disabled = false;
@@ -955,6 +990,7 @@ async function _ensureDefaultProfile() {
     $schema:   'oebf://schema/0.1/profile',
     id:        'default-wall',
     type:      'Profile',
+    svg_file:  'profiles/default-wall.svg',
     width:     0.2,
     height:    null,
     origin:    { x: 0, y: 0 },
@@ -964,6 +1000,10 @@ async function _ensureDefaultProfile() {
     ],
   };
   await writeEntity(adapter, 'profiles/default-wall.json', profile);
+  // The profile schema requires the SVG it names: a single 200 mm strip, 2.7 m high, as the profile editor would draw it.
+  await adapter.writeRaw?.('profiles/default-wall.svg',
+    '<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 0.200 2.700" width="200mm" height="2700mm">\n' +
+    '  <rect x="0" y="0" width="0.200" height="2.700" fill="#888888" stroke="#888" stroke-width="0.002"/>\n</svg>\n');
 
   const opt = document.createElement('option');
   opt.value = 'default-wall';
@@ -1316,6 +1356,7 @@ async function _reRenderElement(elementId, updatedPathData) {
 
   // Update the registry so future calls use the latest path
   reg.pathData = updatedPathData;
+  _redrawOpeningsOf(elementId);
 
   try {
     const { parsePath }         = await import('../loader/loadPath.js');
@@ -1421,6 +1462,7 @@ async function _showElementProps(id) {
   // Segment lengths: type a new length, 2400, 2.4m or 1200+300 (issue #105)
   _addLengthRows(panel, id, reg);
   _addPathRows(panel, id, reg);
+  if (reg.kind === 'element') _addOpeningRows(panel, id, reg);
 
   // Edit profile button
   if (adapter && reg.profileId) {
@@ -1609,27 +1651,39 @@ window.addEventListener('message', async (e) => {
 });
 
 // ── Save ──────────────────────────────────────────────────────────────────────
+/**
+ * Write model.json: what the bundle already lists, plus what this session added (elements, slabs, grids, paths,
+ * junctions, storeys), and the display units. Save does this, and so does anything that reloads the bundle from its
+ * files, so that nothing added since the last save is dropped by the reload.
+ */
+async function _writeModelJson() {
+  let existingModel = {};
+  try { existingModel = await readEntity(adapter, 'model.json'); }
+  catch { /* new bundle */ }
+
+  const newModel = {
+    ...existingModel,
+    elements:  [...new Set([...(existingModel.elements  ?? []), ..._modelState.elements])],
+    slabs:     [...new Set([...(existingModel.slabs     ?? []), ..._modelState.slabs])],
+    junctions: [...new Set([...(existingModel.junctions ?? []), ..._modelState.junctions])],
+    grids:     [...new Set([...(existingModel.grids     ?? []), ..._modelState.grids])],
+    paths:     [...new Set([...(existingModel.paths     ?? []), ..._modelState.paths])],
+    storeys:   storeyManager.getAll().map(s => s.id),
+    units:     getUnit(),
+  };
+  if (existingModel.hierarchy) {
+    newModel.hierarchy = syncHierarchyStoreys(existingModel.hierarchy, storeyManager.getAll().map(s => ({ id: s.id, name: s.name, z_m: s.z_m })));
+  }
+  await writeEntity(adapter, 'model.json', newModel);
+  return newModel;
+}
+
 saveBtn.addEventListener('click', async () => {
   if (!adapter) return;
   saveBtn.disabled = true;
   statusBar.textContent = 'Saving…';
   try {
-    let existingModel = {};
-    try { existingModel = await readEntity(adapter, 'model.json'); }
-    catch { /* new bundle */ }
-
-    const newModel = {
-      ...existingModel,
-      elements:  [...new Set([...(existingModel.elements  ?? []), ..._modelState.elements])],
-      slabs:     [...new Set([...(existingModel.slabs     ?? []), ..._modelState.slabs])],
-      junctions: [...new Set([...(existingModel.junctions ?? []), ..._modelState.junctions])],
-      grids:     [...new Set([...(existingModel.grids     ?? []), ..._modelState.grids])],
-      paths:     [...new Set([...(existingModel.paths     ?? []), ..._modelState.paths])],
-      storeys:   storeyManager.getAll().map(s => s.id),
-      units:     getUnit(),
-    };
-
-    await writeEntity(adapter, 'model.json', newModel);
+    await _writeModelJson();
 
     if (adapter.type === 'memory') {
       adapter.downloadZip();
@@ -1813,6 +1867,8 @@ window.__editor = {
   junctionMarkers2: () => (junctionEditor?._junctions ?? []).map((j) => ({ id: j.id, x: j.point.x, y: j.point.y })),
   registry: () => [..._elementRegistry].map(([id, r]) => [id, r.pathData?.id, r.pathData?.segments?.map((g) => [g.start.x, g.start.y, g.end.x, g.end.y])]),
   selectedId: () => _selectedElementId,
+  openJunctionDialog: _openJunctionDialog,
+  openings: () => [..._openings.values()].map((o) => ({ ...o.entity, drawn: !!o.object })),
   worldToScreen: (x, y, z = 0) => {
     const r = canvas.getBoundingClientRect();
     const v = new THREE.Vector3(x, y, z).project(editorScene.getActiveCamera());
@@ -1834,6 +1890,308 @@ if (new URLSearchParams(window.location.search).has('demo')) {
   })();
 }
 
+// ── Junctions: list, and make one by hand ─────────────────────────────────────
+
+function _populateJunctionList() {
+  const list = document.getElementById('junctions-list');
+  list.innerHTML = '';
+  for (const j of _bundleCtx?.junctions ?? []) {
+    const el = document.createElement('div');
+    el.className = 'tree-item';
+    el.dataset.junctionId = j.id;
+    const span = document.createElement('span');
+    span.className = 'tree-item-name';
+    span.textContent = j.id;
+    span.title = [j.rule, j.detail_id].filter(Boolean).join(' · ');
+    el.appendChild(span);
+    el.addEventListener('click', () => _focusJunction(j.id));
+    list.appendChild(el);
+  }
+}
+
+document.getElementById('add-junction-btn').addEventListener('click', () => _openJunctionDialog());
+
+/** A small form: elements, rule, a place on a grid at a level, and optionally a detail. Creates the Junction on OK. */
+async function _openJunctionDialog() {
+  if (!adapter) return;
+  document.getElementById('junction-dialog')?.remove();
+
+  let model = {};
+  try { model = await readEntity(adapter, 'model.json'); } catch { /* new bundle */ }
+  const elementIds = [..._elementRegistry].filter(([, r]) => r.kind === 'element').map(([id]) => id);
+  const grids = gridManager.getGrids().map((g) => ({
+    ...g, axes: gridManager.getAxes().filter((a) => a.gridId === g.id).map((a) => ({ id: a.id, direction: a.direction, offset_m: a.offset_m })),
+  }));
+  const levels = storeyManager.getAll();
+  const detailIds = model.details ?? [];
+  const existingIds = (_bundleCtx?.junctions ?? []).map((j) => j.id);
+
+  const css = 'background:#2a2a2a;color:#ddd;border:1px solid #444;padding:4px 8px;border-radius:3px;font-size:12px;width:100%';
+  const mk = (tag, props = {}, style) => { const n = Object.assign(document.createElement(tag), props); if (style) n.style.cssText = style; return n; };
+  const options = (sel, items) => items.forEach(([value, text]) => sel.append(mk('option', { value, textContent: text })));
+  const row = (label, ...controls) => {
+    const r = mk('div', { className: 'prop-row' });
+    r.append(mk('label', { textContent: label }), ...controls);
+    return r;
+  };
+
+  const overlay = mk('div', { id: 'junction-dialog' }, 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:100;display:flex;align-items:center;justify-content:center');
+  const box = mk('div', {}, 'background:#1e1e1e;border:1px solid #444;border-radius:6px;padding:16px 18px;width:420px;max-height:90vh;overflow:auto;color:#ddd;font-size:12px');
+  box.append(mk('h3', { textContent: 'New junction' }, 'margin:0 0 10px;font-size:14px'));
+
+  const elementSel = mk('select', { id: 'jd-elements', multiple: true, size: Math.min(8, Math.max(3, elementIds.length)) }, css);
+  options(elementSel, elementIds.map((id) => [id, id]));
+  const primarySel = mk('select', { id: 'jd-primary' }, css);
+  const ruleSel = mk('select', { id: 'jd-rule' }, css);
+  options(ruleSel, JUNCTION_RULES.map((r) => [r, r]));
+  const detailSel = mk('select', { id: 'jd-detail' }, css);
+  options(detailSel, [['', '(no detail)'], ...detailIds.map((d) => [d, d])]);
+
+  const gridSel = mk('select', { id: 'jd-grid' }, css);
+  options(gridSel, grids.map((g) => [g.id, g.description]));
+  const nsSel = mk('select', { id: 'jd-axis-ns' }, css);
+  const ewSel = mk('select', { id: 'jd-axis-ew' }, css);
+  const levelSel = mk('select', { id: 'jd-level' }, css);
+  options(levelSel, levels.map((s) => [s.id, `${s.name} (${toDisplay(s.z_m)} ${unitLabel()})`]));
+  const offsetInp = mk('input', { id: 'jd-offset', type: 'text', value: '0', title: 'Above (or below) the level, eg 1000 for 1 m' }, css);
+  const idInp = mk('input', { id: 'jd-id', type: 'text' }, css);
+  const where = mk('div', { id: 'jd-where' }, 'opacity:0.65;margin:2px 0 6px');
+  const errors = mk('div', { id: 'jd-errors' }, 'color:#fc6;margin:8px 0;min-height:16px');
+
+  const fillAxes = () => {
+    const g = grids.find((x) => x.id === gridSel.value);
+    const { northSouth, eastWest } = axisChoices(g);
+    nsSel.replaceChildren(); ewSel.replaceChildren();
+    options(nsSel, northSouth.map((a) => [a.id, `${a.id} (x=${toDisplay(a.offset_m)} ${unitLabel()})`]));
+    options(ewSel, eastWest.map((a) => [a.id, `${a.id} (y=${toDisplay(a.offset_m)} ${unitLabel()})`]));
+  };
+  const spec = () => {
+    const picked = [...elementSel.selectedOptions].map((o) => o.value);
+    const chosen = picked.includes(primarySel.value) ? [primarySel.value, ...picked.filter((x) => x !== primarySel.value)] : picked;
+    const useLocation = gridSel.value && nsSel.value && ewSel.value && levelSel.value;
+    const offset = parseDimension(offsetInp.value || '0', { unit: getUnit() });
+    return {
+      elements: chosen, rule: ruleSel.value, detail_id: detailSel.value || null,
+      location: useLocation ? { grid_id: gridSel.value, axes: [nsSel.value, ewSel.value], level_id: levelSel.value, level_offset_m: offset ?? NaN } : null,
+    };
+  };
+  const fillPrimary = () => {
+    const picked = [...elementSel.selectedOptions].map((o) => o.value);
+    const keep = picked.includes(primarySel.value) ? primarySel.value : picked[0];
+    primarySel.replaceChildren();
+    options(primarySel, picked.map((id) => [id, id]));
+    if (keep) primarySel.value = keep;
+  };
+  const refresh = () => {
+    const s = spec();
+    const ns = nsSel.value ? grids.find((g) => g.id === gridSel.value)?.axes.find((a) => a.id === nsSel.value) : null;
+    const ew = ewSel.value ? grids.find((g) => g.id === gridSel.value)?.axes.find((a) => a.id === ewSel.value) : null;
+    const lv = levels.find((l) => l.id === levelSel.value);
+    where.textContent = ns && ew && lv && s.location && Number.isFinite(s.location.level_offset_m)
+      ? `At x ${toDisplay(ns.offset_m)}, y ${toDisplay(ew.offset_m)}, z ${toDisplay(lv.z_m + s.location.level_offset_m)} ${unitLabel()}`
+      : '';
+    if (!idInp.dataset.touched) idInp.value = nextJunctionId(existingIds, s);
+  };
+  gridSel.addEventListener('change', () => { fillAxes(); refresh(); });
+  elementSel.addEventListener('change', () => { fillPrimary(); refresh(); });
+  for (const c of [primarySel, ruleSel, detailSel, nsSel, ewSel, levelSel, offsetInp]) c.addEventListener('change', refresh);
+  offsetInp.addEventListener('input', refresh);
+  idInp.addEventListener('input', () => { idInp.dataset.touched = '1'; });
+
+  box.append(
+    row('Elements', elementSel),
+    mk('div', { textContent: 'Ctrl-click to pick several (at least two).' }, 'opacity:0.55;margin:0 0 6px'),
+    row('Primary member', primarySel),
+    row('Rule', ruleSel),
+    row('Detail', detailSel),
+    mk('h3', { textContent: 'Place on a grid' }, 'margin:10px 0 4px;font-size:12px;opacity:0.7'),
+    row('Grid', gridSel), row('North-south axis', nsSel), row('East-west axis', ewSel),
+    row('Level', levelSel), row(`Offset (${unitLabel()})`, offsetInp), where,
+    row('ID', idInp), errors,
+  );
+  const buttons = mk('div', {}, 'display:flex;gap:8px;justify-content:flex-end');
+  const create = mk('button', { id: 'jd-create', textContent: 'Create' }, 'padding:5px 14px;cursor:pointer;background:#2a4a2a;color:#8f8;border:1px solid #555;border-radius:3px');
+  const cancel = mk('button', { id: 'jd-cancel', textContent: 'Cancel' }, 'padding:5px 14px;cursor:pointer;background:#333;color:#ddd;border:1px solid #555;border-radius:3px');
+  buttons.append(cancel, create);
+  box.append(buttons);
+  overlay.append(box);
+  document.body.append(overlay);
+
+  cancel.addEventListener('click', () => overlay.remove());
+  create.addEventListener('click', async () => {
+    const s = spec();
+    const problems = validateNewJunction(s, { elementIds, grids, levelIds: levels.map((l) => l.id), detailIds });
+    const id = idInp.value.trim();
+    if (!/^[a-z0-9][a-z0-9-]*$/.test(id)) problems.push({ field: 'id', message: 'The id uses lower-case letters, numbers and hyphens.' });
+    else if (existingIds.includes(id)) problems.push({ field: 'id', message: `A junction called ${id} already exists.` });
+    errors.textContent = problems.map((p) => p.message).join(' ');
+    if (problems.length) return;
+    try {
+      await _createJunction(id, s);
+      overlay.remove();
+    } catch (err) {
+      errors.textContent = `Not created: ${err.message}`;
+    }
+  });
+
+  fillAxes();
+  refresh();
+  elementSel.focus();
+}
+
+async function _createJunction(id, spec) {
+  const entity = buildJunction(id, spec);
+  await writeEntity(adapter, `junctions/${id}.json`, entity);
+  const m = await readEntity(adapter, 'model.json');
+  await writeEntity(adapter, 'model.json', withJunctionRegistered(m, id));
+  await _writeModelJson();            // elements, grids and storeys added this session are in the files before the reload
+  await _loadAndRenderBundle(adapter);
+  _focusJunction(id);
+  statusBar.textContent = `Junction ${id} made${entity.detail_id ? ` with ${entity.detail_id}` : ''}.`;
+}
+
+// ── Openings: doors and windows cut into a wall ───────────────────────────────
+
+const _openingGroup = new THREE.Group();
+_openingGroup.name = 'openings';
+editorScene.overlayGroup.add(_openingGroup);
+/** @type {Map<string, { entity: object, object: THREE.LineSegments|null }>} */
+const _openings = new Map();
+
+function _removeOpeningObject(id) {
+  const o = _openings.get(id)?.object;
+  if (!o) return;
+  _openingGroup.remove(o);
+  o.geometry.dispose();
+  o.material.dispose();
+}
+
+function _clearOpenings() {
+  for (const id of [..._openings.keys()]) _removeOpeningObject(id);
+  _openings.clear();
+}
+
+/** (Re)draw one opening's outline on its host wall. An opening whose wall is missing is kept, undrawn. */
+function _drawOpening(entity) {
+  _removeOpeningObject(entity.id);
+  const reg = _elementRegistry.get(entity.host_element_id);
+  let object = null;
+  if (reg?.pathData) {
+    try {
+      const { positions } = buildOpeningOutline(entity, reg.pathData);
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      object = new THREE.LineSegments(geometry, new THREE.LineBasicMaterial({ color: 0xffb000, depthTest: false }));
+      object.renderOrder = 2;
+      object.userData.openingId = entity.id;
+      _openingGroup.add(object);
+    } catch (err) {
+      console.warn(`[OEBF] opening ${entity.id} not drawn:`, err.message);
+    }
+  }
+  _openings.set(entity.id, { entity, object });
+}
+
+function _redrawOpeningsOf(hostId) {
+  for (const { entity } of [..._openings.values()]) if (entity.host_element_id === hostId) _drawOpening(entity);
+}
+
+async function _loadOpenings(model) {
+  for (const id of model.openings ?? []) {
+    try { _drawOpening(await readEntity(adapter, `openings/${id}.json`)); }
+    catch { /* a listed opening with no file is skipped */ }
+  }
+}
+
+async function _setOpeningRegistered(id, on) {
+  const m = await readEntity(adapter, 'model.json');
+  await writeEntity(adapter, 'model.json', on ? withOpeningRegistered(m, id) : withOpeningUnregistered(m, id));
+}
+
+async function _addOpening(hostId, ifcType) {
+  const reg = _elementRegistry.get(hostId);
+  if (!adapter || !reg?.pathData) return;
+  const id = nextOpeningId([..._openings.keys()], hostId, ifcType);
+  const entity = newOpening({ id, hostId, pathId: reg.pathData.id, pathLength: pathSummary(reg.pathData).length, ifcType });
+  await writeEntity(adapter, `openings/${id}.json`, entity);
+  await _setOpeningRegistered(id, true);
+  _drawOpening(entity);
+  statusBar.textContent = `Added ${id}. Set its position and size in the panel.`;
+  await _showElementProps(hostId);
+}
+
+async function _removeOpening(id, hostId) {
+  if (!window.confirm(`Remove opening ${id}?`)) return;
+  await adapter.deleteFile(`openings/${id}.json`);
+  await _setOpeningRegistered(id, false);
+  _removeOpeningObject(id);
+  _openings.delete(id);
+  statusBar.textContent = `Removed ${id}`;
+  await _showElementProps(hostId);
+}
+
+async function _commitOpeningField(id, key, value) {
+  try {
+    const entity = applyFieldValue(await readEntity(adapter, `openings/${id}.json`), key, value);
+    await writeEntity(adapter, `openings/${id}.json`, entity);
+    _drawOpening(entity);
+    const reg = _elementRegistry.get(entity.host_element_id);
+    const problems = openingProblems(entity, reg?.pathData ? pathSummary(reg.pathData).length : undefined);
+    statusBar.textContent = problems.length ? `${id}: ${problems[0]}` : `${key.replace(/_/g, ' ')} set to ${value}`;
+    if (key === 'path_position' || key === 'width_m') await _showElementProps(entity.host_element_id);
+  } catch (e) {
+    statusBar.textContent = `Not saved: ${e.message}`;
+  }
+}
+
+/** The wall's openings, each with editable fields, plus Add door and Add window. */
+function _addOpeningRows(panel, hostId, reg) {
+  const h = document.createElement('h3');
+  h.textContent = 'Openings';
+  panel.appendChild(h);
+
+  const pathLength = pathSummary(reg.pathData).length;
+  const mine = openingsOf([..._openings.values()].map((o) => o.entity), hostId);
+  const clashes = new Set(overlappingOpenings(mine).flat());
+  for (const entity of mine) {
+    const title = document.createElement('div');
+    title.style.cssText = 'font-weight:700;font-size:12px;margin:8px 0 2px;word-break:break-all';
+    title.textContent = entity.id;
+    panel.appendChild(title);
+    _fieldRows(panel, openingFieldSpecs(), entity, (key, value) => _commitOpeningField(entity.id, key, value), `${entity.id}-`);
+    const problems = openingProblems(entity, pathLength);
+    if (clashes.has(entity.id)) problems.push('Overlaps another opening on this wall.');
+    for (const p of problems) {
+      const note = document.createElement('div');
+      note.style.cssText = 'color:#fc6;font-size:12px;margin:2px 0';
+      note.textContent = p;
+      panel.appendChild(note);
+    }
+    const del = document.createElement('button');
+    del.textContent = 'Remove opening';
+    del.style.cssText = 'padding:4px 10px;cursor:pointer;background:#4a2a2a;color:#f88;border:1px solid #555;border-radius:3px;font-size:12px;margin:4px 0 8px;width:100%';
+    del.addEventListener('click', () => _removeOpening(entity.id, hostId));
+    panel.appendChild(del);
+  }
+  if (!mine.length) {
+    const none = document.createElement('div');
+    none.style.cssText = 'opacity:0.55;font-size:12px;margin:2px 0 6px';
+    none.textContent = 'None on this wall.';
+    panel.appendChild(none);
+  }
+  const row = document.createElement('div');
+  row.style.cssText = 'display:flex;gap:6px;margin-top:6px';
+  for (const [label, type] of [['Add door', 'IfcDoor'], ['Add window', 'IfcWindow']]) {
+    const b = document.createElement('button');
+    b.textContent = label;
+    b.dataset.addOpening = type;
+    b.style.cssText = 'flex:1;padding:5px 10px;cursor:pointer;background:#2a3a4a;color:#9cf;border:1px solid #555;border-radius:3px;font-size:12px';
+    b.addEventListener('click', () => _addOpening(hostId, type));
+    row.appendChild(b);
+  }
+  panel.appendChild(row);
+}
+
 // ─── Properties panel: generic fields, path nodes, storeys (#83) ─────────────
 
 const FIELD_CSS = 'background:#2a2a2a;color:#ddd;border:1px solid #444;padding:4px 8px;border-radius:3px;font-size:12px;width:100%';
@@ -1843,7 +2201,7 @@ const FIELD_CSS = 'background:#2a2a2a;color:#ddd;border:1px solid #444;padding:4
  * value is reported in the status bar and the field reverts. `commit(key, value)`
  * does the write-back.
  */
-function _fieldRows(panel, specs, entity, commit) {
+function _fieldRows(panel, specs, entity, commit, idPrefix = '') {
   const unit = getUnit();
   for (const spec of specs) {
     const current = entity[spec.key];
@@ -1867,7 +2225,7 @@ function _fieldRows(panel, specs, entity, commit) {
       }
       widget.value = spec.kind === 'length' ? String(toDisplay(current ?? 0)) : String(current ?? (spec.kind === 'number' ? 0 : ''));
     }
-    widget.id = `field-${spec.key}`;
+    widget.id = `field-${idPrefix}${spec.key}`;
     widget.style.cssText = FIELD_CSS;
     if (spec.hint) widget.title = spec.hint;
     const shown = widget.value;
@@ -1886,7 +2244,7 @@ async function _commitEntityField(id, reg, entityPath, key, value) {
     const entity = applyFieldValue(await readEntity(adapter, entityPath), key, value);
     await writeEntity(adapter, entityPath, entity);
     if (reg.kind === 'slab') {
-      if (key === 'material_id') await _reRenderElement(id, reg.pathData);
+      if (['material_id', 'thickness_m', 'elevation_m'].includes(key)) await _reRenderElement(id, reg.pathData);
     } else {
       reg.sweep = sweepOptionsFromElement(entity);
       if (key === 'description') reg.description = value;
