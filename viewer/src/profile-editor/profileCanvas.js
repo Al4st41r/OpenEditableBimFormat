@@ -38,6 +38,8 @@ export function renderCanvas(svgEl, layers, originX, matMap, selectedIndex = nul
   // Clear previous content
   while (svgEl.firstChild) svgEl.removeChild(svgEl.firstChild);
 
+  if (opts.stacked) { _renderStacked(svgEl, layers, originX, matMap, selectedIndex, opts); return; }
+
   const totalWidth = layers
     .filter(l => l.type !== 'region')
     .reduce((s, l) => s + (l.thickness ?? 0), 0) || 0.1;
@@ -134,6 +136,47 @@ export function renderCanvas(svgEl, layers, originX, matMap, selectedIndex = nul
     limitLabel.textContent = `${hlimit}m limit`;
     svgEl.appendChild(limitLabel);
   }
+}
+
+/**
+ * A face-aligned slab profile: layers as horizontal bands across the plan width, layer 1 at the top (alignment
+ * top-face) or the bottom (bottom-face). opts: { planWidth, alignment }.
+ */
+function _renderStacked(svgEl, layers, originX, matMap, selectedIndex, opts) {
+  const W = opts.planWidth > 0 ? opts.planWidth : 1;
+  const bands = layers.map((layer, index) => ({ layer, index })).filter(({ layer }) => layer.type !== 'region');
+  const total = Math.round(bands.reduce((s, { layer }) => s + (layer.thickness ?? 0), 0) * 1e6) / 1e6 || 0.1;
+  svgEl.setAttribute('viewBox', `0 0 ${W} ${total}`);
+  let cursor = 0;
+  for (const { layer, index } of bands) {
+    const t = Math.round((layer.thickness ?? 0) * 1e6) / 1e6;
+    const y = opts.alignment === 'bottom-face' ? Math.round((total - cursor - t) * 1e6) / 1e6 : Math.round(cursor * 1e6) / 1e6;
+    const rect = document.createElementNS(SVG_NS, 'rect');
+    rect.setAttribute('x', '0'); rect.setAttribute('y', String(y));
+    rect.setAttribute('width', String(W)); rect.setAttribute('height', String(t));
+    rect.setAttribute('fill', matMap[layer.material_id]?.colour_hex ?? '#888888');
+    rect.setAttribute('stroke', index === selectedIndex ? '#0080ff' : '#333');
+    rect.setAttribute('stroke-width', String(Math.max(total, 0.1) * 0.01));
+    rect.style.cursor = 'pointer';
+    rect.addEventListener('click', () => {
+      svgEl.dispatchEvent(new CustomEvent('layer-selected', { detail: { index } }));
+    });
+    svgEl.appendChild(rect);
+    cursor = Math.round((cursor + t) * 1e6) / 1e6;
+  }
+  const cx = Math.max(0, Math.min(originX, W));
+  const cy = opts.alignment === 'bottom-face' ? total : 0;
+  const line = document.createElementNS(SVG_NS, 'line');
+  line.setAttribute('x1', String(cx)); line.setAttribute('x2', String(cx));
+  line.setAttribute('y1', String(cy - total * 0.1)); line.setAttribute('y2', String(cy + total * 0.1));
+  line.setAttribute('stroke', 'red'); line.setAttribute('stroke-width', String(total * 0.01));
+  svgEl.appendChild(line);
+  const circle = document.createElementNS(SVG_NS, 'circle');
+  circle.setAttribute('cx', String(cx)); circle.setAttribute('cy', String(cy));
+  circle.setAttribute('r', String(total * 0.03)); circle.setAttribute('fill', 'red');
+  circle.setAttribute('data-origin-marker', 'true');
+  circle.style.cursor = 'ew-resize';
+  svgEl.appendChild(circle);
 }
 
 /** Wire up drag behaviour for the origin marker circle. */

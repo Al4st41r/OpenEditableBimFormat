@@ -1772,7 +1772,7 @@ export { editorScene };
 function _makeDetailMaterial(hex) {
   return new THREE.MeshStandardMaterial({
     color: new THREE.Color(hex), roughness: 0.8, metalness: 0.0, side: THREE.DoubleSide,
-    polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1,
+    polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
   });
 }
 

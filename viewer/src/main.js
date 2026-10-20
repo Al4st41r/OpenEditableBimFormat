@@ -41,7 +41,7 @@ dirLight.position.set(10, 20, 10);
 scene.add(dirLight);
 
 // --- Camera (Z-up) ---
-const camera = new THREE.PerspectiveCamera(45, (canvas.clientWidth || window.innerWidth) / (canvas.clientHeight || window.innerHeight), 0.01, 500);
+const camera = new THREE.PerspectiveCamera(45, (canvas.clientWidth || window.innerWidth) / (canvas.clientHeight || window.innerHeight), 0.1, 300);
 camera.position.set(10, -10, 8);
 camera.up.set(0, 0, 1);
 
@@ -128,7 +128,7 @@ function _buildScene(meshes, manifest, junctions, arrays, grids, openings = [], 
   const detailMatMap = new Map();
   ensureDetailMaterials(detailMatMap, junctions, materials, (hex) => new THREE.MeshLambertMaterial({
     color: new THREE.Color(hex), side: THREE.DoubleSide,
-    polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1,
+    polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
   }));
   for (const group of buildJunctionDetailMeshes(junctions, detailMatMap)) currentGroup.add(group);
 

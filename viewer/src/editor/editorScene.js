@@ -38,7 +38,7 @@ export function initEditorScene(canvas) {
 
   // ── Perspective camera (Z-up) ─────────────────────────────────────────────
   const perspCamera = new THREE.PerspectiveCamera(
-    45, canvas.clientWidth / canvas.clientHeight, 0.01, 1000
+    45, canvas.clientWidth / canvas.clientHeight, 0.1, 300
   );
   perspCamera.position.set(10, -10, 8);
   perspCamera.up.set(0, 0, 1);

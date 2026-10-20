@@ -86,6 +86,14 @@
             <option value="slab">Slab</option>
           </select>
         </label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;" title="A slab aligned to a face stacks its layers from that face">
+          Align
+          <select id="profile-alignment-select" disabled style="background:#333;color:#ddd;border:1px solid #555;border-radius:3px;padding:3px 6px;">
+            <option value="center">Centre (layers across x)</option>
+            <option value="top-face">Top face (stacked)</option>
+            <option value="bottom-face">Bottom face (stacked)</option>
+          </select>
+        </label>
         <label style="display:flex;align-items:center;gap:6px;font-size:12px;">
           <span id="ffl-label">FFL</span>
           <input id="ffl-input" type="number" value="0" step="1"

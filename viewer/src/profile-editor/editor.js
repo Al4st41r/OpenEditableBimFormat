@@ -12,7 +12,7 @@
 
 import { initCanvas, renderCanvas } from './profileCanvas.js';
 import { initForm, setLayers, getLayers, highlightRow, addBlankLayer } from './profileForm.js';
-import { buildJson, buildSvg } from './profileSerializer.js';
+import { buildJson, buildSvg, isStackedProfile } from './profileSerializer.js';
 import { addGuide, getGuides, clearGuides, renderGuidelines, setupGuideDrag } from './profileGuidelines.js';
 import { activateRectTool, activatePolygonTool, deactivateTool } from './canvasDrawTools.js';
 import { setUnit, getUnit, toDisplay, fromDisplay, unitLabel } from '../editor/units.js';
@@ -75,6 +75,8 @@ let currentDesc = '';
 let layers     = [];
 let originX    = 0;
 let profileType    = 'wall';
+let alignment      = 'center';   // a slab can be aligned to its top or bottom face, which stacks its layers
+let planWidth      = 1;          // nominal plan width of a stacked slab profile, metres
 let ffl_m          = 0.0;
 let height_limit_m = 2.4;
 let selectedLayerIndex = null;
@@ -98,10 +100,19 @@ document.getElementById('add-v-guide-btn').addEventListener('click', () => {
 });
 
 const profileTypeSelect = document.getElementById('profile-type-select');
+const alignmentSelect   = document.getElementById('profile-alignment-select');
 const fflInput          = document.getElementById('ffl-input');
 const heightLimitInput  = document.getElementById('height-limit-input');
 
-profileTypeSelect.addEventListener('change', () => { profileType    = profileTypeSelect.value;                                              _renderCanvas(); });
+profileTypeSelect.addEventListener('change', () => {
+  profileType = profileTypeSelect.value;
+  if (profileType !== 'slab') { alignment = 'center'; alignmentSelect.value = 'center'; }
+  _syncAlignmentControl();
+  _renderCanvas();
+});
+alignmentSelect.addEventListener('change', () => { alignment = alignmentSelect.value; _renderCanvas(); });
+/** The alignment choice only applies to slabs. */
+function _syncAlignmentControl() { alignmentSelect.disabled = profileType !== 'slab'; }
 fflInput.addEventListener('change',          () => { ffl_m          = fromDisplay(parseFloat(fflInput.value) || 0);                       _renderCanvas(); });
 heightLimitInput.addEventListener('change',  () => { const p = parseFloat(heightLimitInput.value); height_limit_m = isNaN(p) ? undefined : fromDisplay(p); _renderCanvas(); });
 
@@ -215,6 +226,10 @@ profileSelect.addEventListener('change', async () => {
   ffl_m          = data.ffl_m           ?? 0.0;
   height_limit_m = data.height_limit_m  ?? 2.4;
   profileTypeSelect.value   = profileType;
+  alignment = data.alignment ?? 'center';
+  planWidth = data.width > 0 ? data.width : 1;
+  alignmentSelect.value = ['center', 'top-face', 'bottom-face'].includes(alignment) ? alignment : 'center';
+  _syncAlignmentControl();
   fflInput.value            = toDisplay(ffl_m);
   heightLimitInput.value    = toDisplay(height_limit_m);
   selectedLayerIndex = null;
@@ -238,7 +253,8 @@ newBtn.addEventListener('click', () => {
   currentDesc = '';
   originX     = 0.1;
   profileType = 'wall'; ffl_m = 0.0; height_limit_m = 2.4;
-  profileTypeSelect.value = 'wall'; fflInput.value = toDisplay(0.0); heightLimitInput.value = toDisplay(2.4);
+  alignment = 'center'; planWidth = 1; alignmentSelect.value = 'center';
+  profileTypeSelect.value = 'wall'; _syncAlignmentControl(); fflInput.value = toDisplay(0.0); heightLimitInput.value = toDisplay(2.4);
   layers      = [{ name: '', material_id: matIds[0] ?? '', thickness: 0.1, function: 'structure' }];
   selectedLayerIndex = null;
   setLayers(layerList, layers);
@@ -284,8 +300,8 @@ saveBtn.addEventListener('click', async () => {
   layers = getLayers(layerList);
   try {
     const json = buildJson({ layers, originX, id: currentId, description: currentDesc,
-                             profileType, ffl_m, height_limit_m });
-    const svg  = buildSvg({ layers, originX, matMap });
+                             profileType, alignment, planWidth, ffl_m, height_limit_m });
+    const svg  = buildSvg({ layers, originX, matMap, profileType, alignment, planWidth });
 
     if (memoryMode) {
       if (window.opener) {
@@ -320,7 +336,7 @@ function _refreshUnitLabels() {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function _renderCanvas() {
   renderCanvas(profileSvg, getLayers(layerList), originX, matMap, selectedLayerIndex,
-               { ffl_m, height_limit_m });
+               { ffl_m, height_limit_m, stacked: isStackedProfile(profileType, alignment), alignment, planWidth });
   renderGuidelines(profileSvg, getGuides());
 }
 

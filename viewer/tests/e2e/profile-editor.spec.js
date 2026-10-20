@@ -62,3 +62,37 @@ test.describe('Profile Editor', () => {
     expect(svg).toContain('fill="#C4693A"');
   });
 });
+
+test('a stacked slab profile opens in the profile editor, draws as bands and saves unchanged', async ({ page }) => {
+  await page.goto('launch.html');
+  const popupPromise = page.waitForEvent('popup');
+  const profile = {
+    $schema: 'oebf://schema/0.1/profile', id: 'profile-test-slab', type: 'Profile', svg_file: 'profiles/profile-test-slab.svg',
+    width: 1, height: 0.2, origin: { x: 0.5, y: 0 }, alignment: 'top-face', profile_type: 'slab',
+    assembly: [
+      { layer: 1, name: 'Finish', material_id: 'mat-a', thickness: 0.02, function: 'finish' },
+      { layer: 2, name: 'Deck', material_id: 'mat-b', thickness: 0.18, function: 'structure' },
+    ],
+  };
+  await page.evaluate(() => { window.__saved = null; window.addEventListener('message', (e) => { if (e.data?.type === 'profile-saved') window.__saved = e.data; }); });
+  await page.evaluate(() => { window.open('profile-editor.html'); });
+  const popup = await popupPromise;
+  await popup.waitForLoadState();
+  await page.waitForTimeout(500);
+  // the editor listens on its own window, so deliver the opener's message there
+  await popup.evaluate((p) => {
+    window.dispatchEvent(new MessageEvent('message', {
+      origin: window.location.origin,
+      data: { type: 'memory-bundle', profiles: { [p.id]: p }, matMap: { 'mat-a': { colour_hex: '#111111' }, 'mat-b': { colour_hex: '#222222' } }, activeProfileId: p.id, projectName: 'x' },
+    }));
+  }, profile);
+  await expect(popup.locator('#profile-alignment-select')).toHaveValue('top-face');
+  await expect(popup.locator('#profile-alignment-select')).toBeEnabled();
+  expect(await popup.locator('#profile-svg').getAttribute('viewBox')).toBe('0 0 1 0.2');
+  expect(await popup.locator('#profile-svg rect').count()).toBe(2);
+  await popup.locator('#save-btn').click();
+  await expect.poll(() => page.evaluate(() => window.__saved?.json?.alignment)).toBe('top-face');
+  const saved = await page.evaluate(() => window.__saved);
+  expect(saved.json).toMatchObject({ width: 1, height: 0.2, origin: { x: 0.5, y: 0 }, profile_type: 'slab' });
+  expect(saved.svg).toContain('viewBox="0 0 1 0.2"');
+});
