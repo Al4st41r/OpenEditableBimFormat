@@ -31,12 +31,58 @@ export function normaliseColour(value) {
   return `#${hex.toUpperCase()}`;
 }
 
-/** A new material entity, with a unique id. */
-export function buildMaterial(name, colour, existing = []) {
+/**
+ * Specification properties from one `key: value` per line (a line with no colon is ignored). Keys keep their case;
+ * a later line for the same key wins. Returns null when there are none, so the field is left off the material.
+ */
+export function parseProperties(text) {
+  const out = {};
+  for (const line of String(text ?? '').split(/\r?\n/)) {
+    const i = line.indexOf(':');
+    if (i < 1) continue;
+    const key = line.slice(0, i).trim();
+    const value = line.slice(i + 1).trim();
+    if (key && value) out[key] = value;
+  }
+  return Object.keys(out).length ? out : null;
+}
+
+/** Properties back to the text the dialog edits. */
+export function propertiesText(properties) {
+  return Object.entries(properties ?? {}).map(([k, v]) => `${k}: ${v}`).join('\n');
+}
+
+/**
+ * A new material entity, with a unique id.
+ * @param {{ category?: string, ifcMaterialName?: string, properties?: string }} [extra] - optional specification
+ */
+export function buildMaterial(name, colour, existing = [], extra = {}) {
   const clean = String(name ?? '').trim();
   if (!clean) throw new Error('A material needs a name');
+  const properties = parseProperties(extra.properties);
+  const ifcName = String(extra.ifcMaterialName ?? '').trim();
   return {
-    id: materialIdFor(clean, existing), type: 'Material', name: clean, category: 'custom',
-    colour_hex: normaliseColour(colour), interactions: {},
+    id: materialIdFor(clean, existing), type: 'Material', name: clean,
+    category: String(extra.category ?? '').trim() || 'custom',
+    colour_hex: normaliseColour(colour),
+    ...(ifcName ? { ifc_material_name: ifcName } : {}),
+    ...(properties ? { properties } : {}),
+    interactions: {},
+  };
+}
+
+export const UNSET_MATERIAL_ID = 'mat-unset';
+
+/**
+ * The library with the placeholder material added when it is missing. Defaults the editor writes (the first wall
+ * profile, a stub detail profile, a new slab) name it until a real material is chosen, so it has to exist or the
+ * bundle fails validation as soon as it has a library.
+ */
+export function withUnsetMaterial(lib) {
+  const materials = Array.isArray(lib?.materials) ? lib.materials : [];
+  if (materials.some((m) => m.id === UNSET_MATERIAL_ID)) return { ...lib, materials };
+  return {
+    ...(lib ?? {}), $schema: lib?.$schema ?? 'oebf://schema/0.1/materials',
+    materials: [...materials, { id: UNSET_MATERIAL_ID, type: 'Material', name: 'Unassigned', category: 'placeholder', colour_hex: '#888888', interactions: {} }],
   };
 }

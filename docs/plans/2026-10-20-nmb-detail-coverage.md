@@ -92,9 +92,14 @@ The example must be something a person can make in the editor, not only somethin
 - Editing a grid, a storey height, adding a junction with a detail and adding a door each save a bundle that passes `oebf validate`.
 - A blank bundle built in the editor passes `oebf validate`: storeys at a height, two grids, stacked walls, a column (IFC type edit), a start offset, a slab with its own thickness and top face, a door and a window, and a junction at a grid location.
 
+### Fixed afterwards
+
+- **Material properties (#110).** The Add material dialog takes a category, an IFC material name and a `key: value` specification list, so `nmb_item`, fire and density can be entered by hand.
+- **Missing placeholder material.** The editor's defaults (the first wall profile, a stub detail profile, a new slab) named `mat-unset`, which was in no library, so a bundle with any material library failed `oebf validate`. The editor now adds an "Unassigned" placeholder to the library when it writes those defaults. Found by adding a material to the blank-bundle check.
+- **Homepage tests.** They now open `launch.html`, where the cards are.
+
 ### Not fixed
 
-- **Material properties.** A material made by hand has a name, category and colour. The specification references (`nmb_item`), fire ratings and densities can only come from a library import.
 - **Slab profile layout.** The profile editor treats `profile_type: slab` as a label and lays layers across x. The stacked slab profiles in the example are drawn correctly in the detail editor but are not editable in the profile editor.
 - **Folder mode.** The headless checks use the archive path (an in-memory bundle). The folder picker is a browser dialog and was not driven; its adapter is covered by a unit test.
 - **Three failing end-to-end tests.** Two homepage tests and the viewer screenshot test fail on this machine. This branch changes none of the files they use, so they are not caused by this work (the homepage tests look for cards on `index.html`, which are on `launch.html`; the screenshot test compares pixels from a different Chromium build than the one the baseline was made with). They were not investigated further.

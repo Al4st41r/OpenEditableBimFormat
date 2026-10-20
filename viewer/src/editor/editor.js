@@ -57,7 +57,7 @@ import { updateNodeAxis } from './nodeUtils.js';
 import { snapPoint, SNAP_KINDS } from '../snap/snapEngine.js';
 import { buildPlanSnapScene, setPathSegmentLength } from './planSnap.js';
 import { parseDimension } from '../snap/dimension.js';
-import { findSimilar, normaliseColour, buildMaterial } from './materialForm.js';
+import { findSimilar, normaliseColour, buildMaterial, withUnsetMaterial } from './materialForm.js';
 import { importIfcText } from '../ifc/ifcImporter.js';
 import { exportBundleToIfc } from '../ifc/ifcExporter.js';
 import * as THREE from 'three';
@@ -807,6 +807,7 @@ async function _loadAndRenderBundle(adapter) {
     getStoreyZ:          () => storeyManager.getActive()?.z_m ?? 0,
     getStoreyId:         () => storeyManager.getActive()?.id ?? null,
     readProfile:         (path) => readEntity(adapter, path),
+    ensureUnsetMaterial: _ensureUnsetMaterial,
     matMap:              activeProfileMap,
     onElementCreated:    (info) => {
       if (info.type === 'slab') {
@@ -999,6 +1000,7 @@ async function _ensureDefaultProfile() {
       { layer: 1, name: 'Structure', material_id: 'mat-unset', thickness: 0.2, function: 'structure' },
     ],
   };
+  await _ensureUnsetMaterial();
   await writeEntity(adapter, 'profiles/default-wall.json', profile);
   // The profile schema requires the SVG it names: a single 200 mm strip, 2.7 m high, as the profile editor would draw it.
   await adapter.writeRaw?.('profiles/default-wall.svg',
@@ -1110,6 +1112,7 @@ document.getElementById('add-subassembly-btn').addEventListener('click', async (
     return;
   }
 
+  await _ensureUnsetMaterial();
   await writeEntity(adapter, `profiles/${id}.json`, {
     $schema:   'oebf://schema/0.1/profile',
     id,
@@ -1129,6 +1132,15 @@ document.getElementById('add-subassembly-btn').addEventListener('click', async (
   _openDetailInProfileEditor(id);
 });
 
+/** Make sure the placeholder material the editor's defaults name is in the library. */
+async function _ensureUnsetMaterial() {
+  if (!adapter) return;
+  let lib = null;
+  try { lib = await readEntity(adapter, 'materials/library.json'); } catch { /* no library yet */ }
+  const next = withUnsetMaterial(lib);
+  if (next.materials.length !== (lib?.materials?.length ?? -1)) await writeEntity(adapter, 'materials/library.json', next);
+}
+
 document.getElementById('add-material-btn').addEventListener('click', async () => {
   if (!adapter) return;
   // Read existing library (or start fresh)
@@ -1139,7 +1151,7 @@ document.getElementById('add-material-btn').addEventListener('click', async () =
   const input = await _askMaterial(lib.materials);
   if (!input) return;
 
-  const mat = buildMaterial(input.name, input.colour, lib.materials);
+  const mat = buildMaterial(input.name, input.colour, lib.materials, input);
   lib.materials.push(mat);
   await writeEntity(adapter, 'materials/library.json', lib);
 
@@ -1150,7 +1162,7 @@ document.getElementById('add-material-btn').addEventListener('click', async () =
 
 /**
  * The Add material dialog: name and colour, with the existing library listed below so a duplicate
- * is easy to spot (issue #95). Resolves { name, colour } or null when cancelled.
+ * is easy to spot (issue #95). Resolves { name, colour, category, ifcMaterialName, properties } or null when cancelled.
  */
 function _askMaterial(existing) {
   const dlg = document.getElementById('material-dialog');
@@ -1161,7 +1173,14 @@ function _askMaterial(existing) {
   const list = document.getElementById('material-existing');
   document.getElementById('material-existing-title').textContent = existing.length
     ? `In this project (${existing.length})` : 'No materials in this project yet.';
+  const category = document.getElementById('material-category');
+  const ifcName = document.getElementById('material-ifc-name');
+  const properties = document.getElementById('material-properties');
+  document.getElementById('material-categories').replaceChildren(...[...new Set(existing.map((m) => m.category).filter(Boolean))].map((c) => {
+    const o = document.createElement('option'); o.value = c; return o;
+  }));
   name.value = ''; colour.value = '#888888'; hex.value = '#888888'; warning.textContent = '';
+  category.value = ''; ifcName.value = ''; properties.value = '';
 
   const paint = () => {
     const similar = new Set(findSimilar(existing, name.value).map((m) => m.id));
@@ -1186,7 +1205,7 @@ function _askMaterial(existing) {
     document.getElementById('material-form').onsubmit = (e) => {
       e.preventDefault();
       if (!name.value.trim()) { warning.textContent = 'Give the material a name.'; name.focus(); return; }
-      finish({ name: name.value.trim(), colour: hex.value });
+      finish({ name: name.value.trim(), colour: hex.value, category: category.value, ifcMaterialName: ifcName.value, properties: properties.value });
     };
     dlg.onclose = () => resolve(null);
     dlg.showModal();

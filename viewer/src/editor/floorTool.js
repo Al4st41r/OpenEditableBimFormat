@@ -55,6 +55,7 @@ export class FloorTool {
     this._getStoreyId           = opts.getStoreyId;
     this._readProfile           = opts.readProfile;
     this._matMap                = opts.matMap;
+    this._ensureUnsetMaterial   = opts.ensureUnsetMaterial;
     this._onElementCreated      = opts.onElementCreated;
 
     /** @type {boolean} true = path+Element mode; false = polygon+Slab mode */
@@ -156,13 +157,14 @@ export class FloorTool {
       boundary_path_id:  pathId,
       thickness_m:       0.2,
       elevation_m:       storeyZ,
-      material_id:       '',
+      material_id:       'mat-unset',
       parent_group_id:   storeyId || '',
       description:       'Floor slab',
     };
 
     // Write entities to bundle
     try {
+      await this._ensureUnsetMaterial?.();
       await writeEntity(this._adapter, `paths/${pathId}.json`, pathData);
       await writeEntity(this._adapter, `slabs/${slabId}.json`, slabData);
     } catch (e) {

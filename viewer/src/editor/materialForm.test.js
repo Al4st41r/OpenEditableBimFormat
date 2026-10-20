@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest';
-import { materialIdFor, findSimilar, normaliseColour, buildMaterial } from './materialForm.js';
+import { materialIdFor, findSimilar, normaliseColour, buildMaterial, parseProperties, propertiesText, withUnsetMaterial } from './materialForm.js';
 
 const lib = [
   { id: 'mat-brick-common', name: 'Common Brick', colour_hex: '#C4693A' },
@@ -52,4 +52,43 @@ describe('buildMaterial', () => {
     });
   });
   test('refuses an empty name', () => expect(() => buildMaterial('   ', '#fff', [])).toThrow(/name/i));
+});
+
+describe('specification properties', () => {
+  test('parseProperties reads key: value lines and keeps colons in values', () => {
+    expect(parseProperties('nmb_item: 301/302\nfire: Euroclass D-s2, d0\nnote: a: b\nno colon\n: orphan\nempty:')).toEqual({
+      nmb_item: '301/302', fire: 'Euroclass D-s2, d0', note: 'a: b',
+    });
+  });
+  test('parseProperties gives null when nothing usable is there', () => {
+    expect(parseProperties('')).toBeNull();
+    expect(parseProperties(undefined)).toBeNull();
+  });
+  test('propertiesText round-trips', () => {
+    expect(parseProperties(propertiesText({ density: '470 kg/m3', fire: 'A1' }))).toEqual({ density: '470 kg/m3', fire: 'A1' });
+  });
+  test('buildMaterial carries category, IFC name and properties, and leaves them off when blank', () => {
+    expect(buildMaterial('CLT', '#d9b36b', [], { category: 'timber', ifcMaterialName: 'CLT panel', properties: 'nmb_item: 301' })).toEqual({
+      id: 'mat-clt', type: 'Material', name: 'CLT', category: 'timber', colour_hex: '#D9B36B',
+      ifc_material_name: 'CLT panel', properties: { nmb_item: '301' }, interactions: {},
+    });
+    expect(buildMaterial('X', '#fff', [], { category: '  ', properties: 'junk' })).toEqual({
+      id: 'mat-x', type: 'Material', name: 'X', category: 'custom', colour_hex: '#FFFFFF', interactions: {},
+    });
+  });
+});
+
+describe('withUnsetMaterial', () => {
+  test('adds the placeholder to a library that lacks it, keeping the rest', () => {
+    const out = withUnsetMaterial({ $schema: 'x', materials: [{ id: 'mat-a', type: 'Material', name: 'A', category: 'c' }] });
+    expect(out.materials.map((m) => m.id)).toEqual(['mat-a', 'mat-unset']);
+    expect(out.$schema).toBe('x');
+  });
+  test('makes a library from nothing', () => {
+    expect(withUnsetMaterial(null).materials.map((m) => m.id)).toEqual(['mat-unset']);
+  });
+  test('leaves a library that has it alone', () => {
+    const lib = { materials: [{ id: 'mat-unset', name: 'Mine' }] };
+    expect(withUnsetMaterial(lib).materials).toEqual(lib.materials);
+  });
 });

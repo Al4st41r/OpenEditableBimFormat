@@ -188,6 +188,19 @@ test('a blank bundle can be built up to the NMB example\'s kinds of content in t
   expect(await page.locator('#jd-errors').textContent()).toMatch(/at least two/);
   await page.locator('#jd-cancel').click();
 
+  // ── a material with its specification ───────────────────────────────────────
+  await page.locator('#add-material-btn').click();
+  await page.locator('#material-name').fill('CLT panel');
+  await page.locator('#material-category').fill('timber');
+  await page.locator('#material-ifc-name').fill('CLT panel');
+  await page.locator('#material-properties').fill('nmb_item: 301/302\nfire: Euroclass D-s2, d0');
+  await page.locator('#material-ok').click();
+  await settle(500);
+  const lib = await readFile('materials/library.json');
+  expect(lib.materials.find((m) => m.id === 'mat-clt-panel')).toMatchObject({
+    category: 'timber', ifc_material_name: 'CLT panel', properties: { nmb_item: '301/302', fire: 'Euroclass D-s2, d0' },
+  });
+
   // ── save, unpack and validate ───────────────────────────────────────────────
   const download = page.waitForEvent('download');
   await page.locator('#save-btn').click();

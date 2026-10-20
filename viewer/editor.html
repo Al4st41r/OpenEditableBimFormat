@@ -21,6 +21,7 @@
     #material-dialog h3 { margin: 0 0 10px; font-size: 13px; }
     #material-dialog label { display: block; font-size: 11px; color: #aaa; margin: 8px 0 3px; }
     #material-dialog input[type=text] { width: 100%; box-sizing: border-box; background: #2a2a2a; color: #ddd; border: 1px solid #444; border-radius: 3px; padding: 5px 8px; font-size: 12px; }
+    #material-dialog textarea { width: 100%; box-sizing: border-box; background: #2a2a2a; color: #ddd; border: 1px solid #444; border-radius: 3px; padding: 5px 8px; font-size: 12px; font-family: inherit; resize: vertical; }
     #material-dialog .mat-colour-row { display: flex; gap: 8px; align-items: center; }
     #material-dialog input[type=color] { width: 40px; height: 28px; padding: 0; border: 1px solid #444; background: none; }
     #material-dialog .mat-warning { color: #e8b04a; font-size: 11px; margin-top: 6px; min-height: 14px; }
@@ -313,6 +314,13 @@
       <input type="text" id="material-name" autocomplete="off" placeholder="e.g. Common Brick">
       <label for="material-colour">Colour</label>
       <div class="mat-colour-row"><input type="color" id="material-colour" value="#888888"><input type="text" id="material-colour-hex" value="#888888" aria-label="Colour hex"></div>
+      <label for="material-category">Category</label>
+      <input type="text" id="material-category" autocomplete="off" list="material-categories" placeholder="custom">
+      <datalist id="material-categories"></datalist>
+      <label for="material-ifc-name">IFC material name (optional)</label>
+      <input type="text" id="material-ifc-name" autocomplete="off">
+      <label for="material-properties">Specification (one <code>key: value</code> per line, optional)</label>
+      <textarea id="material-properties" rows="3" placeholder="nmb_item: 301&#10;fire: Euroclass D-s2, d0&#10;density: 470 kg/m3"></textarea>
       <div class="mat-warning" id="material-warning"></div>
       <div class="mat-existing"><div class="mat-existing-title" id="material-existing-title"></div><div id="material-existing"></div></div>
       <div class="mat-buttons"><button type="button" id="material-cancel">Cancel</button><button type="submit" id="material-ok" value="ok">Add</button></div>
