@@ -1,0 +1,47 @@
+category_id,category_name,id,name,carbon_kgCO2e_per_kg,density_kg_per_m3,thermal_conductivity_W_mK,source,epd_reference,notes,colour_hex
+masonry,Masonry & Blocks,clay-brick-general,Clay Brick (General Purpose),0.24,1700,0.77,ICE,,Average UK clay brick,#C17A5C
+masonry,Masonry & Blocks,clay-brick-engineering,Clay Brick (Engineering),0.3,2000,1.0,ICE,,Higher strength engineering brick,#A0522D
+masonry,Masonry & Blocks,concrete-block-dense,Concrete Block (Dense),0.073,2300,1.13,ICE,,Standard concrete aggregate block,#9E9E9E
+masonry,Masonry & Blocks,concrete-block-lightweight,Concrete Block (Lightweight),0.067,1400,0.19,ICE,,Aerated or lightweight aggregate,#BDBDBD
+masonry,Masonry & Blocks,autoclaved-aerated-concrete,Autoclaved Aerated Concrete (AAC),0.3,600,0.11,ICE,,Lightweight insulating block,#E0E0E0
+insulation,Insulation Materials,mineral-wool,Mineral Wool (Rock/Glass),1.28,30,0.034,ICE,,Average mineral wool insulation,#F5C842
+insulation,Insulation Materials,eps,Expanded Polystyrene (EPS),3.5,20,0.038,ICE,,Standard EPS board,#F5F5F0
+insulation,Insulation Materials,xps,Extruded Polystyrene (XPS),7.5,35,0.033,ICE,,Higher carbon than EPS,#4FC3F7
+insulation,Insulation Materials,pir-pur,PIR/PUR Rigid Foam,3.48,30,0.022,ICE,,Polyisocyanurate/Polyurethane,#FFB74D
+insulation,Insulation Materials,cellulose,Cellulose Insulation,0.43,50,0.040,ICE,,Recycled paper-based insulation,#8D6E63
+insulation,Insulation Materials,wood-fiber,Wood Fiber Board,0.51,160,0.038,ICE,,Natural wood fiber insulation,#A1887F
+insulation,Insulation Materials,sheep-wool,Sheep Wool Insulation,0.46,25,0.038,RICS,,Natural wool insulation,#F5F5DC
+concrete,Concrete & Cement Products,concrete-ready-mix-gen-purpose,Ready Mix Concrete (20/25 MPa),0.15,2400,1.35,ICE,,General purpose concrete,#9E9E9E
+concrete,Concrete & Cement Products,concrete-ready-mix-40mpa,Ready Mix Concrete (40 MPa),0.19,2400,1.75,ICE,,Higher strength concrete,#757575
+concrete,Concrete & Cement Products,concrete-precast,Precast Concrete Elements,0.16,2400,1.35,ICE,,Factory-made precast units,#BDBDBD
+concrete,Concrete & Cement Products,cement-render,Cement Render/Stucco,0.13,1900,0.80,ICE,,External cement-based render,#D7CCC8
+timber,Timber & Wood Products,timber-softwood,Softwood Timber (Sawn),0.35,510,0.12,ICE,,Includes biogenic carbon offset,#DEB887
+timber,Timber & Wood Products,timber-hardwood,Hardwood Timber (Sawn),0.39,720,0.18,ICE,,Includes biogenic carbon offset,#A0785A
+timber,Timber & Wood Products,glulam,Glued Laminated Timber (Glulam),0.55,485,0.13,ICE,,Engineered timber product,#CD853F
+timber,Timber & Wood Products,osb,OSB (Oriented Strand Board),0.45,650,0.13,ICE,,Structural sheathing board,#D2B48C
+timber,Timber & Wood Products,plywood,Plywood,0.48,700,0.13,ICE,,Multi-layer wood panel,#C19A6B
+timber,Timber & Wood Products,mdf,MDF (Medium Density Fiberboard),0.51,750,0.18,ICE,,Engineered wood fiber board,#BC8A5F
+timber,Timber & Wood Products,particleboard,Particleboard/Chipboard,0.38,680,0.14,ICE,,Wood particle board,#8B6914
+boards,Sheet Materials & Boards,plasterboard-standard,Plasterboard/Drywall (Standard),0.38,950,0.25,ICE,,Standard gypsum board,#F5F5F5
+boards,Sheet Materials & Boards,plasterboard-fire,Plasterboard (Fire Resistant),0.42,1050,0.25,ICE,,Type F fire-rated board,#FFF9C4
+boards,Sheet Materials & Boards,cement-board,Cement Fiber Board,0.63,1450,0.35,ICE,,External grade cement board,#90A4AE
+metals,Metals & Cladding,steel-general,Steel (General/Virgin),2.1,7850,50.0,ICE,,Primary steel production,#78909C
+metals,Metals & Cladding,steel-recycled,Steel (Recycled Content),0.8,7850,50.0,ICE,,High recycled content steel,#607D8B
+metals,Metals & Cladding,aluminum-primary,Aluminum (Primary),11.46,2700,160.0,ICE,,Virgin aluminum production,#CFD8DC
+metals,Metals & Cladding,aluminum-recycled,Aluminum (Recycled),0.6,2700,160.0,ICE,,"Recycled aluminum, much lower carbon",#B0BEC5
+metals,Metals & Cladding,zinc-sheet,Zinc Sheet Cladding,3.5,7140,110.0,ICE,,Architectural zinc cladding,#9E9E9E
+metals,Metals & Cladding,copper-sheet,Copper Sheet,3.4,8900,380.0,ICE,,Copper roofing/cladding,#B87333
+membranes,Membranes & Barriers,breathable-membrane,Breathable Membrane,3.2,200,0.19,RICS,,Vapor permeable wall wrap,#E8EAF6
+membranes,Membranes & Barriers,dpm,DPM/Vapor Barrier (Polyethylene),2.5,950,0.45,ICE,,Damp proof membrane,#212121
+membranes,Membranes & Barriers,epdm-membrane,EPDM Roofing Membrane,2.3,1150,0.25,ICE,,Synthetic rubber membrane,#37474F
+finishes,Finishes & Coatings,paint-water-based,Paint (Water-Based),2.3,1200,0.50,ICE,,Acrylic emulsion paint,#E3F2FD
+finishes,Finishes & Coatings,paint-solvent,Paint (Solvent-Based),3.0,1300,0.50,ICE,,Oil-based paint,#E8F5E9
+finishes,Finishes & Coatings,lime-render,Lime Render/Plaster,0.72,1700,0.80,ICE,,Traditional lime-based render,#FFF8E1
+finishes,Finishes & Coatings,gypsum-plaster,Gypsum Plaster,0.12,1120,0.40,ICE,,Interior gypsum plaster,#FFFDE7
+other,Other Materials,glass-float,Float Glass,0.85,2500,1.0,ICE,,Standard float glass,#B3E5FC
+other,Other Materials,glass-toughened,Toughened/Tempered Glass,1.1,2500,1.0,ICE,,Heat-treated safety glass,#81D4FA
+landscape,Landscape Materials,gravel,Gravel / Crushed Stone,0.0046,1750,0.70,ICE,,Coarse aggregate; minimal processing,#BCAAA4
+landscape,Landscape Materials,earth,Earth (General Fill),0.003,1800,1.50,estimated,,Bulk excavated material; transport dependent,#795548
+landscape,Landscape Materials,subsoil,Subsoil,0.003,1900,1.50,estimated,,Below topsoil horizon; low organic content,#6D4C41
+landscape,Landscape Materials,topsoil,Topsoil,0.005,1200,0.50,estimated,,Organic-rich upper soil layer,#4E342E
+landscape,Landscape Materials,grass,Grass / Turf,0.010,800,0.40,estimated,,Established turf; excludes maintenance carbon,#558B2F
