@@ -9,3 +9,7 @@ example/*/ifc/last_export.ifc
 .worktrees/
 viewer/test-results/
 bugs/
+
+# Large reference PDFs and stray terminal output
+example-NMB/
+cn
