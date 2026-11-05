@@ -6,15 +6,17 @@
  * Run: node scripts/build-library.mjs
  */
 
-import { readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const root  = resolve(__dir, '..');
-const mainRoot = resolve(root, '..', '..');
-
-const csvPath = resolve(mainRoot, 'docs/plans/materials-database.csv');
+const csvRel  = 'docs/plans/materials-database.csv';
+// Prefer this checkout; fall back to the main checkout only when running inside .worktrees/<name>.
+const csvPath = existsSync(resolve(root, csvRel))
+  ? resolve(root, csvRel)
+  : resolve(root, '..', '..', csvRel);
 const outDir  = resolve(root, 'viewer/public/library/materials');
 const outPath = resolve(outDir, 'library.json');
 
