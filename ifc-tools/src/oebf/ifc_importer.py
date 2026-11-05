@@ -133,6 +133,9 @@ def _restore_entity(bundle: dict, entity_id: str, out_dir: Path):
         path = (bundle.get("Paths") or {}).get(doc.get(path_key))
         if not isinstance(path, dict):
             return None
+        # The id names the file written below, so it must be a plain slug and the one the element refers to.
+        if not _SLUG.match(str(path.get("id", ""))) or path["id"] != doc.get(path_key):
+            return None
         (out_dir / folder).mkdir(exist_ok=True)
         (out_dir / folder / f"{entity_id}.json").write_text(json.dumps(doc, indent=2))
         (out_dir / "paths" / f"{path['id']}.json").write_text(json.dumps(path, indent=2))

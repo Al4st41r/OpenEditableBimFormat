@@ -310,3 +310,17 @@ def test_the_foreign_fixture_really_has_no_oebf_record(foreign):
     for p in (foreign / "elements").glob("*.json"):
         assert load(p)["profile_id"] == "profile-imported-placeholder"
     assert load(next((foreign / "slabs").glob("*.json")))["material_id"] == "mat-imported"
+
+
+def test_a_restored_path_cannot_name_a_file_outside_the_bundle(tmp_path):
+    """A crafted OEBF_Bundle must not write through a path id such as '../../escape'."""
+    from oebf.ifc_importer import _restore_entity
+    out = tmp_path / "bundle.oebf"
+    (out / "paths").mkdir(parents=True)
+    bundle = {
+        "Elements": {"wall-a": {"id": "wall-a", "path_id": "../../escape"}},
+        "Paths": {"../../escape": {"id": "../../escape", "segments": []}},
+    }
+    assert _restore_entity(bundle, "wall-a", out) is None
+    assert not (tmp_path / "escape.json").exists()
+    assert not (out / "elements" / "wall-a.json").exists()
