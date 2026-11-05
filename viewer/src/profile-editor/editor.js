@@ -79,6 +79,7 @@ let alignment      = 'center';   // a slab can be aligned to its top or bottom f
 let planWidth      = 1;          // nominal plan width of a stacked slab profile, metres
 let ffl_m          = 0.0;
 let height_limit_m = 2.4;
+let detail = false;
 let selectedLayerIndex = null;
 let memoryMode      = false;
 let _memoryProfiles = {};  // profileId → parsed profile object (memory mode only)
@@ -225,6 +226,7 @@ profileSelect.addEventListener('change', async () => {
   profileType    = data.profile_type    ?? 'wall';
   ffl_m          = data.ffl_m           ?? 0.0;
   height_limit_m = data.height_limit_m  ?? 2.4;
+  detail         = data.detail === true;
   profileTypeSelect.value   = profileType;
   alignment = data.alignment ?? 'center';
   planWidth = data.width > 0 ? data.width : 1;
@@ -252,7 +254,7 @@ newBtn.addEventListener('click', () => {
   currentId   = id;
   currentDesc = '';
   originX     = 0.1;
-  profileType = 'wall'; ffl_m = 0.0; height_limit_m = 2.4;
+  profileType = 'wall'; ffl_m = 0.0; height_limit_m = 2.4; detail = false;
   alignment = 'center'; planWidth = 1; alignmentSelect.value = 'center';
   profileTypeSelect.value = 'wall'; _syncAlignmentControl(); fflInput.value = toDisplay(0.0); heightLimitInput.value = toDisplay(2.4);
   layers      = [{ name: '', material_id: matIds[0] ?? '', thickness: 0.1, function: 'structure' }];
@@ -300,7 +302,7 @@ saveBtn.addEventListener('click', async () => {
   layers = getLayers(layerList);
   try {
     const json = buildJson({ layers, originX, id: currentId, description: currentDesc,
-                             profileType, alignment, planWidth, ffl_m, height_limit_m });
+                             profileType, alignment, planWidth, ffl_m, height_limit_m, detail });
     const svg  = buildSvg({ layers, originX, matMap, profileType, alignment, planWidth });
 
     if (memoryMode) {

@@ -247,3 +247,13 @@ describe('the NMB example slab profiles survive the profile editor', () => {
     });
   }
 });
+
+describe('buildJson detail flag', () => {
+  const layers = [{ name: 'A', material_id: 'mat-a', thickness: 0.1, function: 'structure' }];
+  it('keeps detail: true for a sub-assembly profile', () => {
+    expect(buildJson({ layers, originX: 0.05, id: 'profile-d', description: 'd', detail: true }).detail).toBe(true);
+  });
+  it('omits detail for an ordinary profile', () => {
+    expect('detail' in buildJson({ layers, originX: 0.05, id: 'profile-d', description: 'd' })).toBe(false);
+  });
+});

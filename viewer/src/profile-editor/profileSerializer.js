@@ -19,10 +19,10 @@ export function isStackedProfile(profileType, alignment) {
 /**
  * Build a profile JSON object from editor state.
  *
- * @param {{ layers: Array, originX: number, id: string, description: string, profileType?: string, alignment?: string, planWidth?: number, ffl_m?: number, height_limit_m?: number }} opts
+ * @param {{ layers: Array, originX: number, id: string, description: string, profileType?: string, alignment?: string, planWidth?: number, ffl_m?: number, height_limit_m?: number, detail?: boolean }} opts
  * @returns {object} OEBF profile JSON
  */
-export function buildJson({ layers, originX, id, description, profileType, alignment, planWidth, ffl_m, height_limit_m }) {
+export function buildJson({ layers, originX, id, description, profileType, alignment, planWidth, ffl_m, height_limit_m, detail }) {
   const stacked = isStackedProfile(profileType, alignment);
   const width = stacked ? (planWidth > 0 ? planWidth : 1) : layers.reduce((sum, l) => sum + (l.thickness ?? 0), 0);
   return {
@@ -38,6 +38,7 @@ export function buildJson({ layers, originX, id, description, profileType, align
     ...(profileType    !== undefined && { profile_type:    profileType }),
     ...(ffl_m          !== undefined && { ffl_m }),
     ...(height_limit_m !== undefined && { height_limit_m }),
+    ...(detail === true && { detail: true }),
     assembly: layers.map((l, i) => {
       const item = {
         layer:       i + 1,
