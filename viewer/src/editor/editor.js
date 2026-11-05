@@ -9,6 +9,7 @@
  *   MemoryAdapter — in-memory Map loaded from .oebfz (all browsers, save = zip download)
  */
 
+import { buildMaterialTreeItem } from './materialTreeItem.js';
 import { initEditorScene } from './editorScene.js';
 import { loadBundle }         from '../loader/loadBundle.js';
 import { buildThreeMesh }     from '../scene/buildMesh.js';
@@ -1258,15 +1259,7 @@ function _addElementToTree(id, label) {
 }
 
 function _addMaterialToTree(mat) {
-  const list = document.getElementById('materials-list');
-  const item = document.createElement('div');
-  item.className = 'tree-item';
-  item.dataset.id = mat.id;
-  item.innerHTML = `
-    <span class="mat-swatch" style="background:${mat.colour_hex ?? '#888'}"></span>
-    <span class="tree-item-name">${mat.name ?? mat.id}</span>
-  `;
-  list.appendChild(item);
+  document.getElementById('materials-list').appendChild(buildMaterialTreeItem(mat));
 }
 
 function _selectElement(id) {

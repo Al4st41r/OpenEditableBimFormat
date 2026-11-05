@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { sortedMaterials, filterPickerMaterials } from './materialPicker.js';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { sortedMaterials, filterPickerMaterials, _fetchLibMaterials } from './materialPicker.js';
 
 const matMap = {
   'mat-brick':    { name: 'Brick',    colour_hex: '#C4693A' },
@@ -41,5 +41,18 @@ describe('filterPickerMaterials', () => {
 
   it('returns empty array when no match', () => {
     expect(filterPickerMaterials(sortedMaterials(matMap), 'zzz')).toHaveLength(0);
+  });
+});
+
+describe('_fetchLibMaterials', () => {
+  afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
+
+  it('requests the library under the deployed base path', async () => {
+    vi.stubEnv('BASE_URL', '/oebf/');
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ materials: [{ id: 'mat-a', name: 'A' }] }) });
+    vi.stubGlobal('fetch', fetchMock);
+    const result = await _fetchLibMaterials();
+    expect(fetchMock).toHaveBeenCalledWith('/oebf/library/materials/library.json');
+    expect(result[0].id).toBe('mat-a');
   });
 });

@@ -19,10 +19,10 @@ export function filterPickerMaterials(materials, query) {
 
 let _libCache = null;
 
-async function _fetchLibMaterials() {
+export async function _fetchLibMaterials() {
   if (_libCache) return _libCache;
   try {
-    const res = await fetch('/library/materials/library.json');
+    const res = await fetch(import.meta.env.BASE_URL + 'library/materials/library.json');
     if (!res.ok) return [];
     const data = await res.json();
     _libCache = (data.materials ?? []).map(m => ({
