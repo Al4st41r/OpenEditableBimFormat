@@ -1,6 +1,6 @@
 # OEBF Project Status
 
-**Date:** 2026-10-20
+**Date:** 2026-11-06
 **Branch:** main
 **Tests:** 1547 JS (Vitest, 89 test files) + 347 Python (pytest, plus 3 documented xfails)
 
@@ -107,6 +107,10 @@ See `docs/roadmap.md` for the full version-by-version plan.
 | #100 | Library format differs from spec schemas | v0.3 | Two profile dialects |
 | #106 | IFC importer: imported bundles do not pass oebf validate | v0.3 | Schemas, profiles, materials, parent_group_id, slabs |
 | #101 | commands.json, ifc/mapping.json, migrations | Pre-v0.5 | Spec items not delivered |
+| #115 | Line weights: schema fields added (profile `lineweights`, layer `outline_mm`); resolver, rendering and DXF export not started | v0.4 | Plan: `docs/plans/2026-11-06-lineweights.md` |
+| #116 | Fat lines for guides and grid axes | v0.4 | Proposal: `docs/plans/2026-11-06-branch3d-review-proposal.md` |
+| #117 | Quantities and embodied carbon panel | Future | Same proposal |
+| #118 | Starter models on the editor home page | Future | Same proposal |
 
 ---
 
