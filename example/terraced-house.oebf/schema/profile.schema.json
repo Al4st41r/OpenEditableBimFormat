@@ -19,7 +19,8 @@
         "package":   { "type": "string", "enum": ["groundworks", "concrete", "timber-frame", "cladding", "interiors", "mep", "other"], "description": "Subcontractor package that supplies and fixes the item." },
         "barrier":   { "type": "array", "uniqueItems": true, "items": { "type": "string", "enum": ["air", "water", "vapour", "breathable"] }, "description": "Which barrier functions the item performs. A layer may perform more than one." },
         "fire_role": { "type": "string", "enum": ["firestop", "cavity-barrier", "fire-rated"], "description": "Fire strategy role. Reaction class and rating stay in properties.fire." },
-        "sequence":  { "type": "integer", "minimum": 1, "maximum": 99, "description": "Construction sequence: 1 is installed first. On a material it is a default step; on a layer or region `tags` it sets the step for that use. Only the order matters, not the size of the gaps." }
+        "sequence":  { "type": "integer", "minimum": 1, "maximum": 99, "description": "Construction sequence: 1 is installed first. On a material it is a default step; on a layer or region `tags` it sets the step for that use. Only the order matters, not the size of the gaps." },
+        "shearing_layer": { "type": "string", "enum": ["site", "structure", "skin", "services", "space-plan", "stuff"], "description": "Brand's shearing layer: how fast the item changes over a building's life. Site, structure, skin, services, space plan (interior finishes and partitions) or stuff (furniture and fittings)." }
       }
     }
   },

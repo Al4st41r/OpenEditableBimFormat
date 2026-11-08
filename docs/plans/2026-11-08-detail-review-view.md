@@ -126,6 +126,12 @@ Each overlay shows a legend, and items with no value for it appear hatched grey 
 - **Defaults.** Each of the 59 NMB materials has a step from 1 to 12 (sub-base, then concrete and damp-proofing, structure, first-fix and firestopping, frame and insulation, membranes, cladding, linings, then the floor build-up and finishes). These are my reading of a plausible build order, not a programme. A layer or region `tags.sequence` overrides it where one detail builds in a different order.
 - **Limit.** A step belongs to the material, so the same material has one step in every detail unless overridden. Details where it differs need region or layer tags.
 
+## 10c. Delivered design (phase 5, shearing layers)
+
+- **Data.** `shearing_layer`: site, structure, skin, services, space-plan or stuff (Brand), in the same `classification` and `tags` object.
+- **NMB tagging, by judgement.** Skin 26, space plan 14, structure 12, services 6, site 1, stuff 0 (none of these details holds furniture). Calls worth checking: foundation insulation and the damp-proof membrane are structure; the cladding build-up, cavity barriers and firestops at the facade are skin; floor screed, matting and finishes are space plan; the underfloor-heating insulation is services; the pipe and duct penetrations and their collars are services.
+- **Order.** The legend follows Brand's order (slowest-changing first), not alphabetical.
+
 ## 11. Assumptions and open questions
 
 - Whether the review view replaces `detail-axo.html` or becomes a new page. Recommendation: extend `detail-axo.html`, since it already loads the bundle and picks details.

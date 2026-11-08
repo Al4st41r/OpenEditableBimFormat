@@ -26,6 +26,15 @@ const PACKAGE_COLOURS = {
   other: ['Other', '#b0b0b0'],
 };
 
+const SHEARING_COLOURS = {
+  site: ['Site', '#7f6a4f'],
+  structure: ['Structure', '#3b6ea8'],
+  skin: ['Skin', '#4f8a8b'],
+  services: ['Services', '#d1495b'],
+  'space-plan': ['Space plan', '#d9a441'],
+  stuff: ['Stuff', '#9b6fb0'],
+};
+
 const BARRIER_ORDER = ['water', 'air', 'vapour', 'breathable'];
 const BARRIER_COLOURS = { water: '#1f77b4', air: '#2ca02c', vapour: '#9467bd', breathable: '#17becf' };
 
@@ -104,6 +113,15 @@ export const OVERLAYS = [
     valueOf(tags) {
       const e = FIRE_COLOURS[tags.fire_role];
       return e ? { key: tags.fire_role, label: e[0], colour: e[1] } : null;
+    },
+  },
+  {
+    id: 'shearing',
+    label: 'Shearing layers',
+    absentMeansNone: false,
+    valueOf(tags) {
+      const e = SHEARING_COLOURS[tags.shearing_layer];
+      return e ? { key: tags.shearing_layer, label: e[0], colour: e[1], order: Object.keys(SHEARING_COLOURS).indexOf(tags.shearing_layer) } : null;
     },
   },
   {

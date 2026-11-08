@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { PACKAGES, BARRIERS, FIRE_ROLES, checkClassification } from './classification.js';
+import { PACKAGES, BARRIERS, FIRE_ROLES, SHEARING_LAYERS, checkClassification } from './classification.js';
 import { OVERLAYS, tagsOf, valueFor, applyOverlay, overlayById, carbonValues, sequenceColour, CARBON_BINS, NO_DATA } from './overlays.js';
 
 const schema = (f) => JSON.parse(readFileSync(new URL(`../../../spec/schema/${f}.schema.json`, import.meta.url), 'utf8'));
@@ -12,13 +12,14 @@ describe('classification values match the schemas', () => {
       expect(d.properties.package.enum).toEqual([...PACKAGES]);
       expect(d.properties.barrier.items.enum).toEqual([...BARRIERS]);
       expect(d.properties.fire_role.enum).toEqual([...FIRE_ROLES]);
+      expect(d.properties.shearing_layer.enum).toEqual([...SHEARING_LAYERS]);
     }
   });
 });
 
 describe('checkClassification', () => {
   it('accepts a full valid object and an empty one', () => {
-    expect(checkClassification({ package: 'cladding', barrier: ['water', 'air'], fire_role: 'firestop', sequence: 4 })).toEqual([]);
+    expect(checkClassification({ package: 'cladding', barrier: ['water', 'air'], fire_role: 'firestop', sequence: 4, shearing_layer: 'skin' })).toEqual([]);
     expect(checkClassification({})).toEqual([]);
   });
   it('reports a bad package, barrier, duplicate and unknown field with paths', () => {
@@ -26,6 +27,7 @@ describe('checkClassification', () => {
     expect(p.map((x) => x.path).sort()).toEqual(['tags.barrier', 'tags.colour', 'tags.fire_role', 'tags.package']);
     expect(checkClassification({ barrier: ['steam'] })[0].code).toBe('enum');
     expect(checkClassification([])[0].code).toBe('classification');
+    expect(checkClassification({ shearing_layer: 'roof' })[0].code).toBe('enum');
     for (const bad of [0, 100, 2.5, '3']) expect(checkClassification({ sequence: bad })[0].code, String(bad)).toBe('sequence');
   });
 });
@@ -258,5 +260,37 @@ describe('sequence on the NMB example', () => {
     expect(step('breather-membrane')).toBeLessThan(step('cladding'));
     expect(step('acoustic-matting')).toBeLessThan(step('screed'));
     expect(step('screed')).toBeLessThanOrEqual(step('floor-finish'));
+  });
+});
+
+
+describe('shearing layers overlay', () => {
+  const mats = new Map(SHEARING_LAYERS.map((l) => [l, { classification: { shearing_layer: l } }]).concat([['none', { classification: { package: 'mep' } }]]));
+  const prism = (id, materialId, extra = {}) => ({ id, kind: 'region', materialId, regionIndex: 0, ...extra });
+
+  it('gives each of the six layers its own colour and lists them in Brand\'s order, slowest-changing first', () => {
+    const r = applyOverlay('shearing', { prisms: [...SHEARING_LAYERS].reverse().map((l, i) => prism(`i${i}`, l)) }, { materials: mats });
+    expect(r.legend.map((e) => e.key)).toEqual([...SHEARING_LAYERS]);
+    expect(new Set(r.legend.map((e) => e.colour)).size).toBe(6);
+  });
+  it('treats a classified solid with no layer as no data, and lets a region tag override the material', () => {
+    expect(applyOverlay('shearing', { prisms: [prism('a', 'none')] }, { materials: mats }).noData).toBe(1);
+    const detail = { geometry: { regions: [{ tags: { shearing_layer: 'services' } }] } };
+    const r = applyOverlay('shearing', { prisms: [prism('a', 'structure')] }, { materials: mats, detail });
+    expect(r.legend[0].key).toBe('services');
+  });
+});
+
+describe('shearing layers on the NMB example', () => {
+  const root = new URL('../../../example/nmb-two-storey.oebf/', import.meta.url);
+  const lib = JSON.parse(readFileSync(new URL('materials/library.json', root), 'utf8')).materials;
+  const layer = (id) => lib.find((m) => m.id === `mat-nmb-${id}`).classification.shearing_layer;
+  it('every material has a layer, and the obvious ones are right', () => {
+    for (const m of lib) expect(SHEARING_LAYERS, m.id).toContain(m.classification.shearing_layer);
+    expect(layer('clt')).toBe('structure');
+    expect(layer('cladding')).toBe('skin');
+    expect(layer('pipe')).toBe('services');
+    expect(layer('skim')).toBe('space-plan');
+    expect(layer('sub-base')).toBe('site');
   });
 });
