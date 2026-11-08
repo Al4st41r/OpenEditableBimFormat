@@ -15,7 +15,7 @@ import { buildAxoModel, materialsUsed, usagesOf, AXO_VIEWS } from './detailAxo.j
 import { httpReader, loadDetailData } from './loadDetailData.js';
 import { buildDetailSvg } from '../detail-review/detailSvg.js';
 import { createSelection, describeItem } from '../detail-review/selection.js';
-import { OVERLAYS, applyOverlay, tagsOf } from '../detail-review/overlays.js';
+import { OVERLAYS, applyOverlay, tagsOf, carbonValues } from '../detail-review/overlays.js';
 
 const $ = (id) => document.getElementById(id);
 const params = new URLSearchParams(location.search);
@@ -26,7 +26,7 @@ let data = null;
 let selectedId = null;
 let model = null;
 const selection = createSelection();
-const view2d = { on: true, scale: 5, hairline: false, overlay: '' };
+const view2d = { on: true, scale: 5, hairline: false, overlay: '', carbonUnit: 'kg' };
 let overlayResult = null;
 
 function status(text, error = false) {
@@ -80,7 +80,7 @@ function currentDetail() { return data?.details.find((d) => d.id === selectedId)
 /** Recompute the overlay for the current model and push it to both panes and the legend. */
 function applyOverlays() {
   overlayResult = model && view2d.overlay
-    ? applyOverlay(view2d.overlay, model, { materials: data.materials, profiles: data.profiles, detail: currentDetail() })
+    ? applyOverlay(view2d.overlay, model, { materials: data.materials, profiles: data.profiles, detail: currentDetail() }, { unit: view2d.carbonUnit })
     : null;
   viewer.setOverlay(overlayResult?.colours ?? null, selection.get());
   draw2d();
@@ -106,8 +106,11 @@ function tagLines(prism) {
   if (tags.package) rows.push(`package: ${tags.package}`);
   if (tags.barrier?.length) rows.push(`barrier: ${tags.barrier.join(', ')}`);
   if (tags.fire_role) rows.push(`fire: ${tags.fire_role}`);
-  const fire = data.materials.get(prism.materialId)?.properties?.fire;
-  if (fire) rows.push(`rating: ${fire}`);
+  const mat = data.materials.get(prism.materialId);
+  if (mat?.properties?.fire) rows.push(`rating: ${mat.properties.fire}`);
+  const cv = carbonValues(mat);
+  if (cv.perKg !== null) rows.push(`carbon: ${Math.round(cv.perKg * 1000) / 1000} kgCO2e/kg` + (cv.perM3 !== null ? `, ${Math.round(cv.perM3)} kgCO2e/m3` : '') + (mat.carbon_match === 'proxy' ? ' (proxy)' : ''));
+  else if (mat?.carbonbench_id) rows.push('carbon: no per-kg or per-m3 figure');
   return rows.length ? `<br>${rows.map(esc).join('<br>')}` : '';
 }
 
@@ -146,7 +149,12 @@ $('pane2d-btn').addEventListener('click', () => {
   draw2d();
 });
 $('overlay-select').innerHTML = '<option value="">Materials (no overlay)</option>' + OVERLAYS.map((o) => `<option value="${o.id}">${o.label}</option>`).join('');
-$('overlay-select').addEventListener('change', (e) => { view2d.overlay = e.target.value; applyOverlays(); });
+$('overlay-select').addEventListener('change', (e) => {
+  view2d.overlay = e.target.value;
+  $('carbon-unit').hidden = view2d.overlay !== 'carbon';
+  applyOverlays();
+});
+$('carbon-unit').addEventListener('change', (e) => { view2d.carbonUnit = e.target.value; applyOverlays(); });
 $('scale-select').addEventListener('change', (e) => { view2d.scale = Number(e.target.value); draw2d(); });
 $('thin-btn').addEventListener('click', () => {
   view2d.hairline = !view2d.hairline;

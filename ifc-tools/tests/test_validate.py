@@ -382,3 +382,11 @@ def test_detail_region_tags_are_checked(nmb_bundle):
     assert validate_bundle(nmb_bundle) == []
     edit(path, lambda d: d["geometry"]["regions"][0].__setitem__("tags", {"package": "nope"}))
     assert validate_bundle(nmb_bundle) != []
+
+
+def test_carbonbench_link_fields_are_accepted_and_checked(nmb_bundle):
+    lib = nmb_bundle / "materials" / "library.json"
+    assert any("carbonbench_id" in m for m in load(lib)["materials"])
+    assert validate_bundle(nmb_bundle) == []
+    edit(lib, lambda d: d["materials"][0].__setitem__("carbon_match", "guess"))
+    assert validate_bundle(nmb_bundle) != []

@@ -29,6 +29,8 @@ Read this before editing any file in this bundle. Every 3D element sweeps a
 
 **Classification tags (optional).** A material may carry `classification` and an assembly layer or detail region may carry `tags`, with the same three fields: `package` (groundworks, concrete, timber-frame, cladding, interiors, mep or other), `barrier` (a list from air, water, vapour, breathable) and `fire_role` (firestop, cavity-barrier or fire-rated). The tags on a layer or region override the material's, field by field. The detail review view colours the drawing by them. Reaction class and rating stay in `properties.fire`.
 
+**Carbon factors (optional).** A material may name a row of the CarbonBench material database with `carbonbench_id`, record the release with `carbonbench_version`, and say whether the row is the same product or a stand-in with `carbon_match` (`exact` or `proxy`). `node scripts/sync-carbonbench.mjs <bundle>` then copies the A1-A3 factor, its unit, the density and any biogenic factor into `properties.carbon`, so the bundle stays self-contained. A material with no match shows as no data in the carbon overlay.
+
 ---
 
 ## Bundle layout

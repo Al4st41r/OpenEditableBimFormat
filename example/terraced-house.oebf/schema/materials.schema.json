@@ -34,6 +34,9 @@
           "ifc_material_name":  { "type": "string" },
           "properties":         { "type": "object" },
           "classification":     { "$ref": "#/definitions/classification" },
+          "carbonbench_id":      { "type": "string", "description": "Id of the matching row in the CarbonBench material database. The factors are copied into properties.carbon by scripts/sync-carbonbench.mjs." },
+          "carbonbench_version": { "type": "string", "description": "CarbonBench database release the snapshot was taken from, for example 1.7.9." },
+          "carbon_match":        { "type": "string", "enum": ["exact", "proxy"], "description": "Whether the CarbonBench row is the same product (exact) or a stand-in for it (proxy)." },
           "interactions":       { "type": "object" }
         }
       }

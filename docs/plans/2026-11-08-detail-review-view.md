@@ -1,7 +1,7 @@
 # Detail Review View: 2D Pane, Line Weights and Overlays
 
 **Date:** 2026-11-08
-**Status:** Phases 1 to 4 delivered 2026-11-08 (see `docs/project-status.md`). Phases 5 and 6 not started.
+**Status:** Phases 1 to 4 delivered 2026-11-08, and phase 5 started with the carbon overlay (see `docs/project-status.md`). Sequence, SfB and shearing layers, and phase 6, not started.
 **Related:** `docs/plans/2026-11-06-lineweights.md`, issue #81, issue #115
 
 ---
@@ -109,6 +109,16 @@ Each overlay shows a legend, and items with no value for it appear hatched grey 
 - **Mapping the 59 NMB materials.** A one-off mapping file lists each NMB material and its CarbonBench id, with unmatched ones marked. Matching is by hand, because product names differ. Unmatched materials show as "no data" in the overlay, never as zero (CarbonBench takes the same position).
 - **Scope.** A1-A3 only in the first pass. Biogenic carbon is shown separately, not netted off. Whole-life modules are out of scope here.
 - **Dependency.** CarbonBench is a work project in a separate repository (WTA account). The sync reads its released JSON file only, so OEBF has no code dependency on it. Check that the data may be copied into a personal-account repository before committing any snapshot figures.
+
+## 10a. Delivered design (phase 5, carbon)
+
+- **Source.** The newest CarbonBench release at the time, 1.7.57 (not 1.7.9 as first noted: an earlier listing sorted the names as text). Rows are keyed by `granularity: "material"`.
+- **Link and snapshot.** `carbonbench_id`, `carbonbench_version` and `carbon_match` (exact or proxy) on the material; `scripts/sync-carbonbench.mjs` writes `properties.carbon` (factor, unit, density, biogenic). It skips quietly where CarbonBench is absent, so CI is unaffected, and has a `--check` mode.
+- **Units.** CarbonBench mixes kgCO2e per kg (226 rows), per m3 (17) and per m2 (10). The overlay derives per kg and per m3 using density; a per-m2 factor cannot be converted and shows as no data.
+- **Coverage.** 37 of 59 NMB materials are linked, many as proxies (concrete assumed 90 kg/m3 rebar and 25% GGBS; fire boards as cement board; steel parts as structural steel). The 22 unlinked ones are systems or products with no CarbonBench row: light steel framing and the wall lining and shaft systems, the firestops and cavity barriers, cladding, windows, the roof build-up and the thermal break.
+- **Overlay.** Six fixed bins (per kg: 0.2, 0.5, 1, 2, 5; per m3: 50, 150, 400, 1000, 3000) on a light-to-dark palette, so details can be compared. A toggle chooses the unit. Biogenic carbon is stored but not shown.
+- **Not done: a total.** A kgCO2e figure for the detail would double count, because regions overlap members (insulation drawn over CLT, for example). It needs an overlap-aware volume first.
+- **Data licence.** The copied factors come from a work project (WTA CarbonBench); check they may be held in this personal repository before it is made public.
 
 ## 11. Assumptions and open questions
 

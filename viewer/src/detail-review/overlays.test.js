@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { PACKAGES, BARRIERS, FIRE_ROLES, checkClassification } from './classification.js';
-import { OVERLAYS, tagsOf, valueFor, applyOverlay, overlayById, NO_DATA } from './overlays.js';
+import { OVERLAYS, tagsOf, valueFor, applyOverlay, overlayById, carbonValues, CARBON_BINS, NO_DATA } from './overlays.js';
 
 const schema = (f) => JSON.parse(readFileSync(new URL(`../../../spec/schema/${f}.schema.json`, import.meta.url), 'utf8'));
 
@@ -116,6 +116,7 @@ describe('NMB example tagging', () => {
       const profiles = new Map(detail.members.map((m) => [m.profile_id, JSON.parse(readFileSync(new URL(`profiles/${m.profile_id}.json`, root), 'utf8'))]));
       const model = buildAxoModel(detail, { profiles });
       for (const o of OVERLAYS) {
+        if (o.id === 'carbon') continue; // 22 of the 59 materials have no CarbonBench match; they show as no data
         const r = applyOverlay(o.id, model, { materials: mats, profiles, detail });
         expect(r.noData, `${f} ${o.id}`).toBe(0);
       }
@@ -130,5 +131,78 @@ describe('NMB example tagging', () => {
     const keys = r.legend.map((e) => e.key);
     expect(keys).toContain('firestop');
     expect(keys).toContain('cavity-barrier');
+  });
+});
+
+
+describe('carbonValues', () => {
+  const mat = (carbon) => ({ properties: { carbon } });
+  it('derives per m3 from a per kg factor and density', () => {
+    expect(carbonValues(mat({ factor: 0.437, unit: 'kgCO2e/kg', density_kg_m3: 472 }))).toEqual({ perKg: 0.437, perM3: 0.437 * 472 });
+  });
+  it('derives per kg from a per m3 factor and density, and refuses without a density', () => {
+    expect(carbonValues(mat({ factor: 940, unit: 'kgCO2e/m3', density_kg_m3: 470 }))).toEqual({ perKg: 2, perM3: 940 });
+    expect(carbonValues(mat({ factor: 940, unit: 'kgCO2e/m3', density_kg_m3: null }))).toEqual({ perKg: null, perM3: 940 });
+  });
+  it('gives per kg only when there is no density, and zero for a zero-density void', () => {
+    expect(carbonValues(mat({ factor: 0.3, unit: 'kgCO2e/kg', density_kg_m3: null }))).toEqual({ perKg: 0.3, perM3: null });
+    expect(carbonValues(mat({ factor: 0, unit: 'kgCO2e/kg', density_kg_m3: 0 }))).toEqual({ perKg: 0, perM3: 0 });
+  });
+  it('cannot use a per-m2 factor or a missing snapshot', () => {
+    expect(carbonValues(mat({ factor: 4, unit: 'kgCO2e/m2', density_kg_m3: null }))).toEqual({ perKg: null, perM3: null });
+    expect(carbonValues({})).toEqual({ perKg: null, perM3: null });
+    expect(carbonValues(undefined)).toEqual({ perKg: null, perM3: null });
+  });
+});
+
+describe('carbon overlay', () => {
+  const m = (factor, density, unit = 'kgCO2e/kg') => ({ properties: { carbon: { factor, unit, density_kg_m3: density } } });
+  const materials = new Map([['low', m(0.1, 100)], ['mid', m(0.8, 1000)], ['high', m(7, 7800)], ['none', {}]]);
+  const prism = (id, materialId) => ({ id, kind: 'region', materialId, regionIndex: 0 });
+  const model = { prisms: [prism('a', 'low'), prism('b', 'mid'), prism('c', 'high'), prism('d', 'none')] };
+
+  it('bins per kg on fixed edges, light to dark, with unmatched materials as no data', () => {
+    const r = applyOverlay('carbon', model, { materials }, { unit: 'kg' });
+    expect(r.legend.map((e) => e.label)).toEqual(['under 0.2 kgCO2e/kg', '0.5 to 1 kgCO2e/kg', '5 or more kgCO2e/kg', 'No data']);
+    expect(r.colours.get('a')).not.toBe(r.colours.get('c'));
+    expect(r.colours.get('d')).toBeNull();
+    expect(r.noData).toBe(1);
+  });
+  it('bins per m3 using factor times density', () => {
+    const r = applyOverlay('carbon', model, { materials }, { unit: 'm3' });
+    // low 10, mid 800, high 54600 kgCO2e/m3
+    expect(r.legend.map((e) => e.label)).toEqual(['under 50 kgCO2e/m3', '400 to 1000 kgCO2e/m3', '3000 or more kgCO2e/m3', 'No data']);
+  });
+  it('defaults to per kg, and uses a colour from the six-step scale', () => {
+    expect(applyOverlay('carbon', model, { materials }).legend[0].label).toContain('kgCO2e/kg');
+    expect(CARBON_BINS.kg.edges).toHaveLength(5);
+    expect(CARBON_BINS.m3.edges).toHaveLength(5);
+  });
+  it('does not need a classification', () => {
+    const r = applyOverlay('carbon', { prisms: [prism('a', 'low')] }, { materials });
+    expect(r.noData).toBe(0);
+  });
+});
+
+describe('NMB carbon snapshot', () => {
+  const root = new URL('../../../example/nmb-two-storey.oebf/', import.meta.url);
+  const lib = JSON.parse(readFileSync(new URL('materials/library.json', root), 'utf8')).materials;
+  const linked = lib.filter((m) => m.carbonbench_id);
+
+  it('links 37 of the 59 materials, each with a version, a match and a snapshot', () => {
+    expect(lib).toHaveLength(59);
+    expect(linked).toHaveLength(37);
+    for (const m of linked) {
+      expect(m.carbonbench_version, m.id).toMatch(/^\d+\.\d+\.\d+$/);
+      expect(['exact', 'proxy'], m.id).toContain(m.carbon_match);
+      expect(typeof m.properties?.carbon?.factor, m.id).toBe('number');
+      expect(['kgCO2e/kg', 'kgCO2e/m3', 'kgCO2e/m2'], m.id).toContain(m.properties.carbon.unit);
+    }
+  });
+  it('every linked material but the per-m2 ones gives a per kg or per m3 figure', () => {
+    for (const m of linked) {
+      const v = carbonValues(m);
+      if (m.properties.carbon.unit !== 'kgCO2e/m2') expect(v.perKg !== null || v.perM3 !== null, m.id).toBe(true);
+    }
   });
 });

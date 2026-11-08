@@ -11,12 +11,22 @@
       "properties": {
         "fire": "Euroclass D-s2, d0; fully encapsulated (REI via encapsulation)",
         "fixing": "Steel anchor bolts and straps screw fixed to CLT panel",
-        "nmb_item": "301/302/363"
+        "nmb_item": "301/302/363",
+        "carbon": {
+          "factor": 0.437,
+          "unit": "kgCO2e/kg",
+          "density_kg_m3": 472,
+          "biogenic_factor": -1.64,
+          "biogenic_unit": "kgCO2e/kg"
+        }
       },
       "interactions": {},
       "classification": {
         "package": "timber-frame"
-      }
+      },
+      "carbonbench_id": "clt-global-fsc-pefc-istructe",
+      "carbon_match": "exact",
+      "carbonbench_version": "1.7.57"
     },
     {
       "id": "mat-nmb-glulam",
@@ -27,12 +37,22 @@
       "ifc_material_name": "Glulam column / beam",
       "properties": {
         "fire": "Euroclass D-s2, d0; fully encapsulated",
-        "nmb_item": "303/305"
+        "nmb_item": "303/305",
+        "carbon": {
+          "factor": 0.512,
+          "unit": "kgCO2e/kg",
+          "density_kg_m3": 513,
+          "biogenic_factor": -1.64,
+          "biogenic_unit": "kgCO2e/kg"
+        }
       },
       "interactions": {},
       "classification": {
         "package": "timber-frame"
-      }
+      },
+      "carbonbench_id": "glulam-global-fsc-pefc-istructe",
+      "carbon_match": "exact",
+      "carbonbench_version": "1.7.57"
     },
     {
       "id": "mat-nmb-wall-lining-board",
@@ -44,13 +64,23 @@
       "properties": {
         "fire": "K2 60 encapsulation; Euroclass A2-s3, d2 or better; minimum 2 layers",
         "fixing": "Mechanically fixed to LSF or wall lining system",
-        "nmb_item": "311"
+        "nmb_item": "311",
+        "carbon": {
+          "factor": 0.42,
+          "unit": "kgCO2e/kg",
+          "density_kg_m3": 1050,
+          "biogenic_factor": null,
+          "biogenic_unit": null
+        }
       },
       "interactions": {},
       "classification": {
         "package": "interiors",
         "fire_role": "fire-rated"
-      }
+      },
+      "carbonbench_id": "plasterboard-fire",
+      "carbon_match": "proxy",
+      "carbonbench_version": "1.7.57"
     },
     {
       "id": "mat-nmb-skim",
@@ -59,11 +89,22 @@
       "category": "plaster",
       "colour_hex": "#F7F7F2",
       "ifc_material_name": "Skim and paint",
-      "properties": {},
+      "properties": {
+        "carbon": {
+          "factor": 0.13,
+          "unit": "kgCO2e/kg",
+          "density_kg_m3": 900,
+          "biogenic_factor": null,
+          "biogenic_unit": null
+        }
+      },
       "interactions": {},
       "classification": {
         "package": "interiors"
-      }
+      },
+      "carbonbench_id": "plaster",
+      "carbon_match": "exact",
+      "carbonbench_version": "1.7.57"
     },
     {
       "id": "mat-nmb-wall-lining-system",
@@ -106,12 +147,22 @@
       "ifc_material_name": "Rainscreen insulation",
       "properties": {
         "thickness_mm": 300,
-        "nmb_item": "332"
+        "nmb_item": "332",
+        "carbon": {
+          "factor": 0.9393939,
+          "unit": "kgCO2e/kg",
+          "density_kg_m3": 55,
+          "biogenic_factor": null,
+          "biogenic_unit": null
+        }
       },
       "interactions": {},
       "classification": {
         "package": "cladding"
-      }
+      },
+      "carbonbench_id": "mineral-wool-rockwool-rainscreen-duoslab-rockwool-rainscreen-duoslab",
+      "carbon_match": "proxy",
+      "carbonbench_version": "1.7.57"
     },
     {
       "id": "mat-nmb-breather-membrane",
@@ -121,7 +172,14 @@
       "colour_hex": "#4FA8B0",
       "ifc_material_name": "Breather membrane",
       "properties": {
-        "nmb_item": "351"
+        "nmb_item": "351",
+        "carbon": {
+          "factor": 3.2,
+          "unit": "kgCO2e/kg",
+          "density_kg_m3": 200,
+          "biogenic_factor": null,
+          "biogenic_unit": null
+        }
       },
       "interactions": {},
       "classification": {
@@ -130,7 +188,10 @@
           "water",
           "breathable"
         ]
-      }
+      },
+      "carbonbench_id": "breathable-membrane",
+      "carbon_match": "exact",
+      "carbonbench_version": "1.7.57"
     },
     {
       "id": "mat-nmb-vapour-barrier",
@@ -141,7 +202,14 @@
       "ifc_material_name": "Vapour barrier (AVCL)",
       "properties": {
         "note": "Sealed to the engineered timber for continuous airtightness",
-        "nmb_item": "352"
+        "nmb_item": "352",
+        "carbon": {
+          "factor": 2.5,
+          "unit": "kgCO2e/kg",
+          "density_kg_m3": 950,
+          "biogenic_factor": null,
+          "biogenic_unit": null
+        }
       },
       "interactions": {},
       "classification": {
@@ -150,7 +218,10 @@
           "air",
           "vapour"
         ]
-      }
+      },
+      "carbonbench_id": "vapour-barrier",
+      "carbon_match": "exact",
+      "carbonbench_version": "1.7.57"
     },
     {
       "id": "mat-nmb-sheathing-board",
@@ -160,12 +231,22 @@
       "colour_hex": "#B8A98A",
       "ifc_material_name": "Sheathing board",
       "properties": {
-        "nmb_item": "323"
+        "nmb_item": "323",
+        "carbon": {
+          "factor": 0.316521739,
+          "unit": "kgCO2e/kg",
+          "density_kg_m3": 920,
+          "biogenic_factor": null,
+          "biogenic_unit": null
+        }
       },
       "interactions": {},
       "classification": {
         "package": "timber-frame"
-      }
+      },
+      "carbonbench_id": "sheathing-board-gyproc-125mm-glasroc-x-plasterboard",
+      "carbon_match": "proxy",
+      "carbonbench_version": "1.7.57"
     },
     {
       "id": "mat-nmb-fixing-system",
@@ -175,12 +256,22 @@
       "colour_hex": "#CFE3EA",
       "ifc_material_name": "Cladding fixing system / ventilated cavity",
       "properties": {
-        "nmb_item": "331"
+        "nmb_item": "331",
+        "carbon": {
+          "factor": 0,
+          "unit": "kgCO2e/kg",
+          "density_kg_m3": 0,
+          "biogenic_factor": null,
+          "biogenic_unit": null
+        }
       },
       "interactions": {},
       "classification": {
         "package": "cladding"
-      }
+      },
+      "carbonbench_id": "air-cavity-ventilated",
+      "carbon_match": "proxy",
+      "carbonbench_version": "1.7.57"
     },
     {
       "id": "mat-nmb-cladding",
@@ -219,12 +310,22 @@
       "colour_hex": "#C9C9C0",
       "ifc_material_name": "Screedboard",
       "properties": {
-        "nmb_item": "FL-01"
+        "nmb_item": "FL-01",
+        "carbon": {
+          "factor": 0.3004,
+          "unit": "kgCO2e/kg",
+          "density_kg_m3": 1100,
+          "biogenic_factor": null,
+          "biogenic_unit": null
+        }
       },
       "interactions": {},
       "classification": {
         "package": "interiors"
-      }
+      },
+      "carbonbench_id": "screed-board-knauf-screed-fibreboard",
+      "carbon_match": "exact",
+      "carbonbench_version": "1.7.57"
     },
     {
       "id": "mat-nmb-ufh-insulation",
@@ -234,12 +335,22 @@
       "colour_hex": "#E3D98A",
       "ifc_material_name": "Rigid insulation with underfloor heating",
       "properties": {
-        "nmb_item": "FL-01"
+        "nmb_item": "FL-01",
+        "carbon": {
+          "factor": 3.48,
+          "unit": "kgCO2e/kg",
+          "density_kg_m3": 30,
+          "biogenic_factor": null,
+          "biogenic_unit": null
+        }
       },
       "interactions": {},
       "classification": {
         "package": "interiors"
-      }
+      },
+      "carbonbench_id": "pir-pur",
+      "carbon_match": "proxy",
+      "carbonbench_version": "1.7.57"
     },
     {
       "id": "mat-nmb-acoustic-matting",
@@ -264,12 +375,22 @@
       "colour_hex": "#B5B5AD",
       "ifc_material_name": "Screed (bonded)",
       "properties": {
-        "nmb_item": "FL-02"
+        "nmb_item": "FL-02",
+        "carbon": {
+          "factor": 0.146,
+          "unit": "kgCO2e/kg",
+          "density_kg_m3": 2000,
+          "biogenic_factor": null,
+          "biogenic_unit": null
+        }
       },
       "interactions": {},
       "classification": {
         "package": "interiors"
-      }
+      },
+      "carbonbench_id": "mortar-screed-14-cement-sand-istructe",
+      "carbon_match": "exact",
+      "carbonbench_version": "1.7.57"
     },
     {
       "id": "mat-nmb-concrete",
@@ -280,12 +401,22 @@
       "ifc_material_name": "Reinforced concrete (in-situ)",
       "properties": {
         "note": "To structural engineer design and specification",
-        "nmb_item": "FL-02"
+        "nmb_item": "FL-02",
+        "carbon": {
+          "factor": 0.125,
+          "unit": "kgCO2e/kg",
+          "density_kg_m3": 2400,
+          "biogenic_factor": null,
+          "biogenic_unit": null
+        }
       },
       "interactions": {},
       "classification": {
         "package": "concrete"
-      }
+      },
+      "carbonbench_id": "concrete-rebar-90kgm3-25-ggbs",
+      "carbon_match": "proxy",
+      "carbonbench_version": "1.7.57"
     },
     {
       "id": "mat-nmb-ground-insulation",
@@ -295,12 +426,22 @@
       "colour_hex": "#E8DC7E",
       "ifc_material_name": "Rigid closed cell insulation",
       "properties": {
-        "nmb_item": "FL-02"
+        "nmb_item": "FL-02",
+        "carbon": {
+          "factor": 164,
+          "unit": "kgCO2e/m3",
+          "density_kg_m3": null,
+          "biogenic_factor": 0,
+          "biogenic_unit": null
+        }
       },
       "interactions": {},
       "classification": {
         "package": "groundworks"
-      }
+      },
+      "carbonbench_id": "ground-insulation-xps",
+      "carbon_match": "exact",
+      "carbonbench_version": "1.7.57"
     },
     {
       "id": "mat-nmb-roof-buildup",
@@ -332,12 +473,22 @@
       "properties": {
         "fixing": "Screw fixed to timber elements",
         "fire": "Fire resistance provided through encapsulation",
-        "nmb_item": "304"
+        "nmb_item": "304",
+        "carbon": {
+          "factor": 1.55,
+          "unit": "kgCO2e/kg",
+          "density_kg_m3": 7800,
+          "biogenic_factor": null,
+          "biogenic_unit": null
+        }
       },
       "interactions": {},
       "classification": {
         "package": "timber-frame"
-      }
+      },
+      "carbonbench_id": "steel-structural",
+      "carbon_match": "proxy",
+      "carbonbench_version": "1.7.57"
     },
     {
       "id": "mat-nmb-gap-sealer",
@@ -369,13 +520,23 @@
         "fire": "30 minutes integrity, 15 minutes insulation",
         "min_thickness_mm": 12,
         "description": "Calcium silicate, cement-based or gypsum-based board",
-        "nmb_item": "313"
+        "nmb_item": "313",
+        "carbon": {
+          "factor": 0.63,
+          "unit": "kgCO2e/kg",
+          "density_kg_m3": 1450,
+          "biogenic_factor": null,
+          "biogenic_unit": null
+        }
       },
       "interactions": {},
       "classification": {
         "package": "cladding",
         "fire_role": "cavity-barrier"
-      }
+      },
+      "carbonbench_id": "cement-board",
+      "carbon_match": "proxy",
+      "carbonbench_version": "1.7.57"
     },
     {
       "id": "mat-nmb-firestop-wrap",
@@ -456,13 +617,23 @@
         "fire": "60 minutes",
         "reaction": "Euroclass A1 in accordance with BS EN 13501-1",
         "min_layers": 2,
-        "nmb_item": "320"
+        "nmb_item": "320",
+        "carbon": {
+          "factor": 0.42,
+          "unit": "kgCO2e/kg",
+          "density_kg_m3": 1050,
+          "biogenic_factor": null,
+          "biogenic_unit": null
+        }
       },
       "interactions": {},
       "classification": {
         "package": "interiors",
         "fire_role": "fire-rated"
-      }
+      },
+      "carbonbench_id": "plasterboard-fire",
+      "carbon_match": "proxy",
+      "carbonbench_version": "1.7.57"
     },
     {
       "id": "mat-nmb-full-fill-insulation",
@@ -474,13 +645,23 @@
       "properties": {
         "description": "Full fill stone mineral wool slab insulation for steel frames",
         "reaction": "Euroclass A2-s1, d2 or better",
-        "nmb_item": "325"
+        "nmb_item": "325",
+        "carbon": {
+          "factor": 1.28,
+          "unit": "kgCO2e/kg",
+          "density_kg_m3": 40,
+          "biogenic_factor": null,
+          "biogenic_unit": null
+        }
       },
       "interactions": {},
       "classification": {
         "package": "cladding",
         "fire_role": "fire-rated"
-      }
+      },
+      "carbonbench_id": "mineral-wool-rockwool-rockwool",
+      "carbon_match": "exact",
+      "carbonbench_version": "1.7.57"
     },
     {
       "id": "mat-nmb-balcony-connection",
@@ -491,13 +672,23 @@
       "ifc_material_name": "Balcony connection",
       "properties": {
         "description": "Bespoke steel balcony connection, fully encapsulated with K2-60 protection",
-        "nmb_item": "326"
+        "nmb_item": "326",
+        "carbon": {
+          "factor": 1.55,
+          "unit": "kgCO2e/kg",
+          "density_kg_m3": 7800,
+          "biogenic_factor": null,
+          "biogenic_unit": null
+        }
       },
       "interactions": {},
       "classification": {
         "package": "other",
         "fire_role": "fire-rated"
-      }
+      },
+      "carbonbench_id": "steel-structural",
+      "carbon_match": "proxy",
+      "carbonbench_version": "1.7.57"
     },
     {
       "id": "mat-nmb-closed-cell-insulation",
@@ -508,12 +699,22 @@
       "ifc_material_name": "Closed cell perimeter insulation",
       "properties": {
         "location": "Junction of GF slab and external facade, below DPC",
-        "nmb_item": "327"
+        "nmb_item": "327",
+        "carbon": {
+          "factor": 164,
+          "unit": "kgCO2e/m3",
+          "density_kg_m3": null,
+          "biogenic_factor": 0,
+          "biogenic_unit": null
+        }
       },
       "interactions": {},
       "classification": {
         "package": "groundworks"
-      }
+      },
+      "carbonbench_id": "ground-insulation-xps",
+      "carbon_match": "proxy",
+      "carbonbench_version": "1.7.57"
     },
     {
       "id": "mat-nmb-linear-firestop",
@@ -595,13 +796,23 @@
       "ifc_material_name": "Ablative coated batt",
       "properties": {
         "description": "Mineral wool insulation, pre-coated on both sides with ablative coating",
-        "nmb_item": "345"
+        "nmb_item": "345",
+        "carbon": {
+          "factor": 1.28,
+          "unit": "kgCO2e/kg",
+          "density_kg_m3": 30,
+          "biogenic_factor": null,
+          "biogenic_unit": null
+        }
       },
       "interactions": {},
       "classification": {
         "package": "cladding",
         "fire_role": "firestop"
-      }
+      },
+      "carbonbench_id": "mineral-wool",
+      "carbon_match": "proxy",
+      "carbonbench_version": "1.7.57"
     },
     {
       "id": "mat-nmb-fire-board",
@@ -613,13 +824,23 @@
       "properties": {
         "fire": "60 minutes",
         "description": "Calcium silicate or cement-based board suitable for external use",
-        "nmb_item": "346"
+        "nmb_item": "346",
+        "carbon": {
+          "factor": 0.63,
+          "unit": "kgCO2e/kg",
+          "density_kg_m3": 1450,
+          "biogenic_factor": null,
+          "biogenic_unit": null
+        }
       },
       "interactions": {},
       "classification": {
         "package": "cladding",
         "fire_role": "fire-rated"
-      }
+      },
+      "carbonbench_id": "cement-board",
+      "carbon_match": "proxy",
+      "carbonbench_version": "1.7.57"
     },
     {
       "id": "mat-nmb-roof-structure",
@@ -630,12 +851,22 @@
       "ifc_material_name": "Lightweight timber roof structure",
       "properties": {
         "description": "Timber decking board with timber joists",
-        "nmb_item": "362"
+        "nmb_item": "362",
+        "carbon": {
+          "factor": 0.35,
+          "unit": "kgCO2e/kg",
+          "density_kg_m3": 510,
+          "biogenic_factor": -1.65,
+          "biogenic_unit": "kgCO2e/kg"
+        }
       },
       "interactions": {},
       "classification": {
         "package": "timber-frame"
-      }
+      },
+      "carbonbench_id": "timber-softwood",
+      "carbon_match": "proxy",
+      "carbonbench_version": "1.7.57"
     },
     {
       "id": "mat-nmb-roof-sheeting",
@@ -646,13 +877,23 @@
       "ifc_material_name": "Non-combustible roof sheeting",
       "properties": {
         "description": "Non-combustible cement bonded particle board, horizontal application",
-        "nmb_item": "364"
+        "nmb_item": "364",
+        "carbon": {
+          "factor": 0.63,
+          "unit": "kgCO2e/kg",
+          "density_kg_m3": 1450,
+          "biogenic_factor": null,
+          "biogenic_unit": null
+        }
       },
       "interactions": {},
       "classification": {
         "package": "timber-frame",
         "fire_role": "fire-rated"
-      }
+      },
+      "carbonbench_id": "cement-board",
+      "carbon_match": "proxy",
+      "carbonbench_version": "1.7.57"
     },
     {
       "id": "mat-nmb-waterproofing",
@@ -662,7 +903,14 @@
       "colour_hex": "#3FA3B8",
       "ifc_material_name": "Robust waterproofing layer",
       "properties": {
-        "note": "Installed to a minimum of 1.2 m AFFL in wet areas"
+        "note": "Installed to a minimum of 1.2 m AFFL in wet areas",
+        "carbon": {
+          "factor": 1.4848,
+          "unit": "kgCO2e/kg",
+          "density_kg_m3": 1250,
+          "biogenic_factor": null,
+          "biogenic_unit": null
+        }
       },
       "interactions": {},
       "classification": {
@@ -670,7 +918,10 @@
         "barrier": [
           "water"
         ]
-      }
+      },
+      "carbonbench_id": "waterproofing-self-adhesive-membrane-riw-tilesafe",
+      "carbon_match": "proxy",
+      "carbonbench_version": "1.7.57"
     },
     {
       "id": "mat-nmb-tanking-membrane",
@@ -679,14 +930,25 @@
       "category": "membrane",
       "colour_hex": "#52B6C9",
       "ifc_material_name": "Self adhesive waterproofing membrane",
-      "properties": {},
+      "properties": {
+        "carbon": {
+          "factor": 1.4848,
+          "unit": "kgCO2e/kg",
+          "density_kg_m3": 1250,
+          "biogenic_factor": null,
+          "biogenic_unit": null
+        }
+      },
       "interactions": {},
       "classification": {
         "package": "interiors",
         "barrier": [
           "water"
         ]
-      }
+      },
+      "carbonbench_id": "waterproofing-self-adhesive-membrane-riw-tilesafe",
+      "carbon_match": "exact",
+      "carbonbench_version": "1.7.57"
     },
     {
       "id": "mat-nmb-bathroom-finish",
@@ -695,11 +957,22 @@
       "category": "finish",
       "colour_hex": "#C9D6DC",
       "ifc_material_name": "Bathroom wall finish (tiles)",
-      "properties": {},
+      "properties": {
+        "carbon": {
+          "factor": 0.78,
+          "unit": "kgCO2e/kg",
+          "density_kg_m3": 2000,
+          "biogenic_factor": null,
+          "biogenic_unit": null
+        }
+      },
       "interactions": {},
       "classification": {
         "package": "interiors"
-      }
+      },
+      "carbonbench_id": "ceramic-tiles",
+      "carbon_match": "exact",
+      "carbonbench_version": "1.7.57"
     },
     {
       "id": "mat-nmb-service-void",
@@ -709,12 +982,22 @@
       "colour_hex": "#F4F4F0",
       "ifc_material_name": "Servicing void",
       "properties": {
-        "note": "200 mm void for SVP"
+        "note": "200 mm void for SVP",
+        "carbon": {
+          "factor": 0,
+          "unit": "kgCO2e/kg",
+          "density_kg_m3": 0,
+          "biogenic_factor": null,
+          "biogenic_unit": null
+        }
       },
       "interactions": {},
       "classification": {
         "package": "mep"
-      }
+      },
+      "carbonbench_id": "air-cavity",
+      "carbon_match": "exact",
+      "carbonbench_version": "1.7.57"
     },
     {
       "id": "mat-nmb-dpc",
@@ -724,7 +1007,14 @@
       "colour_hex": "#3C3C3C",
       "ifc_material_name": "DPC membrane",
       "properties": {
-        "note": "Extends a minimum of 100 mm beyond the timber thickness"
+        "note": "Extends a minimum of 100 mm beyond the timber thickness",
+        "carbon": {
+          "factor": 2.3,
+          "unit": "kgCO2e/kg",
+          "density_kg_m3": 1150,
+          "biogenic_factor": null,
+          "biogenic_unit": null
+        }
       },
       "interactions": {},
       "classification": {
@@ -732,7 +1022,10 @@
         "barrier": [
           "water"
         ]
-      }
+      },
+      "carbonbench_id": "dpc-edpm-pp",
+      "carbon_match": "exact",
+      "carbonbench_version": "1.7.57"
     },
     {
       "id": "mat-nmb-dpm",
@@ -741,14 +1034,25 @@
       "category": "membrane",
       "colour_hex": "#2E8FD6",
       "ifc_material_name": "DPM waterproofing membrane",
-      "properties": {},
+      "properties": {
+        "carbon": {
+          "factor": 2.5,
+          "unit": "kgCO2e/kg",
+          "density_kg_m3": 950,
+          "biogenic_factor": null,
+          "biogenic_unit": null
+        }
+      },
       "interactions": {},
       "classification": {
         "package": "groundworks",
         "barrier": [
           "water"
         ]
-      }
+      },
+      "carbonbench_id": "dpm",
+      "carbon_match": "exact",
+      "carbonbench_version": "1.7.57"
     },
     {
       "id": "mat-nmb-acoustic-strip",
@@ -771,12 +1075,22 @@
       "colour_hex": "#C9C6BD",
       "ifc_material_name": "Masonry upstand",
       "properties": {
-        "note": "Minimum 150 mm above external ground level"
+        "note": "Minimum 150 mm above external ground level",
+        "carbon": {
+          "factor": 0.24,
+          "unit": "kgCO2e/kg",
+          "density_kg_m3": 1700,
+          "biogenic_factor": null,
+          "biogenic_unit": null
+        }
       },
       "interactions": {},
       "classification": {
         "package": "groundworks"
-      }
+      },
+      "carbonbench_id": "clay-brick-general",
+      "carbon_match": "proxy",
+      "carbonbench_version": "1.7.57"
     },
     {
       "id": "mat-nmb-cavity-tray",
@@ -802,14 +1116,25 @@
       "category": "membrane",
       "colour_hex": "#2B2B2B",
       "ifc_material_name": "EPDM seal",
-      "properties": {},
+      "properties": {
+        "carbon": {
+          "factor": 2.3,
+          "unit": "kgCO2e/kg",
+          "density_kg_m3": 1150,
+          "biogenic_factor": null,
+          "biogenic_unit": null
+        }
+      },
       "interactions": {},
       "classification": {
         "package": "cladding",
         "barrier": [
           "water"
         ]
-      }
+      },
+      "carbonbench_id": "epdm-membrane",
+      "carbon_match": "exact",
+      "carbonbench_version": "1.7.57"
     },
     {
       "id": "mat-nmb-window-frame",
@@ -844,11 +1169,22 @@
       "category": "roofing",
       "colour_hex": "#C9C9C0",
       "ifc_material_name": "Gravel upstand guard",
-      "properties": {},
+      "properties": {
+        "carbon": {
+          "factor": 0.0048,
+          "unit": "kgCO2e/kg",
+          "density_kg_m3": 1680,
+          "biogenic_factor": null,
+          "biogenic_unit": null
+        }
+      },
       "interactions": {},
       "classification": {
         "package": "cladding"
-      }
+      },
+      "carbonbench_id": "gravel",
+      "carbon_match": "exact",
+      "carbonbench_version": "1.7.57"
     },
     {
       "id": "mat-nmb-coping",
@@ -870,12 +1206,23 @@
       "category": "steel",
       "colour_hex": "#9096A0",
       "ifc_material_name": "Non-combustible balcony support frame",
-      "properties": {},
+      "properties": {
+        "carbon": {
+          "factor": 1.55,
+          "unit": "kgCO2e/kg",
+          "density_kg_m3": 7800,
+          "biogenic_factor": null,
+          "biogenic_unit": null
+        }
+      },
       "interactions": {},
       "classification": {
         "package": "other",
         "fire_role": "fire-rated"
-      }
+      },
+      "carbonbench_id": "steel-structural",
+      "carbon_match": "proxy",
+      "carbonbench_version": "1.7.57"
     },
     {
       "id": "mat-nmb-thermal-break",
@@ -898,12 +1245,22 @@
       "colour_hex": "#EDEDED",
       "ifc_material_name": "Pipe or non-fire rated duct",
       "properties": {
-        "note": "PVCu to BS 4514:2001 or BS 5255:1989; maximum opening 160 mm"
+        "note": "PVCu to BS 4514:2001 or BS 5255:1989; maximum opening 160 mm",
+        "carbon": {
+          "factor": 3.31,
+          "unit": "kgCO2e/kg",
+          "density_kg_m3": 950,
+          "biogenic_factor": null,
+          "biogenic_unit": null
+        }
       },
       "interactions": {},
       "classification": {
         "package": "mep"
-      }
+      },
+      "carbonbench_id": "plastic",
+      "carbon_match": "proxy",
+      "carbonbench_version": "1.7.57"
     },
     {
       "id": "mat-nmb-end-grain-sealer",
@@ -929,13 +1286,23 @@
       "ifc_material_name": "Non-combustible balcony deck",
       "properties": {
         "note": "Thermally broken from the structure; cavity barriers coordinated with the compartmentation",
-        "nmb_item": "326"
+        "nmb_item": "326",
+        "carbon": {
+          "factor": 1.55,
+          "unit": "kgCO2e/kg",
+          "density_kg_m3": 7800,
+          "biogenic_factor": null,
+          "biogenic_unit": null
+        }
       },
       "interactions": {},
       "classification": {
         "package": "other",
         "fire_role": "fire-rated"
-      }
+      },
+      "carbonbench_id": "steel-structural",
+      "carbon_match": "proxy",
+      "carbonbench_version": "1.7.57"
     },
     {
       "id": "mat-nmb-sub-base",
@@ -944,11 +1311,22 @@
       "category": "ground",
       "colour_hex": "#B8B2A4",
       "ifc_material_name": "Sub-base and blinding",
-      "properties": {},
+      "properties": {
+        "carbon": {
+          "factor": 0.007,
+          "unit": "kgCO2e/kg",
+          "density_kg_m3": 2240,
+          "biogenic_factor": null,
+          "biogenic_unit": null
+        }
+      },
       "interactions": {},
       "classification": {
         "package": "groundworks"
-      }
+      },
+      "carbonbench_id": "granular-fill-uk-istructe",
+      "carbon_match": "exact",
+      "carbonbench_version": "1.7.57"
     }
   ]
 }

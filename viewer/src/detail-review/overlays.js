@@ -35,7 +35,36 @@ const FIRE_COLOURS = {
   'fire-rated': ['Fire-rated material', '#e6b800'],
 };
 
-/** @type {Array<{ id: string, label: string, valueOf: (tags: object) => ({ key: string, label: string, colour: string }|null) }>} */
+/**
+ * Carbon, in kgCO2e (A1-A3), from a material's `properties.carbon` snapshot (copied from CarbonBench).
+ * @returns {{ perKg: number|null, perM3: number|null }} null when it cannot be worked out (no factor, a per-m2 factor,
+ *   or no density)
+ */
+export function carbonValues(material) {
+  const c = material?.properties?.carbon;
+  if (!c || typeof c.factor !== 'number') return { perKg: null, perM3: null };
+  const d = typeof c.density_kg_m3 === 'number' && c.density_kg_m3 > 0 ? c.density_kg_m3 : null;
+  if (c.unit === 'kgCO2e/kg') return { perKg: c.factor, perM3: d ? c.factor * d : (c.density_kg_m3 === 0 ? 0 : null) };
+  if (c.unit === 'kgCO2e/m3') return { perKg: d ? c.factor / d : null, perM3: c.factor };
+  return { perKg: null, perM3: null };
+}
+
+/** Bins and a sequential palette (light to dark) for the carbon overlay. Fixed, so details are comparable. */
+export const CARBON_BINS = {
+  kg: { unit: 'kgCO2e/kg', edges: [0.2, 0.5, 1, 2, 5] },
+  m3: { unit: 'kgCO2e/m3', edges: [50, 150, 400, 1000, 3000] },
+};
+const CARBON_COLOURS = ['#ffffb2', '#fed976', '#feb24c', '#fd8d3c', '#f03b20', '#bd0026'];
+
+function carbonBin(value, edges) {
+  let i = 0;
+  while (i < edges.length && value >= edges[i]) i += 1;
+  const fmt = (n) => String(n);
+  const label = i === 0 ? `under ${fmt(edges[0])}` : i === edges.length ? `${fmt(edges.at(-1))} or more` : `${fmt(edges[i - 1])} to ${fmt(edges[i])}`;
+  return { key: `bin-${i}`, label, colour: CARBON_COLOURS[i], order: i };
+}
+
+/** @type {Array<{ id: string, label: string, absentMeansNone: boolean, valueOf: (tags: object, ctx: { material?: object, options?: object }) => ({ key: string, label: string, colour: string }|null) }>} */
 export const OVERLAYS = [
   {
     id: 'package',
@@ -65,6 +94,20 @@ export const OVERLAYS = [
       return e ? { key: tags.fire_role, label: e[0], colour: e[1] } : null;
     },
   },
+  {
+    id: 'carbon',
+    label: 'Carbon (A1-A3, CarbonBench)',
+    absentMeansNone: false,
+    needsClassification: false, // reads the material's carbon snapshot, not its tags
+    options: { unit: ['kg', 'm3'] },
+    valueOf(tags, { material, options } = {}) {
+      const unit = options?.unit === 'm3' ? 'm3' : 'kg';
+      const v = carbonValues(material)[unit === 'm3' ? 'perM3' : 'perKg'];
+      if (v === null) return null;
+      const bin = carbonBin(v, CARBON_BINS[unit].edges);
+      return { ...bin, label: `${bin.label} ${CARBON_BINS[unit].unit}` };
+    },
+  },
 ];
 
 export const overlayById = (id) => OVERLAYS.find((o) => o.id === id) ?? null;
@@ -86,10 +129,10 @@ export function tagsOf(prism, { materials, profiles, detail } = {}) {
 }
 
 /** The overlay value for one solid: an entry, NONE, or NO_DATA. */
-export function valueFor(overlay, prism, ctx) {
+export function valueFor(overlay, prism, ctx, options) {
   const { tags, classified } = tagsOf(prism, ctx);
-  if (!classified) return NO_DATA;
-  const v = overlay.valueOf(tags);
+  if (!classified && overlay.needsClassification !== false) return NO_DATA;
+  const v = overlay.valueOf(tags, { material: lookup(ctx?.materials, prism.materialId), options });
   if (v) return v;
   return overlay.absentMeansNone ? { key: 'none', label: 'None', colour: NONE_COLOUR } : NO_DATA;
 }
@@ -99,18 +142,20 @@ export function valueFor(overlay, prism, ctx) {
  * @returns {{ colours: Map<string, string|null>, legend: Array<{ key, label, colour, count }>, noData: number }}
  *   colours: solid id -> colour, or null for no data
  */
-export function applyOverlay(overlayId, model, ctx) {
+export function applyOverlay(overlayId, model, ctx, options) {
   const overlay = overlayById(overlayId);
   const colours = new Map();
   if (!overlay) return { colours, legend: [], noData: 0 };
   const counts = new Map();
   for (const p of model.prisms) {
-    const v = valueFor(overlay, p, ctx);
+    const v = valueFor(overlay, p, ctx, options);
     colours.set(p.id, v.colour);
     const e = counts.get(v.key) ?? { ...v, count: 0 };
     e.count += 1;
     counts.set(v.key, e);
   }
-  const legend = [...counts.values()].sort((a, b) => (a.key === 'no-data') - (b.key === 'no-data') || (a.key === 'none') - (b.key === 'none') || a.label.localeCompare(b.label));
+  // No data last, then "none", and otherwise by bin order (a scale) or by label.
+  const rank = (e) => (e.key === 'no-data' ? 2 : e.key === 'none' ? 1 : 0);
+  const legend = [...counts.values()].sort((a, b) => rank(a) - rank(b) || (a.order ?? 0) - (b.order ?? 0) || a.label.localeCompare(b.label));
   return { colours, legend, noData: counts.get('no-data')?.count ?? 0 };
 }
