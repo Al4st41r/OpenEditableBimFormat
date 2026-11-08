@@ -35,16 +35,32 @@ function profileOf(profiles, id) {
   return profiles instanceof Map ? profiles.get(id) : profiles[id];
 }
 
+/** A solid thinner than this on the sheet (mm) is drawn as a solid line, not an outlined shape. */
+export const THIN_SOLID_MM = 1.2;
+
+/** Smaller side of a prism's bounding box, in sheet millimetres. */
+function minSideSheetMm(prism, k) {
+  const xs = prism.points.map((p) => p.x), ys = prism.points.map((p) => p.y);
+  return Math.min(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)) * k;
+}
+
 /** The weights and hatch for one prism, resolved from its profile layer. Exported for tests. */
-export function styleFor(prism, { materials, profiles } = {}) {
+export function styleFor(prism, { materials, profiles, k = 200 } = {}) {
   const material = materials instanceof Map ? materials.get(prism.materialId) : materials?.[prism.materialId];
   const profile = prism.kind === 'member' ? profileOf(profiles, prism.profileId) : undefined;
   const layer = profile && Number.isInteger(prism.layer) ? profile.assembly?.[prism.layer] : undefined;
+  const cut = resolveLineweight('cut', { profile, layer });
+  // A membrane or sealant a millimetre or two thick would be all outline. Draw it as a solid, darker shape with a
+  // lighter outline and no hatch, so it reads as one line (the way a drawn membrane does).
+  if (minSideSheetMm(prism, k) < THIN_SOLID_MM) {
+    return { fill: tint(material?.colour_hex, 0.85), cut: Math.min(cut, 0.18), hatch: resolveLineweight('hatch', { profile, layer }), hatchKind: 'none', thin: true };
+  }
   return {
     fill: tint(material?.colour_hex, 0.3),
-    cut: resolveLineweight('cut', { profile, layer }),
+    cut,
     hatch: resolveLineweight('hatch', { profile, layer }),
     hatchKind: hatchKindFor(material?.category),
+    thin: false,
   };
 }
 
@@ -70,7 +86,7 @@ export function buildDetailSvg(model, opts = {}) {
 
   // Larger solids first, so a small item is never hidden under a large one. The 3D pick uses the same rule.
   const styled = model.prisms
-    .map((p, i) => ({ p, i, area: Math.abs(signedArea(p.points)), s: styleFor(p, opts) }))
+    .map((p, i) => ({ p, i, area: Math.abs(signedArea(p.points)), s: styleFor(p, { ...opts, k }) }))
     .sort((a, b) => b.area - a.area || a.i - b.i);
   const defs = hatchDefs(styled.map(({ s }) => ({ kind: s.hatchKind, weight: s.hatch })));
 

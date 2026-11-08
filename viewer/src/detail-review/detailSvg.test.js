@@ -36,14 +36,32 @@ describe('hatches', () => {
   });
 });
 
+const BIG = [{ x: 0, y: 0 }, { x: 0.2, y: 0 }, { x: 0.2, y: 0.2 }, { x: 0, y: 0.2 }];
+
 describe('styleFor', () => {
   it('uses default weights and the material hatch', () => {
-    const s = styleFor({ kind: 'region', materialId: 'm' }, { materials: new Map([['m', { category: 'timber', colour_hex: '#d9b36b' }]]) });
+    const s = styleFor({ kind: 'region', materialId: 'm', points: BIG }, { materials: new Map([['m', { category: 'timber', colour_hex: '#d9b36b' }]]) });
     expect(s).toMatchObject({ cut: 0.35, hatch: 0.09, hatchKind: 'lines' });
   });
   it('applies a layer outline override from the profile', () => {
     const profiles = new Map([['p', { assembly: [{ outline_mm: 0.5 }, { outline_mm: 0.7 }] }]]);
-    expect(styleFor({ kind: 'member', profileId: 'p', layer: 1, materialId: 'x' }, { profiles }).cut).toBe(0.7);
+    expect(styleFor({ kind: 'member', profileId: 'p', layer: 1, materialId: 'x', points: BIG }, { profiles }).cut).toBe(0.7);
+  });
+});
+
+describe('thin solids', () => {
+  const square = (side) => ({ kind: 'region', materialId: 'm', points: [{ x: 0, y: 0 }, { x: side, y: 0 }, { x: side, y: 1 }, { x: 0, y: 1 }] });
+  const materials = new Map([['m', { category: 'insulation', colour_hex: '#336699' }]]);
+  it('draws a 2 mm layer at 1:5 (0.4 mm on the sheet) as a lighter, unhatched solid', () => {
+    const s = styleFor(square(0.002), { materials, k: 200 });
+    expect(s).toMatchObject({ thin: true, hatchKind: 'none', cut: 0.18 });
+  });
+  it('draws a 100 mm layer normally', () => {
+    expect(styleFor(square(0.1), { materials, k: 200 })).toMatchObject({ thin: false, hatchKind: 'zigzag', cut: 0.35 });
+  });
+  it('depends on the scale: the same 5 mm layer is thin at 1:20 but not at 1:2', () => {
+    expect(styleFor(square(0.005), { materials, k: 50 }).thin).toBe(true);
+    expect(styleFor(square(0.005), { materials, k: 500 }).thin).toBe(false);
   });
 });
 
