@@ -39,9 +39,13 @@ describe('hatches', () => {
 const BIG = [{ x: 0, y: 0 }, { x: 0.2, y: 0 }, { x: 0.2, y: 0.2 }, { x: 0, y: 0.2 }];
 
 describe('styleFor', () => {
-  it('uses default weights and the material hatch', () => {
+  it('uses the function default weight and the material hatch', () => {
     const s = styleFor({ kind: 'region', materialId: 'm', points: BIG }, { materials: new Map([['m', { category: 'timber', colour_hex: '#d9b36b' }]]) });
-    expect(s).toMatchObject({ cut: 0.35, hatch: 0.09, hatchKind: 'lines' });
+    expect(s).toMatchObject({ cut: 0.5, hatch: 0.09, hatchKind: 'lines' }); // timber implies structure
+  });
+  it('uses a member layer function over the material category', () => {
+    const m = new Map([['m', { category: 'timber' }]]);
+    expect(styleFor({ kind: 'member', materialId: 'm', function: 'membrane', points: BIG }, { materials: m }).cut).toBe(0.18);
   });
   it('applies a layer outline override from the profile', () => {
     const profiles = new Map([['p', { assembly: [{ outline_mm: 0.5 }, { outline_mm: 0.7 }] }]]);
@@ -57,7 +61,7 @@ describe('thin solids', () => {
     expect(s).toMatchObject({ thin: true, hatchKind: 'none', cut: 0.18 });
   });
   it('draws a 100 mm layer normally', () => {
-    expect(styleFor(square(0.1), { materials, k: 200 })).toMatchObject({ thin: false, hatchKind: 'zigzag', cut: 0.35 });
+    expect(styleFor(square(0.1), { materials, k: 200 })).toMatchObject({ thin: false, hatchKind: 'zigzag', cut: 0.25 });
   });
   it('depends on the scale: the same 5 mm layer is thin at 1:20 but not at 1:2', () => {
     expect(styleFor(square(0.005), { materials, k: 50 }).thin).toBe(true);

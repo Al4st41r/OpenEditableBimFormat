@@ -47,7 +47,7 @@
     },
     "lineweights": {
       "type": "object",
-      "description": "Pen weight for each drawing role, in millimetres at print scale. Omitted roles use the defaults: cut 0.35, seen 0.18, hatch 0.09, annotation 0.09.",
+      "description": "Pen weight for each drawing role, in millimetres at print scale. Omitted roles use the defaults: cut 0.35, seen 0.18, hatch 0.09, annotation 0.09. When cut is omitted, drawings may use a weight by layer function (structure 0.5, finish 0.35, insulation 0.25, service 0.25, membrane 0.18).",
       "additionalProperties": false,
       "properties": {
         "cut":        { "$ref": "#/definitions/pen_mm" },

@@ -20,6 +20,24 @@ export function snapPen(mm) {
   return best;
 }
 
+/**
+ * Default cut weight by layer function, so the structure reads heaviest and membranes lightest. Used only when the
+ * profile and layer set nothing. A solid with no known function keeps the plain `cut` default.
+ */
+export const FUNCTION_CUT = Object.freeze({ structure: 0.5, finish: 0.35, insulation: 0.25, service: 0.25, membrane: 0.18 });
+
+/** The layer function implied by a material category, for solids that have no profile layer (a detail's regions). */
+const FUNCTION_BY_CATEGORY = {
+  timber: 'structure', steel: 'structure', metal: 'structure', concrete: 'structure', masonry: 'structure',
+  insulation: 'insulation', acoustic: 'insulation', cavity: 'insulation',
+  membrane: 'membrane', sealant: 'membrane', firestop: 'membrane',
+  services: 'service',
+};
+
+export function functionForCategory(category) {
+  return FUNCTION_BY_CATEGORY[category] ?? 'finish';
+}
+
 const isPen = (v) => PEN_SERIES.includes(v);
 
 /**
@@ -27,12 +45,16 @@ const isPen = (v) => PEN_SERIES.includes(v);
  * `lineweights` override the defaults. A value outside the pen series is ignored, not snapped, so a bad
  * bundle shows the default rather than a surprising weight (the schema rejects such values anyway).
  *
+ * For `cut`, the order is: layer `outline_mm`, profile `lineweights.cut`, the function default, then 0.35.
+ *
  * @param {'cut'|'seen'|'hatch'|'annotation'} role
- * @param {{ profile?: object, layer?: object }} [from]
+ * @param {{ profile?: object, layer?: object, function?: string }} [from]
  */
-export function resolveLineweight(role, { profile, layer } = {}) {
+export function resolveLineweight(role, { profile, layer, function: fn } = {}) {
   if (!(role in DEFAULT_LINEWEIGHTS)) throw new Error(`Unknown line weight role "${role}"`);
   if (role === 'cut' && isPen(layer?.outline_mm)) return layer.outline_mm;
   const fromProfile = profile?.lineweights?.[role];
-  return isPen(fromProfile) ? fromProfile : DEFAULT_LINEWEIGHTS[role];
+  if (isPen(fromProfile)) return fromProfile;
+  if (role === 'cut' && fn in FUNCTION_CUT) return FUNCTION_CUT[fn];
+  return DEFAULT_LINEWEIGHTS[role];
 }

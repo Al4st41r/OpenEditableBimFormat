@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { PEN_SERIES, DEFAULT_LINEWEIGHTS, snapPen, resolveLineweight } from './lineweights.js';
+import { PEN_SERIES, DEFAULT_LINEWEIGHTS, FUNCTION_CUT, functionForCategory, snapPen, resolveLineweight } from './lineweights.js';
 
 describe('pen series', () => {
   it('matches the schema enum', async () => {
@@ -45,5 +45,31 @@ describe('resolveLineweight', () => {
   });
   it('rejects an unknown role', () => {
     expect(() => resolveLineweight('bold')).toThrow(/Unknown/);
+  });
+});
+
+describe('cut weight by function', () => {
+  it('uses only pens from the series, structure heaviest and membrane lightest', () => {
+    for (const w of Object.values(FUNCTION_CUT)) expect(PEN_SERIES).toContain(w);
+    expect(FUNCTION_CUT.structure).toBe(Math.max(...Object.values(FUNCTION_CUT)));
+    expect(FUNCTION_CUT.membrane).toBe(Math.min(...Object.values(FUNCTION_CUT)));
+  });
+  it('applies the function default to cut only', () => {
+    expect(resolveLineweight('cut', { function: 'structure' })).toBe(0.5);
+    expect(resolveLineweight('hatch', { function: 'structure' })).toBe(0.09);
+  });
+  it('lets the profile and the layer override the function', () => {
+    expect(resolveLineweight('cut', { function: 'structure', profile: { lineweights: { cut: 0.25 } } })).toBe(0.25);
+    expect(resolveLineweight('cut', { function: 'structure', layer: { outline_mm: 0.7 } })).toBe(0.7);
+  });
+  it('keeps 0.35 for an unknown function', () => {
+    expect(resolveLineweight('cut', { function: 'other' })).toBe(0.35);
+    expect(resolveLineweight('cut', {})).toBe(0.35);
+  });
+  it('infers a function from a material category', () => {
+    expect(functionForCategory('timber')).toBe('structure');
+    expect(functionForCategory('firestop')).toBe('membrane');
+    expect(functionForCategory('plasterboard')).toBe('finish');
+    expect(functionForCategory(undefined)).toBe('finish');
   });
 });

@@ -12,7 +12,7 @@
  * drawn: the model has no geometry beyond the cut plane.
  */
 
-import { resolveLineweight, DEFAULT_LINEWEIGHTS, HAIRLINE_MM } from '../lineweights.js';
+import { resolveLineweight, functionForCategory, DEFAULT_LINEWEIGHTS, HAIRLINE_MM } from '../lineweights.js';
 import { signedArea } from '../detail/regionGeometry.js';
 import { hatchKindFor, hatchDefs, patternId } from './hatches.js';
 
@@ -49,7 +49,8 @@ export function styleFor(prism, { materials, profiles, k = 200 } = {}) {
   const material = materials instanceof Map ? materials.get(prism.materialId) : materials?.[prism.materialId];
   const profile = prism.kind === 'member' ? profileOf(profiles, prism.profileId) : undefined;
   const layer = profile && Number.isInteger(prism.layer) ? profile.assembly?.[prism.layer] : undefined;
-  const cut = resolveLineweight('cut', { profile, layer });
+  const fn = prism.function ?? functionForCategory(material?.category);
+  const cut = resolveLineweight('cut', { profile, layer, function: fn });
   // A membrane or sealant a millimetre or two thick would be all outline. Draw it as a solid, darker shape with a
   // lighter outline and no hatch, so it reads as one line (the way a drawn membrane does).
   if (minSideSheetMm(prism, k) < THIN_SOLID_MM) {

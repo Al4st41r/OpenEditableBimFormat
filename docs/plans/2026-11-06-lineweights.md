@@ -39,7 +39,7 @@ Made in `spec/schema/profile.schema.json` (the example bundle copy is synced):
 | `lineweights` | profile | Optional object with `cut`, `seen`, `hatch` and `annotation`. |
 | `outline_mm` | assembly layer | Optional override of the cut weight for one layer. |
 
-Defaults when omitted: cut 0.35, seen 0.18, hatch 0.09, annotation 0.09. The fields are optional, so existing bundles stay valid and need no migration.
+Defaults when omitted: cut 0.35, seen 0.18, hatch 0.09, annotation 0.09. Added 2026-11-08: when `cut` is omitted the renderer weights by layer function (structure 0.5, finish 0.35, insulation 0.25, service 0.25, membrane 0.18); a detail region takes a function from its material category. An explicit per-region `outline_mm` is deferred. The fields are optional, so existing bundles stay valid and need no migration.
 
 `detail.schema.json` is unchanged. A detail draws its members through their profiles, so it inherits their weights.
 

@@ -23,7 +23,7 @@ Read this before editing any file in this bundle. Every 3D element sweeps a
 | Grid | `grids/grid-{id}.json` | `id` `type:"Grid"` `description` `axes[]` `ifc_type` |
 | Detail | `details/detail-{id}.json` | `id` `type:"Detail"` `description` `members[]` `datum` |
 
-**Line weights (optional).** A profile may carry `lineweights` (`cut`, `seen`, `hatch`, `annotation`) and an assembly layer may carry `outline_mm`. Values are millimetres at print scale and must be one of 0.09, 0.13, 0.18, 0.25, 0.35, 0.5 or 0.7. Omit them to use the defaults (cut 0.35, seen 0.18, hatch 0.09, annotation 0.09). Nothing renders them yet; see `docs/plans/2026-11-06-lineweights.md`.
+**Line weights (optional).** A profile may carry `lineweights` (`cut`, `seen`, `hatch`, `annotation`) and an assembly layer may carry `outline_mm`. Values are millimetres at print scale and must be one of 0.09, 0.13, 0.18, 0.25, 0.35, 0.5 or 0.7. Omit them to use the defaults (cut 0.35, seen 0.18, hatch 0.09, annotation 0.09). Where `cut` is omitted, the detail drawing weights each layer by its `function`: structure 0.5, finish 0.35, insulation 0.25, service 0.25, membrane 0.18. The detail review drawing renders them; see `docs/plans/2026-11-06-lineweights.md`.
 
 ---
 
