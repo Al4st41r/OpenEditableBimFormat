@@ -5,6 +5,18 @@
   "type": "object",
   "required": ["$schema", "materials"],
   "additionalProperties": false,
+  "definitions": {
+    "classification": {
+      "description": "Classification used by the detail review overlays. All fields optional. On a material it is the default; the same object under `tags` on an assembly layer or detail region overrides it for that use.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "package":   { "type": "string", "enum": ["groundworks", "concrete", "timber-frame", "cladding", "interiors", "mep", "other"], "description": "Subcontractor package that supplies and fixes the item." },
+        "barrier":   { "type": "array", "uniqueItems": true, "items": { "type": "string", "enum": ["air", "water", "vapour", "breathable"] }, "description": "Which barrier functions the item performs. A layer may perform more than one." },
+        "fire_role": { "type": "string", "enum": ["firestop", "cavity-barrier", "fire-rated"], "description": "Fire strategy role. Reaction class and rating stay in properties.fire." }
+      }
+    }
+  },
   "properties": {
     "$schema": { "type": "string" },
     "materials": {
@@ -21,6 +33,7 @@
           "colour_hex":         { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" },
           "ifc_material_name":  { "type": "string" },
           "properties":         { "type": "object" },
+          "classification":     { "$ref": "#/definitions/classification" },
           "interactions":       { "type": "object" }
         }
       }

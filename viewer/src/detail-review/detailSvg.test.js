@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { buildAxoModel } from '../detail-axo/detailAxo.js';
 import { buildDetailSvg, styleFor, tint } from './detailSvg.js';
 import { hatchKindFor, hatchDefs, patternId } from './hatches.js';
+import { NONE_COLOUR } from './overlays.js';
 
 const root = new URL('../../../example/nmb-two-storey.oebf/', import.meta.url);
 const read = (p) => JSON.parse(readFileSync(new URL(p, root), 'utf8'));
@@ -112,5 +113,37 @@ describe('buildDetailSvg (pilot detail)', () => {
 
   it('returns an empty drawing for a model with no solids', () => {
     expect(buildDetailSvg({ prisms: [], bounds: null }).svg).toBe('');
+  });
+});
+
+describe('overlay fills', () => {
+  const { detail, materials, profiles } = loadPilot();
+  const model = buildAxoModel(detail, { profiles });
+  const ids = model.prisms.map((p) => p.id);
+
+  it('uses an overlay colour for a solid, a no-data pattern for null, and keeps the material tint for the rest', () => {
+    const fills = new Map([[ids[0], '#d62728'], [ids[1], null]]);
+    const { svg } = buildDetailSvg(model, { materials, profiles, fills });
+    expect(svg).toContain('id="overlay-no-data"');
+    expect(svg).toContain('fill="url(#overlay-no-data)"');
+    expect(svg).toMatch(new RegExp(`data-item="${ids[0]}"[^>]*fill="#[0-9a-f]{6}"`));
+    expect(svg).not.toContain(`data-item="${ids[2]}" data-material="" fill="url`);
+  });
+
+  it('does not define the no-data pattern when there is no overlay', () => {
+    expect(buildDetailSvg(model, { materials, profiles }).svg).not.toContain('overlay-no-data');
+  });
+
+  it('draws a thin overlay solid as a heavy line in the overlay colour, and fades "none"', () => {
+    const thin = {
+      bounds: { minU: 0, maxU: 0.1, minV: 0, maxV: 0.1 },
+      prisms: [
+        { id: 'a', kind: 'region', materialId: 'm', points: [{ x: 0, y: 0 }, { x: 0.1, y: 0 }, { x: 0.1, y: 0.002 }, { x: 0, y: 0.002 }] },
+        { id: 'b', kind: 'region', materialId: 'm', points: [{ x: 0, y: 0.01 }, { x: 0.1, y: 0.01 }, { x: 0.1, y: 0.1 }, { x: 0, y: 0.1 }] },
+      ],
+    };
+    const { svg } = buildDetailSvg(thin, { materials: new Map(), fills: new Map([['a', '#1f77b4'], ['b', NONE_COLOUR]]), scale: 5 });
+    expect(svg).toMatch(/class="outline"[^>]*stroke="#1f77b4" stroke-width="0.7"/);
+    expect(svg).toMatch(/data-item="b"[^>]*fill="#f6f6f6"/);
   });
 });

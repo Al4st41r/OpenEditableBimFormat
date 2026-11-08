@@ -27,4 +27,11 @@ test('detail review: the 2D drawing shows line weights and selection links to th
   await page.selectOption('#scale-select', '10');
   const w10 = await page.$eval('#drawing svg', (s) => s.viewBox.baseVal.width);
   expect(w10).toBeLessThan(w5);
+
+  // An overlay recolours the drawing and lists its legend.
+  await page.selectOption('#overlay-select', 'fire');
+  await expect(page.locator('#legend')).toContainText('Firestop');
+  await expect(page.locator('#legend')).toContainText('Cavity barrier');
+  await page.selectOption('#overlay-select', '');
+  await expect(page.locator('#legend')).toBeEmpty();
 });

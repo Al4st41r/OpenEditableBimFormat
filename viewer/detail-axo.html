@@ -43,6 +43,10 @@
     .item.selected { background: #1e3a5a; }
     .item .meta { opacity: 0.55; font-size: 11px; margin-left: auto; flex-shrink: 0; }
     .item .swatch { width: 10px; height: 10px; border: 1px solid #555; flex-shrink: 0; }
+    .legend-row { display: flex; align-items: center; gap: 6px; padding: 2px 0; font-size: 12px; }
+    .legend-row .swatch { width: 12px; height: 12px; border: 1px solid #555; flex-shrink: 0; }
+    .legend-row .swatch.nodata { background: repeating-linear-gradient(45deg, #bbb 0 1px, #eee 1px 4px); }
+    .legend-row .count { margin-left: auto; opacity: .55; }
     .note { opacity: 0.6; font-size: 12px; margin: 4px 0; line-height: 1.5; }
     .warn { color: #fc6; font-size: 12px; margin: 3px 0; }
     .use { font-size: 12px; margin: 3px 0; line-height: 1.45; }
@@ -63,6 +67,7 @@
       <option value="1">1:1</option><option value="2">1:2</option><option value="5" selected>1:5</option><option value="10">1:10</option>
     </select>
     <button id="thin-btn" title="Draw every line as a hairline">Thin</button>
+    <select id="overlay-select" title="Colour both panes by a strategy"></select>
     <span class="sep"></span>
     <select id="view-select" title="Axonometric view"></select>
     <button id="members-btn" class="active" title="Show the swept wall profiles">Members</button>

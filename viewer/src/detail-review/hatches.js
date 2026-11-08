@@ -58,3 +58,9 @@ export function hatchDefs(used) {
   }
   return out;
 }
+
+/** The pattern id and definition for a solid with no data in the active overlay: light grey with diagonal lines. */
+export const NO_DATA_PATTERN_ID = 'overlay-no-data';
+export const noDataDef = () =>
+  `<pattern id="${NO_DATA_PATTERN_ID}" width="2" height="2" patternUnits="userSpaceOnUse"><rect width="2" height="2" fill="#f1f1f1"/>` +
+  `<path d="M-0.5,0.5 L0.5,-0.5 M0,2 L2,0 M1.5,2.5 L2.5,1.5" stroke="#b5b5b5" stroke-width="0.12" fill="none"/></pattern>`;

@@ -9,6 +9,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { AXO_VIEWS } from './detailAxo.js';
 import { signedArea } from '../detail/regionGeometry.js';
+import { NONE_COLOUR } from '../detail-review/overlays.js';
 
 const FALLBACK_COLOUR = '#999999';
 
@@ -76,7 +77,7 @@ export class AxoViewer {
       if (!(prism.points.length >= 3) || !(prism.w1 > prism.w0)) continue;
       const geometry = prismGeometry(model.plane, prism);
       const mesh = new THREE.Mesh(geometry, materialFor(prism.materialId, prism.kind === 'region'));
-      mesh.userData = { kind: prism.kind, edges: false, itemId: prism.id, baseMaterial: mesh.material, area: Math.abs(signedArea(prism.points)) };
+      mesh.userData = { kind: prism.kind, edges: false, itemId: prism.id, baseMaterial: mesh.material, materialColour: mesh.material, area: Math.abs(signedArea(prism.points)) };
       this.group.add(mesh);
       const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geometry, 25), edgeMaterial);
       edges.userData = { kind: prism.kind, edges: true };
@@ -91,6 +92,30 @@ export class AxoViewer {
       this.radius = Math.max(box.getSize(new THREE.Vector3()).length() / 2, 0.1);
     }
     this.setView(this.view);
+  }
+
+  /**
+   * Colour every solid from an overlay (solid id -> colour, null = no data), or pass null to restore the material colours.
+   * Keeps the selection highlight.
+   */
+  setOverlay(colours, selectedId = null) {
+    if (!this.group) return;
+    this.overlayCache ??= new Map();
+    const made = (key, make) => { if (!this.overlayCache.has(key)) this.overlayCache.set(key, make()); return this.overlayCache.get(key); };
+    for (const o of this.group.children) {
+      if (o.userData.edges || !o.isMesh) continue;
+      if (!colours) { o.userData.baseMaterial = o.userData.materialColour; }
+      else {
+        const c = colours.get(o.userData.itemId);
+        // Solids outside the overlay ("none") and with no data are faded, so the ones that matter show through.
+        const faded = !c || c === NONE_COLOUR;
+        o.userData.baseMaterial = made(c ?? 'nodata', () => new THREE.MeshStandardMaterial({
+          color: c ?? '#cfcfcf', roughness: 0.85, metalness: 0, side: THREE.DoubleSide,
+          transparent: faded, opacity: faded ? (c ? 0.22 : 0.5) : 1, depthWrite: !faded,
+        }));
+      }
+    }
+    this.setSelected(selectedId);
   }
 
   /** Highlight one item (by prism id), or none. */

@@ -13,8 +13,9 @@
  */
 
 import { resolveLineweight, functionForCategory, DEFAULT_LINEWEIGHTS, HAIRLINE_MM } from '../lineweights.js';
+import { NONE_COLOUR } from './overlays.js';
 import { signedArea } from '../detail/regionGeometry.js';
-import { hatchKindFor, hatchDefs, patternId } from './hatches.js';
+import { hatchKindFor, hatchDefs, patternId, noDataDef, NO_DATA_PATTERN_ID } from './hatches.js';
 
 export const DEFAULT_SCALE = 5;
 const MARGIN_MM = 10;
@@ -68,7 +69,8 @@ export function styleFor(prism, { materials, profiles, k = 200 } = {}) {
 /**
  * @param {object} model - result of buildAxoModel
  * @param {{ materials?: Map<string, object>, profiles?: Map<string, object>, scale?: number, hairline?: boolean,
- *           selectedId?: string|null }} [opts]
+ *           selectedId?: string|null, fills?: Map<string, string|null> }} [opts]
+ *   fills: an overlay's colour for each solid id (null = no data). Solids not in the map keep their material tint.
  * @returns {{ svg: string, width: number, height: number, scale: number }} sizes in sheet mm
  */
 export function buildDetailSvg(model, opts = {}) {
@@ -91,6 +93,17 @@ export function buildDetailSvg(model, opts = {}) {
     .sort((a, b) => b.area - a.area || a.i - b.i);
   const defs = hatchDefs(styled.map(({ s }) => ({ kind: s.hatchKind, weight: s.hatch })));
 
+  // An overlay colour for a solid, or undefined when no overlay applies to it.
+  const overlayOf = (id) => (opts.fills?.has(id) ? opts.fills.get(id) : undefined);
+  const isKey = (c) => Boolean(c) && c !== NONE_COLOUR; // a value that belongs to the overlay, not "none" or no data
+  const fillOf = (id, own, thin) => {
+    const c = overlayOf(id);
+    if (c === undefined) return own;
+    if (!c) return `url(#${NO_DATA_PATTERN_ID})`;
+    // A thin solid (a membrane) takes the full colour, or it would vanish; "none" is faded.
+    return c === NONE_COLOUR ? '#f6f6f6' : tint(c, thin ? 1 : 0.62);
+  };
+
   const polyAttrs = ({ p }) => `data-item="${esc(p.id)}" data-material="${esc(p.materialId ?? '')}"` +
     `${p.id === opts.selectedId ? ' class="selected"' : ''}`;
   const points = (p) => p.points.map(pt).join(' ');
@@ -99,12 +112,12 @@ export function buildDetailSvg(model, opts = {}) {
   let outlines = '';
   for (const it of styled) {
     const { p, s } = it;
-    fills += `<polygon ${polyAttrs(it)} points="${points(p)}" fill="${s.fill}" stroke="none"/>`;
+    fills += `<polygon ${polyAttrs(it)} points="${points(p)}" fill="${fillOf(p.id, s.fill, s.thin)}" stroke="none"/>`;
     if (s.hatchKind !== 'none') {
       fills += `<polygon class="hatch" points="${points(p)}" fill="url(#${patternId(s.hatchKind, s.hatch)})" stroke="none" pointer-events="none"/>`;
     }
     outlines += `<polygon class="outline${p.id === opts.selectedId ? ' selected' : ''}" data-item="${esc(p.id)}" points="${points(p)}" fill="none" ` +
-      `stroke="#000" stroke-width="${s.cut}" stroke-linejoin="miter" stroke-linecap="butt" pointer-events="none"/>`;
+      `stroke="${s.thin && isKey(overlayOf(p.id)) ? overlayOf(p.id) : '#000'}" stroke-width="${s.thin && isKey(overlayOf(p.id)) ? 0.7 : s.cut}" stroke-linejoin="miter" stroke-linecap="butt" pointer-events="none"/>`;
   }
 
   const ann = DEFAULT_LINEWEIGHTS.annotation;
@@ -130,7 +143,7 @@ export function buildDetailSvg(model, opts = {}) {
 
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" class="detail-2d${opts.hairline ? ' thin' : ''}" ` +
     `viewBox="${num(x0)} ${num(y0)} ${num(width)} ${num(height)}" data-scale="${num(scale)}" role="img">` +
-    `${style}<defs>${defs}</defs><rect x="${num(x0)}" y="${num(y0)}" width="${num(width)}" height="${num(height)}" fill="#fff"/>` +
+    `${style}<defs>${defs}${opts.fills ? noDataDef() : ''}</defs><rect x="${num(x0)}" y="${num(y0)}" width="${num(width)}" height="${num(height)}" fill="#fff"/>` +
     `<g class="fills">${fills}</g><g class="outlines">${outlines}</g>${annotations}</svg>`;
 
   return { svg, width, height, scale };

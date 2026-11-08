@@ -5,6 +5,23 @@
   "type": "object",
   "required": ["$schema", "id", "type", "svg_file", "origin", "alignment", "assembly"],
   "additionalProperties": false,
+  "definitions": {
+    "pen_mm": {
+      "description": "Line weight in millimetres at print scale. Limited to the pen series so drawings plot predictably and map onto DXF lineweights.",
+      "type": "number",
+      "enum": [0.09, 0.13, 0.18, 0.25, 0.35, 0.5, 0.7]
+    },
+    "classification": {
+      "description": "Classification used by the detail review overlays. All fields optional. On a material it is the default; the same object under `tags` on an assembly layer or detail region overrides it for that use.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "package":   { "type": "string", "enum": ["groundworks", "concrete", "timber-frame", "cladding", "interiors", "mep", "other"], "description": "Subcontractor package that supplies and fixes the item." },
+        "barrier":   { "type": "array", "uniqueItems": true, "items": { "type": "string", "enum": ["air", "water", "vapour", "breathable"] }, "description": "Which barrier functions the item performs. A layer may perform more than one." },
+        "fire_role": { "type": "string", "enum": ["firestop", "cavity-barrier", "fire-rated"], "description": "Fire strategy role. Reaction class and rating stay in properties.fire." }
+      }
+    }
+  },
   "properties": {
     "$schema":     { "type": "string" },
     "id":          { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
@@ -38,6 +55,17 @@
       "type": "number",
       "minimum": 0
     },
+    "lineweights": {
+      "type": "object",
+      "description": "Pen weight for each drawing role, in millimetres at print scale. Omitted roles use the defaults: cut 0.35, seen 0.18, hatch 0.09, annotation 0.09. When cut is omitted, drawings may use a weight by layer function (structure 0.5, finish 0.35, insulation 0.25, service 0.25, membrane 0.18).",
+      "additionalProperties": false,
+      "properties": {
+        "cut":        { "$ref": "#/definitions/pen_mm" },
+        "seen":       { "$ref": "#/definitions/pen_mm" },
+        "hatch":      { "$ref": "#/definitions/pen_mm" },
+        "annotation": { "$ref": "#/definitions/pen_mm" }
+      }
+    },
     "assembly": {
       "type": "array",
       "minItems": 1,
@@ -50,6 +78,7 @@
           "material_id": { "type": "string" },
           "thickness":   { "type": "number", "exclusiveMinimum": 0 },
           "function":    { "type": "string", "enum": ["finish", "structure", "insulation", "membrane", "service"] },
+          "outline_mm":  { "$ref": "#/definitions/pen_mm", "description": "Overrides the profile's cut weight for this layer's outline." },
           "type": {
             "type": "string",
             "enum": ["band", "region"]
@@ -69,7 +98,8 @@
           "repeat_x_m": { "type": "number", "exclusiveMinimum": 0 },
           "repeat_y_m": { "type": "number", "exclusiveMinimum": 0 },
           "offset_x_m": { "type": "number" },
-          "offset_y_m": { "type": "number" }
+          "offset_y_m": { "type": "number" },
+          "tags":       { "$ref": "#/definitions/classification" }
         }
       }
     }

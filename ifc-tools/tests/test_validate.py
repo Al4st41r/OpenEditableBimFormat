@@ -352,3 +352,33 @@ def test_region_repeat_pitch_smaller_than_unit_is_an_overlap(bundle):
 def test_region_depth_must_match_the_drawn_unit(bundle):
     _first_region(bundle, lambda r: r.update(depth_m=0.5, repeat_x_m=0.6, count_x=2))
     assert "repeat-depth-mismatch" in codes(bundle)
+
+
+# ── classification tags (detail review overlays) ─────────────────────────────
+
+NMB = REPO / "example" / "nmb-two-storey.oebf"
+
+
+@pytest.fixture
+def nmb_bundle(tmp_path):
+    dst = tmp_path / "nmb.oebf"
+    shutil.copytree(NMB, dst)
+    return dst
+
+
+def test_nmb_bundle_with_classification_has_no_problems(nmb_bundle):
+    assert validate_bundle(nmb_bundle) == []
+
+
+@pytest.mark.parametrize("bad", [{"package": "bricks"}, {"barrier": ["steam"]}, {"fire_role": "sprinkler"}, {"colour": "red"}])
+def test_material_classification_with_a_bad_value_is_a_problem(nmb_bundle, bad):
+    edit(nmb_bundle / "materials" / "library.json", lambda d: d["materials"][0].__setitem__("classification", bad))
+    assert validate_bundle(nmb_bundle) != []
+
+
+def test_detail_region_tags_are_checked(nmb_bundle):
+    path = nmb_bundle / "details" / "detail-nmb-ew-slab-edge-section.json"
+    edit(path, lambda d: d["geometry"]["regions"][0].__setitem__("tags", {"package": "mep"}))
+    assert validate_bundle(nmb_bundle) == []
+    edit(path, lambda d: d["geometry"]["regions"][0].__setitem__("tags", {"package": "nope"}))
+    assert validate_bundle(nmb_bundle) != []

@@ -73,6 +73,13 @@
             "additionalProperties": false,
             "properties": {
               "material_id": { "type": "string" },
+              "depth_m":    { "type": "number", "exclusiveMinimum": 0, "description": "The unit's size along its repeat axis (x if repeat_x_m is set, else y), as the author states it. Checked against the drawn vertices to within 1 mm." },
+              "repeat_x_m": { "type": "number", "exclusiveMinimum": 0, "description": "Pitch of repeated units along x, in metres. The vertices draw one unit; the gap between units is empty (a joint or air space). Must be at least the unit's width when count_x is above 1." },
+              "repeat_y_m": { "type": "number", "exclusiveMinimum": 0, "description": "Pitch of repeated units along y, in metres." },
+              "stagger_x_m": { "type": "number", "description": "Shift along x applied to every second row (when count_y is above 1), for a bond. Half of repeat_x_m gives a half-bond." },
+              "count_x":    { "type": "integer", "minimum": 1, "description": "Number of units along x. Needs repeat_x_m. Default 1." },
+              "count_y":    { "type": "integer", "minimum": 1, "description": "Number of units along y. Needs repeat_y_m. Default 1." },
+              "tags":       { "$ref": "#/definitions/classification" },
               "vertices": {
                 "type": "array",
                 "minItems": 3,
@@ -108,6 +115,16 @@
     "tags": { "type": "array", "items": { "type": "string" } }
   },
   "definitions": {
+    "classification": {
+      "description": "Classification used by the detail review overlays. All fields optional. On a material it is the default; the same object under `tags` on an assembly layer or detail region overrides it for that use.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "package":   { "type": "string", "enum": ["groundworks", "concrete", "timber-frame", "cladding", "interiors", "mep", "other"], "description": "Subcontractor package that supplies and fixes the item." },
+        "barrier":   { "type": "array", "uniqueItems": true, "items": { "type": "string", "enum": ["air", "water", "vapour", "breathable"] }, "description": "Which barrier functions the item performs. A layer may perform more than one." },
+        "fire_role": { "type": "string", "enum": ["firestop", "cavity-barrier", "fire-rated"], "description": "Fire strategy role. Reaction class and rating stay in properties.fire." }
+      }
+    },
     "coordinate": {
       "description": "A number in metres, or a parameter expression: value = offset + scale * parameter.",
       "oneOf": [

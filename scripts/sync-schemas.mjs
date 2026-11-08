@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * sync-schemas.mjs — Copy spec/schema/*.schema.json into the example bundle's
- * schema/ folder and regenerate the entityTypes list in oebf-schema.json.
+ * sync-schemas.mjs — Copy spec/schema/*.schema.json into each example bundle's
+ * schema/ folder (terraced-house and nmb-two-storey) and regenerate the entityTypes list in oebf-schema.json.
  * spec/schema is the single source of truth (see issue #99).
  *
  * Run:   node scripts/sync-schemas.mjs
@@ -14,7 +14,7 @@ import { fileURLToPath } from 'url';
 
 const root   = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const srcDir = resolve(root, 'spec/schema');
-const dstDir = resolve(root, 'example/terraced-house.oebf/schema');
+const dstDirs = ['terraced-house', 'nmb-two-storey'].map(b => resolve(root, `example/${b}.oebf/schema`));
 const check  = process.argv.includes('--check');
 
 const files = readdirSync(srcDir).filter(f => f.endsWith('.schema.json')).sort();
@@ -27,14 +27,15 @@ function sync(path, content) {
   if (!check) writeFileSync(path, content);
 }
 
-if (!check) mkdirSync(dstDir, { recursive: true });
+for (const dstDir of dstDirs) {
+  if (!check) mkdirSync(dstDir, { recursive: true });
+  for (const f of files) sync(resolve(dstDir, f), readFileSync(resolve(srcDir, f), 'utf8'));
 
-for (const f of files) sync(resolve(dstDir, f), readFileSync(resolve(srcDir, f), 'utf8'));
-
-const indexPath = resolve(dstDir, 'oebf-schema.json');
-const index = JSON.parse(readFileSync(indexPath, 'utf8'));
-index.definitions.entityTypes = files.map(f => f.replace('.schema.json', ''));
-sync(indexPath, JSON.stringify(index, null, 2) + '\n');
+  const indexPath = resolve(dstDir, 'oebf-schema.json');
+  const index = JSON.parse(readFileSync(indexPath, 'utf8'));
+  index.definitions.entityTypes = files.map(f => f.replace('.schema.json', ''));
+  sync(indexPath, JSON.stringify(index, null, 2) + '\n');
+}
 
 if (stale.length === 0) {
   console.log('Schemas in sync.');

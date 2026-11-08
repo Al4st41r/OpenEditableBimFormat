@@ -27,6 +27,8 @@ Read this before editing any file in this bundle. Every 3D element sweeps a
 
 **Repeating units (optional).** A detail region may repeat one drawn unit, such as a brick or a tile. The region's vertices draw one unit. Add `repeat_x_m` or `repeat_y_m` (the pitch, in metres) with `count_x` or `count_y` (how many). `stagger_x_m` shifts every second row for a bond (half the pitch gives a half-bond). `depth_m` states the unit's size along the repeat axis and is checked against the drawing to within 1 mm. A brick 210 mm long on a 220 mm pitch leaves a 10 mm joint; a tile 90 mm deep on a 98 mm pitch leaves 8 mm. The pitch must be at least the unit's size, or `oebf validate` reports an overlap. The gap is empty.
 
+**Classification tags (optional).** A material may carry `classification` and an assembly layer or detail region may carry `tags`, with the same three fields: `package` (groundworks, concrete, timber-frame, cladding, interiors, mep or other), `barrier` (a list from air, water, vapour, breathable) and `fire_role` (firestop, cavity-barrier or fire-rated). The tags on a layer or region override the material's, field by field. The detail review view colours the drawing by them. Reaction class and rating stay in `properties.fire`.
+
 ---
 
 ## Bundle layout

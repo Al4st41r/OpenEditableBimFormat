@@ -15,6 +15,7 @@ import {
 import { evaluateCoordinate } from './detailDocument.js';
 import { signedArea, isSelfIntersecting } from '../detail/regionGeometry.js';
 import { checkRepeat } from '../detail/regionRepeat.js';
+import { checkClassification } from '../detail-review/classification.js';
 
 const isObj = (x) => x !== null && typeof x === 'object' && !Array.isArray(x);
 const isNum = (x) => typeof x === 'number' && Number.isFinite(x);
@@ -115,7 +116,8 @@ export function validateDetail(doc, ctx) {
       (Array.isArray(g.regions) ? g.regions : []).forEach((region, r) => {
         const rp = `geometry.regions[${r}]`;
         if (!isObj(region)) { add(rp, 'geometry', 'A region must be an object'); return; }
-        noExtra(region, ['material_id', 'vertices', 'depth_m', 'repeat_x_m', 'repeat_y_m', 'count_x', 'count_y', 'stagger_x_m'], rp);
+        noExtra(region, ['material_id', 'vertices', 'depth_m', 'repeat_x_m', 'repeat_y_m', 'count_x', 'count_y', 'stagger_x_m', 'tags'], rp);
+        if (region.tags !== undefined) for (const p of checkClassification(region.tags, `${rp}.tags`)) add(p.path, p.code, p.message);
         if (typeof region.material_id !== 'string' || region.material_id === '') add(`${rp}.material_id`, 'required', 'material_id is required');
         else if (materialIds && !materialIds.has(region.material_id)) add(`${rp}.material_id`, 'material-missing', `Material "${region.material_id}" is not in the library`);
 

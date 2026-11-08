@@ -15,6 +15,7 @@ import { buildAxoModel, materialsUsed, usagesOf, AXO_VIEWS } from './detailAxo.j
 import { httpReader, loadDetailData } from './loadDetailData.js';
 import { buildDetailSvg } from '../detail-review/detailSvg.js';
 import { createSelection, describeItem } from '../detail-review/selection.js';
+import { OVERLAYS, applyOverlay, tagsOf } from '../detail-review/overlays.js';
 
 const $ = (id) => document.getElementById(id);
 const params = new URLSearchParams(location.search);
@@ -25,7 +26,8 @@ let data = null;
 let selectedId = null;
 let model = null;
 const selection = createSelection();
-const view2d = { on: true, scale: 5, hairline: false };
+const view2d = { on: true, scale: 5, hairline: false, overlay: '' };
+let overlayResult = null;
 
 function status(text, error = false) {
   $('status').textContent = text;
@@ -62,7 +64,7 @@ function renderInfo(detail, model) {
   $('info').innerHTML =
     `<div id="detail-title">${esc(detail.id)}</div>` +
     `<div class="note">${esc(detail.description)}</div>` +
-    `<div id="selected"></div>` +
+    `<div id="selected"></div><div id="legend"></div>` +
     `<h3>Drawn at</h3>` +
     (uses.length
       ? uses.map((u) => `<div class="use"><code>${esc(u.id)}</code><br>axes ${esc(u.axes.join(' / '))}, level ${esc(u.level)}</div>`).join('')
@@ -73,11 +75,40 @@ function renderInfo(detail, model) {
     (warnings.length ? `<h3>Notes</h3>${warnings.map((w) => `<div class="warn">${esc(w)}</div>`).join('')}` : '');
 }
 
+function currentDetail() { return data?.details.find((d) => d.id === selectedId); }
+
+/** Recompute the overlay for the current model and push it to both panes and the legend. */
+function applyOverlays() {
+  overlayResult = model && view2d.overlay
+    ? applyOverlay(view2d.overlay, model, { materials: data.materials, profiles: data.profiles, detail: currentDetail() })
+    : null;
+  viewer.setOverlay(overlayResult?.colours ?? null, selection.get());
+  draw2d();
+  const l = $('legend');
+  l.innerHTML = overlayResult
+    ? `<h3>${esc(OVERLAYS.find((o) => o.id === view2d.overlay).label)}</h3>` +
+      overlayResult.legend.map((e) => `<div class="legend-row"><span class="swatch${e.colour ? '' : ' nodata'}" style="${e.colour ? `background:${esc(e.colour)}` : ''}"></span>` +
+        `<span>${esc(e.label)}</span><span class="count">${e.count}</span></div>`).join('') +
+      (overlayResult.noData ? `<div class="note">${overlayResult.noData} solid(s) have no data for this overlay.</div>` : '')
+    : '';
+}
+
 function draw2d() {
   const out = model && view2d.on
-    ? buildDetailSvg(model, { materials: data.materials, profiles: data.profiles, scale: view2d.scale, hairline: view2d.hairline, selectedId: selection.get() })
+    ? buildDetailSvg(model, { materials: data.materials, profiles: data.profiles, scale: view2d.scale, hairline: view2d.hairline, selectedId: selection.get(), fills: overlayResult?.colours })
     : { svg: '' };
   $('drawing').innerHTML = out.svg;
+}
+
+function tagLines(prism) {
+  const { tags } = tagsOf(prism, { materials: data.materials, profiles: data.profiles, detail: currentDetail() });
+  const rows = [];
+  if (tags.package) rows.push(`package: ${tags.package}`);
+  if (tags.barrier?.length) rows.push(`barrier: ${tags.barrier.join(', ')}`);
+  if (tags.fire_role) rows.push(`fire: ${tags.fire_role}`);
+  const fire = data.materials.get(prism.materialId)?.properties?.fire;
+  if (fire) rows.push(`rating: ${fire}`);
+  return rows.length ? `<br>${rows.map(esc).join('<br>')}` : '';
 }
 
 function renderSelected() {
@@ -85,7 +116,7 @@ function renderSelected() {
   const d = describeItem(prism, { materials: data?.materials });
   $('selected').innerHTML = d
     ? `<h3>Selected</h3><div class="use"><strong>${esc(d.name)}</strong><br>${esc(d.category)}${d.function ? ` · ${esc(d.function)}` : ''}<br>` +
-      `${esc(d.source)}<br>${d.sizeMm.width} × ${d.sizeMm.height} mm</div>`
+      `${esc(d.source)}<br>${d.sizeMm.width} × ${d.sizeMm.height} mm${tagLines(prism)}</div>`
     : '';
 }
 
@@ -114,6 +145,8 @@ $('pane2d-btn').addEventListener('click', () => {
   viewer.resize();
   draw2d();
 });
+$('overlay-select').innerHTML = '<option value="">Materials (no overlay)</option>' + OVERLAYS.map((o) => `<option value="${o.id}">${o.label}</option>`).join('');
+$('overlay-select').addEventListener('change', (e) => { view2d.overlay = e.target.value; applyOverlays(); });
 $('scale-select').addEventListener('change', (e) => { view2d.scale = Number(e.target.value); draw2d(); });
 $('thin-btn').addEventListener('click', () => {
   view2d.hairline = !view2d.hairline;
@@ -128,11 +161,11 @@ function select(id) {
   selection.set(null);
   model = buildAxoModel(detail, { profiles: data.profiles });
   viewer.setModel(model, (mid) => data.materials.get(mid)?.colour_hex);
-  draw2d();
   $('empty').hidden = true;
   $('caption').hidden = false;
   $('caption').textContent = `${detail.plane ?? 'section'} detail · ${model.prisms.length} solids · Z up`;
   renderInfo(detail, model);
+  applyOverlays(); // after renderInfo, which rebuilds the panel that holds the legend
   renderList();
   const url = new URL(location.href);
   url.searchParams.set('detail', id);

@@ -1,7 +1,7 @@
 # Detail Review View: 2D Pane, Line Weights and Overlays
 
 **Date:** 2026-11-08
-**Status:** Phases 1 to 3 delivered 2026-11-08 (see `docs/project-status.md`). Phases 4 to 6 not started.
+**Status:** Phases 1 to 4 delivered 2026-11-08 (see `docs/project-status.md`). Phases 5 and 6 not started.
 **Related:** `docs/plans/2026-11-06-lineweights.md`, issue #81, issue #115
 
 ---
@@ -47,6 +47,14 @@ Work on a single detail first, get it right, then widen to the other 30.
 - Repeat is on detail **regions**. The vertices draw one unit; `repeat_x_m` and `repeat_y_m` are pitches, `count_x` and `count_y` the numbers, `stagger_x_m` shifts every second row for a bond, and `depth_m` states the unit size along the repeat axis (checked to 1 mm).
 - Each unit is its own solid with its own id, so one brick can be selected.
 - Not done: repeat on profile assembly layers (the fields exist there but nothing renders them), a joint material in the gap, repeat along a rotated axis.
+
+### 4b. Delivered design (phase 4)
+
+- **Data.** One `classification` object (`package`, `barrier[]`, `fire_role`) on a material, with the same shape as `tags` on a profile assembly layer or detail region. Tags override the material field by field. Phase 5 adds the remaining overlay fields to the same object.
+- **Packages.** Groundworks, concrete, timber frame, cladding, interiors, MEP and other. There is no roofing, glazing or steelwork package; the NMB roofing is tagged cladding, windows and balconies other. Say if the list should change.
+- **Engine.** `viewer/src/detail-review/overlays.js` returns a colour per solid and a legend. A solid with no classification is "no data" (hatched grey); a classified solid without the field is "none" (faded).
+- **Views.** Both panes read the same result. Thin solids (membranes) take a heavy coloured line in 2D, and "none" solids are drawn translucent in 3D so barriers show through.
+- **NMB tagging.** All 59 materials are tagged by judgement from their names and notes, not from a supplier list. Treat the packages and fire roles as a first pass to review. None of the 31 details has "no data" in any overlay (a test checks it).
 
 ## 5. Selection
 
