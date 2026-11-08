@@ -13,6 +13,8 @@ import { FsaAdapter } from '../editor/storageAdapter.js';
 import { AxoViewer } from './axoScene.js';
 import { buildAxoModel, materialsUsed, usagesOf, AXO_VIEWS } from './detailAxo.js';
 import { httpReader, loadDetailData } from './loadDetailData.js';
+import { buildDetailSvg } from '../detail-review/detailSvg.js';
+import { createSelection, describeItem } from '../detail-review/selection.js';
 
 const $ = (id) => document.getElementById(id);
 const params = new URLSearchParams(location.search);
@@ -21,6 +23,9 @@ const DEMO_BUNDLE = params.get('bundle') ?? 'nmb-two-storey.oebf';
 const viewer = new AxoViewer($('canvas'));
 let data = null;
 let selectedId = null;
+let model = null;
+const selection = createSelection();
+const view2d = { on: true, scale: 5, hairline: false };
 
 function status(text, error = false) {
   $('status').textContent = text;
@@ -57,6 +62,7 @@ function renderInfo(detail, model) {
   $('info').innerHTML =
     `<div id="detail-title">${esc(detail.id)}</div>` +
     `<div class="note">${esc(detail.description)}</div>` +
+    `<div id="selected"></div>` +
     `<h3>Drawn at</h3>` +
     (uses.length
       ? uses.map((u) => `<div class="use"><code>${esc(u.id)}</code><br>axes ${esc(u.axes.join(' / '))}, level ${esc(u.level)}</div>`).join('')
@@ -67,12 +73,62 @@ function renderInfo(detail, model) {
     (warnings.length ? `<h3>Notes</h3>${warnings.map((w) => `<div class="warn">${esc(w)}</div>`).join('')}` : '');
 }
 
+function draw2d() {
+  const out = model && view2d.on
+    ? buildDetailSvg(model, { materials: data.materials, profiles: data.profiles, scale: view2d.scale, hairline: view2d.hairline, selectedId: selection.get() })
+    : { svg: '' };
+  $('drawing').innerHTML = out.svg;
+}
+
+function renderSelected() {
+  const prism = model?.prisms.find((p) => p.id === selection.get());
+  const d = describeItem(prism, { materials: data?.materials });
+  $('selected').innerHTML = d
+    ? `<h3>Selected</h3><div class="use"><strong>${esc(d.name)}</strong><br>${esc(d.category)}${d.function ? ` · ${esc(d.function)}` : ''}<br>` +
+      `${esc(d.source)}<br>${d.sizeMm.width} × ${d.sizeMm.height} mm</div>`
+    : '';
+}
+
+selection.subscribe((id, source) => {
+  if (source !== '3d') viewer.setSelected(id);
+  draw2d();
+  renderSelected();
+});
+
+$('drawing').addEventListener('click', (e) => {
+  const el = e.target.closest?.('[data-item]');
+  selection.toggle(el ? el.dataset.item : null, '2d');
+});
+// A click in 3D selects; a drag (orbit) does not.
+let down = null;
+$('canvas').addEventListener('pointerdown', (e) => { down = { x: e.clientX, y: e.clientY }; });
+$('canvas').addEventListener('pointerup', (e) => {
+  if (!down || Math.hypot(e.clientX - down.x, e.clientY - down.y) > 4) return;
+  const id = viewer.pick(e.clientX, e.clientY);
+  selection.toggle(id, '3d');
+});
+$('pane2d-btn').addEventListener('click', () => {
+  view2d.on = !view2d.on;
+  $('pane2d-btn').classList.toggle('active', view2d.on);
+  $('pane-2d').hidden = !view2d.on;
+  viewer.resize();
+  draw2d();
+});
+$('scale-select').addEventListener('change', (e) => { view2d.scale = Number(e.target.value); draw2d(); });
+$('thin-btn').addEventListener('click', () => {
+  view2d.hairline = !view2d.hairline;
+  $('thin-btn').classList.toggle('active', view2d.hairline);
+  draw2d();
+});
+
 function select(id) {
   const detail = data?.details.find((d) => d.id === id);
   if (!detail) return;
   selectedId = id;
-  const model = buildAxoModel(detail, { profiles: data.profiles });
+  selection.set(null);
+  model = buildAxoModel(detail, { profiles: data.profiles });
   viewer.setModel(model, (mid) => data.materials.get(mid)?.colour_hex);
+  draw2d();
   $('empty').hidden = true;
   $('caption').hidden = false;
   $('caption').textContent = `${detail.plane ?? 'section'} detail · ${model.prisms.length} solids · Z up`;

@@ -1,7 +1,7 @@
 # Detail Review View: 2D Pane, Line Weights and Overlays
 
 **Date:** 2026-11-08
-**Status:** Plan. No code changed.
+**Status:** Phases 1 and 2 delivered 2026-11-08 (see `docs/project-status.md`). Phases 3 to 6 not started.
 **Related:** `docs/plans/2026-11-06-lineweights.md`, issue #81, issue #115
 
 ---

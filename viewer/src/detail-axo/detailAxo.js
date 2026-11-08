@@ -38,7 +38,7 @@ function boundsOf(polys) {
  * @param {{ profiles: Map<string, object>|Object<string, object> }} ctx
  * @returns {{ plane: 'plan'|'section', extrusion: number, prisms: Array<object>, skipped: string[],
  *             warnings: string[], bounds: object|null }}
- *   prism: { kind: 'region'|'member', role?, materialId, points, w0, w1 }
+ *   prism: { id, kind: 'region'|'member', role, materialId, points, w0, w1, profileId?, layer?, function?, regionIndex? }
  */
 export function buildAxoModel(detail, ctx = {}) {
   const plane = detail.plane ?? 'section';
@@ -84,13 +84,16 @@ export function buildAxoModel(detail, ctx = {}) {
     const built = buildMemberShapes(placed, profile, { plane, length, heightM });
     warnings.push(...built.warnings);
     for (const s of built.shapes) {
-      prisms.push({ kind: 'member', role: member.role, materialId: s.materialId, points: ccw(s.points), w0: m0, w1: m1 });
+      prisms.push({ kind: 'member', role: member.role, profileId: member.profile_id, layer: s.layer, function: s.function, materialId: s.materialId, points: ccw(s.points), w0: m0, w1: m1 });
     }
   }
 
   regions.forEach((r, i) => {
-    prisms.push({ kind: 'region', role: `region ${i}`, materialId: r.material_id, points: regionPolys[i], w0, w1 });
+    prisms.push({ kind: 'region', role: `region ${i}`, regionIndex: i, materialId: r.material_id, points: regionPolys[i], w0, w1 });
   });
+
+  // A stable id per prism, shared by every view of the model (the 3D pane and the 2D drawing select by it).
+  prisms.forEach((p, i) => { p.id = `item-${i}`; });
 
   return { plane, extrusion, prisms, skipped, warnings, bounds: boundsOf(prisms.map((p) => p.points)) };
 }

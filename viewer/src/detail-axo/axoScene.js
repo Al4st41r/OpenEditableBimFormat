@@ -8,6 +8,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { AXO_VIEWS } from './detailAxo.js';
+import { signedArea } from '../detail/regionGeometry.js';
 
 const FALLBACK_COLOUR = '#999999';
 
@@ -75,7 +76,7 @@ export class AxoViewer {
       if (!(prism.points.length >= 3) || !(prism.w1 > prism.w0)) continue;
       const geometry = prismGeometry(model.plane, prism);
       const mesh = new THREE.Mesh(geometry, materialFor(prism.materialId, prism.kind === 'region'));
-      mesh.userData = { kind: prism.kind, edges: false };
+      mesh.userData = { kind: prism.kind, edges: false, itemId: prism.id, baseMaterial: mesh.material, area: Math.abs(signedArea(prism.points)) };
       this.group.add(mesh);
       const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geometry, 25), edgeMaterial);
       edges.userData = { kind: prism.kind, edges: true };
@@ -90,6 +91,33 @@ export class AxoViewer {
       this.radius = Math.max(box.getSize(new THREE.Vector3()).length() / 2, 0.1);
     }
     this.setView(this.view);
+  }
+
+  /** Highlight one item (by prism id), or none. */
+  setSelected(id) {
+    if (!this.group) return;
+    this.highlight ??= new THREE.MeshStandardMaterial({ color: '#e0523d', emissive: '#a02010', emissiveIntensity: 0.6, roughness: 0.6, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
+    for (const o of this.group.children) {
+      if (o.userData.edges || !o.isMesh) continue;
+      o.material = o.userData.itemId === id ? this.highlight : o.userData.baseMaterial;
+    }
+    this.render();
+  }
+
+  /** The id of the item under a pointer position, or null. Hidden items are skipped. */
+  pick(clientX, clientY) {
+    if (!this.group) return null;
+    const r = this.canvas.getBoundingClientRect();
+    const ndc = new THREE.Vector2(((clientX - r.left) / r.width) * 2 - 1, -(((clientY - r.top) / r.height) * 2 - 1));
+    const ray = new THREE.Raycaster();
+    ray.setFromCamera(ndc, this.camera);
+    const meshes = this.group.children.filter((o) => o.isMesh && o.visible);
+    const hits = ray.intersectObjects(meshes, false);
+    if (!hits.length) return null;
+    // Overlapping solids (a region drawn over a member) have faces at the same depth: take the smallest, the most specific.
+    const front = hits.filter((h) => h.distance <= hits[0].distance + 1e-3);
+    front.sort((a, b) => a.object.userData.area - b.object.userData.area);
+    return front[0].object.userData.itemId;
   }
 
   applyVisibility() {

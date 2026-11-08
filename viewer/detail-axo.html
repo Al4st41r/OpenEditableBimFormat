@@ -25,6 +25,12 @@
     .panel { overflow-y: auto; padding: 8px 12px; background: #1e1e1e; flex-shrink: 0; }
     #left-panel { width: 280px; border-right: 1px solid #333; }
     #right-panel { width: 340px; border-left: 1px solid #333; }
+    #panes { flex: 1; min-width: 0; display: flex; }
+    #pane-2d { flex: 1; min-width: 0; position: relative; background: #fff; border-right: 1px solid #333; overflow: auto; }
+    #drawing { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 8px; }
+    #drawing svg { max-width: 100%; max-height: 100%; width: 100%; height: 100%; }
+    #pane-2d[hidden] { display: none; }
+    .pane-label { position: absolute; left: 10px; top: 8px; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: #777; z-index: 1; pointer-events: none; }
     #canvas-wrap { flex: 1; min-width: 0; position: relative; background: #f2f1ed; }
     #canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
     #empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #888; font-size: 14px; text-align: center; padding: 24px; pointer-events: none; }
@@ -52,6 +58,12 @@
     <button id="open-btn">Open folder</button>
     <button id="demo-btn">NMB example</button>
     <span class="sep"></span>
+    <button id="pane2d-btn" class="active" title="Show the 2D drawing beside the 3D view">2D</button>
+    <select id="scale-select" title="Drawing scale of the 2D pane">
+      <option value="1">1:1</option><option value="2">1:2</option><option value="5" selected>1:5</option><option value="10">1:10</option>
+    </select>
+    <button id="thin-btn" title="Draw every line as a hairline">Thin</button>
+    <span class="sep"></span>
     <select id="view-select" title="Axonometric view"></select>
     <button id="members-btn" class="active" title="Show the swept wall profiles">Members</button>
     <button id="regions-btn" class="active" title="Show the detail's own regions">Regions</button>
@@ -66,10 +78,14 @@
       <input id="filter" type="text" placeholder="Filter" style="width:100%; margin-bottom:6px;">
       <div id="list"></div>
     </div>
-    <div id="canvas-wrap">
-      <canvas id="canvas"></canvas>
-      <div id="empty">Open a bundle folder or load the NMB example, then pick a detail.</div>
-      <div id="caption" hidden></div>
+    <div id="panes">
+      <div id="pane-2d"><span class="pane-label">2D</span><div id="drawing"></div></div>
+      <div id="canvas-wrap">
+        <span class="pane-label">3D</span>
+        <canvas id="canvas"></canvas>
+        <div id="empty">Open a bundle folder or load the NMB example, then pick a detail.</div>
+        <div id="caption" hidden></div>
+      </div>
     </div>
     <div id="right-panel" class="panel">
       <div id="info"></div>
