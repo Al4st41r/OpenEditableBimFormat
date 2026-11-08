@@ -120,6 +120,12 @@ Each overlay shows a legend, and items with no value for it appear hatched grey 
 - **Not done: a total.** A kgCO2e figure for the detail would double count, because regions overlap members (insulation drawn over CLT, for example). It needs an overlap-aware volume first.
 - **Data licence.** The copied factors come from a work project (WTA CarbonBench); check they may be held in this personal repository before it is made public.
 
+## 10b. Delivered design (phase 5, construction sequence)
+
+- **Data.** `sequence`, a whole number from 1 to 99, in the same `classification` and `tags` object. Only the order matters: the colour comes from the rank among the steps a detail uses, so the gradient always runs from darkest (first) to lightest (last), even if a detail only uses steps 40 and 41.
+- **Defaults.** Each of the 59 NMB materials has a step from 1 to 12 (sub-base, then concrete and damp-proofing, structure, first-fix and firestopping, frame and insulation, membranes, cladding, linings, then the floor build-up and finishes). These are my reading of a plausible build order, not a programme. A layer or region `tags.sequence` overrides it where one detail builds in a different order.
+- **Limit.** A step belongs to the material, so the same material has one step in every detail unless overridden. Details where it differs need region or layer tags.
+
 ## 11. Assumptions and open questions
 
 - Whether the review view replaces `detail-axo.html` or becomes a new page. Recommendation: extend `detail-axo.html`, since it already loads the bundle and picks details.

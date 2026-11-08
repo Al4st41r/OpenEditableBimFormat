@@ -106,6 +106,7 @@ function tagLines(prism) {
   if (tags.package) rows.push(`package: ${tags.package}`);
   if (tags.barrier?.length) rows.push(`barrier: ${tags.barrier.join(', ')}`);
   if (tags.fire_role) rows.push(`fire: ${tags.fire_role}`);
+  if (tags.sequence) rows.push(`sequence: step ${tags.sequence}`);
   const mat = data.materials.get(prism.materialId);
   if (mat?.properties?.fire) rows.push(`rating: ${mat.properties.fire}`);
   const cv = carbonValues(mat);

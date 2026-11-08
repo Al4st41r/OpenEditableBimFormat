@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { PACKAGES, BARRIERS, FIRE_ROLES, checkClassification } from './classification.js';
-import { OVERLAYS, tagsOf, valueFor, applyOverlay, overlayById, carbonValues, CARBON_BINS, NO_DATA } from './overlays.js';
+import { OVERLAYS, tagsOf, valueFor, applyOverlay, overlayById, carbonValues, sequenceColour, CARBON_BINS, NO_DATA } from './overlays.js';
 
 const schema = (f) => JSON.parse(readFileSync(new URL(`../../../spec/schema/${f}.schema.json`, import.meta.url), 'utf8'));
 
@@ -18,7 +18,7 @@ describe('classification values match the schemas', () => {
 
 describe('checkClassification', () => {
   it('accepts a full valid object and an empty one', () => {
-    expect(checkClassification({ package: 'cladding', barrier: ['water', 'air'], fire_role: 'firestop' })).toEqual([]);
+    expect(checkClassification({ package: 'cladding', barrier: ['water', 'air'], fire_role: 'firestop', sequence: 4 })).toEqual([]);
     expect(checkClassification({})).toEqual([]);
   });
   it('reports a bad package, barrier, duplicate and unknown field with paths', () => {
@@ -26,6 +26,7 @@ describe('checkClassification', () => {
     expect(p.map((x) => x.path).sort()).toEqual(['tags.barrier', 'tags.colour', 'tags.fire_role', 'tags.package']);
     expect(checkClassification({ barrier: ['steam'] })[0].code).toBe('enum');
     expect(checkClassification([])[0].code).toBe('classification');
+    for (const bad of [0, 100, 2.5, '3']) expect(checkClassification({ sequence: bad })[0].code, String(bad)).toBe('sequence');
   });
 });
 
@@ -204,5 +205,58 @@ describe('NMB carbon snapshot', () => {
       const v = carbonValues(m);
       if (m.properties.carbon.unit !== 'kgCO2e/m2') expect(v.perKg !== null || v.perM3 !== null, m.id).toBe(true);
     }
+  });
+});
+
+describe('sequence overlay', () => {
+  const mats = new Map([['a', { classification: { sequence: 2 } }], ['b', { classification: { sequence: 5 } }], ['c', { classification: { sequence: 9 } }], ['d', { classification: { package: 'mep' } }]]);
+  const prism = (id, materialId, extra = {}) => ({ id, kind: 'region', materialId, regionIndex: 0, ...extra });
+  const light = (hex) => parseInt(hex.slice(1, 3), 16) + parseInt(hex.slice(3, 5), 16) + parseInt(hex.slice(5, 7), 16);
+
+  it('colours first darkest and last lightest, by rank in this detail', () => {
+    const r = applyOverlay('sequence', { prisms: [prism('1', 'c'), prism('2', 'a'), prism('3', 'b')] }, { materials: mats });
+    const [first, mid, last] = ['2', '3', '1'].map((id) => r.colours.get(id));
+    expect(light(first)).toBeLessThan(light(mid));
+    expect(light(mid)).toBeLessThan(light(last));
+    expect(r.legend.map((e) => e.label)).toEqual(['Step 2 (first)', 'Step 5', 'Step 9 (last)']);
+  });
+  it('spans the full ramp even when the steps are numbered 40 and 41', () => {
+    const m = new Map([['x', { classification: { sequence: 40 } }], ['y', { classification: { sequence: 41 } }]]);
+    const r = applyOverlay('sequence', { prisms: [prism('1', 'x'), prism('2', 'y')] }, { materials: m });
+    expect(r.colours.get('1')).toBe(sequenceColour(0));
+    expect(r.colours.get('2')).toBe(sequenceColour(1));
+  });
+  it('gives a single step the darkest colour and no first or last label', () => {
+    const r = applyOverlay('sequence', { prisms: [prism('1', 'a'), prism('2', 'a')] }, { materials: mats });
+    expect(r.legend).toHaveLength(1);
+    expect(r.legend[0]).toMatchObject({ label: 'Step 2', count: 2, colour: sequenceColour(0) });
+  });
+  it('treats a classified material with no sequence as no data, and lets a region tag override', () => {
+    const detail = { geometry: { regions: [{ tags: { sequence: 1 } }] } };
+    const r = applyOverlay('sequence', { prisms: [prism('1', 'd'), prism('2', 'd', { regionIndex: 0 })] }, { materials: mats, detail });
+    expect(r.legend.map((e) => e.label)).toEqual(['Step 1']); // both solids take the region's step
+    expect(r.noData).toBe(0);
+    const r2 = applyOverlay('sequence', { prisms: [prism('1', 'd')] }, { materials: mats });
+    expect(r2.noData).toBe(1);
+  });
+  it('sequenceColour runs from dark to light and clamps', () => {
+    expect(light(sequenceColour(0))).toBeLessThan(light(sequenceColour(0.5)));
+    expect(sequenceColour(-3)).toBe(sequenceColour(0));
+    expect(sequenceColour(9)).toBe(sequenceColour(1));
+  });
+});
+
+describe('sequence on the NMB example', () => {
+  const root = new URL('../../../example/nmb-two-storey.oebf/', import.meta.url);
+  const lib = JSON.parse(readFileSync(new URL('materials/library.json', root), 'utf8')).materials;
+  it('every material has a step from 1 to 99, and the build order reads sensibly', () => {
+    for (const m of lib) expect(Number.isInteger(m.classification.sequence), m.id).toBe(true);
+    const step = (id) => lib.find((m) => m.id === `mat-nmb-${id}`).classification.sequence;
+    expect(step('sub-base')).toBeLessThan(step('clt'));
+    expect(step('clt')).toBeLessThan(step('vapour-barrier'));
+    expect(step('vapour-barrier')).toBeLessThan(step('breather-membrane'));
+    expect(step('breather-membrane')).toBeLessThan(step('cladding'));
+    expect(step('acoustic-matting')).toBeLessThan(step('screed'));
+    expect(step('screed')).toBeLessThanOrEqual(step('floor-finish'));
   });
 });

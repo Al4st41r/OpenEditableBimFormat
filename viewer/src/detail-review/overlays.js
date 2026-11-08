@@ -64,6 +64,18 @@ function carbonBin(value, edges) {
   return { key: `bin-${i}`, label, colour: CARBON_COLOURS[i], order: i };
 }
 
+/** Dark (first) to light (last) ramp for the construction sequence, as RGB stops. */
+const SEQUENCE_RAMP = [[8, 48, 107], [33, 113, 181], [107, 174, 214], [189, 215, 231], [222, 235, 247]];
+
+/** A colour along the ramp, t from 0 (first, darkest) to 1 (last, lightest). */
+export function sequenceColour(t) {
+  const x = Math.min(Math.max(t, 0), 1) * (SEQUENCE_RAMP.length - 1);
+  const i = Math.min(Math.floor(x), SEQUENCE_RAMP.length - 2);
+  const f = x - i;
+  const c = SEQUENCE_RAMP[i].map((v, k) => Math.round(v + (SEQUENCE_RAMP[i + 1][k] - v) * f));
+  return `#${c.map((v) => v.toString(16).padStart(2, '0')).join('')}`;
+}
+
 /** @type {Array<{ id: string, label: string, absentMeansNone: boolean, valueOf: (tags: object, ctx: { material?: object, options?: object }) => ({ key: string, label: string, colour: string }|null) }>} */
 export const OVERLAYS = [
   {
@@ -92,6 +104,22 @@ export const OVERLAYS = [
     valueOf(tags) {
       const e = FIRE_COLOURS[tags.fire_role];
       return e ? { key: tags.fire_role, label: e[0], colour: e[1] } : null;
+    },
+  },
+  {
+    id: 'sequence',
+    label: 'Construction sequence',
+    absentMeansNone: false,
+    // Colours depend on the other steps in the detail (first is darkest, last lightest), so they are set afterwards.
+    assignColours(entries) {
+      const n = entries.length;
+      entries.forEach((e, i) => {
+        e.colour = sequenceColour(n === 1 ? 0 : i / (n - 1));
+        e.label = `Step ${e.order}${n > 1 && i === 0 ? ' (first)' : ''}${n > 1 && i === n - 1 ? ' (last)' : ''}`;
+      });
+    },
+    valueOf(tags) {
+      return Number.isInteger(tags.sequence) ? { key: `step-${tags.sequence}`, label: `Step ${tags.sequence}`, colour: null, order: tags.sequence } : null;
     },
   },
   {
@@ -147,13 +175,17 @@ export function applyOverlay(overlayId, model, ctx, options) {
   const colours = new Map();
   if (!overlay) return { colours, legend: [], noData: 0 };
   const counts = new Map();
+  const values = new Map();
   for (const p of model.prisms) {
     const v = valueFor(overlay, p, ctx, options);
-    colours.set(p.id, v.colour);
+    values.set(p.id, v.key);
     const e = counts.get(v.key) ?? { ...v, count: 0 };
     e.count += 1;
     counts.set(v.key, e);
   }
+  // A scale overlay colours by rank among the values this detail uses, so the gradient always spans first to last.
+  if (overlay.assignColours) overlay.assignColours([...counts.values()].filter((e) => e.order !== undefined).sort((a, b) => a.order - b.order));
+  for (const p of model.prisms) colours.set(p.id, counts.get(values.get(p.id)).colour);
   // No data last, then "none", and otherwise by bin order (a scale) or by label.
   const rank = (e) => (e.key === 'no-data' ? 2 : e.key === 'none' ? 1 : 0);
   const legend = [...counts.values()].sort((a, b) => rank(a) - rank(b) || (a.order ?? 0) - (b.order ?? 0) || a.label.localeCompare(b.label));
