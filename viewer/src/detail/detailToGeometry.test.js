@@ -239,3 +239,33 @@ describe('reuse and propagation (plan R1 to R3)', () => {
     expect(d).toEqual(dc); expect(j).toEqual(jc);
   });
 });
+
+describe('repeating units', () => {
+  const brickDetail = (extra = {}) => {
+    const d = makeDetail();
+    const v = (x, y) => ({ x, y });
+    d.geometry.regions = [{ material_id: 'mat-a', vertices: [v(0, 0), v(0.21, 0), v(0.21, 0.065), v(0, 0.065)], ...extra }];
+    return d;
+  };
+
+  test('a brick course of 4 units on a 220 mm pitch makes 4 solids with 10 mm joints', () => {
+    const { geometry } = build(brickDetail({ depth_m: 0.21, repeat_x_m: 0.22, count_x: 4 }));
+    expect(assertValidGeometry(geometry)).toEqual([]);
+    expect(geometry.vertices).toHaveLength(32);
+    const one = bbox(build(brickDetail()).geometry);
+    const all = bbox(geometry);
+    // Only the repeat axis grows, by three pitches; the other two spans are unchanged.
+    const grew = all.max.map((m, i) => (m - all.min[i]) - (one.max[i] - one.min[i])).map((g) => Math.round(g * 1e6) / 1e6).sort();
+    expect(grew).toEqual([0, 0, 0.66]);
+  });
+
+  test('the total volume is units times one unit', () => {
+    const one = Math.abs(signedVolume(build(brickDetail()).geometry));
+    const four = Math.abs(signedVolume(build(brickDetail({ repeat_x_m: 0.22, count_x: 4 })).geometry));
+    expect(four).toBeCloseTo(one * 4, 9);
+  });
+
+  test('overlapping units are rejected with the region named', () => {
+    expect(() => build(brickDetail({ repeat_x_m: 0.2, count_x: 3 }))).toThrow(/region 0.*overlap/);
+  });
+});

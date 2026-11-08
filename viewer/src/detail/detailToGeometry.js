@@ -10,6 +10,7 @@
 import { applyOverrides } from './detailParams.js';
 import { buildDetailFrame } from './detailFrame.js';
 import { signedArea, isSelfIntersecting, triangulate } from './regionGeometry.js';
+import { checkRepeat, expandUnit } from './regionRepeat.js';
 
 function evalCoordinate(c, values, where) {
   if (typeof c === 'number') return c;
@@ -63,19 +64,25 @@ export function detailToGeometry(detail, junction, ctx) {
     if (Math.abs(area) < 1e-12) throw new Error(`${where}: region has zero area`);
     if (area < 0) pts = pts.reverse();
 
-    const count = pts.length;
-    const base = vertices.length;
-    for (const p of pts) vertices.push(place(p, w0));
-    for (const p of pts) vertices.push(place(p, w1));
+    const repeat = checkRepeat(region, pts);
+    if (repeat.length) throw new Error(`${where}: ${repeat[0].message}`);
 
     const material_id = region.material_id;
-    for (const [a, b, c] of triangulate(pts)) {
-      faces.push({ indices: [base + a, base + c, base + b], material_id });                 // bottom, faces -w
-      faces.push({ indices: [base + count + a, base + count + b, base + count + c], material_id }); // top, faces +w
-    }
-    for (let i = 0; i < count; i++) {
-      const j = (i + 1) % count;
-      faces.push({ indices: [base + i, base + j, base + count + j, base + count + i], material_id });
+    // One solid per unit. A region with no repeat has one unit.
+    for (const unit of expandUnit(pts, region)) {
+      const upts = unit.points;
+      const count = upts.length;
+      const base = vertices.length;
+      for (const p of upts) vertices.push(place(p, w0));
+      for (const p of upts) vertices.push(place(p, w1));
+      for (const [a, b, c] of triangulate(upts)) {
+        faces.push({ indices: [base + a, base + c, base + b], material_id });                 // bottom, faces -w
+        faces.push({ indices: [base + count + a, base + count + b, base + count + c], material_id }); // top, faces +w
+      }
+      for (let i = 0; i < count; i++) {
+        const j = (i + 1) % count;
+        faces.push({ indices: [base + i, base + j, base + count + j, base + count + i], material_id });
+      }
     }
   });
 

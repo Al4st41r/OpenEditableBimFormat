@@ -19,6 +19,7 @@
 
 import { buildMemberShapes, isStackedSlab } from '../detail-editor/memberShapes.js';
 import { signedArea } from '../detail/regionGeometry.js';
+import { checkRepeat, expandUnit } from '../detail/regionRepeat.js';
 
 const ccw = (pts) => (signedArea(pts) < 0 ? [...pts].reverse() : pts);
 
@@ -38,7 +39,7 @@ function boundsOf(polys) {
  * @param {{ profiles: Map<string, object>|Object<string, object> }} ctx
  * @returns {{ plane: 'plan'|'section', extrusion: number, prisms: Array<object>, skipped: string[],
  *             warnings: string[], bounds: object|null }}
- *   prism: { id, kind: 'region'|'member', role, materialId, points, w0, w1, profileId?, layer?, function?, regionIndex? }
+ *   prism: { id, kind: 'region'|'member', role, materialId, points, w0, w1, profileId?, layer?, function?, regionIndex?, unit? }
  */
 export function buildAxoModel(detail, ctx = {}) {
   const plane = detail.plane ?? 'section';
@@ -89,7 +90,16 @@ export function buildAxoModel(detail, ctx = {}) {
   }
 
   regions.forEach((r, i) => {
-    prisms.push({ kind: 'region', role: `region ${i}`, regionIndex: i, materialId: r.material_id, points: regionPolys[i], w0, w1 });
+    const problems = checkRepeat(r, regionPolys[i]);
+    if (problems.length) warnings.push(`Region ${i}: ${problems[0].message}; drawn as one unit`);
+    // One prism per unit, so each brick or tile can be selected on its own.
+    const units = problems.length ? [{ points: regionPolys[i], ix: 0, iy: 0 }] : expandUnit(regionPolys[i], r);
+    for (const u of units) {
+      prisms.push({
+        kind: 'region', role: units.length > 1 ? `region ${i} unit ${u.ix},${u.iy}` : `region ${i}`, regionIndex: i, unit: { ix: u.ix, iy: u.iy },
+        materialId: r.material_id, points: u.points, w0, w1,
+      });
+    }
   });
 
   // A stable id per prism, shared by every view of the model (the 3D pane and the 2D drawing select by it).

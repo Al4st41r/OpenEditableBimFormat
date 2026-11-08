@@ -2,7 +2,7 @@
 
 **Date:** 2026-11-06
 **Branch:** main
-**Tests:** 1581 JS (Vitest, 92 test files) + 347 Python (pytest, plus 3 documented xfails)
+**Tests:** 1602 JS (Vitest, 93 test files) + 350 Python (pytest, plus 3 documented xfails)
 
 ---
 

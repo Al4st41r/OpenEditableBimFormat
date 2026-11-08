@@ -118,6 +118,28 @@ describe('integrity rules', () => {
   });
 });
 
+describe('repeating regions', () => {
+  const withRepeat = (extra) => {
+    const d = makeDetail();
+    d.geometry.regions[0] = { material_id: 'mat-a', vertices: [{ x: 0, y: 0 }, { x: 0.21, y: 0 }, { x: 0.21, y: 0.065 }, { x: 0, y: 0.065 }], ...extra };
+    return d;
+  };
+  test('a brick (210 on 220) and a tile (90 on 98) pass', () => {
+    expect(codes(withRepeat({ depth_m: 0.21, repeat_x_m: 0.22, count_x: 10 }))).toEqual([]);
+    const tile = makeDetail();
+    tile.geometry.regions[0] = { material_id: 'mat-a', depth_m: 0.09, repeat_y_m: 0.098, count_y: 6, vertices: [{ x: 0, y: 0 }, { x: 0.3, y: 0 }, { x: 0.3, y: 0.09 }, { x: 0, y: 0.09 }] };
+    expect(codes(tile)).toEqual([]);
+  });
+  test('a pitch smaller than the unit is an overlap, at the field', () => {
+    const [m] = only(withRepeat({ repeat_x_m: 0.2, count_x: 3 }), 'repeat-overlap');
+    expect(m.path).toBe('geometry.regions[0].repeat_x_m');
+  });
+  test('depth that disagrees with the drawing, and a count with no pitch, are reported', () => {
+    expect(codes(withRepeat({ depth_m: 0.2, repeat_x_m: 0.22, count_x: 2 }))).toContain('repeat-depth-mismatch');
+    expect(codes(withRepeat({ count_x: 3 }))).toContain('repeat-pitch-missing');
+  });
+});
+
 describe('member extent', () => {
   test('forward, backward and centred are accepted', () => {
     for (const extent of ['forward', 'backward', 'centred']) {

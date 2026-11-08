@@ -57,6 +57,23 @@ def _out_of_range(value, spec) -> bool:
     return ("min" in spec and value < spec["min"]) or ("max" in spec and value > spec["max"])
 
 
+def _check_region_repeat(region, ri, rel, add):
+    """A repeated unit must fit inside its pitch, and a stated depth must match the drawn unit (numeric vertices only)."""
+    verts = region.get("vertices", [])
+    if not all(isinstance(v.get(a), (int, float)) for v in verts for a in ("x", "y")) or not verts:
+        return
+    size = {a: max(v[a] for v in verts) - min(v[a] for v in verts) for a in ("x", "y")}
+    for axis in ("x", "y"):
+        pitch, count = region.get(f"repeat_{axis}_m"), region.get(f"count_{axis}", 1)
+        if pitch is None and f"count_{axis}" in region:
+            add("repeat-pitch-missing", rel, f"region {ri}: count_{axis} needs repeat_{axis}_m")
+        elif pitch is not None and count > 1 and pitch < size[axis] - 1e-9:
+            add("repeat-overlap", rel, f"region {ri}: repeat_{axis}_m ({pitch}) is smaller than the unit ({round(size[axis], 4)} m), so the units overlap")
+    axis = "x" if "repeat_x_m" in region else "y" if "repeat_y_m" in region else None
+    if axis and "depth_m" in region and abs(size[axis] - region["depth_m"]) > 0.001:
+        add("repeat-depth-mismatch", rel, f"region {ri}: depth_m ({region['depth_m']}) does not match the drawn unit size along {axis} ({round(size[axis], 4)} m)")
+
+
 def validate_bundle(bundle_dir) -> list:
     bundle = Path(bundle_dir)
     problems: list[Problem] = []
@@ -201,6 +218,7 @@ def validate_bundle(bundle_dir) -> list:
         for ri, region in enumerate(d.get("geometry", {}).get("regions", [])):
             if materials and region.get("material_id") not in materials:
                 add("material-missing", rel, f'region {ri} material "{region.get("material_id")}" is not in the materials library')
+            _check_region_repeat(region, ri, rel, add)
             for vi, v in enumerate(region.get("vertices", [])):
                 for axis in ("x", "y"):
                     c = v.get(axis)

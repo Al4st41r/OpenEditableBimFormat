@@ -163,3 +163,29 @@ describe('loadDetailData', () => {
     expect(calls[0]).toBe('/oebf/bundle/ok.json');
   });
 });
+
+describe('repeating regions', () => {
+  const brick = (extra) => ({ material_id: 'mat-a', vertices: [{ x: 0, y: 0 }, { x: 0.21, y: 0 }, { x: 0.21, y: 0.065 }, { x: 0, y: 0.065 }], ...extra });
+  const detail = (r) => ({ id: 'detail-r', type: 'Detail', plane: 'section', members: [], geometry: { extrusion_m: 1, regions: [r] } });
+
+  test('one prism per unit, with unique ids and the unit index', () => {
+    const m = buildAxoModel(detail(brick({ depth_m: 0.21, repeat_x_m: 0.22, count_x: 3 })), { profiles });
+    expect(m.prisms).toHaveLength(3);
+    expect(new Set(m.prisms.map((p) => p.id)).size).toBe(3);
+    expect(m.prisms.map((p) => p.unit.ix)).toEqual([0, 1, 2]);
+    expect(m.prisms.every((p) => p.regionIndex === 0)).toBe(true);
+    expect(m.bounds.maxU - m.bounds.minU).toBeCloseTo(0.44 + 0.21, 6);
+    expect(m.warnings).toEqual([]);
+  });
+
+  test('a region with no repeat keeps its plain role', () => {
+    const m = buildAxoModel(detail(brick({})), { profiles });
+    expect(m.prisms.map((p) => p.role)).toEqual(['region 0']);
+  });
+
+  test('a bad repeat draws one unit and warns', () => {
+    const m = buildAxoModel(detail(brick({ repeat_x_m: 0.2, count_x: 3 })), { profiles });
+    expect(m.prisms).toHaveLength(1);
+    expect(m.warnings[0]).toMatch(/overlap/);
+  });
+});

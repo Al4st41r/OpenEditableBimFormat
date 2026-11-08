@@ -325,3 +325,30 @@ def test_llm_binds_a_coordinate_to_a_parameter_it_did_not_declare(bundle):
     broken["parameters"] = {}
     add_detail(bundle, broken)
     assert "param-undeclared" in codes(bundle)
+
+
+# ── repeating region units ───────────────────────────────────────────────────
+
+def _first_region(bundle, fn):
+    path = next((bundle / "details").glob("*.json"))
+    d = load(path)
+    r = d["geometry"]["regions"][0]
+    # Numeric vertices: a 200 mm by 100 mm unit. (The example's own region uses parameters, which the check skips.)
+    r["vertices"] = [{"x": 0, "y": 0}, {"x": 0.2, "y": 0}, {"x": 0.2, "y": 0.1}, {"x": 0, "y": 0.1}]
+    fn(r)
+    save(path, d)
+
+
+def test_region_repeat_that_fits_passes(bundle):
+    _first_region(bundle, lambda r: r.update(repeat_x_m=0.21, count_x=3))
+    assert validate_bundle(bundle) == []
+
+
+def test_region_repeat_pitch_smaller_than_unit_is_an_overlap(bundle):
+    _first_region(bundle, lambda r: r.update(repeat_x_m=0.1, count_x=3))
+    assert "repeat-overlap" in codes(bundle)
+
+
+def test_region_depth_must_match_the_drawn_unit(bundle):
+    _first_region(bundle, lambda r: r.update(depth_m=0.5, repeat_x_m=0.6, count_x=2))
+    assert "repeat-depth-mismatch" in codes(bundle)
