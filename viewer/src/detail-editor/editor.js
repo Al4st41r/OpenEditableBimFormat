@@ -12,11 +12,12 @@ import { FsaAdapter, MemoryAdapter } from '../editor/storageAdapter.js';
 import { setUnit, getUnit, toDisplay, fromDisplay } from '../editor/units.js';
 import * as D from './detailDocument.js';
 import * as AN from './annotationOps.js';
+import { HttpAdapter, BUNDLE_NAME } from './httpAdapter.js';
 import { detailToDxf } from './dxfExport.js';
 import { copySelection, parsePayload, pasteInto } from './clipboard.js';
 import { defaultLayers, setLayer, applyLayers, blocked, keepSelection, layerOfSelection, editable, LAYER_LABELS } from './layers.js';
 import { validateDetail } from './detailValidate.js';
-import { createDetail } from './detailSerializer.js';
+import { createDetail, toJsonText } from './detailSerializer.js';
 import { loadDetailContext, saveDetail } from './detailStore.js';
 import { snapshotToContext } from './bundleSnapshot.js';
 import { readyMessage, parseIncoming, savedMessage, focusMessage } from './messages.js';
@@ -746,7 +747,7 @@ async function save() {
     const at = bundle.ctx.details.findIndex((d) => d.id === saved.id);
     if (at >= 0) bundle.ctx.details[at] = saved; else { bundle.ctx.details.push(saved); bundle.ctx.detailIds.push(saved.id); }
     st = markSaved(st);
-    status(bundle.source === 'memory' ? 'Saved in memory. Use Zip to keep it.' : 'Saved');
+    status(bundle.source === 'memory' ? 'Saved in memory. Use Zip to keep it.' : bundle.source === 'http' ? 'Saved in this page only. Export, Detail JSON keeps it.' : 'Saved');
     refresh();
   } catch (err) { status(`Save failed: ${err.message}`, true); }
 }
@@ -772,7 +773,20 @@ if (window.opener) {
 }
 
 // ── demo mode (also used for headless checks) ────────────────────────────────
-if (new URLSearchParams(window.location.search).has('demo')) openDemo();
+// A link that opens a served example bundle on a detail:
+//   ?bundle=nmb-two-storey.oebf&detail=detail-nmb-ew-slab-edge-section
+//   ?bundle=terraced-house.oebf&detail=detail-corner-cavity-butt
+async function openFromUrl(name, detailId) {
+  try {
+    if (!BUNDLE_NAME.test(name)) throw new Error(`"${name}" is not a bundle name`);
+    const adapter = await HttpAdapter.open(`${import.meta.env.BASE_URL}${name}/`, name.replace(/\.oebf$/, ''));
+    openContext(await loadDetailContext(adapter), adapter, 'http', detailId);
+    if (detailId && !bundle.ctx.detailIds.includes(detailId)) status(`Detail "${detailId}" is not in ${name}`, true);
+  } catch (err) { status(`Could not open ${name}: ${err.message}`, true); }
+}
+const query = new URLSearchParams(window.location.search);
+if (query.has('bundle')) openFromUrl(query.get('bundle'), query.get('detail'));
+else if (query.has('demo')) openDemo();
 
 // Read-only hook for headless checks and bug reports.
 window.__detailEditor = { snapState: () => snapState, hint: () => hint, state: () => st, view: () => view, size: () => size, adapter: () => bundle?.adapter ?? null, status: () => $('status').textContent };
@@ -780,7 +794,17 @@ window.__detailEditor = { snapState: () => snapState, hint: () => hint, state: (
 $('export-select').addEventListener('change', (e) => {
   const kind = e.target.value;
   e.target.value = '';
-  if (!st || kind !== 'dxf') return;
+  if (!st) return;
+  if (kind === 'json') {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([toJsonText(st.doc)], { type: 'application/json' }));
+    a.download = `${st.doc.id}.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    status('Saved the detail as JSON.');
+    return;
+  }
+  if (kind !== 'dxf') return;
   const text = detailToDxf(st.doc, { profiles: bundle.ctx.profiles, materials: bundle.ctx.materials, values: st.preview ?? undefined });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([text], { type: 'application/dxf' }));
