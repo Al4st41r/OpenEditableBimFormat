@@ -19,8 +19,10 @@
     button.primary:hover:not(:disabled) { background: #3a5a3a; }
     button.active { background: #1e3a5a; border-color: #4a8aaa; color: #fff; }
     .sep { width: 1px; align-self: stretch; background: #333; margin: 0 4px; }
-    #project-name { opacity: 0.6; max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    #detail-select { max-width: 190px; }
+    #project-name { opacity: 0.6; max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #detail-select { max-width: 150px; }
+    #material-select { max-width: 120px; }
+    #header .sep { margin: 0 1px; }
     #status { margin-left: auto; opacity: 0.8; font-size: 12px; max-width: 40%; text-align: right; }
     #status.error { color: #f88; opacity: 1; }
     #dirty { color: #fc6; font-size: 18px; line-height: 1; }
@@ -40,6 +42,11 @@
     #cmd-hint { color: #aaa; font-size: 12px; white-space: nowrap; }
     #tip .t { font-weight: 700; }
     #tip .c { opacity: 0.6; }
+    #marks-menu { position: relative; }
+    #marks-menu summary { cursor: pointer; padding: 4px 10px; background: #333; border: 1px solid #555; border-radius: 3px; list-style: none; white-space: nowrap; }
+    #marks-menu.active summary { background: #1e3a5a; border-color: #0a6cff; }
+    #marks-menu-body { position: absolute; z-index: 20; top: 30px; left: 0; background: #262626; border: 1px solid #555; border-radius: 3px; padding: 6px; display: flex; flex-direction: column; gap: 4px; min-width: 120px; }
+    #marks-menu-body button { text-align: left; }
     #snap-menu { position: relative; }
     #snap-menu summary { cursor: pointer; padding: 4px 10px; background: #333; border: 1px solid #555; border-radius: 3px; list-style: none; }
     #snap-menu-body { position: absolute; z-index: 20; top: 30px; left: 0; background: #262626; border: 1px solid #555; border-radius: 3px; padding: 8px 10px; min-width: 190px; }
@@ -97,17 +104,19 @@
     <button id="open-btn">Open folder</button>
     <button id="open-file-btn">Open file</button>
     <button id="demo-btn">Demo</button>
-    <button id="zip-btn" hidden>Download bundle</button>
+    <button id="zip-btn" hidden title="Download the whole bundle as a zip">Zip</button>
     <span class="sep"></span>
     <button id="tool-select" class="active" title="Select and move (V)">Select</button>
     <button id="tool-rect" title="Rectangle region (R)">Rect</button>
     <button id="tool-polygon" title="Polygon region (P)">Polygon</button>
     <button id="tool-measure" title="Measure distance and angle between two points (M)">Measure</button>
-    <button id="tool-line" title="Open line: a break line, centre line or damp-proof course (L). Enter or double-click finishes.">Line</button>
-    <button id="tool-arc" title="Arc: centre, start, end, anticlockwise (A)">Arc</button>
-    <button id="tool-circle" title="Circle: centre and a point on it (C)">Circle</button>
-    <button id="tool-dim" title="Dimension between two points (D)">Dim</button>
-    <button id="tool-note" title="Note with a leader line (N)">Note</button>
+    <details id="marks-menu"><summary id="marks-summary" title="Lines, arcs, circles, dimensions and notes">Marks</summary><div id="marks-menu-body">
+      <button id="tool-line" title="Open line: a break line, centre line or damp-proof course (L). Enter or double-click finishes.">Line</button>
+      <button id="tool-arc" title="Arc: centre, start, end, anticlockwise (A)">Arc</button>
+      <button id="tool-circle" title="Circle: centre and a point on it (C)">Circle</button>
+      <button id="tool-dim" title="Dimension between two points (D)">Dim</button>
+      <button id="tool-note" title="Note with a leader line (N)">Note</button>
+    </div></details>
     <select id="material-select" title="Material for new regions" disabled></select>
     <button id="snap-btn" class="active" title="Snapping on or off (S). Hold Alt to suspend it while you move.">Snap</button>
     <details id="snap-menu"><summary title="Which snaps are active">Snaps</summary><div id="snap-menu-body"></div></details>

@@ -37,7 +37,7 @@ import { snapPoint, SNAP_KINDS } from '../snap/snapEngine.js';
 import { buildTooltip } from '../snap/tooltip.js';
 import { buildSnapScene } from './snapScene.js';
 import { setRegionEdgeLength, setRegionSize } from './dimensionOps.js';
-import { KINDS, PLANES, TOOLS } from './detailConstants.js';
+import { KINDS, PLANES, TOOLS, MARK_TOOLS } from './detailConstants.js';
 
 const $ = (id) => document.getElementById(id);
 const svg = $('canvas');
@@ -145,6 +145,9 @@ function refresh() {
     $('undo-btn').disabled = $('redo-btn').disabled = true; $('dirty').hidden = true;
   }
   for (const t of TOOLS) $(`tool-${t}`).classList.toggle('active', st?.tool === t || (!st && t === 'select'));
+  const mark = MARK_TOOLS.includes(st?.tool);
+  $('marks-menu').classList.toggle('active', mark);
+  $('marks-summary').textContent = mark ? `Marks: ${$(`tool-${st.tool}`).textContent}` : 'Marks';
   svg.style.cursor = st?.tool === 'select' || !st ? 'default' : 'crosshair';
   paint();
 }
@@ -221,6 +224,11 @@ const actions = {
     apply((d) => D.offsetRegion(d, st.selection.index, distance, { copy }));
     if (copy && st.doc.geometry.regions.length > n) { st = select(st, { type: 'region', index: n }); refresh(); }
   },
+  cornerRegion: (vertex, size, mode) => {
+    if (st.selection?.type !== 'region') return;
+    apply((d) => D.cornerRegion(d, st.selection.index, vertex, size, mode));
+    st = select(st, { type: 'region', index: st.selection.index }); refresh();   // the old vertex index may no longer exist
+  },
   layerOnEdge: (edge, thickness) => {
     if (st.selection?.type !== 'region') return;
     const n = st.doc.geometry.regions.length;
@@ -291,7 +299,7 @@ function chooseTool(tool) {
   draft = null;
   refresh();
 }
-for (const t of TOOLS) $(`tool-${t}`).addEventListener('click', () => chooseTool(t));
+for (const t of TOOLS) $(`tool-${t}`).addEventListener('click', () => { $('marks-menu').open = false; chooseTool(t); });
 
 // ── canvas interaction ───────────────────────────────────────────────────────
 function controllerContext() {
@@ -737,7 +745,7 @@ async function save() {
     const at = bundle.ctx.details.findIndex((d) => d.id === saved.id);
     if (at >= 0) bundle.ctx.details[at] = saved; else { bundle.ctx.details.push(saved); bundle.ctx.detailIds.push(saved.id); }
     st = markSaved(st);
-    status(bundle.source === 'memory' ? 'Saved in memory. Use Download bundle to keep it.' : 'Saved');
+    status(bundle.source === 'memory' ? 'Saved in memory. Use Zip to keep it.' : 'Saved');
     refresh();
   } catch (err) { status(`Save failed: ${err.message}`, true); }
 }

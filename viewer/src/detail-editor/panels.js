@@ -237,6 +237,7 @@ function regionEditor(r, pm, bundle, a) {
     row('Material', select(bundle.materialIds.includes(r.materialId) ? bundle.materialIds : [r.materialId, ...bundle.materialIds], r.materialId, (v) => a.setRegionMaterial(r.index, v))),
     ...regionTransformEditor(r, a),
     ...regionOffsetEditor(r, pm, a),
+    ...regionCornerEditor(r, a),
     ...regionRepeatEditor(r, a),
     ...regionTagEditor(r, a),
     h('div', { class: 'note' }, `Vertices (x, y in ${unitLabel()}). Bind a coordinate to a parameter to make it adjustable per junction.`),
@@ -270,6 +271,22 @@ function regionOffsetEditor(r, pm, a) {
       select(['left', 'right', 'bottom', 'top'], offsetDraft.side, (v) => { offsetDraft.side = v; }, { title: 'Side to extend' }),
       h('button', { title: 'Run that side out to the nearest face of the other region (rectangles only)', onclick: () => a.extendTo(offsetDraft.side, by) }, 'Extend to')) : null,
     h('div', { class: 'note' }, 'Offset and trim need plain-number vertices. Trim and extend work on rectangles for now.'))];
+}
+
+/** Round or chamfer corners of the selected region. The corner defaults to the selected vertex. */
+const cornerDraft = { size: 0.02, vertex: null };
+function regionCornerEditor(r, a) {
+  const n = r.vertices.length;
+  const picked = r.vertices.findIndex((v) => v.selected);
+  const vertex = cornerDraft.vertex !== null && cornerDraft.vertex < n ? cornerDraft.vertex : Math.max(0, picked);
+  return [h('details', { class: 'fold' },
+    h('summary', {}, 'Round or chamfer corners'),
+    row(`Size (${unitLabel()})`, num(cornerDraft.size, (m) => { cornerDraft.size = m; })),
+    row('Corner', select(['all', ...Array.from({ length: n }, (_, i) => String(i))], cornerDraft.vertex === 'all' ? 'all' : String(vertex), (v) => { cornerDraft.vertex = v === 'all' ? 'all' : Number(v); })),
+    h('div', { class: 'row' },
+      h('button', { title: 'Replace the corner with an arc of this radius', onclick: () => a.cornerRegion(cornerDraft.vertex === 'all' ? 'all' : vertex, cornerDraft.size, 'fillet') }, 'Round'),
+      h('button', { title: 'Cut the corner off, this far back along each edge', onclick: () => a.cornerRegion(cornerDraft.vertex === 'all' ? 'all' : vertex, cornerDraft.size, 'chamfer') }, 'Chamfer')),
+    h('div', { class: 'note' }, 'A rounded corner is drawn as short straight segments. Needs plain-number vertices.'))];
 }
 
 /** Numeric move, copy, rotate and mirror. Acts on every selected region; rotate and mirror turn about the selection's centre. */

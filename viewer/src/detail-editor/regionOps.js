@@ -125,3 +125,65 @@ export function extendRectTo(a, side, b) {
   if (side === 'bottom') { if (B.y1 > A.y0 + EPS) return { error: 'The other region is not beyond that side.' }; out.y0 = B.y1; }
   return { points: rectPoints(out) };
 }
+
+// ── corners: fillet and chamfer ─────────────────────────────────────────────
+
+const FILLET_STEP = Math.PI / 12;   // 15 degrees between points on a rounded corner
+
+/**
+ * The corner geometry at vertex v: the two tangent points for a given setback along each edge, and the corner's
+ * interior angle. Returns { error } when the corner is straight or the setback is longer than either edge.
+ */
+function cornerAt(points, v, setback) {
+  const n = points.length;
+  if (v < 0 || v >= n) return { error: `No vertex ${v}.` };
+  const P = points[v], A = points[(v - 1 + n) % n], B = points[(v + 1) % n];
+  const la = Math.hypot(A.x - P.x, A.y - P.y), lb = Math.hypot(B.x - P.x, B.y - P.y);
+  const u = { x: (A.x - P.x) / la, y: (A.y - P.y) / la }, w = { x: (B.x - P.x) / lb, y: (B.y - P.y) / lb };
+  const cos = Math.max(-1, Math.min(1, u.x * w.x + u.y * w.y));
+  const theta = Math.acos(cos);
+  if (theta < 1e-6 || Math.PI - theta < 1e-6) return { error: `Vertex ${v} is a straight corner.` };
+  return { P, u, w, theta, la, lb, setback };
+}
+
+/**
+ * Round vertex v with an arc of the given radius, approximated by points about every 15 degrees (regions are polygons).
+ * The corner is replaced by the two tangent points and the points between them.
+ * @returns {{ points: Array<{x, y}> } | { error: string }}
+ */
+export function filletCorner(points, v, radius) {
+  if (!(radius > 0)) return { error: 'Give a radius above zero.' };
+  const c = cornerAt(points, v, 0);
+  if (c.error) return c;
+  const { P, u, w, theta, la, lb } = c;
+  const t = radius / Math.tan(theta / 2);
+  if (t >= Math.min(la, lb) - EPS) return { error: `A radius of ${round(radius)} is too large for vertex ${v}: its shorter edge is ${round(Math.min(la, lb))} long.` };
+  const T1 = { x: P.x + u.x * t, y: P.y + u.y * t }, T2 = { x: P.x + w.x * t, y: P.y + w.y * t };
+  const bis = { x: u.x + w.x, y: u.y + w.y }, bl = Math.hypot(bis.x, bis.y);
+  const d = radius / Math.sin(theta / 2);
+  const C = { x: P.x + (bis.x / bl) * d, y: P.y + (bis.y / bl) * d };
+  const a1 = Math.atan2(T1.y - C.y, T1.x - C.x);
+  let sweep = Math.atan2(T2.y - C.y, T2.x - C.x) - a1;
+  while (sweep > Math.PI) sweep -= 2 * Math.PI;
+  while (sweep < -Math.PI) sweep += 2 * Math.PI;
+  const n = Math.max(2, Math.ceil(Math.abs(sweep) / FILLET_STEP));
+  const arc = Array.from({ length: n - 1 }, (_, k) => {
+    const a = a1 + (sweep * (k + 1)) / n;
+    return { x: round(C.x + radius * Math.cos(a)), y: round(C.y + radius * Math.sin(a)) };
+  });
+  const out = [...points];
+  out.splice(v, 1, { x: round(T1.x), y: round(T1.y) }, ...arc, { x: round(T2.x), y: round(T2.y) });
+  return { points: out };
+}
+
+/** Cut vertex v off with a straight chamfer, `distance` back along each edge. */
+export function chamferCorner(points, v, distance) {
+  if (!(distance > 0)) return { error: 'Give a distance above zero.' };
+  const c = cornerAt(points, v, distance);
+  if (c.error) return c;
+  const { P, u, w, la, lb } = c;
+  if (distance >= Math.min(la, lb) - EPS) return { error: `A chamfer of ${round(distance)} is too large for vertex ${v}: its shorter edge is ${round(Math.min(la, lb))} long.` };
+  const out = [...points];
+  out.splice(v, 1, { x: round(P.x + u.x * distance), y: round(P.y + u.y * distance) }, { x: round(P.x + w.x * distance), y: round(P.y + w.y * distance) });
+  return { points: out };
+}

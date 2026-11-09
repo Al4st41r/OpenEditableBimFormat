@@ -155,3 +155,10 @@ describe('region selections', () => {
     expect(reconcileSelection(doc, { type: 'region', index: 0 })).toEqual({ type: 'region', index: 0 });
   });
 });
+
+import { TOOLS, MARK_TOOLS } from './detailConstants.js';
+describe('tool lists', () => {
+  test('every mark tool is a tool', () => {
+    for (const t of MARK_TOOLS) expect(TOOLS).toContain(t);
+  });
+});

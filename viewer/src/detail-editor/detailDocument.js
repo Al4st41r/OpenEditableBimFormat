@@ -9,7 +9,7 @@
  * whether a document is *complete* is detailValidate.js's job, not theirs.
  */
 
-import { offsetPolygon, layerOnEdge, trimRect, extendRectTo } from './regionOps.js';
+import { filletCorner, chamferCorner, offsetPolygon, layerOnEdge, trimRect, extendRectTo } from './regionOps.js';
 import {
   KINDS, EXTENTS, PLANES, DATUM_KINDS, DATUM_REFERENCES, SLUG, PARAM_NAME, DEFAULT_EXTRUSION_M,
 } from './detailConstants.js';
@@ -220,6 +220,27 @@ export function offsetRegion(doc, index, distance, { copy = false } = {}) {
   if (res.error) throw new DetailEditError(res.error);
   if (copy) d.geometry.regions.push({ ...clone(region), vertices: res.points });
   else region.vertices = res.points;
+  return d;
+}
+
+/**
+ * Round (mode 'fillet', a radius) or cut (mode 'chamfer', a distance) the corners of a region. `vertex` is one index,
+ * or 'all' for every corner, which fails as a whole if any corner does not fit.
+ */
+export function cornerRegion(doc, index, vertex, size, mode = 'fillet') {
+  if (mode !== 'fillet' && mode !== 'chamfer') throw new DetailEditError(`Unknown corner mode "${mode}"`);
+  const d = clone(doc);
+  const region = regionAt(d, index);
+  let points = plainPoints(region, mode === 'fillet' ? 'Rounding a corner' : 'Chamfering a corner');
+  const apply = mode === 'fillet' ? filletCorner : chamferCorner;
+  // from the last vertex back, so the indices still to do do not shift as corners gain points
+  const targets = vertex === 'all' ? points.map((_, i) => i).reverse() : [vertex];
+  for (const v of targets) {
+    const res = apply(points, v, size);
+    if (res.error) throw new DetailEditError(res.error);
+    points = res.points;
+  }
+  region.vertices = points;
   return d;
 }
 
