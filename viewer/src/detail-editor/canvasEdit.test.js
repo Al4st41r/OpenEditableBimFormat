@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest';
-import { snapValue, dragHandle, translateRegion } from './canvasEdit.js';
+import { snapValue, dragHandle, translateRegion, translateRegions, transformRegions, selectionCentre, regionsInBox } from './canvasEdit.js';
 import { bindCoordinate } from './detailDocument.js';
 import { makeDetail } from '../detail/fixtures.js';
 import { deepFreeze } from './testUtils.js';
@@ -112,5 +112,72 @@ describe('purity', () => {
     expect(() => dragHandle(d, vertexRef(0, 0), { x: 1, y: 1 })).not.toThrow();
     expect(() => dragHandle(d, { type: 'member-origin', role: 'a' }, { x: 1, y: 1 })).not.toThrow();
     expect(() => translateRegion(d, 0, 1, 1)).not.toThrow();
+  });
+});
+
+describe('region groups and transforms', () => {
+  const rectDoc = () => {
+    const d = base();
+    d.geometry = { regions: [
+      { material_id: 'a', vertices: [{ x: 0, y: 0 }, { x: 2, y: 0 }, { x: 2, y: 1 }, { x: 0, y: 1 }] },
+      { material_id: 'b', vertices: [{ x: 4, y: 0 }, { x: 6, y: 0 }, { x: 6, y: 1 }, { x: 4, y: 1 }] },
+    ] };
+    return d;
+  };
+  const xs = (d, i) => d.geometry.regions[i].vertices.map((v) => [v.x, v.y]);
+
+  test('translateRegions moves each picked region and leaves the rest', () => {
+    const { doc, locked } = translateRegions(rectDoc(), [1], 1, 2);
+    expect(xs(doc, 1)[0]).toEqual([5, 2]);
+    expect(xs(doc, 0)[0]).toEqual([0, 0]);
+    expect(locked).toEqual([]);
+  });
+
+  test('selectionCentre is the centre of the joint bounding box', () => {
+    expect(selectionCentre(rectDoc(), [0])).toEqual({ x: 1, y: 0.5 });
+    expect(selectionCentre(rectDoc(), [0, 1])).toEqual({ x: 3, y: 0.5 });
+    expect(selectionCentre(rectDoc(), [])).toBeNull();
+  });
+
+  test('rotating 90 degrees about the centre turns a 2 x 1 rectangle into 1 x 2', () => {
+    const doc = rectDoc();
+    const { doc: out } = transformRegions(doc, [0], { rotate_deg: 90, about: { x: 1, y: 0.5 } });
+    const pts = xs(out, 0);
+    expect(Math.max(...pts.map((p) => p[0])) - Math.min(...pts.map((p) => p[0]))).toBeCloseTo(1, 6);
+    expect(Math.max(...pts.map((p) => p[1])) - Math.min(...pts.map((p) => p[1]))).toBeCloseTo(2, 6);
+    expect(selectionCentre(out, [0])).toEqual({ x: 1, y: 0.5 });
+  });
+
+  test('a full turn comes back to the start', () => {
+    const doc = rectDoc();
+    let d = doc;
+    for (let i = 0; i < 4; i++) d = transformRegions(d, [0], { rotate_deg: 90, about: { x: 1, y: 0.5 } }).doc;
+    expect(xs(d, 0)).toEqual(xs(doc, 0));
+  });
+
+  test('mirroring left-right flips about the centre and keeps the winding', () => {
+    const doc = rectDoc();
+    const { doc: out } = transformRegions(doc, [1], { mirror: 'x', about: { x: 3, y: 0.5 } });
+    expect(Math.min(...xs(out, 1).map((p) => p[0]))).toBe(0);
+    const area = (d) => d.geometry.regions[1].vertices.reduce((s, v, i, a) => { const n = a[(i + 1) % a.length]; return s + (v.x * n.y - n.x * v.y); }, 0) / 2;
+    expect(Math.sign(area(out))).toBe(Math.sign(area(doc)));
+  });
+
+  test('bound vertices stay and are reported', () => {
+    const doc = bindCoordinate(rectDoc(), 0, 1, 'x', { param: 'w', scale: 1, offset: 0 });
+    const { locked } = transformRegions(doc, [0], { rotate_deg: 90, about: { x: 1, y: 0.5 } });
+    expect(locked).toEqual([{ region: 0, vertex: 1 }]);
+  });
+
+  test('regionsInBox: a window takes what is inside, a crossing box what it touches', () => {
+    const doc = rectDoc();
+    expect(regionsInBox(doc, { x: -1, y: -1 }, { x: 3, y: 2 })).toEqual([0]);
+    expect(regionsInBox(doc, { x: 5, y: 2 }, { x: 1, y: 0.5 })).toEqual([0, 1]);
+    expect(regionsInBox(doc, { x: 3, y: 0 }, { x: 3.5, y: 1 })).toEqual([]);
+  });
+
+  test('inputs are not mutated', () => {
+    const doc = deepFreeze(rectDoc());
+    expect(() => { translateRegions(doc, [0, 1], 1, 1); transformRegions(doc, [0], { mirror: 'y', about: { x: 0, y: 0 } }); }).not.toThrow();
   });
 });

@@ -122,3 +122,45 @@ export function regionsInBox(doc, a, b) {
   });
   return out;
 }
+
+const isPlain = (c) => typeof c === 'number';
+
+/** Centre of the bounding box of the given regions' plain-number vertices, or null. */
+export function selectionCentre(doc, indices) {
+  const boxes = indices.map((i) => regionBox(doc, i)).filter(Boolean);
+  if (!boxes.length) return null;
+  return {
+    x: (Math.min(...boxes.map((b) => b.minX)) + Math.max(...boxes.map((b) => b.maxX))) / 2,
+    y: (Math.min(...boxes.map((b) => b.minY)) + Math.max(...boxes.map((b) => b.maxY))) / 2,
+  };
+}
+
+/**
+ * Rotate (degrees, anticlockwise) or mirror regions about a point. A vertex with a bound coordinate stays where it
+ * is, as in translateRegion, and is reported in `locked`. Mirroring reverses the vertex order so the winding keeps.
+ *
+ * @param {object} doc
+ * @param {number[]} indices
+ * @param {{ rotate_deg?: number, mirror?: 'x'|'y', about: {x:number,y:number} }} op
+ *   mirror 'x' flips left-right (across a vertical line through `about`); 'y' flips top-bottom.
+ */
+export function transformRegions(doc, indices, { rotate_deg = 0, mirror = null, about }) {
+  const d = structuredClone(doc);
+  const locked = [];
+  const rad = (rotate_deg * Math.PI) / 180, cos = Math.cos(rad), sin = Math.sin(rad);
+  for (const i of indices) {
+    const region = d.geometry?.regions?.[i];
+    if (!region) throw new DetailEditError(`No region at index ${i}`);
+    region.vertices.forEach((v, k) => {
+      if (!isPlain(v.x) || !isPlain(v.y)) { locked.push({ region: i, vertex: k }); return; }
+      let x = v.x - about.x, y = v.y - about.y;
+      if (mirror === 'x') x = -x;
+      if (mirror === 'y') y = -y;
+      if (rotate_deg) [x, y] = [x * cos - y * sin, x * sin + y * cos];
+      v.x = Math.round((x + about.x) * 1e6) / 1e6 + 0;
+      v.y = Math.round((y + about.y) * 1e6) / 1e6 + 0;
+    });
+    if (mirror && region.vertices.every((v) => isPlain(v.x) && isPlain(v.y))) region.vertices.reverse();
+  }
+  return { doc: d, locked };
+}

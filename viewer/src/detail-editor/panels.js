@@ -218,12 +218,34 @@ function regionEditor(r, pm, bundle, a) {
     h('h3', {}, `Region ${r.index}`),
     r.pickedCount > 1 ? h('div', { class: 'note warn' }, `${r.pickedCount} regions are selected. Changes here apply to region ${r.index} only.`) : null,
     row('Material', select(bundle.materialIds.includes(r.materialId) ? bundle.materialIds : [r.materialId, ...bundle.materialIds], r.materialId, (v) => a.setRegionMaterial(r.index, v))),
+    ...regionTransformEditor(r, a),
     ...regionRepeatEditor(r, a),
     ...regionTagEditor(r, a),
     h('div', { class: 'note' }, `Vertices (x, y in ${unitLabel()}). Bind a coordinate to a parameter to make it adjustable per junction.`),
     ...vertexRows,
     h('div', { class: 'row' }, h('button', { onclick: () => a.removeRegion(r.index) }, 'Remove region')),
   ];
+}
+
+/** Numeric move, copy, rotate and mirror. Acts on every selected region; rotate and mirror turn about the selection's centre. */
+const transformDraft = { dx: 0, dy: 0, deg: 90 };
+function regionTransformEditor(r, a) {
+  const scope = r.pickedCount > 1 ? `${r.pickedCount} regions` : 'this region';
+  return [h('details', { class: 'fold' },
+    h('summary', {}, 'Move, copy, rotate, mirror'),
+    row(`Move x (${unitLabel()})`, num(transformDraft.dx, (m) => { transformDraft.dx = m; })),
+    row(`Move y (${unitLabel()})`, num(transformDraft.dy, (m) => { transformDraft.dy = m; })),
+    h('div', { class: 'row' },
+      h('button', { onclick: () => a.moveBy(transformDraft.dx, transformDraft.dy, false) }, 'Move'),
+      h('button', { onclick: () => a.moveBy(transformDraft.dx, transformDraft.dy, true) }, 'Copy')),
+    row('Angle (deg)', plain(transformDraft.deg, (v) => { transformDraft.deg = v; })),
+    h('div', { class: 'row' },
+      h('button', { onclick: () => a.transform({ rotate_deg: transformDraft.deg }) }, 'Rotate left'),
+      h('button', { onclick: () => a.transform({ rotate_deg: -transformDraft.deg }) }, 'Rotate right')),
+    h('div', { class: 'row' },
+      h('button', { onclick: () => a.transform({ mirror: 'x' }) }, 'Mirror left-right'),
+      h('button', { onclick: () => a.transform({ mirror: 'y' }) }, 'Mirror top-bottom')),
+    h('div', { class: 'note' }, `Applies to ${scope}. Rotate and mirror turn about the centre of the selection.`))];
 }
 
 /** Depth and repeat of a region: one unit is drawn, repeated at a pitch (brick 210 deep every 220, tile 90 deep on 98). */

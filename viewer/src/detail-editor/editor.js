@@ -25,7 +25,7 @@ import { buildCanvasModel, rulerTicks } from './canvasModel.js';
 import { createController, setControllerTool, handleEvent } from './canvasController.js';
 import { buildPanelModel } from './panelModel.js';
 import { fitView, toDetail, zoomAt, panByPixels } from './viewTransform.js';
-import { translateRegions } from './canvasEdit.js';
+import { translateRegions, transformRegions, selectionCentre } from './canvasEdit.js';
 import { renderCanvas } from './render.js';
 import { primitiveStyle } from './drawStyle.js';
 import { renderPanels } from './panels.js';
@@ -176,6 +176,29 @@ const actions = {
   moveMember: (role, o) => apply((d) => D.moveMember(d, role, o)),
   rotateMember: (role, v) => apply((d) => D.rotateMember(d, role, v)),
   setRegionMaterial: (i, v) => apply((d) => D.setRegionMaterial(d, i, v)),
+  // Numeric move, copy, rotate and mirror of every picked region, about the centre of the selection
+  moveBy: (dx, dy, copy) => {
+    const picked = regionIndices(st.selection);
+    if (!picked.length) return;
+    if (copy) {
+      const n = st.doc.geometry.regions.length;
+      apply((d) => D.duplicateRegions(d, picked, dx, dy));
+      st = select(st, selectionOfRegions(picked.map((_, k) => n + k))); refresh();
+      status(`Copied ${picked.length} region(s).`);
+    } else {
+      const r = translateRegions(st.doc, picked, dx, dy);
+      apply(() => r.doc);
+      if (r.locked.length) status('Coordinates bound to a parameter stay where they are.');
+    }
+  },
+  transform: (op) => {
+    const picked = regionIndices(st.selection);
+    const about = selectionCentre(st.doc, picked);
+    if (!about) { status('Nothing to transform: every vertex is bound to a parameter.', true); return; }
+    const r = transformRegions(st.doc, picked, { ...op, about });
+    apply(() => r.doc);
+    if (r.locked.length) status(`${r.locked.length} vertex(es) bound to a parameter stayed where they are.`);
+  },
   setRegionNumber: (i, f, v) => apply((d) => D.setRegionNumber(d, i, f, v)),
   setRegionTag: (i, k, v) => apply((d) => D.setRegionTag(d, i, k, v)),
   removeRegion: (i) => apply((d) => D.removeRegion(d, i)),
