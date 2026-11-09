@@ -99,7 +99,7 @@ import { signedArea } from '../detail/regionGeometry.js';
 describe('fillet and chamfer', () => {
   const square = [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 1 }];
 
-  it('rounds a right-angle corner: tangent points at the radius, other points on the arc', () => {
+  test('rounds a right-angle corner: tangent points at the radius, other points on the arc', () => {
     const r = filletCorner(square, 2, 0.2);
     const pts = r.points;
     expect(pts.length).toBeGreaterThan(5);
@@ -110,26 +110,27 @@ describe('fillet and chamfer', () => {
     expect(signedArea(pts)).toBeGreaterThan(0);                      // still anticlockwise
     expect(signedArea(pts)).toBeLessThan(1);                         // and smaller than the square
   });
-  it('rounds the same corner whichever way the polygon winds', () => {
+  test('rounds the same corner whichever way the polygon winds', () => {
     const cw = [...square].reverse();
     const r = filletCorner(cw, 1, 0.2);
     expect(r.points.every((p) => p.x <= 1 + 1e-9 && p.y <= 1 + 1e-9)).toBe(true);
     expect(signedArea(r.points)).toBeLessThan(0);
   });
-  it('refuses a radius that does not fit, a zero radius and a straight corner', () => {
-    expect(filletCorner(square, 2, 0.6).error).toMatch(/too large/);
+  test('refuses a radius that does not fit, a zero radius and a straight corner', () => {
+    expect(filletCorner(square, 2, 1.2).error).toMatch(/too large/);
+    expect(filletCorner(square, 2, 0.6).error).toBeUndefined();     // fits one corner; two such corners would overlap (see cornerRegion)
     expect(filletCorner(square, 2, 1).error).toMatch(/too large/);    // setback equals the edge
     expect(filletCorner(square, 2, 0).error).toMatch(/above zero/);
     const withMid = [{ x: 0, y: 0 }, { x: 0.5, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 1 }];
     expect(filletCorner(withMid, 1, 0.1).error).toMatch(/straight/);
     expect(filletCorner(square, 9, 0.1).error).toMatch(/No vertex/);
   });
-  it('rounds a reflex (inside) corner of an L shape outwards into the notch', () => {
+  test('rounds a reflex (inside) corner of an L shape outwards into the notch', () => {
     const L = [{ x: 0, y: 0 }, { x: 2, y: 0 }, { x: 2, y: 1 }, { x: 1, y: 1 }, { x: 1, y: 2 }, { x: 0, y: 2 }];
     const r = filletCorner(L, 3, 0.2);
     expect(signedArea(r.points)).toBeGreaterThan(signedArea(L));     // a reflex corner gains area when rounded
   });
-  it('chamfers by cutting the corner back along each edge', () => {
+  test('chamfers by cutting the corner back along each edge', () => {
     const r = chamferCorner(square, 2, 0.25);
     expect(r.points).toHaveLength(5);
     expect(r.points[2]).toEqual({ x: 1, y: 0.75 });
@@ -139,7 +140,7 @@ describe('fillet and chamfer', () => {
   });
 
   const doc = () => addRect({ $schema: 'x', id: 'd', type: 'Detail', description: 'x', members: [], datum: {} }, 'm', { x: 0, y: 0 }, { x: 1, y: 1 });
-  it('cornerRegion rounds one corner or all, without mutating, and fails as a whole', () => {
+  test('cornerRegion rounds one corner or all, without mutating, and fails as a whole', () => {
     const d = doc();
     const one = cornerRegion(d, 0, 2, 0.1);
     expect(d.geometry.regions[0].vertices).toHaveLength(4);
@@ -150,7 +151,7 @@ describe('fillet and chamfer', () => {
     expect(cornerRegion(d, 0, 'all', 0.1, 'chamfer').geometry.regions[0].vertices).toHaveLength(8);
     expect(() => cornerRegion(d, 0, 0, 0.1, 'bevel')).toThrow(/Unknown corner mode/);
   });
-  it('cornerRegion refuses bound vertices', () => {
+  test('cornerRegion refuses bound vertices', () => {
     const d = doc();
     d.parameters = { w: { default: 1 } };
     d.geometry.regions[0].vertices[1].x = { param: 'w' };
