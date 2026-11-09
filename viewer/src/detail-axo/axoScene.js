@@ -7,7 +7,7 @@
 
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { AXO_VIEWS, clipPolygon, clipWorldPlanes, guideSegments } from './detailAxo.js';
+import { AXO_VIEWS, clipPolygon, guideSegments } from './detailAxo.js';
 import { signedArea } from '../detail/regionGeometry.js';
 import { NONE_COLOUR } from '../detail-review/overlays.js';
 
@@ -49,8 +49,6 @@ export class AxoViewer {
     this.radius = 1;
     this.show = { members: true, regions: true, edges: true, guides: true, clip: true };
     this.guides = null;
-    this.clipPlanes = [];
-    this.renderer.localClippingEnabled = true;
     this.view = 'iso-se';
     window.addEventListener('resize', () => this.resize());
     this.resize();
@@ -92,7 +90,6 @@ export class AxoViewer {
     }
     this.scene.add(this.group);
     this.setGuides(model);
-    this.applyClip(model);
     this.applyVisibility();
 
     if (keepCamera) { this.applyVisibility(); return; }
@@ -122,12 +119,6 @@ export class AxoViewer {
     lines(refs, dash('#d33', unit * 3, unit), 'refs');
     lines(clipBox, dash('#777', unit * 2, unit * 1.5), 'clip');
     this.scene.add(this.guides);
-  }
-
-  /** Cut the solids to the clip box. Only the solids are cut; the guide lines stay whole so the box stays visible. */
-  applyClip(model) {
-    this.clipPlanes = clipWorldPlanes(model.plane, model.clip).map((p) => new THREE.Plane(new THREE.Vector3(p.normal.x, p.normal.y, p.normal.z), p.constant));
-    this.render();
   }
 
   /**
@@ -237,9 +228,6 @@ export class AxoViewer {
   }
 
   render() {
-    // overlays and the selection swap materials, so the clip is set on whichever material is about to draw
-    const planes = this.show.clip ? this.clipPlanes : [];
-    this.group?.traverse((o) => { if (o.material && o.material.clippingPlanes !== planes) o.material.clippingPlanes = planes; });
     this.renderer.render(this.scene, this.camera);
   }
 
