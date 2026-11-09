@@ -1,7 +1,7 @@
 import { describe, test, expect } from 'vitest';
 import { buildCanvasModel, hitTest, pointInPolygon, rulerTicks } from './canvasModel.js';
 import { moveMember, setPlane, bindCoordinate, addParameter } from './detailDocument.js';
-import { exampleDetail, readExample, deepFreeze } from './testUtils.js';
+import { exampleDetail, exampleCtx, readExample, deepFreeze } from './testUtils.js';
 
 const close = (a, b, d = 9) => expect(a).toBeCloseTo(b, d);
 const PROFILES = () => ({ 'profile-cavity-250': readExample('profiles/profile-cavity-250.json') });
@@ -277,5 +277,16 @@ describe('hitTest', () => {
   test('results carry the id and ref of what was hit', () => {
     const hit = hitTest(model(), { x: 0.0, y: 0.0 });
     if (hit) { expect(typeof hit.id).toBe('string'); expect(hit.ref).toBeDefined(); }
+  });
+});
+
+describe('view box with a clip box', () => {
+  test('fits the unclipped zone, so the clip handles sit inside the view', () => {
+    const doc = { ...exampleDetail(), clip: { x_max_m: 0.767, y_min_m: -0.673 } };
+    const v = buildCanvasModel(doc, { profiles: { 'profile-cavity-250': readExample('profiles/profile-cavity-250.json') } }).viewBox;
+    expect(v.x + v.width).toBeGreaterThan(0.767);
+    expect(v.x + v.width).toBeLessThan(0.767 + 0.2);
+    expect(v.y).toBeGreaterThan(-0.673 - 0.2);
+    expect(v.y).toBeLessThan(-0.673);
   });
 });

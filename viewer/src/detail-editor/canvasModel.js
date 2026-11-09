@@ -189,6 +189,12 @@ export function buildCanvasModel(doc, ctx = {}) {
 
   // View box: content plus the origin, a margin, and a minimum size.
   const box = boundsOfPoints([{ x: 0, y: 0 }, ...(bounds ? [bounds.min, bounds.max] : [])]);
+  // With a clip box the view fits the unclipped zone, not the members drawn out to fill it.
+  if (clipBox) {
+    const lo = { x: Math.max(box.min.x, clipBox.x_min_m ?? -Infinity), y: Math.max(box.min.y, clipBox.y_min_m ?? -Infinity) };
+    const hi = { x: Math.min(box.max.x, clipBox.x_max_m ?? Infinity), y: Math.min(box.max.y, clipBox.y_max_m ?? Infinity) };
+    if (hi.x > lo.x && hi.y > lo.y) { box.min = lo; box.max = hi; }
+  }
   const margin = Math.max(0.1 * Math.max(box.max.x - box.min.x, box.max.y - box.min.y), 0.05);
   let [x0, y0, x1, y1] = [box.min.x - margin, box.min.y - margin, box.max.x + margin, box.max.y + margin];
   for (const [lo, hi, set] of [[x0, x1, (a, b) => { x0 = a; x1 = b; }], [y0, y1, (a, b) => { y0 = a; y1 = b; }]]) {
