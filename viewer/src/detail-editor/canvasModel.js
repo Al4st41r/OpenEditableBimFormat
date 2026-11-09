@@ -191,17 +191,23 @@ export function hitTest(model, pt, tolerance = 0.02) {
   }
   if (best) return { id: best.h.id, ref: best.h.ref, handle: true };
 
-  // annotations sit above the shapes: the nearest segment or anchor within tolerance
-  let near = null;
+  return hitStack(model, pt, tolerance)[0] ?? null;
+}
+
+/**
+ * Everything under the point, topmost first, handles excluded: annotations (nearest first), then shapes in
+ * drawing order from the top. Clicking the same spot again steps down this list ("select under").
+ *
+ * @returns {Array<{ id: string, ref: object, handle: false }>}
+ */
+export function hitStack(model, pt, tolerance = 0.02) {
+  const marks = [];
   for (const a of (model.annotations ?? []).filter((x) => !x.locked)) {
     const anchor = a.ann.type === 'note' ? [{ a: a.ann.at, b: a.ann.at }] : [];
-    for (const seg of [...annotationSegments(a.ann), ...anchor]) {
-      const d = distanceToSegment(pt, seg);
-      if (d <= tolerance && (!near || d < near.d)) near = { d, a };
-    }
+    const d = Math.min(...[...annotationSegments(a.ann), ...anchor].map((seg) => distanceToSegment(pt, seg)));
+    if (d <= tolerance) marks.push({ d, item: { id: a.id, ref: { type: 'annotation', index: a.index }, handle: false } });
   }
-  if (near) return { id: near.a.id, ref: { type: 'annotation', index: near.a.index }, handle: false };
-
-  const hit = [...model.primitives].filter((p) => !p.locked).sort((a, b) => b.order - a.order).find((p) => pointInPolygon(pt, p.points));
-  return hit ? { id: hit.id, ref: hit.ref, handle: false } : null;
+  marks.sort((a, b) => a.d - b.d);
+  const shapes = [...model.primitives].filter((p) => !p.locked && pointInPolygon(pt, p.points)).sort((a, b) => b.order - a.order);
+  return [...marks.map((m) => m.item), ...shapes.map((p) => ({ id: p.id, ref: p.ref, handle: false }))];
 }

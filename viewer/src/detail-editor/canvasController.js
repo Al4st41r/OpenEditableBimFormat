@@ -28,7 +28,7 @@
  *   ctx.suspendSnap: true while the user holds the modifier that suspends snapping.
  */
 
-import { hitTest } from './canvasModel.js';
+import { hitTest, hitStack } from './canvasModel.js';
 import { dragHandle, translateRegions, regionsInBox, snapValue } from './canvasEdit.js';
 import { addRect, addRegion, removeRegions } from './detailDocument.js';
 import { regionIndices, selectionOfRegions } from './pageState.js';
@@ -67,11 +67,38 @@ export function handleEvent(state, event, ctx) {
     case 'line': return lineTool(state, event, ctx);
     case 'dim': return dimTool(state, event, ctx);
     case 'note': return noteTool(state, event, ctx);
-    default: return selectTool(state, event, ctx);
+    default: return rememberClick(selectTool(state, event, ctx), event);
   }
 }
 
 // ── select ──────────────────────────────────────────────────────────────────
+
+/** Remember where the last press was, so pressing the same spot again can step down through what is stacked there. */
+function rememberClick(result, event) {
+  return event.type === 'down' ? { ...result, state: { ...result.state, lastDown: event.point } } : result;
+}
+
+const isPicked = (ref, selection) => !!selection && (
+  (ref.type === 'region' && selection.type === 'region' && selection.index === ref.index)
+  || (ref.type === 'member' && selection.type === 'member' && selection.role === ref.role)
+  || (ref.type === 'annotation' && selection.type === 'annotation' && selection.index === ref.index));
+
+/**
+ * Select under: pressing the same spot again (within tolerance) when the current selection is one of the things stacked
+ * there picks the next one down, wrapping to the top. Returns null when this is not a repeat press.
+ */
+function underCursor(state, ctx, point) {
+  const last = state.lastDown;
+  if (!last || Math.hypot(point.x - last.x, point.y - last.y) > ctx.tolerance) return null;
+  const seen = new Set();
+  const stack = hitStack(ctx.model, point, ctx.tolerance).filter((h) => {
+    const key = h.ref.type === 'member' ? `m:${h.ref.role}` : `${h.ref.type}:${h.ref.index}`;
+    return seen.has(key) ? false : seen.add(key);   // two layers of one member count once
+  });
+  const at = stack.findIndex((h) => isPicked(h.ref, ctx.selection));
+  if (stack.length < 2 || at < 0) return null;
+  return stack[(at + 1) % stack.length];
+}
 
 function selectTool(state, event, ctx) {
   const { type, point, screen } = event;
@@ -88,7 +115,8 @@ function selectTool(state, event, ctx) {
   }
 
   if (type === 'down') {
-    const hit = hitTest(ctx.model, point, ctx.tolerance);
+    let hit = hitTest(ctx.model, point, ctx.tolerance);
+    if (hit && !hit.handle && !event.shift) hit = underCursor(state, ctx, point) ?? hit;
     const base = { startDoc: ctx.doc, current: ctx.doc, moved: false, notified: false };
 
     if (hit?.handle && !hit.ref.type.startsWith('annotation')) {

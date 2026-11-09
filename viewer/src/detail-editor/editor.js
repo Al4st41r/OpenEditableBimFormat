@@ -12,6 +12,7 @@ import { FsaAdapter, MemoryAdapter } from '../editor/storageAdapter.js';
 import { setUnit, getUnit, toDisplay, fromDisplay } from '../editor/units.js';
 import * as D from './detailDocument.js';
 import * as AN from './annotationOps.js';
+import { copySelection, parsePayload, pasteInto } from './clipboard.js';
 import { defaultLayers, setLayer, applyLayers, blocked, keepSelection, layerOfSelection, editable, LAYER_LABELS } from './layers.js';
 import { validateDetail } from './detailValidate.js';
 import { createDetail } from './detailSerializer.js';
@@ -763,4 +764,38 @@ if (new URLSearchParams(window.location.search).has('demo')) openDemo();
 
 // Read-only hook for headless checks and bug reports.
 window.__detailEditor = { snapState: () => snapState, hint: () => hint, state: () => st, view: () => view, size: () => size, adapter: () => bundle?.adapter ?? null, status: () => $('status').textContent };
+// ── clipboard ────────────────────────────────────────────────────────────────
+// Uses the page's copy, cut and paste events, so it works through the system clipboard without a permission prompt.
+let clipFrom = null, pasteCount = 0;   // the detail last copied from, and how many times it has been pasted back
+const editingText = (e) => ['INPUT', 'SELECT', 'TEXTAREA'].includes(e.target.tagName);
+function doCopy(e, cut) {
+  if (!st || editingText(e) || !editable(layers, layerOfSelection(st.selection))) return;
+  const payload = copySelection(st.doc, st.selection, st.preview ?? undefined);
+  if (!payload) return;
+  e.clipboardData.setData('text/plain', JSON.stringify(payload));
+  e.preventDefault();
+  clipFrom = st.doc.id; pasteCount = 0;
+  const n = payload.regions.length + payload.annotations.length;
+  status(`${cut ? 'Cut' : 'Copied'} ${n} item${n === 1 ? '' : 's'}.`);
+  if (cut) {
+    const sel = st.selection;
+    apply((d) => (sel.type === 'region' ? D.removeRegions(d, regionIndices(sel)) : AN.removeAnnotation(d, sel.index)));
+    st = select(st, null); refresh();
+  }
+}
+document.addEventListener('copy', (e) => doCopy(e, false));
+document.addEventListener('cut', (e) => doCopy(e, true));
+document.addEventListener('paste', (e) => {
+  if (!st || editingText(e)) return;
+  const payload = parsePayload(e.clipboardData.getData('text/plain'));
+  if (!payload) { status('The clipboard holds no regions or annotations from the detail editor.', true); return; }
+  e.preventDefault();
+  const again = clipFrom === st.doc.id;   // pasting back into the same detail would hide the copy, so step it aside
+  const shift = again ? 0.05 * ++pasteCount : 0;
+  try {
+    const r = pasteInto(st.doc, payload, { dx: shift, dy: -shift, materialIds: bundle.ctx.materialIds });
+    st = commit(st, r.doc); st = select(st, r.selection); display = null; refresh();
+    status(`Pasted ${payload.regions.length + payload.annotations.length} item(s).`);
+  } catch (err) { status(err.message, true); }
+});
 window.addEventListener('keyup', (e) => { if (e.key === 'Alt') pointer.alt = false; });

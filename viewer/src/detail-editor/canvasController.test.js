@@ -658,3 +658,53 @@ describe('layers and box select', () => {
     expect(of(run({ regions: true }), 'select')[0].selection).toBeNull();
   });
 });
+
+describe('select under', () => {
+  // region 0 (the trim block) lies over the through wall at this point
+  const doc = () => {
+    let d = exampleDetail();
+    d = addRect(d, 'mat-pir-insulation', { x: 0, y: 0.1 }, { x: 0.2, y: 0.25 });   // a second region over region 0's spot
+    return d;
+  };
+  const press = (state, d, sel, x, y) => handleEvent(state, ev('down', x, y), ctxFor(d, sel));
+
+  test('pressing the same spot again picks the next thing down, then wraps', () => {
+    const d = doc();
+    const [x, y] = REGION_CENTRE;
+    let r = press(createController(), d, null, x, y);
+    const first = of(r, 'select')[0].selection;
+    r = handleEvent(r.state, ev('up', x, y), ctxFor(d, first));
+    r = press(r.state, d, first, x, y);
+    const second = of(r, 'select')[0].selection;
+    expect(second).not.toEqual(first);
+    r = handleEvent(r.state, ev('up', x, y), ctxFor(d, second));
+    let cur = second, seen = [JSON.stringify(first), JSON.stringify(second)];
+    for (let n = 0; n < 6 && !seen.slice(0, -1).includes(seen.at(-1)); n++) {
+      r = press(r.state, d, cur, x, y);
+      cur = of(r, 'select')[0].selection;
+      r = handleEvent(r.state, ev('up', x, y), ctxFor(d, cur));
+      seen.push(JSON.stringify(cur));
+    }
+    expect(seen.at(-1)).toBe(seen[0]);   // wrapped to the top
+  });
+
+  test('a press elsewhere starts over from the top', () => {
+    const d = doc();
+    let r = press(createController(), d, null, ...REGION_CENTRE);
+    const first = of(r, 'select')[0].selection;
+    r = handleEvent(r.state, ev('up', ...REGION_CENTRE), ctxFor(d, first));
+    r = press(r.state, d, first, ...THROUGH_WALL);
+    r = handleEvent(r.state, ev('up', ...THROUGH_WALL), ctxFor(d, null));
+    r = press(r.state, d, null, ...REGION_CENTRE);
+    expect(of(r, 'select')[0].selection).toEqual(first);
+  });
+
+  test('a lone shape under the cursor does not cycle', () => {
+    const d = exampleDetail();
+    let r = press(createController(), d, null, ...BUTTING_WALL);
+    const sel = of(r, 'select')[0].selection;
+    r = handleEvent(r.state, ev('up', ...BUTTING_WALL), ctxFor(d, sel));
+    r = press(r.state, d, sel, ...BUTTING_WALL);
+    expect(of(r, 'select')[0].selection).toEqual(sel);
+  });
+});
