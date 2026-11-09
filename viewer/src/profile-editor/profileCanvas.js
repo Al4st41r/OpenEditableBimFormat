@@ -179,6 +179,10 @@ function _renderStacked(svgEl, layers, originX, matMap, selectedIndex, opts) {
   svgEl.appendChild(circle);
 }
 
+let _originSnap = null;
+/** @param {((x: number, tolerance: number) => number)|null} fn - snaps the origin while it is dragged (Alt suspends it) */
+export function setOriginSnap(fn) { _originSnap = fn; }
+
 /** Wire up drag behaviour for the origin marker circle. */
 function _setupOriginDrag(svgEl) {
   let dragging = false;
@@ -194,7 +198,9 @@ function _setupOriginDrag(svgEl) {
     pt.y = e.clientY;
     const svgPt = pt.matrixTransform(svgEl.getScreenCTM().inverse());
     const vb = svgEl.viewBox.baseVal;
-    const newX = Math.max(0, Math.min(svgPt.x, vb.width));
+    const ctm = svgEl.getScreenCTM();
+    let newX = Math.max(0, Math.min(svgPt.x, vb.width));
+    if (_originSnap && !e.altKey && ctm && ctm.a > 0) newX = _originSnap(newX, 8 / ctm.a);
     svgEl.dispatchEvent(new CustomEvent('origin-moved', {
       detail: { originX: Math.round(newX * 1e4) / 1e4 },
     }));

@@ -10,7 +10,8 @@
  *   - Handle "New profile" creation
  */
 
-import { initCanvas, renderCanvas } from './profileCanvas.js';
+import { initCanvas, renderCanvas, setOriginSnap } from './profileCanvas.js';
+import { snapTargets, snapToTargets } from './profileSnap.js';
 import { initForm, setLayers, getLayers, highlightRow, addBlankLayer } from './profileForm.js';
 import { buildJson, buildSvg, isStackedProfile } from './profileSerializer.js';
 import { addGuide, getGuides, clearGuides, renderGuidelines, setupGuideDrag } from './profileGuidelines.js';
@@ -89,7 +90,15 @@ let _memoryProfiles = {};  // profileId → parsed profile object (memory mode o
 // ── Initialise canvas ─────────────────────────────────────────────────────────
 initCanvas(profileSvg);
 
-setupGuideDrag(profileSvg, () => _renderCanvas(), () => _renderCanvas());
+// Guides and the origin snap to the face or centre of a layer (Alt suspends it)
+function _snapTo(axis, value, tolerance) {
+  const t = snapTargets(getLayers(layerList), { stacked: isStackedProfile(profileType, alignment), alignment, planWidth });
+  const r = snapToTargets(value, axis === 'x' ? t.x : t.y, tolerance);
+  _setStatus(r.target ? `Snapped to ${r.target.label}` : '');
+  return r.value;
+}
+setupGuideDrag(profileSvg, () => _renderCanvas(), () => _renderCanvas(), (axis, value, tol) => _snapTo(axis === 'v' ? 'x' : 'y', value, tol));
+setOriginSnap((value, tol) => _snapTo('x', value, tol));
 
 document.getElementById('add-h-guide-btn').addEventListener('click', () => {
   const vb = profileSvg.viewBox.baseVal;

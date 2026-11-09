@@ -44,10 +44,25 @@ export function renderGuidelines(svgEl, guides) {
       line.setAttribute('x2', x); line.setAttribute('y2', String(height));
     }
     svgEl.appendChild(line);
+    // a wide invisible copy to grab: the visible line is under a pixel wide
+    const hit = line.cloneNode(false);
+    hit.setAttribute('stroke', 'transparent');
+    hit.setAttribute('stroke-width', '10');
+    hit.setAttribute('stroke-dasharray', 'none');
+    hit.setAttribute('vector-effect', 'non-scaling-stroke');
+    hit.style.pointerEvents = 'stroke';
+    svgEl.appendChild(hit);
   }
+  // the origin marker stays on top, so a guide beside it cannot take the grab
+  const marker = svgEl.querySelector('[data-origin-marker]');
+  if (marker) svgEl.appendChild(marker);
 }
 
-export function setupGuideDrag(svgEl, onUpdate, onRemove) {
+/**
+ * @param {(axis: 'h'|'v', value: number, tolerance: number) => number} [snap] - returns the snapped value; tolerance is in
+ *   profile units and is eight screen pixels at the current zoom
+ */
+export function setupGuideDrag(svgEl, onUpdate, onRemove, snap = null) {
   let draggingId = null;
   let draggingAxis = null;
 
@@ -69,12 +84,15 @@ export function setupGuideDrag(svgEl, onUpdate, onRemove) {
     const svgPt = pt.matrixTransform(ctm.inverse());
     const vb = svgEl.viewBox.baseVal;
     let newValue, offEdge;
+    const tol = ctm.a > 0 ? 8 / ctm.a : 0;
     if (draggingAxis === 'h') {
       newValue = Math.round(svgPt.y * 1e4) / 1e4;
       offEdge  = svgPt.y < 0 || svgPt.y > vb.height;
+      if (snap && !e.altKey) newValue = snap('h', newValue, tol);
     } else {
       newValue = Math.round(svgPt.x * 1e4) / 1e4;
       offEdge  = svgPt.x < 0 || svgPt.x > vb.width;
+      if (snap && !e.altKey) newValue = snap('v', newValue, tol);
     }
     if (offEdge) {
       const id = draggingId; draggingId = null;
