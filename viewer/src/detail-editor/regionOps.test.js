@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest';
-import { offsetPolygon, layerOnEdge, rectOf, trimRect } from './regionOps.js';
+import { offsetPolygon, layerOnEdge, rectOf, trimRect, extendRectTo } from './regionOps.js';
 import { signedArea } from '../detail/regionGeometry.js';
 
 const rect = (x0, y0, x1, y1) => [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }];
@@ -75,5 +75,19 @@ describe('trimRect', () => {
     expect(trimRect(rect(1, 1, 2, 2), rect(0, 0, 5, 5)).pieces).toEqual([]);
     expect(trimRect(rect(0, 0, 1, 1), rect(2, 2, 3, 3)).error).toMatch(/do not overlap/);
     expect(trimRect(rect(0, 0, 1, 1), rect(1, 0, 2, 1)).error).toMatch(/do not overlap/);   // touching edges only
+  });
+});
+
+describe('extendRectTo', () => {
+  test('runs a side to the near face of the other rectangle', () => {
+    expect(box(extendRectTo(rect(0, 0, 1, 1), 'right', rect(3, 0, 4, 1)).points)).toEqual({ x0: 0, x1: 3, y0: 0, y1: 1 });
+    expect(box(extendRectTo(rect(0, 0, 1, 1), 'top', rect(0, 5, 1, 6)).points)).toEqual({ x0: 0, x1: 1, y0: 0, y1: 5 });
+    expect(box(extendRectTo(rect(3, 0, 4, 1), 'left', rect(0, 0, 1, 1)).points)).toEqual({ x0: 1, x1: 4, y0: 0, y1: 1 });
+    expect(box(extendRectTo(rect(0, 5, 1, 6), 'bottom', rect(0, 0, 1, 1)).points)).toEqual({ x0: 0, x1: 1, y0: 1, y1: 6 });
+  });
+  test('refuses when the other region is behind the side or out of line', () => {
+    expect(extendRectTo(rect(0, 0, 1, 1), 'right', rect(-3, 0, -2, 1)).error).toMatch(/not beyond/);
+    expect(extendRectTo(rect(0, 0, 1, 1), 'right', rect(3, 5, 4, 6)).error).toMatch(/not in line/);
+    expect(extendRectTo(rect(0, 0, 1, 1), 'up', rect(3, 0, 4, 1)).error).toMatch(/not a side/);
   });
 });

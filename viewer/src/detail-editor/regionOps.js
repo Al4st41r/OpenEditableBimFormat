@@ -103,3 +103,25 @@ export function trimRect(a, b) {
   if (A.y1 - y1 > EPS) pieces.push({ x0, x1, y0: y1, y1: A.y1 });               // above the overlap
   return { pieces: pieces.map(rectPoints) };
 }
+
+export const SIDES = ['left', 'right', 'bottom', 'top'];
+
+/**
+ * Stretch one side of rectangle `a` until it meets the nearest face of rectangle `b` in that direction, so a layer
+ * can be run up to the thing it butts against. The two must overlap in the other direction, or there is nothing to meet.
+ * @returns {{ points: Array<{x:number,y:number}> } | { error: string }}
+ */
+export function extendRectTo(a, side, b) {
+  if (!SIDES.includes(side)) return { error: `"${side}" is not a side.` };
+  const A = rectOf(a), B = rectOf(b);
+  if (!A || !B) return { error: 'Extend works on rectangles for now (four vertices, axis-aligned).' };
+  const horizontal = side === 'left' || side === 'right';
+  const spanOverlaps = horizontal ? Math.min(A.y1, B.y1) - Math.max(A.y0, B.y0) > EPS : Math.min(A.x1, B.x1) - Math.max(A.x0, B.x0) > EPS;
+  if (!spanOverlaps) return { error: 'The other region is not in line with that side.' };
+  const out = { ...A };
+  if (side === 'right') { if (B.x0 < A.x1 - EPS) return { error: 'The other region is not beyond that side.' }; out.x1 = B.x0; }
+  if (side === 'left') { if (B.x1 > A.x0 + EPS) return { error: 'The other region is not beyond that side.' }; out.x0 = B.x1; }
+  if (side === 'top') { if (B.y0 < A.y1 - EPS) return { error: 'The other region is not beyond that side.' }; out.y1 = B.y0; }
+  if (side === 'bottom') { if (B.y1 > A.y0 + EPS) return { error: 'The other region is not beyond that side.' }; out.y0 = B.y1; }
+  return { points: rectPoints(out) };
+}

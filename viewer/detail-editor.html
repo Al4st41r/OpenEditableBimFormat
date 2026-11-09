@@ -21,7 +21,8 @@
     button.primary:hover:not(:disabled) { background: #3a5a3a; }
     button.active { background: #1e3a5a; border-color: #4a8aaa; color: #fff; }
     .sep { width: 1px; align-self: stretch; background: #333; margin: 0 4px; }
-    #project-name { opacity: 0.6; }
+    #project-name { opacity: 0.6; max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #detail-select { max-width: 190px; }
     #status { margin-left: auto; opacity: 0.8; font-size: 12px; max-width: 40%; text-align: right; }
     #status.error { color: #f88; opacity: 1; }
     #dirty { color: #fc6; font-size: 18px; line-height: 1; }
@@ -92,7 +93,7 @@
     <button id="new-btn" disabled>New</button>
     <span class="sep"></span>
     <button id="open-btn">Open folder</button>
-    <button id="open-file-btn">Open .oebfz</button>
+    <button id="open-file-btn">Open file</button>
     <button id="demo-btn">Demo</button>
     <button id="zip-btn" hidden>Download bundle</button>
     <span class="sep"></span>

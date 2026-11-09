@@ -9,7 +9,7 @@
  * whether a document is *complete* is detailValidate.js's job, not theirs.
  */
 
-import { offsetPolygon, layerOnEdge, trimRect } from './regionOps.js';
+import { offsetPolygon, layerOnEdge, trimRect, extendRectTo } from './regionOps.js';
 import {
   KINDS, EXTENTS, PLANES, DATUM_KINDS, DATUM_REFERENCES, SLUG, PARAM_NAME, DEFAULT_EXTRUSION_M,
 } from './detailConstants.js';
@@ -248,6 +248,17 @@ export function trimRegion(doc, index, by) {
   if (!first) d.geometry.regions.splice(index, 1);
   else a.vertices = first;
   d.geometry.regions.push(...extra);
+  return d;
+}
+
+/** Run one side of a rectangle region out to the nearest face of another (rectangles only). */
+export function extendRegion(doc, index, side, to) {
+  if (index === to) throw new DetailEditError('Choose a different region to extend to.');
+  const d = clone(doc);
+  const a = regionAt(d, index), b = regionAt(d, to);
+  const res = extendRectTo(plainPoints(a, 'Extend'), side, plainPoints(b, 'Extend'));
+  if (res.error) throw new DetailEditError(res.error);
+  a.vertices = res.points;
   return d;
 }
 

@@ -212,6 +212,10 @@ const actions = {
     apply((d) => D.addLayerOnEdge(d, st.selection.index, edge, thickness));
     if (st.doc.geometry.regions.length > n) { st = select(st, { type: 'region', index: n }); refresh(); }
   },
+  extendTo: (side, to) => {
+    if (st.selection?.type !== 'region') return;
+    apply((d) => D.extendRegion(d, st.selection.index, side, to));
+  },
   trimBy: (by) => {
     if (st.selection?.type !== 'region') return;
     apply((d) => D.trimRegion(d, st.selection.index, by));

@@ -231,7 +231,7 @@ function regionEditor(r, pm, bundle, a) {
 }
 
 /** Offset a region, stand a layer on one of its edges, or trim it by another region. Acts on the first selected region. */
-const offsetDraft = { distance: 0.01, thickness: 0.05, edge: 0, by: 0 };
+const offsetDraft = { distance: 0.01, thickness: 0.05, edge: 0, by: 0, side: 'right' };
 function regionOffsetEditor(r, pm, a) {
   const n = r.vertices.length;
   const others = pm.regions.filter((o) => o.index !== r.index);
@@ -250,8 +250,11 @@ function regionOffsetEditor(r, pm, a) {
     others.length
       ? row('Trim by', select(others.map((o) => String(o.index)), String(by), (v) => { offsetDraft.by = Number(v); }))
       : h('div', { class: 'note' }, 'Add another region to trim by it.'),
-    others.length ? h('div', { class: 'row' }, h('button', { title: 'Cut away the part of this region that the other covers (rectangles only)', onclick: () => a.trimBy(by) }, 'Trim')) : null,
-    h('div', { class: 'note' }, 'Offset and trim need plain-number vertices. Trim works on rectangles for now.'))];
+    others.length ? h('div', { class: 'row' },
+      h('button', { title: 'Cut away the part of this region that the other covers (rectangles only)', onclick: () => a.trimBy(by) }, 'Trim'),
+      select(['left', 'right', 'bottom', 'top'], offsetDraft.side, (v) => { offsetDraft.side = v; }, { title: 'Side to extend' }),
+      h('button', { title: 'Run that side out to the nearest face of the other region (rectangles only)', onclick: () => a.extendTo(offsetDraft.side, by) }, 'Extend to')) : null,
+    h('div', { class: 'note' }, 'Offset and trim need plain-number vertices. Trim and extend work on rectangles for now.'))];
 }
 
 /** Numeric move, copy, rotate and mirror. Acts on every selected region; rotate and mirror turn about the selection's centre. */

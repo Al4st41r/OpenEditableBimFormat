@@ -428,3 +428,21 @@ describe('offset, layer on edge and trim', () => {
     expect(() => D.trimRegion(rects(), 0, 5)).toThrow(/No region/);
   });
 });
+
+describe('extendRegion', () => {
+  const two = () => {
+    const d = base();
+    d.geometry = { regions: [
+      { material_id: 'a', vertices: [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 1 }] },
+      { material_id: 'b', vertices: [{ x: 3, y: 0 }, { x: 4, y: 0 }, { x: 4, y: 1 }, { x: 3, y: 1 }] },
+    ] };
+    return d;
+  };
+  test('extends one side and keeps the other fields', () => {
+    expect(D.extendRegion(two(), 0, 'right', 1).geometry.regions[0].vertices.map((v) => v.x)).toEqual([0, 3, 3, 0]);
+  });
+  test('rejects the same region and an unreachable side', () => {
+    expect(() => D.extendRegion(two(), 0, 'right', 0)).toThrow(/different/);
+    expect(() => D.extendRegion(two(), 0, 'left', 1)).toThrow(/not beyond/);
+  });
+});
