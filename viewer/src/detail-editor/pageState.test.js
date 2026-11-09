@@ -138,3 +138,20 @@ describe('tools', () => {
     for (const t of TOOLS) expect(setTool(createState({ id: 'd' }), t).tool).toBe(t);
   });
 });
+
+describe('region selections', () => {
+  test('regionIndices lists the primary first and selectionOfRegions round-trips', async () => {
+    const { regionIndices, selectionOfRegions } = await import('./pageState.js');
+    expect(regionIndices(null)).toEqual([]);
+    expect(regionIndices({ type: 'member', role: 'w' })).toEqual([]);
+    expect(regionIndices({ type: 'region', index: 2, also: [0, 3] })).toEqual([2, 0, 3]);
+    expect(selectionOfRegions([])).toBeNull();
+    expect(selectionOfRegions([1])).toEqual({ type: 'region', index: 1 });
+    expect(selectionOfRegions([1, 1, 4])).toEqual({ type: 'region', index: 1, also: [4] });
+  });
+  test('reconcileSelection drops picked regions that no longer exist', () => {
+    const doc = makeDetail();
+    expect(reconcileSelection(doc, { type: 'region', index: 0, also: [5] })).toEqual({ type: 'region', index: 0 });
+    expect(reconcileSelection(doc, { type: 'region', index: 0 })).toEqual({ type: 'region', index: 0 });
+  });
+});

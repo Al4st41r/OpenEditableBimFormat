@@ -84,6 +84,7 @@ export function buildCanvasModel(doc, ctx = {}) {
 
   const selMember = selection?.type === 'member' ? selection.role : null;
   const selRegion = selection?.type === 'region' ? selection.index : null;
+  const selAlso = new Set(selection?.type === 'region' ? selection.also ?? [] : []);
 
   (doc.members ?? []).forEach((m) => {
     const r = buildMemberShapes(m, profiles[m.profile_id], { plane, length });
@@ -109,7 +110,7 @@ export function buildCanvasModel(doc, ctx = {}) {
       primitives.push({
         id: `region:${r}`, kind: 'region', points: pts,
         fill: colour(region.material_id), stroke: '#333333', materialId: region.material_id,
-        order: order++, selected: r === selRegion,
+        order: order++, selected: r === selRegion || selAlso.has(r),
         ref: { type: 'region', index: r },
       });
     } catch (err) {

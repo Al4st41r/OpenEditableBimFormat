@@ -19,12 +19,13 @@ import { readyMessage, parseIncoming, savedMessage, focusMessage } from './messa
 import { buildBuildingReference } from './buildingReference.js';
 import { DETAIL_FIELDS, applyJunctionFields, validateJunctionFields, junctionMessage } from './junctionFields.js';
 import { assignDetail, unassignDetail, setOverride, setMirrored, setLocation, suggestLocation, validateLocation } from './junctionAssign.js';
+import { regionIndices, selectionOfRegions } from './pageState.js';
 import { createState, commit, undo, redo, select, setPreview, setTool, markSaved, isDirty, canUndo, canRedo } from './pageState.js';
 import { buildCanvasModel, rulerTicks } from './canvasModel.js';
 import { createController, setControllerTool, handleEvent } from './canvasController.js';
 import { buildPanelModel } from './panelModel.js';
 import { fitView, toDetail, zoomAt, panByPixels } from './viewTransform.js';
-import { translateRegion } from './canvasEdit.js';
+import { translateRegions } from './canvasEdit.js';
 import { renderCanvas } from './render.js';
 import { primitiveStyle } from './drawStyle.js';
 import { renderPanels } from './panels.js';
@@ -273,7 +274,7 @@ function dispatch(type, e, key) {
   const rect = svg.getBoundingClientRect();
   const screen = { x: e.clientX - rect.left, y: e.clientY - rect.top };
   pointer = { x: screen.x, y: screen.y, alt: !!e.altKey };
-  const r = handleEvent(controller, { type, point: toDetail(view, size, screen), screen, key }, controllerContext());
+  const r = handleEvent(controller, { type, point: toDetail(view, size, screen), screen, key, shift: !!e.shiftKey }, controllerContext());
   controller = r.state;
   applyEffects(r.effects);
 }
@@ -303,13 +304,20 @@ window.addEventListener('keydown', (e) => {
   if (mod && e.key.toLowerCase() === 'y') { e.preventDefault(); doRedo(); return; }
   if (typing || !st) return;
   const sel = st.selection;
+  if (mod && e.key.toLowerCase() === 'a' && st.doc.geometry?.regions?.length) {
+    e.preventDefault();
+    st = select(st, selectionOfRegions(st.doc.geometry.regions.map((_, i) => i))); refresh();
+    status(`${st.doc.geometry.regions.length} region(s) selected.`);
+    return;
+  }
   if (sel?.type === 'region') {
+    const picked = regionIndices(sel);
     const n = st.doc.geometry.regions.length;
     const step = visibleSnap() * (e.shiftKey ? 10 : 1);
     const arrows = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, step], ArrowDown: [0, -step] };
     if (!mod && arrows[e.key]) {
       e.preventDefault();
-      const r = translateRegion(st.doc, sel.index, ...arrows[e.key]);
+      const r = translateRegions(st.doc, picked, ...arrows[e.key]);
       apply(() => r.doc);
       if (r.locked.length) status('Coordinates bound to a parameter stay where they are.');
       return;
@@ -317,12 +325,12 @@ window.addEventListener('keydown', (e) => {
     if (mod && e.key.toLowerCase() === 'd') {
       e.preventDefault();
       const off = visibleSnap() * 5;
-      apply((d) => D.duplicateRegion(d, sel.index, off, -off));
-      st = select(st, { type: 'region', index: n }); refresh();
-      status('Duplicated. Drag or use the arrow keys to place the copy.');
+      apply((d) => D.duplicateRegions(d, picked, off, -off));
+      st = select(st, selectionOfRegions(picked.map((_, k) => n + k))); refresh();
+      status(picked.length > 1 ? `Duplicated ${picked.length} regions. Drag or use the arrow keys to place them.` : 'Duplicated. Drag or use the arrow keys to place the copy.');
       return;
     }
-    if (!mod && (e.key === ']' || e.key === '[')) {
+    if (!mod && picked.length === 1 && (e.key === ']' || e.key === '[')) {
       const to = e.key === ']' ? Math.min(n - 1, sel.index + 1) : Math.max(0, sel.index - 1);
       if (to !== sel.index) { apply((d) => D.moveRegionTo(d, sel.index, to)); st = select(st, { type: 'region', index: to }); refresh(); }
       return;

@@ -204,6 +204,20 @@ export function duplicateRegion(doc, index, dx = 0, dy = 0) {
   return d;
 }
 
+/** Remove several regions at once. */
+export function removeRegions(doc, indices) {
+  const d = clone(doc);
+  for (const i of indices) regionAt(d, i);
+  const drop = new Set(indices);
+  d.geometry.regions = d.geometry.regions.filter((_, i) => !drop.has(i));
+  return d;
+}
+
+/** Copy several regions, shifted by (dx, dy). The copies are appended in order. */
+export function duplicateRegions(doc, indices, dx = 0, dy = 0) {
+  return indices.reduce((d, i) => duplicateRegion(d, i, dx, dy), doc);
+}
+
 /** Move a region to a new position in the drawing order (later regions draw on top). */
 export function moveRegionTo(doc, index, to) {
   const d = clone(doc);

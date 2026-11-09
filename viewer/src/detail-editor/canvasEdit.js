@@ -84,3 +84,41 @@ export function translateRegion(doc, r, dx, dy) {
   });
   return { doc: d, locked };
 }
+
+/** Move several regions by the same delta. Locked reports the bound axes that stayed put, across all of them. */
+export function translateRegions(doc, indices, dx, dy) {
+  let d = doc;
+  const locked = [];
+  for (const i of indices) {
+    const r = translateRegion(d, i, dx, dy);
+    d = r.doc;
+    locked.push(...r.locked.map((l) => ({ ...l, region: i })));
+  }
+  return { doc: d, locked };
+}
+
+/** Bounding box of a region's plain-number vertices, or null when none are numeric. */
+export function regionBox(doc, index) {
+  const pts = (doc.geometry?.regions?.[index]?.vertices ?? []).filter((v) => typeof v.x === 'number' && typeof v.y === 'number');
+  if (!pts.length) return null;
+  const xs = pts.map((p) => p.x), ys = pts.map((p) => p.y);
+  return { minX: Math.min(...xs), maxX: Math.max(...xs), minY: Math.min(...ys), maxY: Math.max(...ys) };
+}
+
+/**
+ * Regions picked by a selection box. A window (a to b, left to right) takes regions wholly inside it; a crossing
+ * box (right to left) takes any region it touches, the way CAD packages do.
+ */
+export function regionsInBox(doc, a, b) {
+  const box = { minX: Math.min(a.x, b.x), maxX: Math.max(a.x, b.x), minY: Math.min(a.y, b.y), maxY: Math.max(a.y, b.y) };
+  const crossing = b.x < a.x;
+  const out = [];
+  (doc.geometry?.regions ?? []).forEach((_, i) => {
+    const r = regionBox(doc, i);
+    if (!r) return;
+    const inside = r.minX >= box.minX && r.maxX <= box.maxX && r.minY >= box.minY && r.maxY <= box.maxY;
+    const touches = r.minX <= box.maxX && r.maxX >= box.minX && r.minY <= box.maxY && r.maxY >= box.minY;
+    if (crossing ? touches : inside) out.push(i);
+  });
+  return out;
+}

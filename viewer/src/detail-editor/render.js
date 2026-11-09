@@ -80,6 +80,15 @@ export function renderCanvas(svg, model, view, size, { draft = null, hint = null
       fill: 'rgba(10,108,255,0.12)', stroke: '#0a6cff', 'stroke-dasharray': '5 4', 'stroke-width': 1.5,
     }));
   }
+  if (draft?.kind === 'box') {
+    const a = toScreen(view, size, draft.a), b = toScreen(view, size, draft.b);
+    const crossing = draft.b.x < draft.a.x;
+    svg.appendChild(el('rect', {
+      x: Math.min(a.x, b.x), y: Math.min(a.y, b.y), width: Math.abs(b.x - a.x), height: Math.abs(b.y - a.y),
+      fill: crossing ? 'rgba(46,160,67,0.12)' : 'rgba(10,108,255,0.10)', stroke: crossing ? '#2ea043' : '#0a6cff',
+      'stroke-width': 1.25, 'stroke-dasharray': crossing ? '5 4' : 'none',
+    }));
+  }
   if (draft?.kind === 'measure') {
     const a = toScreen(view, size, draft.a), b = toScreen(view, size, draft.b);
     const dx = draft.b.x - draft.a.x, dy = draft.b.y - draft.a.y;

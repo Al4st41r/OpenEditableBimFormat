@@ -28,8 +28,9 @@
  */
 
 import { hitTest } from './canvasModel.js';
-import { dragHandle, translateRegion, snapValue } from './canvasEdit.js';
-import { addRect, addRegion, removeRegion } from './detailDocument.js';
+import { dragHandle, translateRegions, regionsInBox, snapValue } from './canvasEdit.js';
+import { addRect, addRegion, removeRegions } from './detailDocument.js';
+import { regionIndices, selectionOfRegions } from './pageState.js';
 import { signedArea, isSelfIntersecting } from '../detail/regionGeometry.js';
 
 export const TOOLS = ['select', 'rect', 'polygon', 'measure'];
@@ -73,7 +74,7 @@ function selectTool(state, event, ctx) {
   if (type === 'key') {
     if (state.drag && event.key === 'Escape') return done({ ...state, drag: null }, [{ type: 'cancel' }, ...clearHint(ctx)]);
     if (!state.drag && (event.key === 'Delete' || event.key === 'Backspace') && ctx.selection?.type === 'region') {
-      return done(state, [{ type: 'doc', doc: removeRegion(ctx.doc, ctx.selection.index), transient: false }, { type: 'select', selection: null }]);
+      return done(state, [{ type: 'doc', doc: removeRegions(ctx.doc, regionIndices(ctx.selection)), transient: false }, { type: 'select', selection: null }]);
     }
     return done(state);
   }
@@ -96,14 +97,39 @@ function selectTool(state, event, ctx) {
         [{ type: 'select', selection: { type: 'member', role: hit.ref.role } }]);
     }
     if (hit?.ref.type === 'region') {
-      return done({ ...state, drag: { kind: 'region-body', index: hit.ref.index, start: point, ...base } },
-        [{ type: 'select', selection: { type: 'region', index: hit.ref.index } }]);
+      const picked = regionIndices(ctx.selection);
+      const i = hit.ref.index;
+      if (event.shift) {   // add to or remove from the selection; no drag
+        const next = picked.includes(i) ? picked.filter((x) => x !== i) : [...picked, i];
+        return done(state, [{ type: 'select', selection: selectionOfRegions(next) }]);
+      }
+      // pressing on a region that is already picked keeps the group, so the group can be dragged
+      const group = picked.includes(i) ? picked : [i];
+      const selection = picked.includes(i) ? ctx.selection : { type: 'region', index: i };
+      return done({ ...state, drag: { kind: 'region-body', indices: group, start: point, ...base } }, [{ type: 'select', selection }]);
+    }
+    if (event.shift) {   // box select; left to right takes what is wholly inside, right to left what it touches
+      const draft = { kind: 'box', a: point, b: point };
+      return done({ ...state, drag: { kind: 'box', base: regionIndices(ctx.selection), ...base } , draft }, [{ type: 'draft', draft }]);
     }
     return done({ ...state, drag: { kind: 'pan', last: screen, ...base } }, [{ type: 'select', selection: null }]);
   }
 
   const drag = state.drag;
   if (!drag) return done(state);
+
+  if (drag.kind === 'box') {
+    if (type === 'move') {
+      const draft = { ...state.draft, b: point };
+      return done({ ...state, draft }, [{ type: 'draft', draft }]);
+    }
+    if (type === 'up') {
+      const hits = regionsInBox(ctx.doc, state.draft.a, point);
+      const picked = [...new Set([...drag.base, ...hits])];
+      return done({ ...state, drag: null, draft: null }, [{ type: 'draft', draft: null }, { type: 'select', selection: selectionOfRegions(picked) }]);
+    }
+    return done(state);
+  }
 
   if (type === 'move') {
     if (drag.kind === 'pan') {
@@ -129,7 +155,7 @@ function selectTool(state, event, ctx) {
     } else if (drag.kind === 'member-body') {
       result = dragHandle(drag.startDoc, { type: 'member-origin', role: drag.role }, point, { snap: ctx.snap, grab: drag.grab });
     } else {
-      result = translateRegion(drag.startDoc, drag.index, snapValue(point.x - drag.start.x, ctx.snap), snapValue(point.y - drag.start.y, ctx.snap));
+      result = translateRegions(drag.startDoc, drag.indices, snapValue(point.x - drag.start.x, ctx.snap), snapValue(point.y - drag.start.y, ctx.snap));
     }
 
     const changed = !same(result.doc, drag.startDoc);

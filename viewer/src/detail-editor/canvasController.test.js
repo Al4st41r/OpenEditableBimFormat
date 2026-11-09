@@ -1,6 +1,7 @@
 import { describe, test, expect } from 'vitest';
 import { createController, setControllerTool, handleEvent } from './canvasController.js';
 import { buildCanvasModel } from './canvasModel.js';
+import { addRect } from './detailDocument.js';
 import { exampleDetail, readExample, deepFreeze } from './testUtils.js';
 
 const close = (a, b, d = 9) => expect(a).toBeCloseTo(b, d);
@@ -488,5 +489,74 @@ describe('measure tool', () => {
     r = handleEvent(r.state, key('Escape'), ctxFor(doc()));
     expect(r.state.draft).toBeNull();
     expect(of(r, 'draft').at(-1).draft).toBeNull();
+  });
+});
+
+describe('multi-selection', () => {
+  // region 0 is the trim block near (0.025, 0.17); add two rectangles well clear of it
+  const three = () => {
+    let d = exampleDetail();
+    d = addRect(d, 'mat-pir-insulation', { x: 0.3, y: 0.5 }, { x: 0.4, y: 0.6 });
+    d = addRect(d, 'mat-pir-insulation', { x: 0.5, y: 0.5 }, { x: 0.6, y: 0.6 });
+    return d;
+  };
+  const click = (doc, selection, x, y, extra = {}) => handleEvent(createController(), { ...ev('down', x, y), ...extra }, ctxFor(doc, selection));
+
+  test('shift-click adds a region to the selection and removes it again', () => {
+    const doc = three();
+    let r = click(doc, { type: 'region', index: 0 }, 0.35, 0.55, { shift: true });
+    expect(of(r, 'select')[0].selection).toEqual({ type: 'region', index: 0, also: [1] });
+    expect(r.state.drag).toBeNull();
+    r = click(doc, { type: 'region', index: 0, also: [1] }, 0.35, 0.55, { shift: true });
+    expect(of(r, 'select')[0].selection).toEqual({ type: 'region', index: 0 });
+  });
+
+  test('a plain click on an unpicked region selects only that one', () => {
+    const r = click(three(), { type: 'region', index: 0, also: [1] }, 0.55, 0.55);
+    expect(of(r, 'select')[0].selection).toEqual({ type: 'region', index: 2 });
+  });
+
+  test('dragging a picked region moves the whole group', () => {
+    const doc = three();
+    const sel = { type: 'region', index: 1, also: [2] };
+    let r = click(doc, sel, 0.35, 0.55);
+    expect(of(r, 'select')[0].selection).toEqual(sel);
+    r = handleEvent(r.state, ev('move', 0.45, 0.55), ctxFor(doc, sel));
+    const moved = of(r, 'doc')[0].doc.geometry.regions;
+    expect(moved[1].vertices[0].x).toBeCloseTo(0.4, 6);
+    expect(moved[2].vertices[0].x).toBeCloseTo(0.6, 6);
+    expect(moved[0]).toEqual(doc.geometry.regions[0]);
+  });
+
+  test('Delete removes every picked region', () => {
+    const doc = three();
+    const r = handleEvent(createController(), key('Delete'), ctxFor(doc, { type: 'region', index: 1, also: [2] }));
+    expect(lastDoc(r).doc.geometry.regions).toHaveLength(1);
+  });
+
+  test('shift-drag on empty space draws a box; a window takes what is wholly inside', () => {
+    const doc = three();
+    let r = handleEvent(createController(), { ...ev('down', 0.25, 0.45), shift: true }, ctxFor(doc));
+    expect(r.state.drag.kind).toBe('box');
+    r = handleEvent(r.state, ev('move', 0.45, 0.65), ctxFor(doc));
+    r = handleEvent(r.state, ev('up', 0.45, 0.65), ctxFor(doc));
+    expect(of(r, 'select')[0].selection).toEqual({ type: 'region', index: 1 });
+    expect(r.state.draft).toBeNull();
+  });
+
+  test('a box dragged right to left takes anything it touches', () => {
+    const doc = three();
+    let r = handleEvent(createController(), { ...ev('down', 0.55, 0.65), shift: true }, ctxFor(doc));
+    r = handleEvent(r.state, ev('move', 0.35, 0.45), ctxFor(doc));
+    r = handleEvent(r.state, ev('up', 0.35, 0.45), ctxFor(doc));
+    expect(of(r, 'select')[0].selection).toEqual({ type: 'region', index: 1, also: [2] });
+  });
+
+  test('a box adds to the current selection', () => {
+    const doc = three();
+    const sel = { type: 'region', index: 0 };
+    let r = handleEvent(createController(), { ...ev('down', 0.45, 0.45), shift: true }, ctxFor(doc, sel));
+    r = handleEvent(r.state, ev('up', 0.65, 0.65), ctxFor(doc, sel));
+    expect(of(r, 'select')[0].selection).toEqual({ type: 'region', index: 0, also: [2] });
   });
 });

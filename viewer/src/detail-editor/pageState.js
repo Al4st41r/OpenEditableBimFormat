@@ -21,13 +21,33 @@ export function reconcileSelection(doc, selection) {
   if (selection.type === 'region') {
     const region = doc.geometry?.regions?.[selection.index];
     if (!region) return null;
-    if (selection.vertex !== undefined && !region.vertices?.[selection.vertex]) {
-      const { vertex, ...rest } = selection;
-      return rest;
+    let out = selection;
+    if (out.vertex !== undefined && !region.vertices?.[out.vertex]) {
+      const { vertex, ...rest } = out;
+      out = rest;
     }
-    return selection;
+    if (out.also) {
+      const also = [...new Set(out.also)].filter((i) => i !== out.index && doc.geometry.regions[i]);
+      if (also.length === out.also.length) return out;
+      const { also: _drop, ...rest } = out;
+      return also.length ? { ...rest, also } : rest;
+    }
+    return out;
   }
   return null;
+}
+
+/** The region indices a selection covers: the primary one first, then the others picked with it. */
+export function regionIndices(selection) {
+  if (selection?.type !== 'region') return [];
+  return [selection.index, ...(selection.also ?? [])];
+}
+
+/** A selection from a list of region indices (the first is the primary), or null when empty. */
+export function selectionOfRegions(indices) {
+  const [index, ...also] = [...new Set(indices)];
+  if (index === undefined) return null;
+  return also.length ? { type: 'region', index, also } : { type: 'region', index };
 }
 
 export function createState(doc, { limit = 100 } = {}) {
