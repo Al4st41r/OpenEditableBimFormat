@@ -12,9 +12,9 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { background: #1a1a1a; color: #ddd; font-family: 'Barlow', sans-serif; font-size: 13px; display: flex; flex-direction: column; height: 100vh; }
     button, select, input { font: inherit; }
-    #header { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 6px 12px; background: #222; border-bottom: 1px solid #333; flex-shrink: 0; }
+    #header { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; padding: 6px 10px; background: #222; border-bottom: 1px solid #333; flex-shrink: 0; }
     #header select, #header input, .panel select, .panel input[type=text], .panel input[type=number] { background: #333; color: #ddd; border: 1px solid #555; padding: 3px 6px; border-radius: 3px; }
-    button { padding: 4px 10px; cursor: pointer; background: #333; color: #ddd; border: 1px solid #555; border-radius: 3px; }
+    button { padding: 4px 8px; cursor: pointer; background: #333; color: #ddd; border: 1px solid #555; border-radius: 3px; }
     button:hover:not(:disabled) { background: #444; }
     button:disabled { opacity: 0.4; cursor: default; }
     button.primary { background: #2a4a2a; color: #8f8; }
@@ -35,6 +35,10 @@
     #empty[hidden] { display: none; }
     #tip { position: absolute; pointer-events: none; z-index: 5; background: rgba(24,24,24,0.92); color: #fff; padding: 5px 9px; border-radius: 3px; font-size: 12px; line-height: 1.45; white-space: nowrap; border-left: 3px solid #e8590c; }
     #tip[hidden] { display: none; }
+    #cmd { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 6; background: rgba(24,24,24,0.94); border: 1px solid #555; border-radius: 4px; padding: 6px 8px; display: flex; align-items: center; gap: 10px; }
+    #cmd[hidden] { display: none; }
+    #cmd-input { width: 260px; background: #333; color: #fff; border: 1px solid #777; padding: 4px 8px; border-radius: 3px; }
+    #cmd-hint { color: #aaa; font-size: 12px; white-space: nowrap; }
     #tip .t { font-weight: 700; }
     #tip .c { opacity: 0.6; }
     #snap-menu { position: relative; }
@@ -114,6 +118,7 @@
     <div id="canvas-wrap">
       <svg id="canvas" xmlns="http://www.w3.org/2000/svg"></svg>
       <div id="tip" hidden></div>
+      <div id="cmd" hidden><input id="cmd-input" type="text" autocomplete="off" spellcheck="false" placeholder="2400,1200   @300,0   500<45   or a distance"><span id="cmd-hint"></span></div>
       <div id="empty">Open a bundle or the demo, then choose a detail.</div>
     </div>
     <div id="right-panel" class="panel"></div>

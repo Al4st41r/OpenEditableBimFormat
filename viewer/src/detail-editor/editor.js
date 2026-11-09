@@ -28,6 +28,7 @@ import { fitView, toDetail, zoomAt, panByPixels } from './viewTransform.js';
 import { translateRegions, transformRegions, selectionCentre } from './canvasEdit.js';
 import { renderCanvas } from './render.js';
 import { primitiveStyle } from './drawStyle.js';
+import { parseTypedPoint } from './typedPoint.js';
 import { renderPanels } from './panels.js';
 import { snapPoint, SNAP_KINDS } from '../snap/snapEngine.js';
 import { buildTooltip } from '../snap/tooltip.js';
@@ -199,6 +200,22 @@ const actions = {
     apply(() => r.doc);
     if (r.locked.length) status(`${r.locked.length} vertex(es) bound to a parameter stayed where they are.`);
   },
+  offsetRegion: (distance, copy) => {
+    if (st.selection?.type !== 'region') return;
+    const n = st.doc.geometry.regions.length;
+    apply((d) => D.offsetRegion(d, st.selection.index, distance, { copy }));
+    if (copy && st.doc.geometry.regions.length > n) { st = select(st, { type: 'region', index: n }); refresh(); }
+  },
+  layerOnEdge: (edge, thickness) => {
+    if (st.selection?.type !== 'region') return;
+    const n = st.doc.geometry.regions.length;
+    apply((d) => D.addLayerOnEdge(d, st.selection.index, edge, thickness));
+    if (st.doc.geometry.regions.length > n) { st = select(st, { type: 'region', index: n }); refresh(); }
+  },
+  trimBy: (by) => {
+    if (st.selection?.type !== 'region') return;
+    apply((d) => D.trimRegion(d, st.selection.index, by));
+  },
   setRegionNumber: (i, f, v) => apply((d) => D.setRegionNumber(d, i, f, v)),
   setRegionTag: (i, k, v) => apply((d) => D.setRegionTag(d, i, k, v)),
   removeRegion: (i) => apply((d) => D.removeRegion(d, i)),
@@ -247,6 +264,7 @@ $('fit-btn').addEventListener('click', fit);
 
 function chooseTool(tool) {
   if (!st) return;
+  closeCmd();
   st = setTool(st, tool);
   controller = setControllerTool(controller, tool);
   draft = null;
@@ -318,8 +336,70 @@ svg.addEventListener('wheel', (e) => {
   paint();
 }, { passive: false });
 
+// ── typed coordinates ────────────────────────────────────────────────────────
+// With a drawing tool active, typing a digit, minus, @ or . opens a command box. Enter places the point exactly,
+// with no snapping: 2400,1200 absolute, @300,0 relative, 500<45 polar, or a distance towards the cursor.
+const DRAWING_TOOLS = ['rect', 'polygon', 'measure'];
+function lastPoint() {
+  const d = controller.draft;
+  if (!d) return null;
+  if (d.kind === 'polygon') return d.points.at(-1) ?? null;
+  return d.a ?? null;
+}
+function cmdHint() {
+  const d = controller.draft;
+  const tool = st?.tool;
+  if (tool === 'rect') return d ? 'Opposite corner: @w,h' : 'First corner: x,y';
+  if (tool === 'polygon') return d ? 'Next point: @dx,dy or d<angle. Enter on empty closes.' : 'First point: x,y';
+  return d && !d.fixed ? 'Second point: @dx,dy or d<angle' : 'First point: x,y';
+}
+function openCmd(initial = '') {
+  $('cmd').hidden = false;
+  $('cmd-hint').textContent = cmdHint();
+  const input = $('cmd-input');
+  input.value = initial;
+  input.focus();
+}
+function closeCmd() {
+  if ($('cmd').hidden) return;
+  $('cmd').hidden = true;
+  $('cmd-input').blur();
+}
+function commitTyped(point) {
+  const ctx = { ...controllerContext(), snapFn: null, snap: 0, suspendSnap: true };
+  const screen = { x: 0, y: 0 };
+  const kind = st.tool === 'rect' && controller.draft ? 'up' : 'down';
+  const r = handleEvent(controller, { type: kind, point, screen }, ctx);
+  controller = r.state;
+  applyEffects(r.effects);
+}
+$('cmd-input').addEventListener('keydown', (e) => {
+  e.stopPropagation();
+  if (e.key === 'Escape') { closeCmd(); return; }
+  if (e.key !== 'Enter') return;
+  e.preventDefault();
+  const text = $('cmd-input').value.trim();
+  if (text === '') {
+    if (st.tool === 'polygon' && controller.draft) { dispatch('key', { clientX: 0, clientY: 0 }, 'Enter'); closeCmd(); }
+    return;
+  }
+  const res = parseTypedPoint(text, { last: lastPoint(), cursor: pointer.x || pointer.y ? toDetail(view, size, pointer) : null, unit: getUnit() });
+  if (res.error) { status(res.error, true); return; }
+  status('');
+  commitTyped(res.point);
+  $('cmd-input').value = '';
+  $('cmd-hint').textContent = cmdHint();
+  if (st.tool === 'rect' && !controller.draft) closeCmd();   // the rectangle is complete
+});
+
 window.addEventListener('keydown', (e) => {
   if (e.key === 'Alt') pointer.alt = true;
+  if (st && DRAWING_TOOLS.includes(st.tool) && !e.ctrlKey && !e.metaKey && !e.altKey && /^[0-9@.\-]$/.test(e.key)
+      && !['INPUT', 'SELECT', 'TEXTAREA'].includes(e.target.tagName)) {
+    e.preventDefault();
+    openCmd(e.key);
+    return;
+  }
   const typing = ['INPUT', 'SELECT', 'TEXTAREA'].includes(e.target.tagName);
   const mod = e.ctrlKey || e.metaKey;
   if (mod && e.key.toLowerCase() === 's') { e.preventDefault(); save(); return; }

@@ -62,8 +62,10 @@ const plain = (value, onChange, attrs = {}) => h('input', {
  */
 export function renderPanels({ left, right }, pm, bundle, a) {
   notify = a.notify ?? (() => {});
-  left.replaceChildren(...leftPanel(pm, bundle, a));
-  right.replaceChildren(...rightPanel(pm, bundle, a));
+  // a conditional that gives null or false would otherwise print as the text "null"
+  const real = (nodes) => nodes.filter((n) => n !== null && n !== undefined && n !== false);
+  left.replaceChildren(...real(leftPanel(pm, bundle, a)));
+  right.replaceChildren(...real(rightPanel(pm, bundle, a)));
 }
 
 // ── left: members and regions ───────────────────────────────────────────────
@@ -219,12 +221,37 @@ function regionEditor(r, pm, bundle, a) {
     r.pickedCount > 1 ? h('div', { class: 'note warn' }, `${r.pickedCount} regions are selected. Changes here apply to region ${r.index} only.`) : null,
     row('Material', select(bundle.materialIds.includes(r.materialId) ? bundle.materialIds : [r.materialId, ...bundle.materialIds], r.materialId, (v) => a.setRegionMaterial(r.index, v))),
     ...regionTransformEditor(r, a),
+    ...regionOffsetEditor(r, pm, a),
     ...regionRepeatEditor(r, a),
     ...regionTagEditor(r, a),
     h('div', { class: 'note' }, `Vertices (x, y in ${unitLabel()}). Bind a coordinate to a parameter to make it adjustable per junction.`),
     ...vertexRows,
     h('div', { class: 'row' }, h('button', { onclick: () => a.removeRegion(r.index) }, 'Remove region')),
   ];
+}
+
+/** Offset a region, stand a layer on one of its edges, or trim it by another region. Acts on the first selected region. */
+const offsetDraft = { distance: 0.01, thickness: 0.05, edge: 0, by: 0 };
+function regionOffsetEditor(r, pm, a) {
+  const n = r.vertices.length;
+  const others = pm.regions.filter((o) => o.index !== r.index);
+  const edge = Math.min(offsetDraft.edge, n - 1);
+  const by = others.some((o) => o.index === offsetDraft.by) ? offsetDraft.by : others[0]?.index;
+  return [h('details', { class: 'fold' },
+    h('summary', {}, 'Offset, layer, trim'),
+    row(`Distance (${unitLabel()})`, num(offsetDraft.distance, (m) => { offsetDraft.distance = m; })),
+    h('div', { class: 'row' },
+      h('button', { title: 'Grow the region by the distance', onclick: () => a.offsetRegion(offsetDraft.distance, false) }, 'Offset out'),
+      h('button', { title: 'Shrink the region by the distance', onclick: () => a.offsetRegion(-offsetDraft.distance, false) }, 'Offset in'),
+      h('button', { title: 'Keep the region and add the grown copy', onclick: () => a.offsetRegion(offsetDraft.distance, true) }, 'Copy out')),
+    row('Edge', select(Array.from({ length: n }, (_, i) => String(i)), String(edge), (v) => { offsetDraft.edge = Number(v); })),
+    row(`Thickness (${unitLabel()})`, num(offsetDraft.thickness, (m) => { offsetDraft.thickness = m; })),
+    h('div', { class: 'row' }, h('button', { title: 'Add a region of this thickness outside the chosen edge (vertex n to n+1)', onclick: () => a.layerOnEdge(offsetDraft.edge, offsetDraft.thickness) }, 'Add layer on edge')),
+    others.length
+      ? row('Trim by', select(others.map((o) => String(o.index)), String(by), (v) => { offsetDraft.by = Number(v); }))
+      : h('div', { class: 'note' }, 'Add another region to trim by it.'),
+    others.length ? h('div', { class: 'row' }, h('button', { title: 'Cut away the part of this region that the other covers (rectangles only)', onclick: () => a.trimBy(by) }, 'Trim')) : null,
+    h('div', { class: 'note' }, 'Offset and trim need plain-number vertices. Trim works on rectangles for now.'))];
 }
 
 /** Numeric move, copy, rotate and mirror. Acts on every selected region; rotate and mirror turn about the selection's centre. */

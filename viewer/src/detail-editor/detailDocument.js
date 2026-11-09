@@ -9,6 +9,7 @@
  * whether a document is *complete* is detailValidate.js's job, not theirs.
  */
 
+import { offsetPolygon, layerOnEdge, trimRect } from './regionOps.js';
 import {
   KINDS, EXTENTS, PLANES, DATUM_KINDS, DATUM_REFERENCES, SLUG, PARAM_NAME, DEFAULT_EXTRUSION_M,
 } from './detailConstants.js';
@@ -201,6 +202,52 @@ export function duplicateRegion(doc, index, dx = 0, dy = 0) {
     for (const [axis, delta] of [['x', dx], ['y', dy]]) if (isNum(v[axis])) v[axis] = Math.round((v[axis] + delta) * 1e6) / 1e6;
   }
   d.geometry.regions.push(copy);
+  return d;
+}
+
+/** The plain-number points of a region, or throws when a vertex is bound to a parameter. */
+function plainPoints(region, what) {
+  if (region.vertices.some((v) => !isNum(v.x) || !isNum(v.y))) throw new DetailEditError(`${what} needs every vertex to be a plain number: unbind the parameters first.`);
+  return region.vertices.map((v) => ({ x: v.x, y: v.y }));
+}
+
+/** Grow (positive) or shrink (negative) a region by a distance in metres. With copy, the original stays and the result is a new region. */
+export function offsetRegion(doc, index, distance, { copy = false } = {}) {
+  if (!isNum(distance) || distance === 0) throw new DetailEditError('Give an offset distance other than zero.');
+  const d = clone(doc);
+  const region = regionAt(d, index);
+  const res = offsetPolygon(plainPoints(region, 'Offset'), distance);
+  if (res.error) throw new DetailEditError(res.error);
+  if (copy) d.geometry.regions.push({ ...clone(region), vertices: res.points });
+  else region.vertices = res.points;
+  return d;
+}
+
+/** Add a region of the given thickness outside edge `edge` (vertex `edge` to the next). Material defaults to the source region's. */
+export function addLayerOnEdge(doc, index, edge, thickness, material_id) {
+  const d = clone(doc);
+  const region = regionAt(d, index);
+  const res = layerOnEdge(plainPoints(region, 'Adding a layer'), edge, thickness);
+  if (res.error) throw new DetailEditError(res.error);
+  d.geometry.regions.push({ material_id: material_id || region.material_id, vertices: res.points });
+  return d;
+}
+
+/**
+ * Cut the part of region `index` that region `by` covers. Rectangles only. The first remaining piece keeps the
+ * region's place and every field; any further pieces are appended with the same fields. A fully covered region is removed.
+ */
+export function trimRegion(doc, index, by) {
+  if (index === by) throw new DetailEditError('Choose a different region to trim by.');
+  const d = clone(doc);
+  const a = regionAt(d, index), b = regionAt(d, by);
+  const res = trimRect(plainPoints(a, 'Trim'), plainPoints(b, 'Trim'));
+  if (res.error) throw new DetailEditError(res.error);
+  const [first, ...rest] = res.pieces;
+  const extra = rest.map((vertices) => ({ ...clone(a), vertices }));
+  if (!first) d.geometry.regions.splice(index, 1);
+  else a.vertices = first;
+  d.geometry.regions.push(...extra);
   return d;
 }
 

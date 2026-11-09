@@ -385,3 +385,46 @@ describe('duplicate and reorder regions', () => {
     expect(() => D.moveRegionTo(d, 7, 0)).toThrow(/No region/);
   });
 });
+
+describe('offset, layer on edge and trim', () => {
+  const rects = () => {
+    const d = base();
+    d.geometry = { regions: [
+      { material_id: 'a', vertices: [{ x: 0, y: 0 }, { x: 2, y: 0 }, { x: 2, y: 1 }, { x: 0, y: 1 }], tags: { package: 'cladding' } },
+      { material_id: 'b', vertices: [{ x: 1, y: -1 }, { x: 3, y: -1 }, { x: 3, y: 0.5 }, { x: 1, y: 0.5 }] },
+    ] };
+    return d;
+  };
+  test('offsetRegion grows in place, or adds a copy', () => {
+    expect(D.offsetRegion(rects(), 0, 0.1).geometry.regions[0].vertices[0]).toEqual({ x: -0.1, y: -0.1 });
+    const c = D.offsetRegion(rects(), 0, 0.1, { copy: true });
+    expect(c.geometry.regions).toHaveLength(3);
+    expect(c.geometry.regions[2].tags).toEqual({ package: 'cladding' });
+    expect(c.geometry.regions[0].vertices[0]).toEqual({ x: 0, y: 0 });
+  });
+  test('offsetRegion rejects zero, bound vertices and a collapsing shrink', () => {
+    expect(() => D.offsetRegion(rects(), 0, 0)).toThrow(/other than zero/);
+    expect(() => D.offsetRegion(rects(), 0, -2)).toThrow(/too small/);
+    expect(() => D.offsetRegion(D.bindCoordinate(rects(), 0, 1, 'x', { param: 'w', scale: 1, offset: 0 }), 0, 0.1)).toThrow(/unbind/);
+  });
+  test('addLayerOnEdge appends a layer with the chosen or inherited material', () => {
+    const d = D.addLayerOnEdge(rects(), 0, 1, 0.05);
+    expect(d.geometry.regions.at(-1)).toEqual({ material_id: 'a', vertices: [{ x: 2, y: 0 }, { x: 2, y: 1 }, { x: 2.05, y: 1 }, { x: 2.05, y: 0 }] });
+    expect(D.addLayerOnEdge(rects(), 0, 1, 0.05, 'z').geometry.regions.at(-1).material_id).toBe('z');
+  });
+  test('trimRegion cuts the overlap and keeps the fields on every piece', () => {
+    const d = D.trimRegion(rects(), 0, 1);
+    const [a, , extra] = d.geometry.regions;
+    expect(d.geometry.regions).toHaveLength(3);
+    expect(a.vertices.map((v) => v.x)).toEqual([0, 1, 1, 0]);
+    expect(extra.tags).toEqual({ package: 'cladding' });
+    expect(extra.material_id).toBe('a');
+  });
+  test('trimRegion removes a covered region and rejects bad input', () => {
+    const d = rects();
+    d.geometry.regions[1].vertices = [{ x: -1, y: -1 }, { x: 3, y: -1 }, { x: 3, y: 2 }, { x: -1, y: 2 }];
+    expect(D.trimRegion(d, 0, 1).geometry.regions).toHaveLength(1);
+    expect(() => D.trimRegion(rects(), 0, 0)).toThrow(/different/);
+    expect(() => D.trimRegion(rects(), 0, 5)).toThrow(/No region/);
+  });
+});

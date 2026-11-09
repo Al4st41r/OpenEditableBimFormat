@@ -1,0 +1,105 @@
+/**
+ * regionOps.js
+ *
+ * Offset, layer-on-edge and trim for detail regions. Pure geometry on arrays of { x, y } in metres; the document
+ * operations in detailDocument.js wrap these. All work on plain-number vertices only.
+ */
+
+import { signedArea, isSelfIntersecting } from '../detail/regionGeometry.js';
+
+const EPS = 1e-9;
+const round = (v) => Math.round(v * 1e6) / 1e6 + 0;
+
+/** Unit outward normal of edge a -> b for a polygon wound the given way (area > 0 is anticlockwise). */
+function outward(a, b, ccw) {
+  const dx = b.x - a.x, dy = b.y - a.y;
+  const len = Math.hypot(dx, dy);
+  if (len < EPS) return null;
+  return ccw ? { x: dy / len, y: -dx / len } : { x: -dy / len, y: dx / len };
+}
+
+/**
+ * Grow (d > 0) or shrink (d < 0) a polygon by moving every edge along its normal and meeting neighbours at the
+ * corner (a mitre). Fails when the result would collapse, flip or cross itself.
+ *
+ * @returns {{ points: Array<{x:number,y:number}> } | { error: string }}
+ */
+export function offsetPolygon(points, d) {
+  const n = points.length;
+  if (n < 3) return { error: 'A region needs at least three vertices to offset.' };
+  const area = signedArea(points);
+  if (Math.abs(area) < EPS) return { error: 'The region has no area.' };
+  const ccw = area > 0;
+  // each edge as a point on the moved line and its direction
+  const lines = [];
+  for (let i = 0; i < n; i++) {
+    const a = points[i], b = points[(i + 1) % n];
+    const nrm = outward(a, b, ccw);
+    if (!nrm) return { error: 'Two neighbouring vertices coincide.' };
+    lines.push({ p: { x: a.x + nrm.x * d, y: a.y + nrm.y * d }, dir: { x: b.x - a.x, y: b.y - a.y }, nrm });
+  }
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const l1 = lines[(i + n - 1) % n], l2 = lines[i];
+    const cross = l1.dir.x * l2.dir.y - l1.dir.y * l2.dir.x;
+    if (Math.abs(cross) < EPS * Math.hypot(l1.dir.x, l1.dir.y) * Math.hypot(l2.dir.x, l2.dir.y)) {
+      out.push({ x: round(points[i].x + l2.nrm.x * d), y: round(points[i].y + l2.nrm.y * d) });   // straight through: slide along the normal
+      continue;
+    }
+    // intersection of l1 and l2
+    const t = ((l2.p.x - l1.p.x) * l2.dir.y - (l2.p.y - l1.p.y) * l2.dir.x) / cross;
+    out.push({ x: round(l1.p.x + l1.dir.x * t), y: round(l1.p.y + l1.dir.y * t) });
+  }
+  const after = signedArea(out);
+  // an edge that has been pushed past its neighbours runs backwards: the shape has collapsed or turned inside out
+  const flipped = points.some((p, i) => {
+    const q = points[(i + 1) % n], a = out[i], b = out[(i + 1) % n];
+    return (q.x - p.x) * (b.x - a.x) + (q.y - p.y) * (b.y - a.y) <= 0;
+  });
+  if (flipped || Math.sign(after) !== Math.sign(area) || Math.abs(after) < EPS || isSelfIntersecting(out)) {
+    return { error: d < 0 ? 'The region is too small to shrink by that much.' : 'The offset makes the region cross itself.' };
+  }
+  return { points: out };
+}
+
+/**
+ * A rectangle of the given thickness standing on the outside of edge `edge` (vertex `edge` to the next).
+ * @returns {{ points: Array<{x:number,y:number}> } | { error: string }}
+ */
+export function layerOnEdge(points, edge, thickness) {
+  const n = points.length;
+  if (!Number.isInteger(edge) || edge < 0 || edge >= n) return { error: `There is no edge ${edge}.` };
+  if (!(thickness > 0)) return { error: 'The thickness must be greater than zero.' };
+  const a = points[edge], b = points[(edge + 1) % n];
+  const nrm = outward(a, b, signedArea(points) > 0);
+  if (!nrm) return { error: 'That edge has no length.' };
+  const up = (p) => ({ x: round(p.x + nrm.x * thickness), y: round(p.y + nrm.y * thickness) });
+  return { points: [{ x: round(a.x), y: round(a.y) }, { x: round(b.x), y: round(b.y) }, up(b), up(a)] };
+}
+
+/** The axis-aligned box of a four-vertex rectangle, or null when the points are not one. */
+export function rectOf(points) {
+  if (points.length !== 4) return null;
+  const xs = [...new Set(points.map((p) => round(p.x)))], ys = [...new Set(points.map((p) => round(p.y)))];
+  if (xs.length !== 2 || ys.length !== 2) return null;
+  return { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) };
+}
+
+const rectPoints = ({ x0, x1, y0, y1 }) => [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }];
+
+/**
+ * Remove from rectangle `a` the part that `b` covers. Both must be axis-aligned rectangles.
+ * @returns {{ pieces: Array<Array<{x:number,y:number}>> } | { error: string }} pieces may be empty (a is fully covered)
+ */
+export function trimRect(a, b) {
+  const A = rectOf(a), B = rectOf(b);
+  if (!A || !B) return { error: 'Trim works on rectangles for now (four vertices, axis-aligned).' };
+  const x0 = Math.max(A.x0, B.x0), x1 = Math.min(A.x1, B.x1), y0 = Math.max(A.y0, B.y0), y1 = Math.min(A.y1, B.y1);
+  if (x1 - x0 < EPS || y1 - y0 < EPS) return { error: 'The two regions do not overlap.' };
+  const pieces = [];
+  if (x0 - A.x0 > EPS) pieces.push({ x0: A.x0, x1: x0, y0: A.y0, y1: A.y1 });   // left
+  if (A.x1 - x1 > EPS) pieces.push({ x0: x1, x1: A.x1, y0: A.y0, y1: A.y1 });   // right
+  if (y0 - A.y0 > EPS) pieces.push({ x0, x1, y0: A.y0, y1: y0 });               // below the overlap
+  if (A.y1 - y1 > EPS) pieces.push({ x0, x1, y0: y1, y1: A.y1 });               // above the overlap
+  return { pieces: pieces.map(rectPoints) };
+}
