@@ -9,7 +9,7 @@
  * never make the document dirty.
  */
 
-import { TOOLS } from './canvasController.js';
+import { TOOLS } from './detailConstants.js';
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
 /** Drop selection parts that no longer exist in the document. */

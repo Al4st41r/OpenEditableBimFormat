@@ -560,3 +560,14 @@ describe('multi-selection', () => {
     expect(of(r, 'select')[0].selection).toEqual({ type: 'region', index: 0, also: [2] });
   });
 });
+
+describe('box select: Escape', () => {
+  test('cancels the box and clears the draft', () => {
+    let d = exampleDetail();
+    let r = handleEvent(createController(), { ...ev('down', 0.25, 0.45), shift: true }, ctxFor(d));
+    r = handleEvent(r.state, key('Escape'), ctxFor(d));
+    expect(r.state.draft).toBeNull();
+    expect(r.state.drag).toBeNull();
+    expect(of(r, 'draft').at(-1).draft).toBeNull();
+  });
+});

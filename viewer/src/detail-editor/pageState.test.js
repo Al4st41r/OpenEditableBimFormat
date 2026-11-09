@@ -133,7 +133,7 @@ describe('preview and tool', () => {
 
 describe('tools', () => {
   test('every tool the controller knows is accepted by setTool', async () => {
-    const { TOOLS } = await import('./canvasController.js');
+    const { TOOLS } = await import('./detailConstants.js');
     const { createState, setTool } = await import('./pageState.js');
     for (const t of TOOLS) expect(setTool(createState({ id: 'd' }), t).tool).toBe(t);
   });

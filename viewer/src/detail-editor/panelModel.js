@@ -75,7 +75,7 @@ export function buildPanelModel({ doc, selection, validation, dirty, canUndo, ca
     const vertexBound = r.vertices.map((v) => bound(v.x) || bound(v.y));
     const rect = regionAsRect(doc, selection.index, previewValues);
     selectedRegion = {
-      index: selection.index, materialId: r.material_id, tags: r.tags ?? {},
+      index: selection.index, pickedCount: 1 + (selection.also?.length ?? 0), materialId: r.material_id, tags: r.tags ?? {},
       numbers: Object.fromEntries(['depth_m', 'repeat_x_m', 'repeat_y_m', 'count_x', 'count_y', 'stagger_x_m'].map((k) => [k, r[k] ?? null])),
       vertices: r.vertices.map((v, i) => ({
         x: tidy(evaluateCoordinate(v.x, doc.parameters, previewValues)), y: tidy(evaluateCoordinate(v.y, doc.parameters, previewValues)),

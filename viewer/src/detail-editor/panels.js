@@ -216,6 +216,7 @@ function regionEditor(r, pm, bundle, a) {
     axisCell(v.y, v.boundY, params, (val) => a.moveVertex(r.index, i, { y: val }), (p) => a.bind(r.index, i, 'y', p), () => a.unbind(r.index, i, 'y'))));
   return [
     h('h3', {}, `Region ${r.index}`),
+    r.pickedCount > 1 ? h('div', { class: 'note warn' }, `${r.pickedCount} regions are selected. Changes here apply to region ${r.index} only.`) : null,
     row('Material', select(bundle.materialIds.includes(r.materialId) ? bundle.materialIds : [r.materialId, ...bundle.materialIds], r.materialId, (v) => a.setRegionMaterial(r.index, v))),
     ...regionRepeatEditor(r, a),
     ...regionTagEditor(r, a),

@@ -31,9 +31,9 @@ import { hitTest } from './canvasModel.js';
 import { dragHandle, translateRegions, regionsInBox, snapValue } from './canvasEdit.js';
 import { addRect, addRegion, removeRegions } from './detailDocument.js';
 import { regionIndices, selectionOfRegions } from './pageState.js';
+import { TOOLS } from './detailConstants.js';
 import { signedArea, isSelfIntersecting } from '../detail/regionGeometry.js';
 
-export const TOOLS = ['select', 'rect', 'polygon', 'measure'];
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
 export function createController(tool = 'select') {
@@ -72,7 +72,7 @@ function selectTool(state, event, ctx) {
   const { type, point, screen } = event;
 
   if (type === 'key') {
-    if (state.drag && event.key === 'Escape') return done({ ...state, drag: null }, [{ type: 'cancel' }, ...clearHint(ctx)]);
+    if (state.drag && event.key === 'Escape') return done({ ...state, drag: null, draft: null }, [{ type: 'cancel' }, { type: 'draft', draft: null }, ...clearHint(ctx)]);
     if (!state.drag && (event.key === 'Delete' || event.key === 'Backspace') && ctx.selection?.type === 'region') {
       return done(state, [{ type: 'doc', doc: removeRegions(ctx.doc, regionIndices(ctx.selection)), transient: false }, { type: 'select', selection: null }]);
     }

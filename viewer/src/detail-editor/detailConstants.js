@@ -15,3 +15,6 @@ export const SLUG = /^[a-z0-9][a-z0-9-]*$/;
 export const PARAM_NAME = /^[a-z][a-z0-9_]*$/;
 
 export const DEFAULT_EXTRUSION_M = 1;
+
+/** The canvas tools. One list, used by the controller and the page state. */
+export const TOOLS = ['select', 'rect', 'polygon', 'measure'];
