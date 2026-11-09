@@ -5,6 +5,8 @@
  * parameters added, removed or altered. Regions and annotations have no id, so they are matched by position.
  */
 
+import { normaliseDetail } from '../detail-editor/detailSerializer.js';
+
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const ANN = { line: 'Line', arc: 'Arc', circle: 'Circle', dimension: 'Dimension', note: 'Note' };
 
@@ -18,7 +20,9 @@ function byPosition(before, after, label, lines) {
 }
 
 /** @returns {string[]} one line per change; empty when the details match */
-export function diffDetails(before, after) {
+export function diffDetails(rawBefore, rawAfter) {
+  // the editor writes defaults out in their short form (a parameter's scale 1, offset 0), so compare by meaning
+  const before = normaliseDetail(rawBefore), after = normaliseDetail(rawAfter);
   const lines = [];
   const mb = new Map((before.members ?? []).map((m) => [m.role, m]));
   const ma = new Map((after.members ?? []).map((m) => [m.role, m]));

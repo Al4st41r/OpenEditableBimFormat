@@ -264,6 +264,23 @@ function select(id) {
   status('');
 }
 
+/**
+ * "3D" in the detail editor leaves the detail it is showing, saved or not, in localStorage and opens this page with
+ * ?draft=1. It shows in place of the stored one, marked as an edit, and nothing is written back.
+ */
+function applyDraft() {
+  if (!params.has('draft')) return;
+  let draft = null;
+  try { draft = JSON.parse(localStorage.getItem('oebf-detail-draft') ?? 'null'); } catch { /* treated as no draft */ }
+  if (!draft?.json || draft.id !== params.get('detail')) { status('No unsaved detail from the editor was found.', true); return; }
+  const at = data.details.findIndex((d) => d.id === draft.id);
+  if (at >= 0 && !originals.has(draft.id)) originals.set(draft.id, structuredClone(data.details[at]));
+  if (at >= 0) data.details[at] = draft.json; else data.details.push(draft.json);
+  data.details.sort((a, b) => a.id.localeCompare(b.id));
+  edited.set(draft.id, draft.json);
+  $('download-btn').hidden = false;
+}
+
 async function open(readJson, label, handle = null) {
   try {
     source = { kind: handle ? 'fsa' : 'http', readJson, handle };
@@ -274,6 +291,7 @@ async function open(readJson, label, handle = null) {
     renderList();
     if (!data.details.length) { status('This bundle has no details.', true); return; }
     $('edit-btn').disabled = false;
+    applyDraft();
     const wanted = selectedId ?? params.get('detail');
     select(data.details.some((d) => d.id === wanted) ? wanted : data.details[0].id);
     if (data.warnings.length) status(`${data.warnings.length} file(s) could not be read; see the console.`, true);

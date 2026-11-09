@@ -35,3 +35,11 @@ describe('diffDetails', () => {
     expect(diffDetails(base, after)).toEqual(['Region 1 (b) changed.']);
   });
 });
+
+describe('diffDetails ignores how defaults are written', () => {
+  it('a parameter with scale 1 and offset 0 written in full or short form is no change', () => {
+    const detail = (coord) => ({ id: 'd', members: [], geometry: { extrusion_m: 1, regions: [{ material_id: 'a', vertices: [{ x: 0, y: coord }] }] }, parameters: { w: { default: 1 } } });
+    expect(diffDetails(detail({ param: 'w', scale: 1, offset: 0 }), detail({ param: 'w' }))).toEqual([]);
+    expect(diffDetails(detail({ param: 'w', scale: 1, offset: 0 }), detail({ param: 'w', offset: 0.1 }))).toEqual(['Region 1 (a) changed.']);
+  });
+});

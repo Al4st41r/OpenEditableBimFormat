@@ -626,6 +626,7 @@ async function openDemo() {
     const resp = await fetch(import.meta.env.BASE_URL + 'terraced-house.oebfz');
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     await openMemory(new File([await resp.blob()], 'terraced-house.oebfz'));
+    if (bundle) bundle.urlName = 'terraced-house.oebf';
   } catch (err) { status(`Could not load the demo: ${err.message}`, true); }
 }
 
@@ -803,6 +804,7 @@ async function openFromUrl(name, detailId) {
     if (!BUNDLE_NAME.test(name)) throw new Error(`"${name}" is not a bundle name`);
     const adapter = await HttpAdapter.open(`${import.meta.env.BASE_URL}${name}/`, name.replace(/\.oebf$/, ''));
     openContext(await loadDetailContext(adapter), adapter, 'http', detailId);
+    bundle.urlName = name;
     if (detailId && !bundle.ctx.detailIds.includes(detailId)) status(`Detail "${detailId}" is not in ${name}`, true);
   } catch (err) { status(`Could not open ${name}: ${err.message}`, true); }
 }
@@ -812,6 +814,16 @@ else if (query.has('demo')) openDemo();
 
 // Read-only hook for headless checks and bug reports.
 window.__detailEditor = { snapState: () => snapState, hint: () => hint, state: () => st, view: () => view, size: () => size, adapter: () => bundle?.adapter ?? null, status: () => $('status').textContent };
+// ── 3D ───────────────────────────────────────────────────────────────────────
+// The review page draws the 3D view. It reads the served bundle, so the detail as it is now (saved or not) is left for it
+// in localStorage and shown in place of the stored one. Needs a bundle the review page can open by name.
+$('view3d-btn').addEventListener('click', () => {
+  if (!st) { status('Open a detail first.', true); return; }
+  if (!bundle?.urlName) { status('3D from here works for the served examples. For other bundles, use Edit detail on the review page.', true); return; }
+  try { localStorage.setItem('oebf-detail-draft', JSON.stringify({ id: st.doc.id, json: JSON.parse(toJsonText(st.doc)) })); } catch (err) { status(`Could not hand the detail over: ${err.message}`, true); return; }
+  window.open(`${import.meta.env.BASE_URL}detail-axo.html?bundle=${encodeURIComponent(bundle.urlName)}&detail=${encodeURIComponent(st.doc.id)}&draft=1`, '_blank');
+});
+
 // ── help ─────────────────────────────────────────────────────────────────────
 function showHelp() {
   const dlg = $('help-dialog');
