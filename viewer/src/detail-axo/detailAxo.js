@@ -145,6 +145,35 @@ export function clipWorldPlanes(plane, clip) {
 }
 
 /**
+ * Cut a polygon (detail space) to the clip box with Sutherland-Hodgman, one box edge at a time. The clip only ever
+ * bounds detail x and y, which lie in the polygon's own plane, so cutting the polygon gives a solid that is closed at
+ * the cut (plane clipping would leave an open shell). Returns [] when nothing is left.
+ */
+export function clipPolygon(points, clip) {
+  if (!clip) return points;
+  const edges = [
+    ['x', 1, clip.x_min_m], ['x', -1, clip.x_max_m], ['y', 1, clip.y_min_m], ['y', -1, clip.y_max_m],
+  ].filter((e) => e[2] !== undefined);
+  let pts = points;
+  for (const [axis, sign, value] of edges) {
+    const d = (p) => sign * (p[axis] - value);   // >= 0 is kept
+    const out = [];
+    for (let i = 0; i < pts.length; i++) {
+      const a = pts[i], b = pts[(i + 1) % pts.length];
+      const da = d(a), db = d(b);
+      if (da >= 0) out.push(a);
+      if ((da >= 0) !== (db >= 0)) {
+        const t = da / (da - db);
+        out.push({ x: a.x + t * (b.x - a.x), y: a.y + t * (b.y - a.y) });
+      }
+    }
+    pts = out;
+    if (pts.length < 3) return [];
+  }
+  return pts;
+}
+
+/**
  * Line segments for the 3D view, in world space: the reference lines (through the datum plane, w = 0) and the edges of
  * the clip box. Lines run across the model's extent, or across the clip box when there is one.
  * @returns {{ refs: Array<{ a, b, label, implicit }>, clipBox: Array<{ a, b }> }}

@@ -288,3 +288,21 @@ describe('courses in the axo model', () => {
     expect(new Set(m.prisms.map((p) => p.w0))).toEqual(new Set([0]));
   });
 });
+
+import { clipPolygon as _clipPolygon } from './detailAxo.js';
+describe('clipPolygon', () => {
+  const sq = [{ x: 0, y: 0 }, { x: 2, y: 0 }, { x: 2, y: 2 }, { x: 0, y: 2 }];
+  test('cuts a square to the box, leaving a closed polygon', () => {
+    const out = _clipPolygon(sq, { x_max_m: 1, y_min_m: 0.5 });
+    const xs = out.map((p) => p.x), ys = out.map((p) => p.y);
+    expect(Math.max(...xs)).toBe(1);
+    expect(Math.min(...ys)).toBe(0.5);
+    expect(out).toHaveLength(4);
+  });
+  test('returns nothing when the polygon is wholly outside', () => {
+    expect(_clipPolygon(sq, { x_min_m: 5 })).toEqual([]);
+  });
+  test('passes the polygon through with no clip', () => {
+    expect(_clipPolygon(sq, undefined)).toBe(sq);
+  });
+});

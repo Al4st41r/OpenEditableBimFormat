@@ -7,7 +7,7 @@
 
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { AXO_VIEWS, clipWorldPlanes, guideSegments } from './detailAxo.js';
+import { AXO_VIEWS, clipPolygon, clipWorldPlanes, guideSegments } from './detailAxo.js';
 import { signedArea } from '../detail/regionGeometry.js';
 import { NONE_COLOUR } from '../detail-review/overlays.js';
 
@@ -57,7 +57,8 @@ export class AxoViewer {
   }
 
   /** @param {object} model - from buildAxoModel; @param {(id: string) => string} colourOf */
-  setModel(model, colourOf) {
+  setModel(model, colourOf, keepCamera = false) {
+    this.model = model; this.colourOf = colourOf;
     if (this.group) {
       this.scene.remove(this.group);
       this.group.traverse((o) => { o.geometry?.dispose(); if (o.material?.dispose) o.material.dispose(); });
@@ -78,7 +79,10 @@ export class AxoViewer {
 
     for (const prism of model.prisms) {
       if (!(prism.points.length >= 3) || !(prism.w1 > prism.w0)) continue;
-      const geometry = prismGeometry(model.plane, prism);
+      // The clip cuts the polygon itself, so the solid is closed at the cut line.
+      const points = this.show.clip ? clipPolygon(prism.points, model.clip) : prism.points;
+      if (points.length < 3) continue;
+      const geometry = prismGeometry(model.plane, { ...prism, points });
       const mesh = new THREE.Mesh(geometry, materialFor(prism.materialId, prism.kind === 'region'));
       mesh.userData = { kind: prism.kind, edges: false, itemId: prism.id, baseMaterial: mesh.material, materialColour: mesh.material, area: Math.abs(signedArea(prism.points)) };
       this.group.add(mesh);
@@ -91,6 +95,7 @@ export class AxoViewer {
     this.applyClip(model);
     this.applyVisibility();
 
+    if (keepCamera) { this.applyVisibility(); return; }
     const box = new THREE.Box3().setFromObject(this.group);
     if (box.isEmpty()) { this.target.set(0, 0, 0); this.radius = 1; } else {
       box.getCenter(this.target);
@@ -187,7 +192,9 @@ export class AxoViewer {
   }
 
   setShow(patch) {
+    const reclip = 'clip' in patch && patch.clip !== this.show.clip && this.model;
     Object.assign(this.show, patch);
+    if (reclip) this.setModel(this.model, this.colourOf, true);   // the cut is in the geometry
     this.applyVisibility();
   }
 

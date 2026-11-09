@@ -549,7 +549,10 @@ axes and a level). The detail says *what* (members, drawn regions, parameters).
         {
           "layer": 1,
           "depth_m": 0.145,
-          "repeat_m": 0.153
+          "repeat_m": 0.153,
+          "height_m": 0.1025,
+          "course_m": 0.1125,
+          "bond": "running"
         }
       ]
     }
