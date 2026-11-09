@@ -21,3 +21,14 @@ export const TOOLS = ['select', 'rect', 'polygon', 'measure', 'line', 'arc', 'ci
 
 /** The tools that draw annotations; the editor groups them under one Marks menu. */
 export const MARK_TOOLS = ['line', 'arc', 'circle', 'dim', 'note'];
+
+/**
+ * Ready-made units for "draw this layer as units". The size along the run depends on the view: in plan the units run
+ * along the wall (a brick's length), in section up it (a course). Sizes are depth then pitch, in metres; the pitch
+ * leaves the joint.
+ */
+export const UNIT_PRESETS = [
+  { id: 'brick', label: 'Brick 215 x 65, 10 mm joint', plan: [0.215, 0.225], section: [0.065, 0.075] },
+  { id: 'block', label: 'Block 440 x 215, 10 mm joint', plan: [0.44, 0.45], section: [0.215, 0.225] },
+  { id: 'thin-block', label: 'Block 440 x 215, 3 mm joint', plan: [0.44, 0.443], section: [0.215, 0.218] },
+];

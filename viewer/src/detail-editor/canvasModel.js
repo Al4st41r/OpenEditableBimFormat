@@ -93,10 +93,10 @@ export function buildCanvasModel(doc, ctx = {}) {
     warnings.push(...r.warnings);
     for (const s of r.shapes) {
       primitives.push({
-        id: `member:${m.role}:layer:${s.layer}`, kind: 'member-layer', points: s.points,
+        id: `member:${m.role}:layer:${s.layer}${s.bed ? ':bed' : s.unit !== undefined ? `:unit:${s.unit}` : ''}`, kind: 'member-layer', points: s.points,
         fill: colour(s.materialId), stroke: '#333333', materialId: s.materialId,
         order: order++, selected: m.role === selMember,
-        ref: { type: 'member', role: m.role, layer: s.layer },
+        ref: { type: 'member', role: m.role, layer: s.layer, ...(s.unit !== undefined ? { unit: s.unit } : {}) },
       });
     }
   });

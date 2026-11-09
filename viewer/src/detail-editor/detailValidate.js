@@ -12,7 +12,7 @@
 import {
   KINDS, EXTENTS, PLANES, VIEW_DIRECTIONS, DATUM_KINDS, DATUM_REFERENCES, RULES, SLUG, PARAM_NAME, SCHEMA_ID,
 } from './detailConstants.js';
-import { evaluateCoordinate } from './detailDocument.js';
+import { evaluateCoordinate, checkLayerUnit } from './detailDocument.js';
 import { checkAnnotation } from './annotationOps.js';
 import { checkReferenceLine, checkClip, checkPlacementReference, duplicateLineIds } from './referenceOps.js';
 import { signedArea, isSelfIntersecting } from '../detail/regionGeometry.js';
@@ -62,7 +62,7 @@ export function validateDetail(doc, ctx) {
   members.forEach((m, i) => {
     const p = `members[${i}]`;
     if (!isObj(m)) { add(p, 'member', 'A member must be an object'); return; }
-    noExtra(m, ['role', 'kind', 'profile_id', 'extent', 'layer_starts', 'placement'], p);
+    noExtra(m, ['role', 'kind', 'profile_id', 'extent', 'layer_units', 'layer_starts', 'placement'], p);
     if (m.extent !== undefined && !EXTENTS.includes(m.extent)) add(`${p}.extent`, 'enum', `extent must be one of ${EXTENTS.join(', ')}`);
     if (typeof m.role !== 'string' || !SLUG.test(m.role)) add(`${p}.role`, 'role', 'role must be lower-case letters, numbers and hyphens');
     else if (seenRoles.has(m.role)) add(`${p}.role`, 'role-duplicate', `Role "${m.role}" is used more than once`);
@@ -70,6 +70,20 @@ export function validateDetail(doc, ctx) {
     if (!KINDS.includes(m.kind)) add(`${p}.kind`, 'enum', `kind must be one of ${KINDS.join(', ')}`);
     if (typeof m.profile_id !== 'string' || m.profile_id === '') add(`${p}.profile_id`, 'required', 'profile_id is required');
     else if (profileIds && !profileIds.has(m.profile_id)) add(`${p}.profile_id`, 'profile-missing', `Profile "${m.profile_id}" is not in the bundle`);
+    if (m.layer_units !== undefined) {
+      if (!Array.isArray(m.layer_units)) add(`${p}.layer_units`, 'layer-units', 'layer_units must be an array');
+      else {
+        const seenUnits = new Set();
+        m.layer_units.forEach((u, k) => {
+          const up = `${p}.layer_units[${k}]`;
+          for (const q of checkLayerUnit(u)) add(`${up}${q.field ? '.' + q.field : ''}`, 'layer-units', q.message);
+          if (u && Number.isInteger(u.layer)) { if (seenUnits.has(u.layer)) add(`${up}.layer`, 'layer-units', `Layer ${u.layer} is listed twice`); seenUnits.add(u.layer); }
+          for (const f of ['material_id', 'joint_material_id']) {
+            if (u && typeof u[f] === 'string' && materialIds && !materialIds.has(u[f])) add(`${up}.${f}`, 'material-missing', `Material "${u[f]}" is not in the library`);
+          }
+        });
+      }
+    }
     if (m.layer_starts !== undefined) {
       if (!Array.isArray(m.layer_starts)) add(`${p}.layer_starts`, 'layer-starts', 'layer_starts must be an array');
       else {

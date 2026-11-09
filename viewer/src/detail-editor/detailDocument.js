@@ -147,6 +147,42 @@ export function setLayerStart(doc, role, layer, start) {
   return d;
 }
 
+/** Problems with one layer_units entry as { field, message }; empty when valid. */
+export function checkLayerUnit(u) {
+  const out = [];
+  const bad = (field, message) => out.push({ field, message });
+  if (!u || typeof u !== 'object') return [{ field: '', message: 'A layer unit must be an object' }];
+  for (const k of Object.keys(u)) if (!['layer', 'depth_m', 'repeat_m', 'count', 'start_m', 'material_id', 'joint_material_id'].includes(k)) bad(k, `Unknown field "${k}"`);
+  if (!Number.isInteger(u.layer) || u.layer < 1) bad('layer', 'layer must be a whole number from 1');
+  if (!isNum(u.depth_m) || u.depth_m <= 0) bad('depth_m', 'depth_m must be a number above zero');
+  if (!isNum(u.repeat_m) || u.repeat_m <= 0) bad('repeat_m', 'repeat_m must be a number above zero');
+  else if (isNum(u.depth_m) && u.repeat_m < u.depth_m - 1e-9) bad('repeat_m', 'repeat_m must be at least depth_m, or the units overlap');
+  if (u.count !== undefined && (!Number.isInteger(u.count) || u.count < 1)) bad('count', 'count must be a whole number from 1');
+  if (u.start_m !== undefined && !isNum(u.start_m)) bad('start_m', 'start_m must be a number');
+  for (const k of ['material_id', 'joint_material_id']) if (u[k] !== undefined && (typeof u[k] !== 'string' || u[k] === '')) bad(k, `${k} must be a material id`);
+  return out;
+}
+
+/**
+ * Draw one layer of a member's profile as repeating units, or put it back as a strip with null. The spec is
+ * { depth_m, repeat_m, count?, start_m?, material_id?, joint_material_id? }; undefined fields are left out.
+ */
+export function setLayerUnit(doc, role, layer, spec) {
+  const d = clone(doc);
+  const m = d.members[memberIndex(d, role)];
+  const list = (m.layer_units ?? []).filter((u) => u.layer !== layer);
+  if (spec !== null) {
+    const entry = { layer };
+    for (const [k, v] of Object.entries(spec)) if (v !== undefined && v !== null && k !== 'layer') entry[k] = v;
+    const problems = checkLayerUnit(entry);
+    if (problems.length) throw new DetailEditError(problems[0].message);
+    list.push(entry);
+  } else if (!Number.isInteger(layer) || layer < 1) throw new DetailEditError('layer must be a whole number from 1');
+  list.sort((a, b) => a.layer - b.layer);
+  if (list.length) m.layer_units = list; else delete m.layer_units;
+  return d;
+}
+
 export function rotateMember(doc, role, degrees) {
   if (!isNum(degrees)) throw new DetailEditError('Rotation must be a finite number');
   const d = clone(doc);

@@ -306,3 +306,89 @@ describe('layer starts', () => {
     expect(profileOriginX({ width: 0.4 })).toBe(0.2);
   });
 });
+
+import { unitSpans } from './memberShapes.js';
+
+describe('layers drawn as units', () => {
+  const profile = {
+    id: 'p', width: 0.3, origin: { x: 0.15, y: 0 }, height_limit_m: 2,
+    assembly: [
+      { layer: 1, name: 'brick', material_id: 'brick', thickness: 0.1, function: 'finish' },
+      { layer: 2, name: 'cavity', material_id: 'air', thickness: 0.1, function: 'insulation' },
+    ],
+  };
+  const member = (units, extra = {}) => ({ role: 'w', kind: 'wall', profile_id: 'p', placement: { offset_x_m: 0, offset_y_m: 0, rotation_deg: 0 }, layer_units: units, ...extra });
+  const brick = { layer: 1, depth_m: 0.2, repeat_m: 0.21 };
+  const unitsOf = (shapes) => shapes.filter((s) => s.unit !== undefined);
+  const spanX = (s) => [Math.min(...s.points.map((p) => p.x)), Math.max(...s.points.map((p) => p.x))];
+  const spanY = (s) => [Math.min(...s.points.map((p) => p.y)), Math.max(...s.points.map((p) => p.y))];
+
+  test('unitSpans fills the run, or places exactly the count from the start offset', () => {
+    expect(unitSpans({ depth_m: 0.2, repeat_m: 0.21 }, [0, 1]).spans).toHaveLength(4);        // 0, .21, .42, .63 (+.2 = .83); a fifth would end at 1.04
+    expect(unitSpans({ depth_m: 0.2, repeat_m: 0.2 }, [0, 1]).spans).toHaveLength(5);         // joints of zero fit exactly
+    expect(unitSpans({ depth_m: 0.2, repeat_m: 0.21, count: 2, start_m: 0.5 }, [0, 1]).spans).toEqual([[0.5, 0.7], [0.71, 0.91]].map(([a, b]) => [expect.closeTo(a, 9), expect.closeTo(b, 9)]));
+    expect(unitSpans({ depth_m: 2, repeat_m: 2 }, [0, 1]).spans).toEqual([]);                  // a unit longer than the run does not fit
+    const big = unitSpans({ depth_m: 0.001, repeat_m: 0.001 }, [0, 100]);
+    expect(big.spans).toHaveLength(400); expect(big.truncated).toBe(true);
+  });
+
+  test('in plan the units run along the wall and are as thick as the layer; the other layers stay strips', () => {
+    const r = buildMemberShapes(member([brick]), profile, { plane: 'plan', length: 1, extent: 'forward' });
+    const units = unitsOf(r.shapes);
+    expect(units).toHaveLength(4);
+    expect(spanX(units[0])[0]).toBeCloseTo(0); expect(spanX(units[0])[1]).toBeCloseTo(0.2);
+    expect(spanX(units[1])[0]).toBeCloseTo(0.21);                                              // 10 mm joint
+    const across = spanY(units[0]);
+    expect(across[1] - across[0]).toBeCloseTo(0.1);                                            // the layer thickness
+    expect(r.shapes.filter((s) => s.layer === 1)).toHaveLength(1);                             // the cavity layer is one strip
+    expect(units.every((s) => s.materialId === 'brick' && s.key === 1)).toBe(true);
+  });
+
+  test('in section the units stack up the wall', () => {
+    const r = buildMemberShapes(member([{ layer: 1, depth_m: 0.065, repeat_m: 0.075 }]), profile, { plane: 'section', heightM: 1 });
+    const units = unitsOf(r.shapes);
+    expect(units).toHaveLength(13);                                                            // courses to 1 m
+    expect(spanY(units[1])[0]).toBeCloseTo(0.075);
+    expect(spanY(units[0])[1] - spanY(units[0])[0]).toBeCloseTo(0.065);
+    expect(spanX(units[0])[1] - spanX(units[0])[0]).toBeCloseTo(0.1);
+  });
+
+  test('a joint material keeps the strip underneath as the bed, and units can change material', () => {
+    const r = buildMemberShapes(member([{ ...brick, material_id: 'engineering-brick', joint_material_id: 'mortar' }]), profile, { plane: 'plan', length: 1, extent: 'forward' });
+    const bed = r.shapes.find((s) => s.bed);
+    expect(bed.materialId).toBe('mortar');
+    expect(r.shapes.indexOf(bed)).toBeLessThan(r.shapes.indexOf(unitsOf(r.shapes)[0]));         // drawn first, so the units sit on it
+    expect(unitsOf(r.shapes)[0].materialId).toBe('engineering-brick');
+  });
+
+  test('units follow the member placement and rotation, and the start handle stays on the first shape only', () => {
+    const rotated = member([brick], { placement: { offset_x_m: 1, offset_y_m: 2, rotation_deg: 90 } });
+    const r = buildMemberShapes(rotated, profile, { plane: 'plan', length: 1, extent: 'forward' });
+    const units = unitsOf(r.shapes);
+    expect(spanY(units[0])[0]).toBeCloseTo(2); expect(spanY(units[1])[0]).toBeCloseTo(2.21);   // along y after a quarter turn
+    expect(r.shapes.filter((s) => s.layer === 0 && s.startPoint)).toHaveLength(1);
+  });
+
+  test('more than the cap shows the cap with a warning', () => {
+    const r = buildMemberShapes(member([{ layer: 1, depth_m: 0.001, repeat_m: 0.001, count: 1000 }]), profile, { plane: 'plan', length: 1 });
+    expect(unitsOf(r.shapes)).toHaveLength(400);
+    expect(r.warnings.join(' ')).toMatch(/more than 400/);
+  });
+});
+
+describe('units start at the origin end of the run', () => {
+  const profile = { id: 'p', width: 0.1, origin: { x: 0, y: 0 }, assembly: [{ layer: 1, name: 'b', material_id: 'brick', thickness: 0.1, function: 'finish' }] };
+  const m = (extent) => ({ role: 'w', kind: 'wall', profile_id: 'p', extent, placement: { offset_x_m: 0, offset_y_m: 0, rotation_deg: 0 }, layer_units: [{ layer: 1, depth_m: 0.2, repeat_m: 0.21 }] });
+  const xs = (r) => r.shapes.filter((s) => s.unit !== undefined).map((s) => [Math.min(...s.points.map((p) => p.x)), Math.max(...s.points.map((p) => p.x))]);
+
+  test('a backward member arriving at its origin ends with a whole unit there, and runs away from it', () => {
+    const r = xs(buildMemberShapes(m('backward'), profile, { plane: 'plan', length: 0.6 }));
+    expect(r[0][1]).toBeCloseTo(0);                    // the first unit touches the origin
+    expect(r[0][0]).toBeCloseTo(-0.2);
+    expect(r[1][1]).toBeCloseTo(-0.21);
+  });
+  test('a forward member starts at its origin; a centred one at its left end', () => {
+    expect(xs(buildMemberShapes(m('forward'), profile, { plane: 'plan', length: 0.6 }))[0][0]).toBeCloseTo(0);
+    expect(xs(buildMemberShapes(m('centred'), profile, { plane: 'plan', length: 0.6 }))[0][0]).toBeCloseTo(-0.3);
+  });
+});

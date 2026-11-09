@@ -568,6 +568,12 @@ Detail fields:
   storey.
 - `geometry.regions[]` — extra shapes (trim, membranes, fillers): a `material_id`
   and at least three `vertices` in drawing space, simple (not self-intersecting).
+- `members[].layer_units[]` — optional: draw a profile layer as repeating units, eg
+  `{ "layer": 1, "depth_m": 0.215, "repeat_m": 0.225, "joint_material_id": "mat-mortar" }`
+  for a brick leaf (215 mm bricks on a 225 mm pitch, a 10 mm joint). The unit is as
+  thick as the layer; it repeats along the wall in plan and up it in section.
+  `count` and `start_m` are optional (no count fills the run); `material_id` swaps
+  the unit's material. For this use only; the profile is unchanged.
 - `members[].layer_starts[]` — optional `{ "layer": 3, "start_m": 0.1 }`: where that
   layer of the member's profile starts across its width, for this use only. Without
   an entry a layer starts where the one before it ends.

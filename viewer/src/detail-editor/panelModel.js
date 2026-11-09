@@ -67,6 +67,7 @@ export function buildPanelModel({ doc, selection, validation, dirty, canUndo, ca
         role: m.role, kind: m.kind, profileId: m.profile_id, extent: m.extent ?? 'centred',
         offset_x_m: m.placement?.offset_x_m ?? 0, offset_y_m: m.placement?.offset_y_m ?? 0, rotation_deg: m.placement?.rotation_deg ?? 0,
         reference: m.placement?.reference ?? {},
+        plane: doc.plane ?? 'section',
         layers: stackedSlab(profiles[m.profile_id]) ? [] : describeLayers(m, profiles[m.profile_id]),
         stacked: stackedSlab(profiles[m.profile_id]),
         absolute: { x: resolvePlacement(doc, m).offset_x_m ?? 0, y: resolvePlacement(doc, m).offset_y_m ?? 0 },

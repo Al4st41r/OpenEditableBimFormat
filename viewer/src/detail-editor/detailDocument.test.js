@@ -481,3 +481,39 @@ describe('setLayerStart', () => {
     expect(paths).toEqual(expect.arrayContaining(['members[0].layer_starts[0].start_m', 'members[0].layer_starts[1].layer', 'members[0].layer_starts[2].layer']));
   });
 });
+
+describe('setLayerUnit', () => {
+  const doc = () => ({ $schema: 'x', id: 'd', type: 'Detail', description: 'x', datum: {}, members: [{ role: 'w', kind: 'wall', profile_id: 'p', placement: { offset_x_m: 0, offset_y_m: 0, rotation_deg: 0 } }] });
+
+  test('sets, replaces and removes a unit, dropping undefined fields and leaving the input alone', async () => {
+    const { setLayerUnit } = await import('./detailDocument.js');
+    const d0 = doc();
+    let d = setLayerUnit(d0, 'w', 1, { depth_m: 0.215, repeat_m: 0.225, count: undefined, joint_material_id: 'mortar' });
+    expect(d.members[0].layer_units).toEqual([{ layer: 1, depth_m: 0.215, repeat_m: 0.225, joint_material_id: 'mortar' }]);
+    expect(d0.members[0].layer_units).toBeUndefined();
+    d = setLayerUnit(d, 'w', 1, { depth_m: 0.44, repeat_m: 0.45 });
+    expect(d.members[0].layer_units).toEqual([{ layer: 1, depth_m: 0.44, repeat_m: 0.45 }]);
+    expect(setLayerUnit(d, 'w', 1, null).members[0].layer_units).toBeUndefined();
+  });
+  test('refuses units that overlap, bad numbers, a bad layer and an unknown member', async () => {
+    const { setLayerUnit } = await import('./detailDocument.js');
+    expect(() => setLayerUnit(doc(), 'w', 1, { depth_m: 0.3, repeat_m: 0.2 })).toThrow(/overlap/);
+    expect(() => setLayerUnit(doc(), 'w', 1, { depth_m: 0, repeat_m: 0.2 })).toThrow(/above zero/);
+    expect(() => setLayerUnit(doc(), 'w', 1, { depth_m: 0.1, repeat_m: 0.2, count: 0 })).toThrow(/count/);
+    expect(() => setLayerUnit(doc(), 'w', 0, { depth_m: 0.1, repeat_m: 0.2 })).toThrow(/from 1/);
+    expect(() => setLayerUnit(doc(), 'nope', 1, { depth_m: 0.1, repeat_m: 0.2 })).toThrow(/No member/);
+  });
+  test('validates materials against the library and serialises', async () => {
+    const { setLayerUnit } = await import('./detailDocument.js');
+    const { validateDetail } = await import('./detailValidate.js');
+    const { serializeDetail } = await import('./detailSerializer.js');
+    const d = setLayerUnit(doc(), 'w', 1, { depth_m: 0.2, repeat_m: 0.21, joint_material_id: 'ghost' });
+    const paths = validateDetail(d, { materialIds: ['brick'] }).map((p) => p.path);
+    expect(paths).toContain('members[0].layer_units[0].joint_material_id');
+    expect(serializeDetail(d).members[0].layer_units).toHaveLength(1);
+    d.members[0].layer_units = [{ layer: 1, depth_m: 0.2, repeat_m: 0.1 }, { layer: 1, depth_m: 0.2, repeat_m: 0.2 }];
+    const v = validateDetail(d).filter((p) => p.path.includes('layer_units'));
+    expect(v.some((p) => p.path.endsWith('.repeat_m'))).toBe(true);
+    expect(v.some((p) => /twice/.test(p.message))).toBe(true);
+  });
+});

@@ -250,3 +250,20 @@ describe('regions driven by parameters', () => {
     expect(m.warnings.join(' ')).toMatch(/Region 0 not drawn/);
   });
 });
+
+describe('layers drawn as units in the axo model', () => {
+  const profile = { id: 'p', width: 0.1, origin: { x: 0, y: 0 }, height_limit_m: 2, assembly: [{ layer: 1, name: 'b', material_id: 'brick', thickness: 0.1, function: 'finish' }] };
+  const detail = (units) => ({
+    id: 'd', plane: 'plan', datum: {}, geometry: { extrusion_m: 1, regions: [] },
+    members: [{ role: 'w', kind: 'wall', profile_id: 'p', extent: 'forward', placement: { offset_x_m: 0, offset_y_m: 0, rotation_deg: 0 }, layer_units: units }],
+  });
+
+  test('each unit becomes its own prism, selectable on its own, with the layer function', () => {
+    const plain = buildAxoModel(detail(undefined), { profiles: new Map([['p', profile]]) });
+    const unit = buildAxoModel(detail([{ layer: 1, depth_m: 0.2, repeat_m: 0.25 }]), { profiles: new Map([['p', profile]]) });
+    expect(plain.prisms).toHaveLength(1);
+    expect(unit.prisms).toHaveLength(4);                       // the extrusion is 1 m: units at 0, .25, .5, .75
+    expect(new Set(unit.prisms.map((p) => p.id)).size).toBe(4);
+    expect(unit.prisms.every((p) => p.materialId === 'brick' && p.function === 'finish' && p.layer === 0)).toBe(true);
+  });
+});

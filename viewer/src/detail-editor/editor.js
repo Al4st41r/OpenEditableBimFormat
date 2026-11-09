@@ -248,6 +248,7 @@ const actions = {
   },
   setRegionNumber: (i, f, v) => apply((d) => D.setRegionNumber(d, i, f, v)),
   setRegionTag: (i, k, v) => apply((d) => D.setRegionTag(d, i, k, v)),
+  setLayerUnit: (role, layer, spec) => apply((d) => D.setLayerUnit(d, role, layer, spec)),
   setLayerStart: (role, layer, start) => apply((d) => D.setLayerStart(d, role, layer, start)),
   setMemberReference: (role, axis, id) => apply((d) => RF.setMemberReference(d, role, axis, id)),
   addReferenceLine: (line) => apply((d) => RF.addReferenceLine(d, line)),

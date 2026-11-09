@@ -9,7 +9,7 @@
 
 import { toDisplay, unitLabel, getUnit } from '../editor/units.js';
 import { parseDimension } from '../snap/dimension.js';
-import { KINDS, PLANES, EXTENTS, DATUM_KINDS, DATUM_REFERENCES, RULES } from './detailConstants.js';
+import { UNIT_PRESETS, KINDS, PLANES, EXTENTS, DATUM_KINDS, DATUM_REFERENCES, RULES } from './detailConstants.js';
 import { PACKAGES, BARRIERS, FIRE_ROLES, SHEARING_LAYERS } from '../detail-review/classification.js';
 import { drawReference } from './reference.js';
 import { LINE_STYLES } from './annotationOps.js';
@@ -224,6 +224,7 @@ function memberEditor(m, bundle, a) {
     insertionRow('x', m, role, a),
     insertionRow('y', m, role, a),
     layerStartsFold(m, role, a),
+    layerDetailFold(m, role, bundle, a),
     row('Rotation (deg)', plain(m.rotation_deg, (v) => a.rotateMember(role, v))),
     h('div', { class: 'row' }, h('button', { onclick: () => a.removeMember(role) }, 'Remove member')),
   ];
@@ -353,6 +354,55 @@ function regionTagEditor(r, a) {
     })),
     h('div', { class: 'note' }, 'A tag here overrides the material for this region only.'))];
 }
+
+/**
+ * Swap a layer for repeating units: pick a preset (brick, block) or edit the sizes. The unit is as thick as the layer
+ * and repeats along the wall in plan, up it in section. The joint is empty unless a joint material is chosen.
+ */
+function layerDetailFold(m, role, bundle, a) {
+  const bands = m.layers.filter((l) => l.type !== 'region');
+  if (m.stacked || !bands.length) return null;
+  const axis = m.plane === 'plan' ? 'plan' : 'section';
+  const materials = ['', ...bundle.materialIds];
+  const matSelect = (current, onChange, blank) => h('select', { onchange: (e) => onChange(e.target.value || undefined) },
+    ...materials.map((id) => h('option', { value: id, selected: id === (current ?? '') }, id === '' ? blank : id)));
+  const rows = bands.map((l) => {
+    const u = l.unit;
+    const preset = u ? (UNIT_PRESETS.find((p) => Math.abs(p[axis][0] - u.depth_m) < 1e-9 && Math.abs(p[axis][1] - u.repeat_m) < 1e-9)?.id ?? 'custom') : 'strip';
+    const pick = (id) => {
+      if (id === 'strip') { a.setLayerUnit(role, l.key, null); return; }
+      const p = UNIT_PRESETS.find((x) => x.id === id);
+      const [depth, repeat] = p ? p[axis] : [u?.depth_m ?? 0.1, u?.repeat_m ?? 0.11];
+      a.setLayerUnit(role, l.key, { ...(u ?? {}), depth_m: depth, repeat_m: repeat });
+    };
+    const edit = (patch) => a.setLayerUnit(role, l.key, { ...u, ...patch });
+    return [
+      h('div', { class: 'row' }, h('label', { title: l.name }, `${l.key}. ${l.name || 'layer'}`),
+        h('select', { onchange: (e) => pick(e.target.value) },
+          h('option', { value: 'strip', selected: preset === 'strip' }, 'strip (simple)'),
+          ...UNIT_PRESETS.map((p) => h('option', { value: p.id, selected: preset === p.id }, p.label)),
+          h('option', { value: 'custom', selected: preset === 'custom' }, 'custom units'))),
+      u ? h('div', { class: 'unitbox' },
+        row(`Size (${unitLabel()})`, num(u.depth_m, (v) => edit({ depth_m: v }), { min: 0, title: m.plane === 'plan' ? 'Length of one unit along the wall' : 'Height of one unit' })),
+        row(`Pitch (${unitLabel()})`, num(u.repeat_m, (v) => edit({ repeat_m: v }), { min: 0, title: 'Distance from one unit to the next; the joint is pitch minus size' })),
+        row('Count', optionalCount(u.count, (v) => edit({ count: v }))),
+        row(`Start (${unitLabel()})`, num(u.start_m ?? 0, (v) => edit({ start_m: v === 0 ? undefined : v }))),
+        row('Unit material', matSelect(u.material_id, (v) => edit({ material_id: v }), 'the layer\'s own')),
+        row('Joints', matSelect(u.joint_material_id, (v) => edit({ joint_material_id: v }), 'empty')),
+        h('div', { class: 'note' }, `Joint ${toDisplay(Math.max(0, u.repeat_m - u.depth_m))} ${unitLabel()}. ${m.plane === 'plan' ? 'Units run along the wall.' : 'Units run up the wall.'}`)) : null,
+    ];
+  });
+  return h('details', { class: 'fold', open: bands.some((l) => l.unit) },
+    h('summary', {}, 'Layer detail (units)'),
+    ...rows.flat(),
+    h('div', { class: 'note' }, 'Draw a layer as bricks, blocks or other repeating units instead of a plain strip. For this use only.'));
+}
+
+/** A whole number that may be left blank (blank fills the run). */
+const optionalCount = (value, onChange) => h('input', {
+  type: 'number', min: 1, step: 1, value: value ?? '', placeholder: 'fill',
+  onchange: (e) => onChange(e.target.value === '' ? undefined : Math.max(1, parseInt(e.target.value, 10) || 1)),
+});
 
 /** Where each layer of the member's profile starts across its width. Blank follows the layer before it. */
 function layerStartsFold(m, role, a) {

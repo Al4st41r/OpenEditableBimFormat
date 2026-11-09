@@ -83,6 +83,23 @@ function stackedSlabShapes(member, profile, { plane, x0, x1, origin, originX }) 
   return { shapes, origin, bounds: boundsOf(shapes), warnings: [] };
 }
 
+const MAX_UNITS = 400;
+
+/**
+ * Positions of the repeating units that replace a layer: [start, end] pairs along the run, in metres in the member's
+ * frame. `extent` is the run the units may fill ([x0, x1] in plan, [0, height] in a section). Without a count the
+ * units fill the run; with one, exactly that many are placed, from the start offset.
+ * @returns {{ spans: Array<[number, number]>, truncated: boolean }}
+ */
+export function unitSpans(spec, extent) {
+  const [lo, hi] = extent;
+  const first = lo + (spec.start_m ?? 0);
+  const fit = Math.floor((hi - first - spec.depth_m) / spec.repeat_m + 1e-9) + 1;
+  const wanted = spec.count ?? Math.max(fit, 0);
+  const n = Math.min(wanted, MAX_UNITS);
+  return { spans: Array.from({ length: n }, (_, k) => [first + k * spec.repeat_m, first + k * spec.repeat_m + spec.depth_m]), truncated: wanted > MAX_UNITS };
+}
+
 /** The x of a profile, from its left face, that the member's placement turns about. */
 export const profileOriginX = (profile) => profile?.origin?.x ?? (profile?.width ?? 0) / 2;
 
@@ -102,7 +119,7 @@ export function describeLayers(member, profile) {
     let natural;
     if (layer.type === 'region') natural = Array.isArray(layer.vertices) && layer.vertices.length ? Math.min(...layer.vertices.map((v) => v.x)) : 0;
     else { natural = cursor; cursor += layer.thickness ?? 0; }
-    return { index, key, name: layer.name ?? '', type: layer.type ?? 'band', thickness: layer.thickness ?? 0, natural, override, start: override ?? natural };
+    return { index, key, name: layer.name ?? '', type: layer.type ?? 'band', thickness: layer.thickness ?? 0, natural, override, start: override ?? natural, unit: (member.layer_units ?? []).find((u) => u.layer === key) };
   });
 }
 
@@ -145,6 +162,7 @@ export function buildMemberShapes(member, profile, opts = {}) {
   if (isStackedSlab(profile)) return stackedSlabShapes(member, profile, { plane, x0, x1, origin, originX });
 
   const shapes = [];
+  const warnings = [];
   const info = describeLayers(member, profile);
   profile.assembly.forEach((layer, i) => {
     let local; // polygon in the member's local frame
@@ -171,6 +189,31 @@ export function buildMemberShapes(member, profile, opts = {}) {
         ? [{ x: a, y: 0 }, { x: b, y: 0 }, { x: b, y: height }, { x: a, y: height }]
         : [{ x: x0, y: -b }, { x: x1, y: -b }, { x: x1, y: -a }, { x: x0, y: -a }];
       startPoint = plane === 'section' ? placePoint(placement, { x: a, y: height / 2 }) : placePoint(placement, { x: (x0 + x1) / 2, y: -a });
+
+      // The layer drawn as repeating units (a brick, a block, a tile) instead of one strip. The joints are empty, or
+      // filled by the joint material when there is one, which keeps the strip underneath as the bed.
+      const unit = (member.layer_units ?? []).find((u) => u.layer === info[i].key);
+      if (unit) {
+        // Units start at the member's origin end and run away from it, so a wall arriving at a junction starts with a whole unit there
+        const run = plane === 'section' ? [0, height] : mode === 'backward' ? [0, length] : mode === 'forward' ? [0, length] : [x0, x1];
+        const found = unitSpans(unit, run);
+        const truncated = found.truncated;
+        const spans = plane === 'plan' && mode === 'backward' ? found.spans.map(([u0, u1]) => [-u1, -u0]) : found.spans;
+        if (truncated) warnings.push(`Layer ${info[i].key} of "${member.role}" needs more than ${MAX_UNITS} units; showing ${MAX_UNITS}`);
+        if (unit.joint_material_id) {
+          shapes.push({ points: ccw(local.map((p) => placePoint(placement, p))), materialId: unit.joint_material_id, function: layer.function, layer: i, key: info[i].key, startPoint, bed: true });
+        }
+        spans.forEach(([u0, u1], k) => {
+          const cell = plane === 'section'
+            ? [{ x: a, y: u0 }, { x: b, y: u0 }, { x: b, y: u1 }, { x: a, y: u1 }]
+            : [{ x: u0, y: -b }, { x: u1, y: -b }, { x: u1, y: -a }, { x: u0, y: -a }];
+          shapes.push({
+            points: ccw(cell.map((p) => placePoint(placement, p))), materialId: unit.material_id ?? layer.material_id, function: layer.function,
+            layer: i, key: info[i].key, unit: k, startPoint: k === 0 && !unit.joint_material_id ? startPoint : null,
+          });
+        });
+        return;
+      }
     }
     shapes.push({
       points: ccw(local.map((p) => placePoint(placement, p))),
@@ -182,5 +225,5 @@ export function buildMemberShapes(member, profile, opts = {}) {
     });
   });
 
-  return { shapes, origin, bounds: boundsOf(shapes), warnings: [] };
+  return { shapes, origin, bounds: boundsOf(shapes), warnings };
 }
