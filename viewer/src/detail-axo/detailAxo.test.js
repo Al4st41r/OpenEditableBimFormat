@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest';
-import { buildAxoModel, toWorld, materialsUsed, usagesOf, AXO_VIEWS } from './detailAxo.js';
+import { buildAxoModel, clipWorldPlanes, guideSegments, toWorld, materialsUsed, usagesOf, AXO_VIEWS } from './detailAxo.js';
 import { httpReader, loadDetailData } from './loadDetailData.js';
 
 const wallProfile = {
@@ -187,5 +187,66 @@ describe('repeating regions', () => {
     const m = buildAxoModel(detail(brick({ repeat_x_m: 0.2, count_x: 3 })), { profiles });
     expect(m.prisms).toHaveLength(1);
     expect(m.warnings[0]).toMatch(/overlap/);
+  });
+});
+
+describe('clip planes and guide lines', () => {
+  const detail = { id: 'd', plane: 'plan', members: [], datum: {}, geometry: { extrusion_m: 2, regions: [{ material_id: 'm', vertices: [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 1 }] }] } };
+
+  test('keeps the side of each plane that is inside the box (three.js convention: n.p + c >= 0)', () => {
+    const planes = clipWorldPlanes('plan', { x_min_m: 0.2, x_max_m: 0.8, y_max_m: 0.9 });
+    const kept = (p, pt) => p.normal.x * pt.x + p.normal.y * pt.y + p.normal.z * pt.z + p.constant >= 0;
+    expect(planes).toHaveLength(3);
+    const inside = { x: 0.5, y: 0.5, z: 1 }, left = { x: 0.1, y: 0.5, z: 1 }, above = { x: 0.5, y: 0.95, z: 1 };
+    expect(planes.every((p) => kept(p, inside))).toBe(true);
+    expect(planes.every((p) => kept(p, left))).toBe(false);
+    expect(planes.every((p) => kept(p, above))).toBe(false);
+    expect(clipWorldPlanes('plan', null)).toEqual([]);
+    expect(clipWorldPlanes('plan', {})).toEqual([]);
+  });
+
+  test('maps detail y to world y in a plan and world z in a section', () => {
+    expect(clipWorldPlanes('plan', { y_min_m: 1 })[0].normal).toEqual({ x: 0, y: 1, z: 0 });
+    expect(clipWorldPlanes('section', { y_min_m: 1 })[0].normal).toEqual({ x: 0, y: 0, z: 1 });
+    expect(clipWorldPlanes('section', { x_max_m: 1 })[0]).toEqual({ normal: { x: -1, y: 0, z: 0 }, constant: 1 });
+  });
+
+  test('puts each reference line across the model and the clip box around the clip', () => {
+    const m = buildAxoModel({ ...detail, clip: { x_min_m: 0.25, x_max_m: 0.75, y_min_m: 0.25, y_max_m: 0.75 }, reference_lines: [{ kind: 'grid', axis: 'x', offset_m: 0.5 }, { kind: 'ffl', axis: 'y', offset_m: 0 }] }, { profiles: new Map() });
+    const g = guideSegments(m);
+    expect(g.refs.map((r) => r.label)).toEqual(['GRID', 'FFL']);
+    expect(g.refs[0].a.x).toBe(0.5);
+    expect(g.refs[0].a.y).toBeCloseTo(0.25);                      // limited to the clip box
+    expect(g.refs[1].a.y).toBe(0);
+    expect(g.clipBox).toHaveLength(12);                           // twelve edges of a box
+    expect(g.clipBox.every((s) => s.a.z >= 0 && s.b.z <= 2 + 1e-9)).toBe(true);   // spans the extrusion
+  });
+
+  test('has no clip box without a clip, and nothing for an empty model', () => {
+    expect(guideSegments(buildAxoModel(detail, { profiles: new Map() })).clipBox).toEqual([]);
+    expect(guideSegments({ bounds: null, prisms: [] })).toEqual({ refs: [], clipBox: [] });
+  });
+
+  test('carries the clip and the lines on the model', () => {
+    const m = buildAxoModel({ ...detail, clip: { x_max_m: 1 } }, { profiles: new Map() });
+    expect(m.clip).toEqual({ x_max_m: 1 });
+    expect(m.refLines.length).toBeGreaterThan(0);
+  });
+});
+
+describe('regions driven by parameters', () => {
+  const region = (x) => ({ material_id: 'm', vertices: [{ x: 0, y: 0 }, { x, y: 0 }, { x, y: 1 }, { x: 0, y: 1 }] });
+  const detail = (x, parameters) => ({ id: 'd', plane: 'plan', members: [], datum: {}, parameters, geometry: { extrusion_m: 1, regions: [region(x)] } });
+
+  test('a bound vertex takes the parameter default, with scale and offset, instead of NaN', () => {
+    const m = buildAxoModel(detail({ param: 'w', scale: 2, offset: 0.5 }, { w: { default: 0.25 } }), { profiles: new Map() });
+    expect(m.prisms[0].points.map((p) => p.x)).toContain(1);       // 0.5 + 2 * 0.25
+    expect(m.bounds.maxU).toBe(1);
+    expect(Number.isFinite(m.bounds.minV)).toBe(true);
+  });
+  test('an undeclared parameter leaves the region out with a warning instead of poisoning the bounds', () => {
+    const m = buildAxoModel(detail({ param: 'nope' }, {}), { profiles: new Map() });
+    expect(m.prisms).toHaveLength(0);
+    expect(m.warnings.join(' ')).toMatch(/Region 0 not drawn/);
   });
 });

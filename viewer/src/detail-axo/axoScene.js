@@ -7,7 +7,7 @@
 
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { AXO_VIEWS } from './detailAxo.js';
+import { AXO_VIEWS, clipWorldPlanes, guideSegments } from './detailAxo.js';
 import { signedArea } from '../detail/regionGeometry.js';
 import { NONE_COLOUR } from '../detail-review/overlays.js';
 
@@ -47,7 +47,10 @@ export class AxoViewer {
     this.group = null;
     this.target = new THREE.Vector3();
     this.radius = 1;
-    this.show = { members: true, regions: true, edges: true };
+    this.show = { members: true, regions: true, edges: true, guides: true, clip: true };
+    this.guides = null;
+    this.clipPlanes = [];
+    this.renderer.localClippingEnabled = true;
     this.view = 'iso-se';
     window.addEventListener('resize', () => this.resize());
     this.resize();
@@ -84,6 +87,8 @@ export class AxoViewer {
       this.group.add(edges);
     }
     this.scene.add(this.group);
+    this.setGuides(model);
+    this.applyClip(model);
     this.applyVisibility();
 
     const box = new THREE.Box3().setFromObject(this.group);
@@ -92,6 +97,32 @@ export class AxoViewer {
       this.radius = Math.max(box.getSize(new THREE.Vector3()).length() / 2, 0.1);
     }
     this.setView(this.view);
+  }
+
+  /** Reference lines (red, dashed) and the clip box (grey) as 3D lines. Rebuilt with each model. */
+  setGuides(model) {
+    if (this.guides) { this.scene.remove(this.guides); this.guides.traverse((o) => { o.geometry?.dispose(); o.material?.dispose?.(); }); }
+    this.guides = new THREE.Group();
+    const { refs, clipBox } = guideSegments(model);
+    const lines = (segs, material, kind) => {
+      if (!segs.length) return;
+      const pts = segs.flatMap((s) => [new THREE.Vector3(s.a.x, s.a.y, s.a.z), new THREE.Vector3(s.b.x, s.b.y, s.b.z)]);
+      const l = new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(pts), material);
+      l.computeLineDistances();
+      l.userData = { guide: kind };
+      this.guides.add(l);
+    };
+    const dash = (colour, dashSize, gapSize) => new THREE.LineDashedMaterial({ color: colour, dashSize, gapSize });
+    const unit = Math.max(this.radius, 0.1) * 0.03;
+    lines(refs, dash('#d33', unit * 3, unit), 'refs');
+    lines(clipBox, dash('#777', unit * 2, unit * 1.5), 'clip');
+    this.scene.add(this.guides);
+  }
+
+  /** Cut the solids to the clip box. Only the solids are cut; the guide lines stay whole so the box stays visible. */
+  applyClip(model) {
+    this.clipPlanes = clipWorldPlanes(model.plane, model.clip).map((p) => new THREE.Plane(new THREE.Vector3(p.normal.x, p.normal.y, p.normal.z), p.constant));
+    this.render();
   }
 
   /**
@@ -151,6 +182,7 @@ export class AxoViewer {
       const kindOn = o.userData.kind === 'region' ? this.show.regions : this.show.members;
       o.visible = kindOn && (!o.userData.edges || this.show.edges);
     }
+    for (const g of this.guides?.children ?? []) g.visible = g.userData.guide === 'clip' ? this.show.clip : this.show.guides;
     this.render();
   }
 
@@ -198,6 +230,9 @@ export class AxoViewer {
   }
 
   render() {
+    // overlays and the selection swap materials, so the clip is set on whichever material is about to draw
+    const planes = this.show.clip ? this.clipPlanes : [];
+    this.group?.traverse((o) => { if (o.material && o.material.clippingPlanes !== planes) o.material.clippingPlanes = planes; });
     this.renderer.render(this.scene, this.camera);
   }
 

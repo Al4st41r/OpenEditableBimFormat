@@ -14,6 +14,7 @@
 
 import { buildMemberShapes, placePoint } from './memberShapes.js';
 import { evaluateCoordinate } from './detailDocument.js';
+import { referenceLinesOf, clipOf } from './referenceOps.js';
 import { dimensionGeometry, annotationSegments, distanceToSegment, arcPoints, pointAtAngle } from './annotationOps.js';
 
 const DEFAULT_FILL = '#888888';
@@ -173,10 +174,21 @@ export function buildCanvasModel(doc, ctx = {}) {
   }
   const viewBox = { x: x0, y: y0, width: x1 - x0, height: y1 - y0 };
 
+  // Clip box: one handle per side that is set, parked near the edge of the view so it is easy to find and drag
+  const clip = clipOf(doc);
+  for (const [side, v] of Object.entries(clip ?? {})) {
+    const onX = side.startsWith('x');
+    handles.push({
+      id: `clip:${side}`, kind: 'clip', selected: false, ref: { type: 'clip-edge', side },
+      x: onX ? v : viewBox.x + viewBox.width * 0.04, y: onX ? viewBox.y + viewBox.height * 0.96 : v,
+    });
+  }
+  const refLines = referenceLinesOf(doc);
+
   const { step } = rulerTicks(0, Math.max(viewBox.width, viewBox.height), 8);
   const ruler = { step, x: ticksWithStep(viewBox.x, viewBox.x + viewBox.width, step), y: ticksWithStep(viewBox.y, viewBox.y + viewBox.height, step) };
 
-  return { primitives, annotations, handles, bounds, viewBox, ruler, warnings };
+  return { primitives, annotations, refLines, clip, handles, bounds, viewBox, ruler, warnings };
 }
 
 // ── hit testing ─────────────────────────────────────────────────────────────

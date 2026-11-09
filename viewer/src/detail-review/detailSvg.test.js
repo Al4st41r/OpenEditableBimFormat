@@ -185,3 +185,28 @@ describe('annotations in the review drawing', () => {
     expect(svg).toContain('<circle cx="40" cy="-40" r="10"');
   });
 });
+
+describe('reference lines and clip in the review drawing', () => {
+  const render = (extra) => {
+    const { detail, materials, profiles } = loadPilot();
+    return buildDetailSvg(buildAxoModel({ ...detail, ...extra }, { profiles }), { materials });
+  };
+
+  it('draws the implied lines by default, labelled, and no fade without a clip', () => {
+    const { svg } = render({});
+    expect(svg).toContain('>FFL<');
+    expect(svg).not.toContain('clip-fade');
+  });
+  it('draws named lines, and fades outside the clip box with an inner cut-out', () => {
+    const { svg } = render({ reference_lines: [{ kind: 'custom', name: 'Cill <1>', axis: 'x', offset_m: 0.1 }], clip: { x_max_m: 0.3, y_min_m: -0.3 } });
+    expect(svg).toContain('Cill &lt;1&gt;');
+    expect(svg).not.toContain('>FFL<');
+    expect(svg).toContain('class="clip-fade"');
+    expect(svg).toContain('fill-rule="evenodd"');
+    expect(svg).toContain('stroke-dasharray="3 1.6"');
+  });
+  it('does not add to the sheet size', () => {
+    const plain = render({}), clipped = render({ clip: { x_max_m: 0.3 } });
+    expect(clipped.width).toBe(plain.width);
+  });
+});

@@ -17,6 +17,8 @@
  * top to bottom is skipped and listed in `skipped`: the detail's regions already carry the floor or roof build-up.
  */
 
+import { evaluateCoordinate } from '../detail-editor/detailDocument.js';
+import { referenceLinesOf, clipOf } from '../detail-editor/referenceOps.js';
 import { buildMemberShapes, isStackedSlab } from '../detail-editor/memberShapes.js';
 import { signedArea } from '../detail/regionGeometry.js';
 import { checkRepeat, expandUnit } from '../detail/regionRepeat.js';
@@ -50,13 +52,21 @@ export function buildAxoModel(detail, ctx = {}) {
   const prisms = [];
 
   if (!(extrusion > 0)) {
-    return { plane, extrusion: 0, prisms, skipped, warnings: [`Detail "${detail.id}" has no positive extrusion_m`], bounds: null };
+    return { plane, extrusion: 0, prisms, skipped, warnings: [`Detail "${detail.id}" has no positive extrusion_m`], bounds: null, clip: clipOf(detail), refLines: referenceLinesOf(detail) };
   }
   const [w0, w1] = plane === 'plan' ? [0, extrusion] : [-extrusion / 2, extrusion / 2];
   const profileOf = (id) => (ctx.profiles instanceof Map ? ctx.profiles.get(id) : ctx.profiles?.[id]);
 
-  const regionPolys = regions.map((r) => ccw(r.vertices.map((v) => ({ x: v.x, y: v.y }))));
-  const rb = boundsOf(regionPolys);
+  // A vertex bound to a parameter takes the parameter's default. A region that cannot be resolved is left out, with a warning.
+  const regionPolys = regions.map((r, i) => {
+    try {
+      return ccw(r.vertices.map((v) => ({ x: evaluateCoordinate(v.x, detail.parameters), y: evaluateCoordinate(v.y, detail.parameters) })));
+    } catch (err) {
+      warnings.push(`Region ${i} not drawn: ${err.message}`);
+      return null;
+    }
+  });
+  const rb = boundsOf(regionPolys.filter(Boolean));
 
   for (const member of detail.members ?? []) {
     const profile = profileOf(member.profile_id);
@@ -90,6 +100,7 @@ export function buildAxoModel(detail, ctx = {}) {
   }
 
   regions.forEach((r, i) => {
+    if (!regionPolys[i]) return;
     const problems = checkRepeat(r, regionPolys[i]);
     if (problems.length) warnings.push(`Region ${i}: ${problems[0].message}; drawn as one unit`);
     // One prism per unit, so each brick or tile can be selected on its own.
@@ -105,12 +116,62 @@ export function buildAxoModel(detail, ctx = {}) {
   // A stable id per prism, shared by every view of the model (the 3D pane and the 2D drawing select by it).
   prisms.forEach((p, i) => { p.id = `item-${i}`; });
 
-  return { plane, extrusion, prisms, skipped, warnings, annotations: detail.annotations ?? [], bounds: boundsOf(prisms.map((p) => p.points)) };
+  return { plane, extrusion, prisms, skipped, warnings, annotations: detail.annotations ?? [], clip: clipOf(detail), refLines: referenceLinesOf(detail), bounds: boundsOf(prisms.map((p) => p.points)) };
 }
 
 /** World position of a detail-space point and a w value (Z up in both planes). */
 export function toWorld(plane, p, w) {
   return plane === 'plan' ? { x: p.x, y: p.y, z: w } : { x: p.x, y: -w, z: p.y };
+}
+
+/**
+ * Clip planes in world space for a clip box, each as { normal: {x,y,z}, constant }. A point p is kept when
+ * normal . p + constant >= 0 (the three.js convention). Detail x is world x in both views; detail y is world y in a
+ * plan detail and world z in a section.
+ */
+export function clipWorldPlanes(plane, clip) {
+  if (!clip) return [];
+  const axis = (a) => (a === 'x' ? { x: 1, y: 0, z: 0 } : plane === 'plan' ? { x: 0, y: 1, z: 0 } : { x: 0, y: 0, z: 1 });
+  const out = [];
+  const add = (a, value, sign) => {
+    const n = axis(a);
+    out.push({ normal: { x: n.x * sign + 0, y: n.y * sign + 0, z: n.z * sign + 0 }, constant: -sign * value + 0 });   // + 0 turns -0 into 0
+  };
+  if (clip.x_min_m !== undefined) add('x', clip.x_min_m, 1);
+  if (clip.x_max_m !== undefined) add('x', clip.x_max_m, -1);
+  if (clip.y_min_m !== undefined) add('y', clip.y_min_m, 1);
+  if (clip.y_max_m !== undefined) add('y', clip.y_max_m, -1);
+  return out;
+}
+
+/**
+ * Line segments for the 3D view, in world space: the reference lines (through the datum plane, w = 0) and the edges of
+ * the clip box. Lines run across the model's extent, or across the clip box when there is one.
+ * @returns {{ refs: Array<{ a, b, label, implicit }>, clipBox: Array<{ a, b }> }}
+ */
+export function guideSegments(model) {
+  const b = model.bounds;
+  if (!b || !model.prisms.length) return { refs: [], clipBox: [] };
+  const pad = 0.1 * Math.max(b.maxU - b.minU, b.maxV - b.minV, 0.1);
+  const c = model.clip ?? {};
+  const x0 = c.x_min_m ?? b.minU - pad, x1 = c.x_max_m ?? b.maxU + pad;
+  const y0 = c.y_min_m ?? b.minV - pad, y1 = c.y_max_m ?? b.maxV + pad;
+  const w0 = Math.min(...model.prisms.map((p) => p.w0)), w1 = Math.max(...model.prisms.map((p) => p.w1));
+  const W = (x, y, w) => toWorld(model.plane, { x, y }, w);
+  const refs = (model.refLines ?? []).map((l) => ({
+    label: l.label, implicit: l.implicit,
+    a: l.axis === 'x' ? W(l.offset_m, y0, 0) : W(x0, l.offset_m, 0),
+    b: l.axis === 'x' ? W(l.offset_m, y1, 0) : W(x1, l.offset_m, 0),
+  }));
+  const clipBox = [];
+  if (model.clip) {
+    const corners = [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
+    for (let i = 0; i < 4; i++) {
+      const [ax, ay] = corners[i], [bx, by] = corners[(i + 1) % 4];
+      clipBox.push({ a: W(ax, ay, w0), b: W(bx, by, w0) }, { a: W(ax, ay, w1), b: W(bx, by, w1) }, { a: W(ax, ay, w0), b: W(ax, ay, w1) });
+    }
+  }
+  return { refs, clipBox };
 }
 
 /** Material ids used by a model, with how many prisms use each. */

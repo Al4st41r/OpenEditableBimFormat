@@ -8,6 +8,7 @@
 import { toScreen } from './viewTransform.js';
 import { toDisplay, unitLabel, getUnit } from '../editor/units.js';
 import { patternDefs, patternId } from './drawStyle.js';
+import { CLIP_SIDES } from './referenceOps.js';
 import { dimensionGeometry, arcPoints, pointAtAngle, angleOf } from './annotationOps.js';
 
 const NS = 'http://www.w3.org/2000/svg';
@@ -73,6 +74,8 @@ export function renderCanvas(svg, model, view, size, { draft = null, hint = null
     if (s) svg.appendChild(el('polygon', { points: pts, fill: 'none', stroke, 'stroke-width': width, 'stroke-linejoin': 'miter', 'pointer-events': 'none' }));
   });
 
+  drawClipFade(svg, model.clip, view, size);
+  drawReferenceLines(svg, model, view, size);
   for (const a of model.annotations ?? []) drawAnnotation(svg, a.ann, a.selected, view, size);
 
   // Draft (rubber band)
@@ -155,6 +158,7 @@ export function renderCanvas(svg, model, view, size, { draft = null, hint = null
   // Handles (only for the selection)
   for (const h of model.handles) {
     const s = toScreen(view, size, h);
+    if (h.kind === 'clip') { drawClipHandle(svg, h, s); continue; }
     const colour = h.kind === 'rotate' ? '#f5b800' : h.selected ? '#ff3b30' : '#0a6cff';
     const bound = h.ref.bound && (h.ref.bound.x || h.ref.bound.y);
     svg.appendChild(el(bound ? 'rect' : 'circle',
@@ -165,6 +169,53 @@ export function renderCanvas(svg, model, view, size, { draft = null, hint = null
 }
 
 const INK = '#1a1a1a';
+const REF_COLOUR = '#d33';
+
+/** Reference lines across the whole canvas, labelled at the edge. The implied origin lines are drawn fainter. */
+function drawReferenceLines(svg, model, view, size) {
+  for (const l of model.refLines ?? []) {
+    const p = toScreen(view, size, l.axis === 'x' ? { x: l.offset_m, y: 0 } : { x: 0, y: l.offset_m });
+    const vertical = l.axis === 'x';
+    if (vertical ? p.x < -20 || p.x > size.width + 20 : p.y < -20 || p.y > size.height + 20) continue;
+    svg.appendChild(el('line', vertical
+      ? { x1: p.x, x2: p.x, y1: 0, y2: size.height, stroke: REF_COLOUR, 'stroke-width': 1, 'stroke-dasharray': '10 4 2 4', opacity: l.implicit ? 0.45 : 0.85, 'pointer-events': 'none' }
+      : { x1: 0, x2: size.width, y1: p.y, y2: p.y, stroke: REF_COLOUR, 'stroke-width': 1, 'stroke-dasharray': '10 4 2 4', opacity: l.implicit ? 0.45 : 0.85, 'pointer-events': 'none' }));
+    svg.appendChild(el('text', vertical
+      ? { x: p.x - 4, y: 12, fill: REF_COLOUR, 'font-size': 10, 'font-weight': 'bold', 'text-anchor': 'end', transform: `rotate(-90 ${p.x - 4} 12)`, 'pointer-events': 'none' }
+      : { x: 4, y: p.y + 12, fill: REF_COLOUR, 'font-size': 10, 'font-weight': 'bold', 'pointer-events': 'none' }, l.label));
+  }
+}
+
+/** Fade everything outside the clip box, and draw its sides as grey dashed lines labelled CLIP. */
+function drawClipFade(svg, clip, view, size) {
+  if (!clip) return;
+  const x0 = clip.x_min_m !== undefined ? toScreen(view, size, { x: clip.x_min_m, y: 0 }).x : -1e5;
+  const x1 = clip.x_max_m !== undefined ? toScreen(view, size, { x: clip.x_max_m, y: 0 }).x : 1e5;
+  const yTop = clip.y_max_m !== undefined ? toScreen(view, size, { x: 0, y: clip.y_max_m }).y : -1e5;   // screen y is flipped
+  const yBot = clip.y_min_m !== undefined ? toScreen(view, size, { x: 0, y: clip.y_min_m }).y : 1e5;
+  const fade = { fill: 'rgba(242,241,237,0.72)', stroke: 'none', 'pointer-events': 'none' };
+  const rect = (x, y, w, h) => w > 0 && h > 0 && svg.appendChild(el('rect', { x, y, width: w, height: h, ...fade }));
+  rect(-1e5, -1e5, x0 + 1e5, 2e5);                    // left of the box
+  rect(x1, -1e5, 1e5 - x1, 2e5);                      // right
+  rect(x0, -1e5, x1 - x0, yTop + 1e5);                // above
+  rect(x0, yBot, x1 - x0, 1e5 - yBot);                // below
+  for (const side of CLIP_SIDES) {
+    if (clip[side] === undefined) continue;
+    const vertical = side.startsWith('x');
+    const p = toScreen(view, size, vertical ? { x: clip[side], y: 0 } : { x: 0, y: clip[side] });
+    svg.appendChild(el('line', vertical
+      ? { x1: p.x, x2: p.x, y1: 0, y2: size.height, stroke: '#777', 'stroke-width': 1.25, 'stroke-dasharray': '8 5', 'pointer-events': 'none' }
+      : { x1: 0, x2: size.width, y1: p.y, y2: p.y, stroke: '#777', 'stroke-width': 1.25, 'stroke-dasharray': '8 5', 'pointer-events': 'none' }));
+  }
+}
+
+function drawClipHandle(svg, h, s) {
+  const vertical = h.ref.side.startsWith('x');
+  svg.appendChild(el('circle', { cx: s.x, cy: s.y, r: 6, fill: '#fff', stroke: '#777', 'stroke-width': 1.5 }));
+  svg.appendChild(el('text', vertical
+    ? { x: s.x - 10, y: s.y + 4, fill: '#555', 'font-size': 10, 'font-weight': 'bold', 'text-anchor': 'end', 'pointer-events': 'none' }
+    : { x: s.x + 10, y: s.y - 6, fill: '#555', 'font-size': 10, 'font-weight': 'bold', 'pointer-events': 'none' }, 'CLIP'));
+}
 /** A dimension's length for the drawing: whole millimetres or a tenth, three places in metres. */
 export const dimText = (metres) => String(Math.round(toDisplay(metres) * (getUnit() === 'mm' ? 10 : 1000)) / (getUnit() === 'mm' ? 10 : 1000));
 const DASH = { solid: null, dashed: '8 5', centre: '14 4 3 4' };

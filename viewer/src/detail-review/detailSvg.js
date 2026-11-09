@@ -15,6 +15,7 @@
 import { resolveLineweight, functionForCategory, DEFAULT_LINEWEIGHTS, HAIRLINE_MM } from '../lineweights.js';
 import { NONE_COLOUR } from './overlays.js';
 import { signedArea } from '../detail/regionGeometry.js';
+import { guideSvg } from './guideSvg.js';
 import { annotationSvg, annotationBounds } from './annotationSvg.js';
 import { hatchKindFor, hatchDefs, patternId, noDataDef, NO_DATA_PATTERN_ID } from './hatches.js';
 
@@ -124,6 +125,7 @@ export function buildDetailSvg(model, opts = {}) {
   }
 
   const ann = DEFAULT_LINEWEIGHTS.annotation;
+  const guides = guideSvg(model, k, { x0, y0, x1, y1: y1 - 12 }, ann);
   const datumY = 0;
   const bar = 100 / scale; // a 100 mm scale bar, in sheet mm
   const barY = y1 - 6;
@@ -147,7 +149,7 @@ export function buildDetailSvg(model, opts = {}) {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" class="detail-2d${opts.hairline ? ' thin' : ''}" ` +
     `viewBox="${num(x0)} ${num(y0)} ${num(width)} ${num(height)}" data-scale="${num(scale)}" role="img">` +
     `${style}<defs>${defs}${opts.fills ? noDataDef() : ''}</defs><rect x="${num(x0)}" y="${num(y0)}" width="${num(width)}" height="${num(height)}" fill="#fff"/>` +
-    `<g class="fills">${fills}</g><g class="outlines">${outlines}</g>${annotations}${annotationSvg(model.annotations, k, { weight: ann, format: (m) => String(Math.round(m * 1000)) })}</svg>`;
+    `<g class="fills">${fills}</g><g class="outlines">${outlines}</g>${guides.fade}${guides.lines}${annotations}${annotationSvg(model.annotations, k, { weight: ann, format: (m) => String(Math.round(m * 1000)) })}</svg>`;
 
   return { svg, width, height, scale };
 }

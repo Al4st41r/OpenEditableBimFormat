@@ -34,6 +34,7 @@ import { addRect, addRegion, removeRegions } from './detailDocument.js';
 import { regionIndices, selectionOfRegions } from './pageState.js';
 import { TOOLS } from './detailConstants.js';
 import { addAnnotation, removeAnnotation, moveAnnotation, setAnnotationPoint, setDimensionOffset, angleOf } from './annotationOps.js';
+import { setClip } from './referenceOps.js';
 import { signedArea, isSelfIntersecting } from '../detail/regionGeometry.js';
 
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
@@ -121,6 +122,9 @@ function selectTool(state, event, ctx) {
     if (hit && !hit.handle && !event.shift) hit = underCursor(state, ctx, point) ?? hit;
     const base = { startDoc: ctx.doc, current: ctx.doc, moved: false, notified: false };
 
+    if (hit?.handle && hit.ref.type === 'clip-edge') {
+      return done({ ...state, drag: { kind: 'clip-edge', ref: hit.ref, ...base } });
+    }
     if (hit?.handle && !hit.ref.type.startsWith('annotation')) {
       const h = ctx.model.handles.find((x) => x.id === hit.id);
       const selection = hit.ref.type === 'vertex'
@@ -181,6 +185,14 @@ function selectTool(state, event, ctx) {
       return done({ ...state, drag: { ...drag, last: screen } }, dx || dy ? [{ type: 'pan', dx, dy }] : []);
     }
 
+    if (drag.kind === 'clip-edge') {
+      const sp = snapAt(ctx, point);
+      const value = drag.ref.side.startsWith('x') ? sp.point.x : sp.point.y;
+      let doc;
+      try { doc = setClip(drag.startDoc, { [drag.ref.side]: value }); } catch (err) { return done(state, [msg(err.message)]); }
+      const changed = !same(doc, drag.startDoc);
+      return done({ ...state, drag: { ...drag, current: doc, moved: drag.moved || changed } }, changed ? [{ type: 'doc', doc, transient: true }] : []);
+    }
     if (drag.kind.startsWith('annotation')) {
       let doc, hint = null;
       try {

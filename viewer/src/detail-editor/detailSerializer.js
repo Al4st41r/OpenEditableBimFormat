@@ -86,6 +86,8 @@ export function serializeDetail(doc) {
   }
   if (Object.keys(g).length > 0) out.geometry = g;
 
+  if (doc.reference_lines?.length) out.reference_lines = structuredClone(doc.reference_lines);
+  if (doc.clip && Object.keys(doc.clip).length) out.clip = structuredClone(doc.clip);
   if (doc.annotations?.length) out.annotations = structuredClone(doc.annotations);
 
   if (doc.parameters && Object.keys(doc.parameters).length > 0) {

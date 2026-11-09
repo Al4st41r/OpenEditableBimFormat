@@ -3,6 +3,7 @@ import { createController, setControllerTool, handleEvent } from './canvasContro
 import { buildCanvasModel } from './canvasModel.js';
 import { addRect } from './detailDocument.js';
 import { addAnnotation } from './annotationOps.js';
+import { setClip } from './referenceOps.js';
 import { exampleDetail, readExample, deepFreeze } from './testUtils.js';
 
 const close = (a, b, d = 9) => expect(a).toBeCloseTo(b, d);
@@ -748,5 +749,41 @@ describe('circle and arc tools', () => {
     r = handleEvent(r.state, ev('move', 0.5, 1), ctxFor(doc, sel));
     r = handleEvent(r.state, ev('up', 0.5, 1), ctxFor(doc, sel));
     expect(lastDoc(r).doc.annotations[0].end_deg).toBe(180);
+  });
+});
+
+describe('clip box and reference lines on the canvas', () => {
+  const clipped = () => setClip(exampleDetail(), { x_max_m: 0.5, y_min_m: -0.4 });
+
+  test('the model carries the lines and one handle per clip side set, parked inside the view', () => {
+    const m = buildCanvasModel(clipped(), { profiles: PROFILES(), materials: MATERIALS() });
+    expect(m.refLines.length).toBeGreaterThan(0);
+    expect(m.clip).toEqual({ x_max_m: 0.5, y_min_m: -0.4 });
+    const hs = m.handles.filter((h) => h.ref.type === 'clip-edge');
+    expect(hs.map((h) => h.ref.side).sort()).toEqual(['x_max_m', 'y_min_m']);
+    const x = hs.find((h) => h.ref.side === 'x_max_m');
+    expect(x.x).toBe(0.5);
+    expect(x.y).toBeGreaterThan(m.viewBox.y);
+    expect(x.y).toBeLessThan(m.viewBox.y + m.viewBox.height);
+  });
+
+  test('dragging a clip handle moves that side and commits on release', () => {
+    const doc = clipped();
+    const h = buildCanvasModel(doc, { profiles: PROFILES(), materials: MATERIALS() }).handles.find((x) => x.ref.side === 'x_max_m');
+    let r = handleEvent(createController(), ev('down', h.x, h.y), ctxFor(doc));
+    expect(r.state.drag.kind).toBe('clip-edge');
+    r = handleEvent(r.state, ev('move', 0.8, 0.3), ctxFor(doc));
+    r = handleEvent(r.state, ev('up', 0.8, 0.3), ctxFor(doc));
+    expect(lastDoc(r).doc.clip.x_max_m).toBeCloseTo(0.8, 2);
+    expect(lastDoc(r).doc.clip.y_min_m).toBe(-0.4);
+  });
+
+  test('dragging a side past the opposite one is refused with a message, not applied', () => {
+    const doc = setClip(exampleDetail(), { x_min_m: 0.2, x_max_m: 0.6 });
+    const h = buildCanvasModel(doc, { profiles: PROFILES(), materials: MATERIALS() }).handles.find((x) => x.ref.side === 'x_max_m');
+    let r = handleEvent(createController(), ev('down', h.x, h.y), ctxFor(doc));
+    r = handleEvent(r.state, ev('move', 0.1, 0.3), ctxFor(doc));
+    expect(of(r, 'message')).toHaveLength(1);
+    expect(of(r, 'doc')).toHaveLength(0);
   });
 });

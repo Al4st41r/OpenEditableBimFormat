@@ -12,6 +12,7 @@ import { FsaAdapter, MemoryAdapter } from '../editor/storageAdapter.js';
 import { setUnit, getUnit, toDisplay, fromDisplay } from '../editor/units.js';
 import * as D from './detailDocument.js';
 import * as AN from './annotationOps.js';
+import * as RF from './referenceOps.js';
 import { HttpAdapter, BUNDLE_NAME } from './httpAdapter.js';
 import { detailToDxf } from './dxfExport.js';
 import { copySelection, parsePayload, pasteInto } from './clipboard.js';
@@ -247,6 +248,15 @@ const actions = {
   },
   setRegionNumber: (i, f, v) => apply((d) => D.setRegionNumber(d, i, f, v)),
   setRegionTag: (i, k, v) => apply((d) => D.setRegionTag(d, i, k, v)),
+  addReferenceLine: (line) => apply((d) => RF.addReferenceLine(d, line)),
+  updateReferenceLine: (i, patch) => apply((d) => RF.updateReferenceLine(d, i, patch)),
+  removeReferenceLine: (i) => apply((d) => RF.removeReferenceLine(d, i)),
+  setClip: (patch) => apply((d) => RF.setClip(d, patch)),
+  enableClip: () => {
+    const b = canvasModelFor(st.doc, null).bounds;
+    if (!b) { status('Nothing is drawn to clip to yet.', true); return; }
+    apply((d) => RF.setClip(d, { x_min_m: b.min.x, x_max_m: b.max.x, y_min_m: b.min.y, y_max_m: b.max.y }));
+  },
   updateAnnotation: (i, patch) => apply((d) => AN.updateAnnotation(d, i, patch)),
   removeAnnotation: (i) => { apply((d) => AN.removeAnnotation(d, i)); st = select(st, null); refresh(); },
   removeRegion: (i) => apply((d) => D.removeRegion(d, i)),

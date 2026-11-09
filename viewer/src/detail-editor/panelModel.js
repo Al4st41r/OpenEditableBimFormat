@@ -11,6 +11,7 @@ import { evaluateCoordinate } from './detailDocument.js';
 import { edgeLengths, regionAsRect } from './dimensionOps.js';
 import { applyOverrides } from '../detail/detailParams.js';
 import { detailFit, suggestLocation } from './junctionAssign.js';
+import { referenceLinesOf, clipOf } from './referenceOps.js';
 import { dimensionGeometry, DEFAULT_DIM_OFFSET_M } from './annotationOps.js';
 
 const tidy = (x) => Math.round(x * 1e9) / 1e9 + 0;
@@ -119,6 +120,9 @@ export function buildPanelModel({ doc, selection, validation, dirty, canUndo, ca
     },
     condition: doc.condition ?? null,
     members, regions: regionRows, parameters, selectedMember, selectedRegion, selectedAnnotation,
+    referenceLines: doc.reference_lines ?? [],
+    impliedLines: doc.reference_lines?.length ? [] : referenceLinesOf(doc).map((l) => l.label),
+    clip: clipOf(doc),
     marks: (doc.annotations ?? []).map((a, index) => ({
       index, type: a.type, selected: selection?.type === 'annotation' && selection.index === index,
       label: a.type === 'note' ? `Note: ${a.text}` : a.type === 'line' ? `Line, ${a.points.length} points` : a.type === 'arc' ? 'Arc' : a.type === 'circle' ? 'Circle' : 'Dimension',

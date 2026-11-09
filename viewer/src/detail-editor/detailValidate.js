@@ -14,6 +14,7 @@ import {
 } from './detailConstants.js';
 import { evaluateCoordinate } from './detailDocument.js';
 import { checkAnnotation } from './annotationOps.js';
+import { checkReferenceLine, checkClip } from './referenceOps.js';
 import { signedArea, isSelfIntersecting } from '../detail/regionGeometry.js';
 import { checkRepeat } from '../detail/regionRepeat.js';
 import { checkClassification } from '../detail-review/classification.js';
@@ -43,7 +44,7 @@ export function validateDetail(doc, ctx) {
     return out;
   }
 
-  noExtra(doc, ['$schema', 'id', 'type', 'description', 'condition', 'members', 'datum', 'plane', 'view_direction', 'geometry', 'annotations', 'parameters', 'tags'], '');
+  noExtra(doc, ['$schema', 'id', 'type', 'description', 'condition', 'members', 'datum', 'plane', 'view_direction', 'geometry', 'annotations', 'reference_lines', 'clip', 'parameters', 'tags'], '');
 
   if (typeof doc.$schema !== 'string') add('$schema', 'required', `Missing "$schema" (expected "${SCHEMA_ID}")`);
   if (doc.type !== 'Detail') add('type', 'type', 'type must be "Detail"');
@@ -167,6 +168,13 @@ export function validateDetail(doc, ctx) {
     if (!Array.isArray(doc.annotations)) add('annotations', 'annotation', 'annotations must be an array');
     else doc.annotations.forEach((a, i) => { for (const p of checkAnnotation(a)) add(`annotations[${i}]${p.field ? '.' + p.field : ''}`, p.code, p.message); });
   }
+
+  // ── reference lines and clip ──
+  if (doc.reference_lines !== undefined) {
+    if (!Array.isArray(doc.reference_lines)) add('reference_lines', 'reference-line', 'reference_lines must be an array');
+    else doc.reference_lines.forEach((l, i) => { for (const p of checkReferenceLine(l)) add(`reference_lines[${i}]${p.field ? '.' + p.field : ''}`, 'reference-line', p.message); });
+  }
+  if (doc.clip !== undefined) for (const p of checkClip(doc.clip)) add(`clip${p.field ? '.' + p.field : ''}`, 'clip', p.message);
 
   // ── condition ──
   if (doc.condition !== undefined) {

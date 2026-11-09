@@ -13,6 +13,7 @@ import { KINDS, PLANES, EXTENTS, DATUM_KINDS, DATUM_REFERENCES, RULES } from './
 import { PACKAGES, BARRIERS, FIRE_ROLES, SHEARING_LAYERS } from '../detail-review/classification.js';
 import { drawReference } from './reference.js';
 import { LINE_STYLES } from './annotationOps.js';
+import { REFERENCE_KINDS, AXES, CLIP_SIDES } from './referenceOps.js';
 import { LAYERS, LAYER_LABELS } from './layers.js';
 
 function h(tag, attrs = {}, ...children) {
@@ -121,6 +122,8 @@ function rightPanel(pm, bundle, a) {
       ? 'Plan: regions rise from the level by the extrusion.'
       : 'Section: regions run along the primary member, centred.'),
   );
+
+  out.push(...referenceEditor(pm, a), ...clipEditor(pm, a));
 
   if (pm.selectedMember) out.push(...memberEditor(pm.selectedMember, bundle, a));
   if (pm.selectedRegion) out.push(...regionEditor(pm.selectedRegion, pm, bundle, a), ...dimensionEditor(pm.selectedRegion, bundle, a));
@@ -348,6 +351,53 @@ function regionTagEditor(r, a) {
       onchange: (e) => a.setRegionTag(r.index, 'sequence', e.target.value === '' ? null : parseInt(e.target.value, 10)),
     })),
     h('div', { class: 'note' }, 'A tag here overrides the material for this region only.'))];
+}
+
+/** A length that may be left blank: blank gives null, otherwise the parsed value in metres. */
+const optionalLength = (metres, onChange, attrs = {}) => {
+  const shown = metres === null || metres === undefined ? '' : String(toDisplay(metres));
+  return h('input', {
+    type: 'text', inputmode: 'decimal', value: shown, placeholder: 'not clipped', ...attrs,
+    onchange: (e) => {
+      const raw = e.target.value.trim();
+      if (raw === '') { onChange(null); return; }
+      const m = parseDimension(raw, { unit: getUnit() });
+      if (m === null) { notify(`Could not read "${raw}" as a length.`); e.target.value = shown; return; }
+      onChange(m);
+    },
+  });
+};
+
+const refDraft = { kind: 'level', axis: 'y', offset: 0 };
+/** Named lines the drawing is set out from: grid, FFL, level or custom. */
+function referenceEditor(pm, a) {
+  const rows = pm.referenceLines.map((l, i) => h('div', { class: 'refline' },
+    select(REFERENCE_KINDS, l.kind, (v) => a.updateReferenceLine(i, { kind: v })),
+    select(AXES, l.axis, (v) => a.updateReferenceLine(i, { axis: v }), { title: 'x: a vertical line at that x. y: a horizontal line at that y.' }),
+    num(l.offset_m, (m) => a.updateReferenceLine(i, { offset_m: m }), { title: 'Position' }),
+    text(l.name ?? '', (v) => a.updateReferenceLine(i, { name: v.trim() === '' ? undefined : v.trim() }), { placeholder: 'name', title: 'Label; blank uses the kind' }),
+    h('button', { title: 'Remove this line', onclick: () => a.removeReferenceLine(i) }, '×')));
+  return [h('details', { class: 'fold', open: pm.referenceLines.length > 0 },
+    h('summary', {}, 'Reference lines'),
+    pm.referenceLines.length ? rows : h('div', { class: 'note' }, `Showing the implied ${pm.impliedLines.join(' and ')} through the origin. Add a line to set your own.`),
+    h('div', { class: 'row' },
+      select(REFERENCE_KINDS, refDraft.kind, (v) => { refDraft.kind = v; }),
+      select(AXES, refDraft.axis, (v) => { refDraft.axis = v; }),
+      num(refDraft.offset, (m) => { refDraft.offset = m; }),
+      h('button', { onclick: () => a.addReferenceLine({ kind: refDraft.kind, axis: refDraft.axis, offset_m: refDraft.offset }) }, 'Add')),
+    h('div', { class: 'note' }, `Offsets are in ${unitLabel()}. Lines are drawn only; they do not change the geometry.`))];
+}
+
+/** The part of the detail to show. The 3D view cuts to it and the drawings fade the rest. */
+function clipEditor(pm, a) {
+  const labels = { x_min_m: 'Left (x min)', x_max_m: 'Right (x max)', y_min_m: 'Bottom (y min)', y_max_m: 'Top (y max)' };
+  return [h('details', { class: 'fold', open: !!pm.clip },
+    h('summary', {}, 'Clip region'),
+    ...CLIP_SIDES.map((side) => row(`${labels[side]}`, optionalLength(pm.clip?.[side], (m) => a.setClip({ [side]: m })))),
+    h('div', { class: 'row' },
+      h('button', { title: 'Start from the extent of the drawing, then drag the CLIP handles or type values', onclick: () => a.enableClip() }, 'Clip to drawing'),
+      h('button', { disabled: !pm.clip, onclick: () => a.setClip({ x_min_m: null, x_max_m: null, y_min_m: null, y_max_m: null }) }, 'Clear')),
+    h('div', { class: 'note' }, 'Drag a CLIP handle on the canvas, or type a value. The 3D view and the drawings show only what is inside.'))];
 }
 
 /** Properties of the selected line, dimension or note. */

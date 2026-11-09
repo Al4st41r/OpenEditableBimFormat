@@ -98,6 +98,32 @@
         }
       }
     },
+    "reference_lines": {
+      "type": "array",
+      "description": "Named lines in detail space that the drawing is set out from: a grid line, the finished floor level, another level or a custom line. They are drawn in the editor, the review drawing and the 3D view, and never extruded or exported to IFC. Without any, the editor shows the origin lines implied by the view (a plan detail sits on a grid intersection, a section on its datum).",
+      "items": {
+        "type": "object",
+        "required": ["kind", "axis", "offset_m"],
+        "additionalProperties": false,
+        "properties": {
+          "kind":     { "type": "string", "enum": ["grid", "ffl", "level", "custom"] },
+          "name":     { "type": "string", "minLength": 1, "description": "Label for the line. Defaults to the kind (GRID, FFL, LEVEL)." },
+          "axis":     { "type": "string", "enum": ["x", "y"], "description": "x: the line sits at x = offset_m (vertical in the drawing). y: it sits at y = offset_m (horizontal)." },
+          "offset_m": { "type": "number" }
+        }
+      }
+    },
+    "clip": {
+      "type": "object",
+      "description": "The part of the detail to show: a box in detail space. Anything outside is cut away in the 3D view and faded in the 2D drawing. Each side is optional; a missing side is not clipped. It is a viewing aid and does not change the geometry.",
+      "additionalProperties": false,
+      "properties": {
+        "x_min_m": { "type": "number" },
+        "x_max_m": { "type": "number" },
+        "y_min_m": { "type": "number" },
+        "y_max_m": { "type": "number" }
+      }
+    },
     "annotations": {
       "type": "array",
       "description": "Drawing marks for the 2D detail only: open lines, arcs, circles, dimensions and notes. They are never extruded into 3D and carry no material. Coordinates are plain metres in detail space.",

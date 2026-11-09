@@ -279,13 +279,14 @@ async function open(readJson, label, handle = null) {
     if (data.warnings.length) status(`${data.warnings.length} file(s) could not be read; see the console.`, true);
     data.warnings.forEach((w) => console.warn('[OEBF]', w));
   } catch (err) {
+    console.error(err);
     status(`Could not open ${label}: ${err.message}`, true);
   }
 }
 
 $('view-select').innerHTML = Object.entries(AXO_VIEWS).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join('');
 $('view-select').addEventListener('change', (e) => viewer.setView(e.target.value));
-for (const [btn, key] of [['members-btn', 'members'], ['regions-btn', 'regions'], ['edges-btn', 'edges']]) {
+for (const [btn, key] of [['members-btn', 'members'], ['regions-btn', 'regions'], ['edges-btn', 'edges'], ['guides-btn', 'guides'], ['clip-btn', 'clip']]) {
   $(btn).addEventListener('click', () => {
     const on = !viewer.show[key];
     $(btn).classList.toggle('active', on);

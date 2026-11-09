@@ -16,7 +16,9 @@
     button:hover:not(:disabled) { background: #444; }
     button.active { background: #1e3a5a; border-color: #4a8aaa; color: #fff; }
     .sep { width: 1px; align-self: stretch; background: #333; margin: 0 4px; }
-    #project-name { opacity: 0.6; }
+    #project-name { opacity: 0.6; max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #header .sep { margin: 0 1px; }
+    #overlay-select { max-width: 130px; }
     #status { margin-left: auto; opacity: 0.8; font-size: 12px; max-width: 40%; text-align: right; }
     #status.error { color: #f88; opacity: 1; }
     #main { display: flex; flex: 1; min-height: 0; }
@@ -63,8 +65,8 @@
     <strong>Detail review</strong>
     <span id="project-name"></span>
     <span class="sep"></span>
-    <button id="open-btn">Open folder</button>
-    <button id="demo-btn">NMB example</button>
+    <button id="open-btn" title="Open a bundle folder">Open</button>
+    <button id="demo-btn" title="Load the NMB two-storey example">NMB</button>
     <span class="sep"></span>
     <button id="pane2d-btn" class="active" title="Show the 2D drawing beside the 3D view">2D</button>
     <select id="scale-select" title="Drawing scale of the 2D pane">
@@ -77,14 +79,16 @@
     <select id="view-select" title="Axonometric view"></select>
     <button id="members-btn" class="active" title="Show the swept wall profiles">Members</button>
     <button id="regions-btn" class="active" title="Show the detail's own regions">Regions</button>
+    <button id="guides-btn" class="active" title="Show the reference lines (grid, FFL, level) in 3D">Lines</button>
+    <button id="clip-btn" class="active" title="Cut the 3D view to the detail's clip region">Clip</button>
     <button id="edges-btn" class="active" title="Outline each solid">Edges</button>
     <button id="fit-btn" title="Fit to view">Fit</button>
     <button id="png-btn" title="Save the current view as a PNG">PNG</button>
     <select id="export-select" title="Export the 2D drawing on a sheet with a title block">
-      <option value="">Export 2D</option><option value="svg">SVG sheet</option><option value="pdf">PDF (print)</option><option value="dxf">DXF (mm)</option>
+      <option value="">Export</option><option value="svg">SVG sheet</option><option value="pdf">PDF (print)</option><option value="dxf">DXF (mm)</option>
     </select>
     <select id="paper-select" title="Sheet size for export">
-      <option value="">Auto paper</option><option>A4</option><option>A3</option><option>A2</option><option>A1</option>
+      <option value="">Auto</option><option>A4</option><option>A3</option><option>A2</option><option>A1</option>
     </select>
     <span class="sep"></span>
     <button id="edit-btn" title="Open this detail in the detail editor" disabled>Edit detail</button>

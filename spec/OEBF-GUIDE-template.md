@@ -568,6 +568,12 @@ Detail fields:
   storey.
 - `geometry.regions[]` — extra shapes (trim, membranes, fillers): a `material_id`
   and at least three `vertices` in drawing space, simple (not self-intersecting).
+- `reference_lines[]` — optional named lines the drawing is set out from:
+  `{ "kind": "grid", "axis": "x", "offset_m": 0 }` (`kind` is `grid`, `ffl`,
+  `level` or `custom`; `name` overrides the label; an `x` line sits at that x,
+  a `y` line at that y). Drawn only; never extruded.
+- `clip` — optional viewing box `{ "x_min_m", "x_max_m", "y_min_m", "y_max_m" }`
+  (any side may be left out). The 3D view cuts the detail to it.
 - `annotations[]` — optional drawing marks for the 2D view only, never extruded
   into 3D: `{ "type": "line", "points": [...], "style": "dashed" }` (an open
   line; `solid`, `dashed` or `centre`), `{ "type": "arc", "centre": {x, y},
