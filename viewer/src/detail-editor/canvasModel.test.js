@@ -102,16 +102,19 @@ describe('handles and selection', () => {
     expect(m.primitives.some((p) => p.selected)).toBe(false);
   });
 
-  test('selecting a member shows its origin and rotate handles only', () => {
+  test('selecting a member shows its origin and rotate handles and one start handle per layer', () => {
     const m = model(exampleDetail(), { selection: { type: 'member', role: 'butting-wall' } });
-    expect(m.handles.map((h) => h.id)).toEqual(['member:butting-wall:origin', 'member:butting-wall:rotate']);
-    const origin = m.handles[0];
+    expect(m.handles.map((h) => h.id).filter((id) => !id.includes(':layer:'))).toEqual(['member:butting-wall:origin', 'member:butting-wall:rotate']);
+    const starts = m.handles.filter((h) => h.kind === 'layer-start');
+    expect(starts).toHaveLength(4);                                    // the cavity profile has four layers
+    expect(starts.map((h) => h.ref.layer)).toEqual([1, 2, 3, 4]);
+    const origin = m.handles.find((h) => h.kind === 'origin');
     close(origin.x, 0); close(origin.y, -0.145);
   });
 
   test('the rotate handle sits on the member x axis at the handle distance', () => {
     const m = model(exampleDetail(), { selection: { type: 'member', role: 'butting-wall' }, handleDistance: 0.3 });
-    const r = m.handles[1];                      // butting wall: rotation 90, origin (0, -0.145)
+    const r = m.handles.find((h) => h.kind === 'rotate');   // butting wall: rotation 90, origin (0, -0.145)
     close(r.x, 0, 6); close(r.y, -0.145 + 0.3, 6);
   });
 

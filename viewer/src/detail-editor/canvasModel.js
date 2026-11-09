@@ -12,9 +12,9 @@
  *   member:<role>:origin      member:<role>:rotate
  */
 
-import { buildMemberShapes, placePoint } from './memberShapes.js';
+import { buildMemberShapes, placePoint, profileOriginX, isStackedSlab } from './memberShapes.js';
 import { evaluateCoordinate } from './detailDocument.js';
-import { referenceLinesOf, clipOf } from './referenceOps.js';
+import { referenceLinesOf, clipOf, resolveMember } from './referenceOps.js';
 import { dimensionGeometry, annotationSegments, distanceToSegment, arcPoints, pointAtAngle } from './annotationOps.js';
 
 const DEFAULT_FILL = '#888888';
@@ -89,7 +89,7 @@ export function buildCanvasModel(doc, ctx = {}) {
   const selAlso = new Set(selection?.type === 'region' ? selection.also ?? [] : []);
 
   (doc.members ?? []).forEach((m) => {
-    const r = buildMemberShapes(m, profiles[m.profile_id], { plane, length });
+    const r = buildMemberShapes(resolveMember(doc, m), profiles[m.profile_id], { plane, length });
     warnings.push(...r.warnings);
     for (const s of r.shapes) {
       primitives.push({
@@ -121,11 +121,20 @@ export function buildCanvasModel(doc, ctx = {}) {
   });
 
   // Handles exist only for the selection, to keep the canvas uncluttered.
-  const member = selMember ? (doc.members ?? []).find((m) => m.role === selMember) : null;
+  const member = selMember ? (doc.members ?? []).map((m) => resolveMember(doc, m)).find((m) => m.role === selMember) : null;
   if (member) {
     const placement = member.placement ?? {};
     const o = { x: placement.offset_x_m ?? 0, y: placement.offset_y_m ?? 0 };
     const tip = placePoint(placement, { x: handleDistance, y: 0 });
+    // One start handle per layer: drag it across the member to set where that layer starts (not for stacked slabs)
+    const profile = profiles[member.profile_id];
+    if (profile && !isStackedSlab(profile)) {
+      const frame = { placement, originX: profileOriginX(profile), plane };
+      for (const sh of buildMemberShapes(member, profile, { plane, length }).shapes) {
+        if (!sh.startPoint) continue;
+        handles.push({ id: `member:${member.role}:layer:${sh.key}:start`, kind: 'layer-start', x: sh.startPoint.x, y: sh.startPoint.y, selected: false, ref: { type: 'layer-start', role: member.role, layer: sh.key, frame } });
+      }
+    }
     handles.push(
       { id: `member:${member.role}:origin`, kind: 'origin', x: o.x, y: o.y, selected: false, ref: { type: 'member-origin', role: member.role } },
       { id: `member:${member.role}:rotate`, kind: 'rotate', x: tip.x, y: tip.y, selected: false, ref: { type: 'member-rotate', role: member.role } },

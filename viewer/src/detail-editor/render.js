@@ -159,6 +159,10 @@ export function renderCanvas(svg, model, view, size, { draft = null, hint = null
   for (const h of model.handles) {
     const s = toScreen(view, size, h);
     if (h.kind === 'clip') { drawClipHandle(svg, h, s); continue; }
+    if (h.kind === 'layer-start') {   // a diamond, so it is not mistaken for a vertex
+      svg.appendChild(el('polygon', { points: `${s.x},${s.y - 6} ${s.x + 6},${s.y} ${s.x},${s.y + 6} ${s.x - 6},${s.y}`, fill: '#2a9d8f', stroke: '#fff', 'stroke-width': 1.5 }));
+      continue;
+    }
     const colour = h.kind === 'rotate' ? '#f5b800' : h.selected ? '#ff3b30' : '#0a6cff';
     const bound = h.ref.bound && (h.ref.bound.x || h.ref.bound.y);
     svg.appendChild(el(bound ? 'rect' : 'circle',

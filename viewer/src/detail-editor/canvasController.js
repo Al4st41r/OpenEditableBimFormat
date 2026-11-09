@@ -30,11 +30,12 @@
 
 import { hitTest, hitStack } from './canvasModel.js';
 import { dragHandle, translateRegions, regionsInBox, snapValue } from './canvasEdit.js';
-import { addRect, addRegion, removeRegions } from './detailDocument.js';
+import { addRect, addRegion, removeRegions, setLayerStart } from './detailDocument.js';
 import { regionIndices, selectionOfRegions } from './pageState.js';
 import { TOOLS } from './detailConstants.js';
 import { addAnnotation, removeAnnotation, moveAnnotation, setAnnotationPoint, setDimensionOffset, angleOf } from './annotationOps.js';
-import { setClip } from './referenceOps.js';
+import { setClip, resolvePlacement } from './referenceOps.js';
+import { startFromPoint } from './memberShapes.js';
 import { signedArea, isSelfIntersecting } from '../detail/regionGeometry.js';
 
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
@@ -122,6 +123,9 @@ function selectTool(state, event, ctx) {
     if (hit && !hit.handle && !event.shift) hit = underCursor(state, ctx, point) ?? hit;
     const base = { startDoc: ctx.doc, current: ctx.doc, moved: false, notified: false };
 
+    if (hit?.handle && hit.ref.type === 'layer-start') {
+      return done({ ...state, drag: { kind: 'layer-start', ref: hit.ref, ...base } }, [{ type: 'select', selection: { type: 'member', role: hit.ref.role } }]);
+    }
     if (hit?.handle && hit.ref.type === 'clip-edge') {
       return done({ ...state, drag: { kind: 'clip-edge', ref: hit.ref, ...base } });
     }
@@ -140,7 +144,7 @@ function selectTool(state, event, ctx) {
       return done({ ...state, drag: { kind: 'annotation-body', index: hit.ref.index, start: point, ...base } }, [{ type: 'select', selection: { type: 'annotation', index: hit.ref.index } }]);
     }
     if (hit?.ref.type === 'member') {
-      const p = ctx.doc.members.find((m) => m.role === hit.ref.role).placement;
+      const p = resolvePlacement(ctx.doc, ctx.doc.members.find((m) => m.role === hit.ref.role));
       return done({ ...state, drag: { kind: 'member-body', role: hit.ref.role, grab: { x: point.x - p.offset_x_m, y: point.y - p.offset_y_m }, ...base } },
         [{ type: 'select', selection: { type: 'member', role: hit.ref.role } }]);
     }
@@ -185,6 +189,13 @@ function selectTool(state, event, ctx) {
       return done({ ...state, drag: { ...drag, last: screen } }, dx || dy ? [{ type: 'pan', dx, dy }] : []);
     }
 
+    if (drag.kind === 'layer-start') {
+      const sp = snapAt(ctx, point);
+      let doc;
+      try { doc = setLayerStart(drag.startDoc, drag.ref.role, drag.ref.layer, startFromPoint(drag.ref.frame, sp.point)); } catch (err) { return done(state, [msg(err.message)]); }
+      const changed = !same(doc, drag.startDoc);
+      return done({ ...state, drag: { ...drag, current: doc, moved: drag.moved || changed } }, changed ? [{ type: 'doc', doc, transient: true }] : []);
+    }
     if (drag.kind === 'clip-edge') {
       const sp = snapAt(ctx, point);
       const value = drag.ref.side.startsWith('x') ? sp.point.x : sp.point.y;

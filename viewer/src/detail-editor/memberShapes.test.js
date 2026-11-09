@@ -254,3 +254,55 @@ describe('stacked slab profiles', () => {
     expect(Math.max(...ys(shapes[0]))).toBe(2);
   });
 });
+
+import { describeLayers, startFromPoint, profileOriginX } from './memberShapes.js';
+
+describe('layer starts', () => {
+  const profile = {
+    id: 'p', width: 0.3, origin: { x: 0.15, y: 0 }, height_limit_m: 2,
+    assembly: [
+      { layer: 1, name: 'brick', material_id: 'a', thickness: 0.1, function: 'finish' },
+      { layer: 2, name: 'cavity', material_id: 'b', thickness: 0.05, function: 'insulation' },
+      { layer: 3, name: 'block', material_id: 'c', thickness: 0.1, function: 'structure' },
+    ],
+  };
+  const member = (extra = {}) => ({ role: 'w', kind: 'wall', profile_id: 'p', placement: { offset_x_m: 0, offset_y_m: 0, rotation_deg: 0 }, ...extra });
+
+  test('layers start where the ones before end, unless the member overrides one', () => {
+    const close = (got, want) => got.forEach((v, i) => expect(v).toBeCloseTo(want[i], 9));
+    close(describeLayers(member(), profile).map((l) => l.start), [0, 0.1, 0.15]);
+    const moved = describeLayers(member({ layer_starts: [{ layer: 2, start_m: 0.2 }] }), profile);
+    close(moved.map((l) => l.start), [0, 0.2, 0.15]);            // only that layer moves; the next still follows the natural stack
+    expect(moved[1]).toMatchObject({ natural: 0.1, override: 0.2 });
+    expect(describeLayers(member(), {})).toEqual([]);
+  });
+
+  test('a moved band is drawn from its new start', () => {
+    const base = buildMemberShapes(member(), profile, { plane: 'section' }).shapes;
+    const moved = buildMemberShapes(member({ layer_starts: [{ layer: 2, start_m: 0.2 }] }), profile, { plane: 'section' }).shapes;
+    const xs = (s) => s.points.map((p) => p.x);
+    expect(Math.min(...xs(base[1]))).toBeCloseTo(-0.05);                  // 0.1 - origin 0.15
+    expect(Math.min(...xs(moved[1]))).toBeCloseTo(0.05);                  // 0.2 - 0.15
+    expect(Math.max(...xs(moved[1])) - Math.min(...xs(moved[1]))).toBeCloseTo(0.05);   // thickness kept
+    expect(moved[1].key).toBe(2);
+    expect(moved[1].startPoint.x).toBeCloseTo(0.05);
+  });
+
+  test('a moved region layer shifts as a whole so its left edge is at the start', () => {
+    const p = { ...profile, assembly: [...profile.assembly, { layer: 4, name: 'tie', material_id: 'd', function: 'structure', type: 'region', vertices: [{ x: 0.1, y: 0 }, { x: 0.2, y: 0 }, { x: 0.2, y: 0.5 }, { x: 0.1, y: 0.5 }] }] };
+    const shape = (m) => buildMemberShapes(m, p, { plane: 'section' }).shapes.find((s) => s.key === 4);
+    expect(Math.min(...shape(member()).points.map((q) => q.x))).toBeCloseTo(-0.05);
+    expect(Math.min(...shape(member({ layer_starts: [{ layer: 4, start_m: 0.25 }] })).points.map((q) => q.x))).toBeCloseTo(0.1);
+  });
+
+  test('startFromPoint inverts the start handle, in a section and in a plan, with rotation', () => {
+    const frame = (plane, rotation_deg) => ({ placement: { offset_x_m: 1, offset_y_m: 2, rotation_deg }, originX: 0.15, plane });
+    for (const [plane, rot] of [['section', 0], ['section', 30], ['plan', 0], ['plan', 90]]) {
+      const m = member({ placement: { offset_x_m: 1, offset_y_m: 2, rotation_deg: rot }, layer_starts: [{ layer: 2, start_m: 0.2 }] });
+      const sh = buildMemberShapes(m, profile, { plane }).shapes.find((s) => s.key === 2);
+      expect(startFromPoint(frame(plane, rot), sh.startPoint)).toBeCloseTo(0.2, 6);
+    }
+    expect(profileOriginX(profile)).toBe(0.15);
+    expect(profileOriginX({ width: 0.4 })).toBe(0.2);
+  });
+});

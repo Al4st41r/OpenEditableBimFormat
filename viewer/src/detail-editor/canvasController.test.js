@@ -787,3 +787,26 @@ describe('clip box and reference lines on the canvas', () => {
     expect(of(r, 'doc')).toHaveLength(0);
   });
 });
+
+describe('layer start handles', () => {
+  const sel = { type: 'member', role: 'through-wall' };
+  const handleOf = (doc, layer) => buildCanvasModel(doc, { profiles: PROFILES(), materials: MATERIALS(), selection: sel }).handles.find((h) => h.ref.type === 'layer-start' && h.ref.layer === layer);
+
+  test('dragging a layer start handle sets that layer start for this member and keeps the rest', () => {
+    const doc = exampleDetail();
+    const h = handleOf(doc, 2);
+    const before = handleOf(doc, 3);
+    let r = handleEvent(createController(), ev('down', h.x, h.y), ctxFor(doc, sel));
+    expect(r.state.drag.kind).toBe('layer-start');
+    expect(of(r, 'select')[0].selection).toEqual(sel);
+    r = handleEvent(r.state, ev('move', h.x, h.y - 0.02), ctxFor(doc, sel));   // the through wall runs along x, so across is y
+    r = handleEvent(r.state, ev('up', h.x, h.y - 0.02), ctxFor(doc, sel));
+    const out = lastDoc(r).doc;
+    const m = out.members.find((x) => x.role === 'through-wall');
+    expect(m.layer_starts).toHaveLength(1);
+    expect(m.layer_starts[0].layer).toBe(2);
+    const moved = handleOf(out, 2), same3 = handleOf(out, 3);
+    expect(Math.hypot(moved.x - h.x, moved.y - h.y)).toBeCloseTo(0.02, 2);    // the handle followed the drag
+    expect(same3.x).toBeCloseTo(before.x, 9); expect(same3.y).toBeCloseTo(before.y, 9);   // the next layer did not move
+  });
+});

@@ -9,6 +9,7 @@
  */
 
 import { moveVertex, moveMember, rotateMember, DetailEditError } from './detailDocument.js';
+import { offsetsForOrigin, resolvePlacement } from './referenceOps.js';
 
 const tidy = (x) => Math.round(x * 1e9) / 1e9 + 0;
 
@@ -45,15 +46,18 @@ export function dragHandle(doc, ref, point, { snap = 0.005, angleStep = 5, grab 
     }
 
     case 'member-origin':
-      return {
-        doc: moveMember(doc, ref.role, { offset_x_m: snapValue(target.x, snap), offset_y_m: snapValue(target.y, snap) }),
-        locked: [],
-      };
+      {
+        const member = (doc.members ?? []).find((m) => m.role === ref.role);
+        if (!member) throw new DetailEditError(`No member with role "${ref.role}"`);
+        // the target is where the origin should be; a member measured from a line stores the distance from that line
+        return { doc: moveMember(doc, ref.role, offsetsForOrigin(doc, member, { x: snapValue(target.x, snap), y: snapValue(target.y, snap) })), locked: [] };
+      }
 
     case 'member-rotate': {
       const member = (doc.members ?? []).find((m) => m.role === ref.role);
       if (!member) throw new DetailEditError(`No member with role "${ref.role}"`);
-      const o = { x: member.placement.offset_x_m, y: member.placement.offset_y_m };
+      const abs = resolvePlacement(doc, member);
+      const o = { x: abs.offset_x_m, y: abs.offset_y_m };
       const dx = point.x - o.x, dy = point.y - o.y;
       if (Math.hypot(dx, dy) < 1e-9) return { doc, locked: [] };
       const deg = (Math.atan2(dy, dx) * 180) / Math.PI;

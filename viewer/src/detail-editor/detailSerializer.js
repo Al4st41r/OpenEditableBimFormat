@@ -68,7 +68,9 @@ export function serializeDetail(doc) {
         offset_x_m: m.placement?.offset_x_m, offset_y_m: m.placement?.offset_y_m, rotation_deg: m.placement?.rotation_deg,
       },
     };
+    if (m.placement?.reference && Object.keys(m.placement.reference).length) o.placement.reference = structuredClone(m.placement.reference);
     if (m.extent !== undefined) o.extent = m.extent;
+    if (m.layer_starts?.length) o.layer_starts = structuredClone(m.layer_starts);
     return o;
   });
 

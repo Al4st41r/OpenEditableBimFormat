@@ -18,7 +18,7 @@
  */
 
 import { evaluateCoordinate } from '../detail-editor/detailDocument.js';
-import { referenceLinesOf, clipOf } from '../detail-editor/referenceOps.js';
+import { referenceLinesOf, clipOf, resolveMember } from '../detail-editor/referenceOps.js';
 import { buildMemberShapes, isStackedSlab } from '../detail-editor/memberShapes.js';
 import { signedArea } from '../detail/regionGeometry.js';
 import { checkRepeat, expandUnit } from '../detail/regionRepeat.js';
@@ -76,7 +76,7 @@ export function buildAxoModel(detail, ctx = {}) {
       continue;
     }
 
-    let placed = member;
+    let placed = resolveMember(detail, member);
     let heightM = profile.height_limit_m;
     let top = extrusion;
     if (plane === 'section') {
@@ -84,7 +84,7 @@ export function buildAxoModel(detail, ctx = {}) {
       const lo = rb ? rb.minV - 0.15 : -1.0;
       const hi = rb ? rb.maxV + 0.15 : 1.0;
       heightM = hi - lo;
-      placed = { ...member, placement: { ...member.placement, offset_y_m: (member.placement?.offset_y_m ?? 0) + lo } };
+      placed = { ...placed, placement: { ...placed.placement, offset_y_m: (placed.placement?.offset_y_m ?? 0) + lo } };
     } else {
       top = Math.min(extrusion, profile.height_limit_m ?? extrusion);
     }

@@ -14,7 +14,7 @@ import {
 } from './detailConstants.js';
 import { evaluateCoordinate } from './detailDocument.js';
 import { checkAnnotation } from './annotationOps.js';
-import { checkReferenceLine, checkClip } from './referenceOps.js';
+import { checkReferenceLine, checkClip, checkPlacementReference, duplicateLineIds } from './referenceOps.js';
 import { signedArea, isSelfIntersecting } from '../detail/regionGeometry.js';
 import { checkRepeat } from '../detail/regionRepeat.js';
 import { checkClassification } from '../detail-review/classification.js';
@@ -62,7 +62,7 @@ export function validateDetail(doc, ctx) {
   members.forEach((m, i) => {
     const p = `members[${i}]`;
     if (!isObj(m)) { add(p, 'member', 'A member must be an object'); return; }
-    noExtra(m, ['role', 'kind', 'profile_id', 'extent', 'placement'], p);
+    noExtra(m, ['role', 'kind', 'profile_id', 'extent', 'layer_starts', 'placement'], p);
     if (m.extent !== undefined && !EXTENTS.includes(m.extent)) add(`${p}.extent`, 'enum', `extent must be one of ${EXTENTS.join(', ')}`);
     if (typeof m.role !== 'string' || !SLUG.test(m.role)) add(`${p}.role`, 'role', 'role must be lower-case letters, numbers and hyphens');
     else if (seenRoles.has(m.role)) add(`${p}.role`, 'role-duplicate', `Role "${m.role}" is used more than once`);
@@ -70,9 +70,25 @@ export function validateDetail(doc, ctx) {
     if (!KINDS.includes(m.kind)) add(`${p}.kind`, 'enum', `kind must be one of ${KINDS.join(', ')}`);
     if (typeof m.profile_id !== 'string' || m.profile_id === '') add(`${p}.profile_id`, 'required', 'profile_id is required');
     else if (profileIds && !profileIds.has(m.profile_id)) add(`${p}.profile_id`, 'profile-missing', `Profile "${m.profile_id}" is not in the bundle`);
+    if (m.layer_starts !== undefined) {
+      if (!Array.isArray(m.layer_starts)) add(`${p}.layer_starts`, 'layer-starts', 'layer_starts must be an array');
+      else {
+        const seenLayers = new Set();
+        m.layer_starts.forEach((o, k) => {
+          const lp = `${p}.layer_starts[${k}]`;
+          if (!isObj(o)) { add(lp, 'layer-starts', 'A layer start must be an object'); return; }
+          noExtra(o, ['layer', 'start_m'], lp);
+          if (!Number.isInteger(o.layer) || o.layer < 1) add(`${lp}.layer`, 'layer-starts', 'layer must be a whole number from 1');
+          else if (seenLayers.has(o.layer)) add(`${lp}.layer`, 'layer-starts', `Layer ${o.layer} is listed twice`);
+          seenLayers.add(o.layer);
+          if (!isNum(o.start_m)) add(`${lp}.start_m`, 'layer-starts', 'start_m must be a number');
+        });
+      }
+    }
     if (!isObj(m.placement)) add(`${p}.placement`, 'placement', 'placement is required');
     else {
-      noExtra(m.placement, ['offset_x_m', 'offset_y_m', 'rotation_deg'], `${p}.placement`);
+      noExtra(m.placement, ['offset_x_m', 'offset_y_m', 'rotation_deg', 'reference'], `${p}.placement`);
+      for (const q of checkPlacementReference(doc, m)) add(`${p}.placement.${q.field}`, 'placement-reference', q.message);
       for (const k of ['offset_x_m', 'offset_y_m', 'rotation_deg']) {
         if (!isNum(m.placement[k])) add(`${p}.placement.${k}`, 'placement', `${k} must be a number`);
       }
@@ -174,6 +190,7 @@ export function validateDetail(doc, ctx) {
     if (!Array.isArray(doc.reference_lines)) add('reference_lines', 'reference-line', 'reference_lines must be an array');
     else doc.reference_lines.forEach((l, i) => { for (const p of checkReferenceLine(l)) add(`reference_lines[${i}]${p.field ? '.' + p.field : ''}`, 'reference-line', p.message); });
   }
+  for (const q of duplicateLineIds(doc)) add(`reference_lines[${q.index}].id`, 'reference-line', q.message);
   if (doc.clip !== undefined) for (const p of checkClip(doc.clip)) add(`clip${p.field ? '.' + p.field : ''}`, 'clip', p.message);
 
   // ── condition ──

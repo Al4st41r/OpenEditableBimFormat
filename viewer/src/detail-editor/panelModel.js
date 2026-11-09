@@ -11,7 +11,8 @@ import { evaluateCoordinate } from './detailDocument.js';
 import { edgeLengths, regionAsRect } from './dimensionOps.js';
 import { applyOverrides } from '../detail/detailParams.js';
 import { detailFit, suggestLocation } from './junctionAssign.js';
-import { referenceLinesOf, clipOf } from './referenceOps.js';
+import { referenceLinesOf, clipOf, resolvePlacement } from './referenceOps.js';
+import { describeLayers, isStackedSlab as stackedSlab } from './memberShapes.js';
 import { dimensionGeometry, DEFAULT_DIM_OFFSET_M } from './annotationOps.js';
 
 const tidy = (x) => Math.round(x * 1e9) / 1e9 + 0;
@@ -27,7 +28,7 @@ function describeLocation(loc) {
  * @param {{ doc, selection, validation, dirty, canUndo, canRedo, profileIds?: string[], materialIds?: string[], junctions?: object[], elements?: object,
  *   grids?: object[], levels?: object[], elementPaths?: object }} input   (grids, levels and elementPaths let candidates carry a suggested location)
  */
-export function buildPanelModel({ doc, selection, validation, dirty, canUndo, canRedo, profileIds, materialIds, junctions = [], elements = {}, grids, levels, elementPaths, previewValues }) {
+export function buildPanelModel({ doc, selection, validation, dirty, canUndo, canRedo, profileIds, materialIds, junctions = [], elements = {}, grids, levels, elementPaths, previewValues, profiles = {} }) {
   const profileSet = profileIds ? new Set(profileIds) : null;
   const materialSet = materialIds ? new Set(materialIds) : null;
   const regions = doc.geometry?.regions ?? [];
@@ -65,6 +66,11 @@ export function buildPanelModel({ doc, selection, validation, dirty, canUndo, ca
       selectedMember = {
         role: m.role, kind: m.kind, profileId: m.profile_id, extent: m.extent ?? 'centred',
         offset_x_m: m.placement?.offset_x_m ?? 0, offset_y_m: m.placement?.offset_y_m ?? 0, rotation_deg: m.placement?.rotation_deg ?? 0,
+        reference: m.placement?.reference ?? {},
+        layers: stackedSlab(profiles[m.profile_id]) ? [] : describeLayers(m, profiles[m.profile_id]),
+        stacked: stackedSlab(profiles[m.profile_id]),
+        absolute: { x: resolvePlacement(doc, m).offset_x_m ?? 0, y: resolvePlacement(doc, m).offset_y_m ?? 0 },
+        lines: Object.fromEntries(['x', 'y'].map((axis) => [axis, referenceLinesOf(doc).filter((l) => l.axis === axis).map((l) => ({ id: l.id, label: l.label, offset_m: l.offset_m }))])),
       };
     }
   }

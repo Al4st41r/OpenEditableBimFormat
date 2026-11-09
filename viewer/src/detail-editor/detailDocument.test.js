@@ -446,3 +446,38 @@ describe('extendRegion', () => {
     expect(() => D.extendRegion(two(), 0, 'left', 1)).toThrow(/not beyond/);
   });
 });
+
+describe('setLayerStart', () => {
+  const doc = () => ({ $schema: 'x', id: 'd', type: 'Detail', description: 'x', datum: {}, members: [{ role: 'w', kind: 'wall', profile_id: 'p', placement: { offset_x_m: 0, offset_y_m: 0, rotation_deg: 0 } }, { role: 'v', kind: 'wall', profile_id: 'p', placement: { offset_x_m: 0, offset_y_m: 0, rotation_deg: 0 } }] });
+
+  test('sets, replaces and removes a start, keeps entries sorted, and leaves other members and the input alone', async () => {
+    const { setLayerStart } = await import('./detailDocument.js');
+    const d0 = doc();
+    let d = setLayerStart(d0, 'w', 3, 0.25);
+    d = setLayerStart(d, 'w', 1, 0.05);
+    d = setLayerStart(d, 'w', 3, 0.3);
+    expect(d.members[0].layer_starts).toEqual([{ layer: 1, start_m: 0.05 }, { layer: 3, start_m: 0.3 }]);
+    expect(d.members[1].layer_starts).toBeUndefined();
+    expect(d0.members[0].layer_starts).toBeUndefined();
+    d = setLayerStart(setLayerStart(d, 'w', 1, null), 'w', 3, null);
+    expect(d.members[0].layer_starts).toBeUndefined();
+  });
+  test('refuses a bad layer, a bad value and an unknown member', async () => {
+    const { setLayerStart } = await import('./detailDocument.js');
+    expect(() => setLayerStart(doc(), 'w', 0, 1)).toThrow(/whole number/);
+    expect(() => setLayerStart(doc(), 'w', 1.5, 1)).toThrow(/whole number/);
+    expect(() => setLayerStart(doc(), 'w', 1, NaN)).toThrow(/finite/);
+    expect(() => setLayerStart(doc(), 'nope', 1, 1)).toThrow(/No member/);
+  });
+  test('validates and serialises layer starts', async () => {
+    const { setLayerStart } = await import('./detailDocument.js');
+    const { validateDetail } = await import('./detailValidate.js');
+    const { serializeDetail } = await import('./detailSerializer.js');
+    const d = setLayerStart(doc(), 'w', 2, 0.1);
+    expect(validateDetail(d).filter((p) => p.path.includes('layer_starts'))).toEqual([]);
+    expect(serializeDetail(d).members[0].layer_starts).toEqual([{ layer: 2, start_m: 0.1 }]);
+    d.members[0].layer_starts = [{ layer: 2, start_m: 'a' }, { layer: 2, start_m: 1 }, { layer: 0, start_m: 1 }];
+    const paths = validateDetail(d).filter((p) => p.path.includes('layer_starts')).map((p) => p.path);
+    expect(paths).toEqual(expect.arrayContaining(['members[0].layer_starts[0].start_m', 'members[0].layer_starts[1].layer', 'members[0].layer_starts[2].layer']));
+  });
+});

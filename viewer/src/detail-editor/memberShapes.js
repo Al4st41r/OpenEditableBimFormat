@@ -83,6 +83,42 @@ function stackedSlabShapes(member, profile, { plane, x0, x1, origin, originX }) 
   return { shapes, origin, bounds: boundsOf(shapes), warnings: [] };
 }
 
+/** The x of a profile, from its left face, that the member's placement turns about. */
+export const profileOriginX = (profile) => profile?.origin?.x ?? (profile?.width ?? 0) / 2;
+
+/**
+ * Where each layer of a profile starts across its width, in profile x (from the left face): the natural start (the
+ * layers stacked one after another) and the member's own override, if any (member.layer_starts). Region layers start at
+ * the left edge of their vertices. A layer is keyed by its number in the profile.
+ * @returns {Array<{ index: number, key: number, name: string, type: string, thickness: number, natural: number, override: number|undefined, start: number }>}
+ */
+export function describeLayers(member, profile) {
+  if (!Array.isArray(profile?.assembly)) return [];
+  const overrides = new Map((member.layer_starts ?? []).map((o) => [o.layer, o.start_m]));
+  let cursor = 0;
+  return profile.assembly.map((layer, index) => {
+    const key = layer.layer ?? index + 1;
+    const override = overrides.get(key);
+    let natural;
+    if (layer.type === 'region') natural = Array.isArray(layer.vertices) && layer.vertices.length ? Math.min(...layer.vertices.map((v) => v.x)) : 0;
+    else { natural = cursor; cursor += layer.thickness ?? 0; }
+    return { index, key, name: layer.name ?? '', type: layer.type ?? 'band', thickness: layer.thickness ?? 0, natural, override, start: override ?? natural };
+  });
+}
+
+/**
+ * The start of a layer implied by a point in detail space: the inverse of where the start handle is drawn. `frame` is
+ * { placement, originX, plane }. In a section the layer start is the local x; in a plan it runs across the member, along -y.
+ */
+export function startFromPoint(frame, point) {
+  const pl = frame.placement ?? {};
+  const a = ((pl.rotation_deg ?? 0) * Math.PI) / 180;
+  const c = Math.cos(a), s = Math.sin(a);
+  const dx = point.x - (pl.offset_x_m ?? 0), dy = point.y - (pl.offset_y_m ?? 0);
+  const local = { x: c * dx + s * dy, y: -s * dx + c * dy };
+  return (frame.plane === 'section' ? local.x : -local.y) + frame.originX;
+}
+
 /**
  * @param {object} member - { role, kind, profile_id, placement }
  * @param {object|undefined} profile - bundle profile (assembly dialect)
@@ -109,33 +145,40 @@ export function buildMemberShapes(member, profile, opts = {}) {
   if (isStackedSlab(profile)) return stackedSlabShapes(member, profile, { plane, x0, x1, origin, originX });
 
   const shapes = [];
-  let cursor = 0;
+  const info = describeLayers(member, profile);
   profile.assembly.forEach((layer, i) => {
     let local; // polygon in the member's local frame
+    let startPoint = null;
     if (layer.type === 'region') {
       if (!Array.isArray(layer.vertices) || layer.vertices.length < 3) return;
-      const pts = layer.vertices.map((v) => ({ x: v.x - originX, y: v.y }));
+      const shift = info[i].start - info[i].natural;            // a region moves as a whole
+      const pts = layer.vertices.map((v) => ({ x: v.x - originX + shift, y: v.y }));
+      const lo = Math.min(...pts.map((p) => p.x)), hi = Math.max(...pts.map((p) => p.x));
       if (plane === 'section') {
         local = pts;
+        const ys = pts.map((p) => p.y);
+        startPoint = placePoint(placement, { x: lo, y: (Math.min(...ys) + Math.max(...ys)) / 2 });
       } else {
-        const lo = Math.min(...pts.map((p) => p.x)), hi = Math.max(...pts.map((p) => p.x));
         if (!(hi > lo)) return;
         local = [{ x: x0, y: -hi }, { x: x1, y: -hi }, { x: x1, y: -lo }, { x: x0, y: -lo }];
+        startPoint = placePoint(placement, { x: (x0 + x1) / 2, y: -lo });
       }
     } else {
       const t = layer.thickness ?? 0;
-      const a = cursor - originX, b = cursor + t - originX;
-      cursor += t;
       if (!(t > 0)) return;
+      const a = info[i].start - originX, b = a + t;
       local = plane === 'section'
         ? [{ x: a, y: 0 }, { x: b, y: 0 }, { x: b, y: height }, { x: a, y: height }]
         : [{ x: x0, y: -b }, { x: x1, y: -b }, { x: x1, y: -a }, { x: x0, y: -a }];
+      startPoint = plane === 'section' ? placePoint(placement, { x: a, y: height / 2 }) : placePoint(placement, { x: (x0 + x1) / 2, y: -a });
     }
     shapes.push({
       points: ccw(local.map((p) => placePoint(placement, p))),
       materialId: layer.material_id,
       function: layer.function,
       layer: i,
+      key: info[i].key,
+      startPoint,
     });
   });
 

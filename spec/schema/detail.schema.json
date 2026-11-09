@@ -33,6 +33,19 @@
           "kind":       { "$ref": "#/definitions/kind" },
           "profile_id": { "type": "string" },
           "extent": { "type": "string", "enum": ["centred", "forward", "backward"], "description": "Drawing aid for the editor canvas, not geometry. How a plan view draws this member relative to its origin along its local x (the direction of travel): centred on it, forward (runs away from it) or backward (arrives at it). Default centred." },
+          "layer_starts": {
+            "type": "array",
+            "description": "Where particular layers of the member's profile start across its width, for this use only (the profile is not changed). Without an entry a layer starts where the layers before it end. The start is a distance from the profile's left face; a region layer moves so its left edge is there.",
+            "items": {
+              "type": "object",
+              "required": ["layer", "start_m"],
+              "additionalProperties": false,
+              "properties": {
+                "layer":   { "type": "integer", "minimum": 1, "description": "The layer's number in the profile's assembly." },
+                "start_m": { "type": "number" }
+              }
+            }
+          },
           "placement": {
             "type": "object",
             "required": ["offset_x_m", "offset_y_m", "rotation_deg"],
@@ -40,7 +53,16 @@
             "properties": {
               "offset_x_m":   { "type": "number" },
               "offset_y_m":   { "type": "number" },
-              "rotation_deg": { "type": "number" }
+              "rotation_deg": { "type": "number" },
+              "reference": {
+                "type": "object",
+                "description": "Measure the insertion point from reference lines. x names an x-axis line (a vertical one), y a y-axis line. The member's position on that axis is the line's offset_m plus offset_x_m (or offset_y_m), so it follows the line when the line moves. Without it the offsets are from the origin.",
+                "additionalProperties": false,
+                "properties": {
+                  "x": { "type": "string", "description": "id of a reference line with axis x." },
+                  "y": { "type": "string", "description": "id of a reference line with axis y." }
+                }
+              }
             }
           }
         }
@@ -106,6 +128,7 @@
         "required": ["kind", "axis", "offset_m"],
         "additionalProperties": false,
         "properties": {
+          "id":       { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$", "description": "Identifier a member's placement.reference points at. Defaults to <kind>-<axis> (eg grid-x)." },
           "kind":     { "type": "string", "enum": ["grid", "ffl", "level", "custom"] },
           "name":     { "type": "string", "minLength": 1, "description": "Label for the line. Defaults to the kind (GRID, FFL, LEVEL)." },
           "axis":     { "type": "string", "enum": ["x", "y"], "description": "x: the line sits at x = offset_m (vertical in the drawing). y: it sits at y = offset_m (horizontal)." },

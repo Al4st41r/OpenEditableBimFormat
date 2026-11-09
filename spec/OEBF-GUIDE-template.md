@@ -568,10 +568,15 @@ Detail fields:
   storey.
 - `geometry.regions[]` — extra shapes (trim, membranes, fillers): a `material_id`
   and at least three `vertices` in drawing space, simple (not self-intersecting).
+- `members[].layer_starts[]` — optional `{ "layer": 3, "start_m": 0.1 }`: where that
+  layer of the member's profile starts across its width, for this use only. Without
+  an entry a layer starts where the one before it ends.
 - `reference_lines[]` — optional named lines the drawing is set out from:
   `{ "kind": "grid", "axis": "x", "offset_m": 0 }` (`kind` is `grid`, `ffl`,
   `level` or `custom`; `name` overrides the label; an `x` line sits at that x,
-  a `y` line at that y). Drawn only; never extruded.
+  a `y` line at that y; `id` defaults to `<kind>-<axis>`, eg `grid-x`). Drawn only;
+  never extruded. A member's `placement.reference` (`{ "x": "grid-x" }`) measures
+  its insertion point from such a line, so it follows the line when it moves.
 - `clip` — optional viewing box `{ "x_min_m", "x_max_m", "y_min_m", "y_max_m" }`
   (any side may be left out). The 3D view cuts the detail to it.
 - `annotations[]` — optional drawing marks for the 2D view only, never extruded

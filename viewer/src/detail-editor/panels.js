@@ -221,8 +221,9 @@ function memberEditor(m, bundle, a) {
     row('Kind', select(KINDS, m.kind, (v) => a.setMemberKind(role, v))),
     row('Profile', select(bundle.profileIds.includes(m.profileId) ? bundle.profileIds : [m.profileId, ...bundle.profileIds], m.profileId, (v) => a.setMemberProfile(role, v))),
     row('Plan extent', select(EXTENTS, m.extent, (v) => a.setMemberExtent(role, v))),
-    row(`Offset x (${unitLabel()})`, num(m.offset_x_m, (v) => a.moveMember(role, { offset_x_m: v }))),
-    row(`Offset y (${unitLabel()})`, num(m.offset_y_m, (v) => a.moveMember(role, { offset_y_m: v }))),
+    insertionRow('x', m, role, a),
+    insertionRow('y', m, role, a),
+    layerStartsFold(m, role, a),
     row('Rotation (deg)', plain(m.rotation_deg, (v) => a.rotateMember(role, v))),
     h('div', { class: 'row' }, h('button', { onclick: () => a.removeMember(role) }, 'Remove member')),
   ];
@@ -351,6 +352,38 @@ function regionTagEditor(r, a) {
       onchange: (e) => a.setRegionTag(r.index, 'sequence', e.target.value === '' ? null : parseInt(e.target.value, 10)),
     })),
     h('div', { class: 'note' }, 'A tag here overrides the material for this region only.'))];
+}
+
+/** Where each layer of the member's profile starts across its width. Blank follows the layer before it. */
+function layerStartsFold(m, role, a) {
+  if (m.stacked) return h('div', { class: 'note' }, 'This profile stacks its layers from a face, so layer starts are not set here.');
+  if (!m.layers.length) return null;
+  const rows = m.layers.map((l) => h('div', { class: 'layerstart' },
+    h('span', { title: l.name }, `${l.key}. ${l.name || 'layer'}`),
+    h('span', { class: 'meta' }, l.type === 'region' ? 'region' : `${toDisplay(l.thickness)}`),
+    optionalLength(l.override ?? null, (v) => a.setLayerStart(role, l.key, v), { placeholder: `${toDisplay(l.natural)}` }),
+    h('button', { disabled: l.override === undefined, title: 'Follow the previous layer again', onclick: () => a.setLayerStart(role, l.key, null) }, '↺')));
+  return h('details', { class: 'fold', open: m.layers.some((l) => l.override !== undefined) },
+    h('summary', {}, 'Layer starts'),
+    ...rows,
+    h('div', { class: 'note' }, `Distance from the profile's left face (${unitLabel()}). Blank: follows the layer before. Drag the teal diamonds on the canvas to set them.`));
+}
+
+/** One axis of a member's insertion point: measured from the origin or from a reference line, with the absolute position shown. */
+function insertionRow(axis, m, role, a) {
+  const field = `offset_${axis}_m`;
+  const picked = m.reference[axis] ?? '';
+  const lines = m.lines[axis];
+  const unknown = picked && !lines.some((l) => l.id === picked);   // a reference the validator will flag
+  return h('div', { class: 'insertion' },
+    row(`Insert ${axis} (${unitLabel()})`, num(m[field], (v) => a.moveMember(role, { [field]: v }))),
+    h('div', { class: 'row' },
+      h('label', {}, 'from'),
+      h('select', { title: `Measure this distance from the origin or from a ${axis === 'x' ? 'vertical' : 'horizontal'} reference line`, onchange: (e) => a.setMemberReference(role, axis, e.target.value || null) },
+        h('option', { value: '' }, 'origin'),
+        ...lines.map((l) => h('option', { value: l.id, selected: l.id === picked }, `${l.label} (${axis} = ${toDisplay(l.offset_m)})`)),
+        unknown ? h('option', { value: picked, selected: true }, `${picked} (missing)`) : null)),
+    picked ? h('div', { class: 'note' }, `At ${axis} = ${toDisplay(m.absolute[axis])} ${unitLabel()}; follows the line.`) : null);
 }
 
 /** A length that may be left blank: blank gives null, otherwise the parsed value in metres. */

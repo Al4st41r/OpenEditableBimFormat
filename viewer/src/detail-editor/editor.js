@@ -123,7 +123,7 @@ function refresh() {
     const pm = buildPanelModel({
       doc: st.doc, selection: st.selection, validation, dirty: isDirty(st), canUndo: canUndo(st), canRedo: canRedo(st),
       profileIds: bundle.ctx.profileIds, materialIds: bundle.ctx.materialIds, junctions: bundle.ctx.junctions, elements: bundle.ctx.elements,
-      grids: bundle.ctx.grids, levels: bundle.ctx.levels, elementPaths: bundle.ctx.elementPaths, previewValues: st.preview,
+      grids: bundle.ctx.grids, levels: bundle.ctx.levels, elementPaths: bundle.ctx.elementPaths, previewValues: st.preview, profiles: bundle.ctx.profiles,
     });
     const reference = {
       data: buildBuildingReference({
@@ -248,6 +248,8 @@ const actions = {
   },
   setRegionNumber: (i, f, v) => apply((d) => D.setRegionNumber(d, i, f, v)),
   setRegionTag: (i, k, v) => apply((d) => D.setRegionTag(d, i, k, v)),
+  setLayerStart: (role, layer, start) => apply((d) => D.setLayerStart(d, role, layer, start)),
+  setMemberReference: (role, axis, id) => apply((d) => RF.setMemberReference(d, role, axis, id)),
   addReferenceLine: (line) => apply((d) => RF.addReferenceLine(d, line)),
   updateReferenceLine: (i, patch) => apply((d) => RF.updateReferenceLine(d, i, patch)),
   removeReferenceLine: (i) => apply((d) => RF.removeReferenceLine(d, i)),

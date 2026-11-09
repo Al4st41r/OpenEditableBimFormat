@@ -131,6 +131,22 @@ export function moveMember(doc, role, { offset_x_m, offset_y_m } = {}) {
   return d;
 }
 
+/**
+ * Set where one layer of a member's profile starts across its width (profile x from the left face), or remove the
+ * setting with null so the layer goes back to following the one before it. For this member only.
+ */
+export function setLayerStart(doc, role, layer, start) {
+  if (!Number.isInteger(layer) || layer < 1) throw new DetailEditError('layer must be a whole number from 1');
+  if (start !== null && !isNum(start)) throw new DetailEditError('A layer start must be a finite number');
+  const d = clone(doc);
+  const m = d.members[memberIndex(d, role)];
+  const list = (m.layer_starts ?? []).filter((o) => o.layer !== layer);
+  if (start !== null) list.push({ layer, start_m: Math.round(start * 1e6) / 1e6 + 0 });
+  list.sort((a, b) => a.layer - b.layer);
+  if (list.length) m.layer_starts = list; else delete m.layer_starts;
+  return d;
+}
+
 export function rotateMember(doc, role, degrees) {
   if (!isNum(degrees)) throw new DetailEditError('Rotation must be a finite number');
   const d = clone(doc);

@@ -44,7 +44,8 @@ describe('operations', () => {
   test('adding to a detail with only implied lines keeps them', () => {
     const d = addReferenceLine(base({ plane: 'plan' }), { kind: 'custom', axis: 'x', offset_m: 0.5 });
     expect(d.reference_lines).toHaveLength(3);
-    expect(d.reference_lines[0]).toEqual({ kind: 'grid', axis: 'x', offset_m: 0 });
+    expect(d.reference_lines[0]).toEqual({ id: 'grid-x', kind: 'grid', axis: 'x', offset_m: 0 });
+    expect(d.reference_lines[2].id).toBe('custom-x');
   });
   test('updates, removes, and the last removal brings the implied lines back', () => {
     let d = addReferenceLine(base(), { kind: 'level', axis: 'y', offset_m: 3 });
@@ -88,5 +89,79 @@ describe('document integration', () => {
     const paths = validateDetail(d).map((p) => p.path);
     expect(paths).toContain('clip.x_max_m');
     expect(paths).toContain('reference_lines[0].axis');
+  });
+});
+
+import { setMemberReference, resolvePlacement, resolveMember, offsetsForOrigin, checkPlacementReference, duplicateLineIds } from './referenceOps.js';
+
+describe('members measured from a line', () => {
+  const member = (extra = {}) => ({ role: 'wall', kind: 'wall', profile_id: 'p', placement: { offset_x_m: 0.3, offset_y_m: 0, rotation_deg: 0, ...extra } });
+  const doc = () => base({ plane: 'plan', members: [member()], reference_lines: [{ id: 'grid-x', kind: 'grid', axis: 'x', offset_m: 2 }, { id: 'grid-y', kind: 'grid', axis: 'y', offset_m: 0 }, { id: 'level-1', kind: 'level', axis: 'y', offset_m: 3 }] });
+
+  test('referencing a line keeps the member where it is: the stored offset becomes the distance from the line', () => {
+    const d = setMemberReference(doc(), 'wall', 'x', 'grid-x');
+    expect(d.members[0].placement.offset_x_m).toBeCloseTo(-1.7);           // was at x = 0.3, line is at 2
+    expect(d.members[0].placement.reference).toEqual({ x: 'grid-x' });
+    expect(resolvePlacement(d, d.members[0]).offset_x_m).toBeCloseTo(0.3);
+  });
+
+  test('the member follows the line when the line moves', () => {
+    let d = setMemberReference(doc(), 'wall', 'x', 'grid-x');
+    d = updateReferenceLine(d, 0, { offset_m: 2.5 });
+    expect(resolvePlacement(d, d.members[0]).offset_x_m).toBeCloseTo(0.8);
+    expect(resolveMember(d, d.members[0]).placement.reference).toBeUndefined();
+  });
+
+  test('going back to the origin keeps the member where it is', () => {
+    let d = setMemberReference(doc(), 'wall', 'x', 'grid-x');
+    d = setMemberReference(d, 'wall', 'x', null);
+    expect(d.members[0].placement.offset_x_m).toBeCloseTo(0.3);
+    expect(d.members[0].placement.reference).toBeUndefined();
+  });
+
+  test('the implied lines can be referred to too', () => {
+    const d = setMemberReference(base({ plane: 'plan', members: [member()] }), 'wall', 'y', 'grid-y');
+    expect(d.members[0].placement.reference).toEqual({ y: 'grid-y' });
+  });
+
+  test('refuses an unknown line, the wrong axis and an unknown member', () => {
+    expect(() => setMemberReference(doc(), 'wall', 'x', 'nope')).toThrow(/No reference line/);
+    expect(() => setMemberReference(doc(), 'wall', 'x', 'grid-y')).toThrow(/runs along y/);
+    expect(() => setMemberReference(doc(), 'ghost', 'x', 'grid-x')).toThrow(/No member/);
+    expect(() => setMemberReference(doc(), 'wall', 'z', null)).toThrow();
+  });
+
+  test('removing or turning a line fixes the members measured from it in place', () => {
+    const referenced = setMemberReference(doc(), 'wall', 'x', 'grid-x');
+    const removed = removeReferenceLine(referenced, 0);
+    expect(removed.members[0].placement.reference).toBeUndefined();
+    expect(removed.members[0].placement.offset_x_m).toBeCloseTo(0.3);
+    const turned = updateReferenceLine(referenced, 0, { axis: 'y' });
+    expect(turned.members[0].placement.reference).toBeUndefined();
+    expect(turned.members[0].placement.offset_x_m).toBeCloseTo(0.3);
+    expect(() => updateReferenceLine(referenced, 0, { id: 'other' })).toThrow(/keeps its id/);
+  });
+
+  test('dragging the origin stores the distance from the line', () => {
+    const d = setMemberReference(doc(), 'wall', 'x', 'grid-x');
+    const o = offsetsForOrigin(d, d.members[0], { x: 2.4, y: 1 });
+    expect(o.offset_x_m).toBeCloseTo(0.4);
+    expect(o.offset_y_m).toBe(1);
+  });
+
+  test('validation reports a missing line, the wrong axis and duplicate ids', () => {
+    expect(checkPlacementReference(doc(), member({ reference: { x: 'nope' } }))).toHaveLength(1);
+    expect(checkPlacementReference(doc(), member({ reference: { x: 'grid-y' } }))[0].message).toMatch(/runs along y/);
+    expect(checkPlacementReference(doc(), member({ reference: { z: 'a' } }))).toHaveLength(1);
+    expect(checkPlacementReference(doc(), member())).toEqual([]);
+    const dup = base({ reference_lines: [{ kind: 'grid', axis: 'x', offset_m: 0 }, { kind: 'grid', axis: 'x', offset_m: 1 }] });
+    expect(duplicateLineIds(dup)).toHaveLength(1);
+    const bad = doc(); bad.members[0].placement.reference = { x: 'nope' };
+    expect(validateDetail(bad).some((p) => p.path === 'members[0].placement.reference.x')).toBe(true);
+  });
+
+  test('serialises the reference', () => {
+    const d = setMemberReference(doc(), 'wall', 'x', 'grid-x');
+    expect(serializeDetail(d).members[0].placement.reference).toEqual({ x: 'grid-x' });
   });
 });
