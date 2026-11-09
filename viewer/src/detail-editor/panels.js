@@ -428,7 +428,10 @@ function layerDetailFold(m, role, bundle, a) {
       const [depth, repeat] = p ? p[axis] : [u?.depth_m ?? 0.1, u?.repeat_m ?? 0.11];
       // a plan detail also gets the courses and a running bond, which the 3D view builds
       const courses = p && axis === 'plan' ? { height_m: p.course[0], course_m: p.course[1], bond: u?.bond ?? 'running' } : {};
-      a.setLayerUnit(role, l.key, { ...(u ?? {}), depth_m: depth, repeat_m: repeat, ...courses });
+      // joints default to the bundle's mortar, when it has one, so the bed joint shows as it would on site
+      const mortar = Object.values(bundle.materials).find((mt) => mt.category === 'mortar')?.id;
+      const joint = u?.joint_material_id ?? (p && mortar ? mortar : undefined);
+      a.setLayerUnit(role, l.key, { ...(u ?? {}), depth_m: depth, repeat_m: repeat, ...courses, joint_material_id: joint });
     };
     const edit = (patch) => a.setLayerUnit(role, l.key, { ...u, ...patch });
     return [

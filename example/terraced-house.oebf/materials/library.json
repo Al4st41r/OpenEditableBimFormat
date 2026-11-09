@@ -12,6 +12,16 @@
       "interactions": { "adjacent_to": ["mat-mortar-general"], "bond_type": "mortar" }
     },
     {
+      "id": "mat-mortar-general", "type": "Material",
+      "name": "General Purpose Mortar", "category": "mortar",
+      "colour_hex": "#B8B2A4", "ifc_material_name": "Mortar",
+      "properties": {
+        "density_kg_m3": 1900, "thermal_conductivity_W_mK": 0.88,
+        "specific_heat_J_kgK": 840, "vapour_resistance_factor": 20
+      },
+      "interactions": { "adjacent_to": ["mat-brick-common"], "bond_type": "mortar" }
+    },
+    {
       "id": "mat-pir-insulation", "type": "Material",
       "name": "PIR Board Insulation", "category": "insulation",
       "colour_hex": "#E8D5A3", "ifc_material_name": "PIR Insulation",
