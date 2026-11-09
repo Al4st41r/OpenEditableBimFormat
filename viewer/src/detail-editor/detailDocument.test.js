@@ -517,3 +517,18 @@ describe('setLayerUnit', () => {
     expect(v.some((p) => /twice/.test(p.message))).toBe(true);
   });
 });
+
+describe('layer unit courses', () => {
+  const doc = () => ({ $schema: 'x', id: 'd', type: 'Detail', description: 'x', datum: {}, members: [{ role: 'w', kind: 'wall', profile_id: 'p', placement: { offset_x_m: 0, offset_y_m: 0, rotation_deg: 0 } }] });
+  const base = { depth_m: 0.2, repeat_m: 0.21 };
+
+  test('accepts height, course and bond together, and refuses them apart or overlapping', async () => {
+    const { setLayerUnit } = await import('./detailDocument.js');
+    expect(setLayerUnit(doc(), 'w', 1, { ...base, height_m: 0.06, course_m: 0.07, bond: 'running' }).members[0].layer_units[0].bond).toBe('running');
+    expect(() => setLayerUnit(doc(), 'w', 1, { ...base, height_m: 0.06 })).toThrow(/go together/);
+    expect(() => setLayerUnit(doc(), 'w', 1, { ...base, course_m: 0.07 })).toThrow(/go together/);
+    expect(() => setLayerUnit(doc(), 'w', 1, { ...base, height_m: 0.08, course_m: 0.07 })).toThrow(/courses overlap/);
+    expect(() => setLayerUnit(doc(), 'w', 1, { ...base, height_m: 0.06, course_m: 0.07, bond: 'flemish' })).toThrow(/stack or running/);
+    expect(() => setLayerUnit(doc(), 'w', 1, { ...base, bond: 'running' })).toThrow(/needs course_m/);
+  });
+});

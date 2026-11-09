@@ -267,3 +267,24 @@ describe('layers drawn as units in the axo model', () => {
     expect(unit.prisms.every((p) => p.materialId === 'brick' && p.function === 'finish' && p.layer === 0)).toBe(true);
   });
 });
+
+describe('courses in the axo model', () => {
+  const profile = { id: 'p', width: 0.1, origin: { x: 0, y: 0 }, height_limit_m: 0.5, assembly: [{ layer: 1, name: 'b', material_id: 'brick', thickness: 0.1, function: 'finish' }] };
+  const detail = (unit) => ({
+    id: 'd', plane: 'plan', datum: {}, geometry: { extrusion_m: 0.4, regions: [] },
+    members: [{ role: 'w', kind: 'wall', profile_id: 'p', extent: 'forward', placement: { offset_x_m: 0, offset_y_m: 0, rotation_deg: 0 }, layer_units: [{ layer: 1, ...unit }] }],
+  });
+
+  test('a plan wall with courses becomes prisms at different heights, with the running bond offset', () => {
+    const m = buildAxoModel(detail({ depth_m: 0.2, repeat_m: 0.21, height_m: 0.06, course_m: 0.07, bond: 'running' }), { profiles: new Map([['p', profile]]) });
+    const heights = [...new Set(m.prisms.map((p) => p.w0.toFixed(3)))];
+    expect(heights).toEqual(['0.000', '0.070', '0.140', '0.210', '0.280']);       // 0.4 m of wall: five courses
+    expect(m.prisms.every((p) => p.w1 - p.w0 > 0 && p.w1 <= 0.4 + 1e-9)).toBe(true);
+    expect(new Set(m.prisms.map((p) => p.id)).size).toBe(m.prisms.length);
+  });
+
+  test('without course fields the units stay full-height, as before', () => {
+    const m = buildAxoModel(detail({ depth_m: 0.2, repeat_m: 0.21 }), { profiles: new Map([['p', profile]]) });
+    expect(new Set(m.prisms.map((p) => p.w0))).toEqual(new Set([0]));
+  });
+});

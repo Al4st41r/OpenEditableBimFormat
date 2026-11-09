@@ -92,10 +92,10 @@ export function buildAxoModel(detail, ctx = {}) {
     // A column is a square prism as long as it is wide, not a strip as long as the detail.
     const length = member.kind === 'column' && profile.width > 0 ? profile.width : extrusion;
     const [m0, m1] = plane === 'plan' ? [0, top] : [-length / 2, length / 2];
-    const built = buildMemberShapes(placed, profile, { plane, length, heightM });
+    const built = buildMemberShapes(placed, profile, { plane, length, heightM, courses: true, wallTop: plane === 'plan' ? top : 0 });
     warnings.push(...built.warnings);
     for (const s of built.shapes) {
-      prisms.push({ kind: 'member', role: member.role, profileId: member.profile_id, layer: s.layer, function: s.function, materialId: s.materialId, points: ccw(s.points), w0: m0, w1: m1 });
+      prisms.push({ kind: 'member', role: member.role, profileId: member.profile_id, layer: s.layer, function: s.function, materialId: s.materialId, points: ccw(s.points), w0: s.w0 ?? m0, w1: s.w1 ?? m1, ...(s.course !== undefined ? { course: s.course } : {}) });
     }
   }
 

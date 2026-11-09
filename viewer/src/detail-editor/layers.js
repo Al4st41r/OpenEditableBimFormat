@@ -27,7 +27,7 @@ export function setLayer(layers, key, field, value) {
 /** Which layer a model reference belongs to. */
 export function layerOfRef(ref) {
   const t = ref?.type ?? '';
-  if (t === 'member' || t === 'member-origin' || t === 'member-rotate' || t === 'layer-start') return 'members';
+  if (t === 'member' || t === 'member-origin' || t === 'member-rotate' || t === 'layer-start' || t === 'layer-unit') return 'members';
   if (t === 'region' || t === 'vertex') return 'regions';
   if (t.startsWith('annotation')) return 'marks';
   return null;

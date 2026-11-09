@@ -426,7 +426,9 @@ function layerDetailFold(m, role, bundle, a) {
       if (id === 'strip') { a.setLayerUnit(role, l.key, null); return; }
       const p = UNIT_PRESETS.find((x) => x.id === id);
       const [depth, repeat] = p ? p[axis] : [u?.depth_m ?? 0.1, u?.repeat_m ?? 0.11];
-      a.setLayerUnit(role, l.key, { ...(u ?? {}), depth_m: depth, repeat_m: repeat });
+      // a plan detail also gets the courses and a running bond, which the 3D view builds
+      const courses = p && axis === 'plan' ? { height_m: p.course[0], course_m: p.course[1], bond: u?.bond ?? 'running' } : {};
+      a.setLayerUnit(role, l.key, { ...(u ?? {}), depth_m: depth, repeat_m: repeat, ...courses });
     };
     const edit = (patch) => a.setLayerUnit(role, l.key, { ...u, ...patch });
     return [
@@ -440,9 +442,12 @@ function layerDetailFold(m, role, bundle, a) {
         row(`Pitch (${unitLabel()})`, num(u.repeat_m, (v) => edit({ repeat_m: v }), { min: 0, title: 'Distance from one unit to the next; the joint is pitch minus size' })),
         row('Count', optionalCount(u.count, (v) => edit({ count: v }))),
         row(`Start (${unitLabel()})`, num(u.start_m ?? 0, (v) => edit({ start_m: v === 0 ? undefined : v }))),
+        axis === 'plan' ? row(`Height (${unitLabel()})`, optionalLength(u.height_m ?? null, (v) => edit({ height_m: v ?? undefined, course_m: v === null ? undefined : u.course_m ?? v, bond: v === null ? undefined : u.bond }), { placeholder: 'full height', title: 'Height of one unit, for the 3D courses' })) : null,
+        axis === 'plan' && u.height_m ? row(`Course (${unitLabel()})`, num(u.course_m ?? u.height_m, (v) => edit({ course_m: v }), { min: 0, title: 'Vertical pitch of the courses; the bed joint is the course pitch minus the height' })) : null,
+        axis === 'plan' && u.height_m ? row('Bond', select(['stack', 'running'], u.bond ?? 'stack', (v) => edit({ bond: v }), { title: 'Running offsets every second course by half a unit' })) : null,
         row('Unit material', matSelect(u.material_id, (v) => edit({ material_id: v }), 'the layer\'s own')),
         row('Joints', matSelect(u.joint_material_id, (v) => edit({ joint_material_id: v }), 'empty')),
-        h('div', { class: 'note' }, `Joint ${toDisplay(Math.max(0, u.repeat_m - u.depth_m))} ${unitLabel()}. ${m.plane === 'plan' ? 'Units run along the wall.' : 'Units run up the wall.'}`)) : null,
+        h('div', { class: 'note' }, `Joint ${toDisplay(Math.max(0, u.repeat_m - u.depth_m))} ${unitLabel()}. ${m.plane === 'plan' ? 'Units run along the wall; the drawing shows the first course, the 3D view all of them.' : 'Units run up the wall.'}`)) : null,
     ];
   });
   return h('details', { class: 'fold', open: bands.some((l) => l.unit) },

@@ -210,3 +210,17 @@ describe('reference lines and clip in the review drawing', () => {
     expect(clipped.width).toBe(plain.width);
   });
 });
+
+describe('courses in the plan drawing', () => {
+  const square = (x) => [{ x, y: 0 }, { x: x + 0.1, y: 0 }, { x: x + 0.1, y: 0.1 }, { x, y: 0.1 }];
+  const model = { plane: 'plan', extrusion: 1, prisms: [
+    { id: 'a', kind: 'member', materialId: 'm', points: square(0), w0: 0, w1: 0.06, course: 0 },
+    { id: 'b', kind: 'member', materialId: 'm', points: square(0.05), w0: 0.07, w1: 0.13, course: 1 },
+  ], bounds: { minU: 0, maxU: 0.15, minV: 0, maxV: 0.1 }, annotations: [], clip: null, refLines: [] };
+
+  it('draws the first course only', () => {
+    const { svg } = buildDetailSvg(model, {});
+    expect(svg).toContain('data-item="a"');
+    expect(svg).not.toContain('data-item="b"');
+  });
+});

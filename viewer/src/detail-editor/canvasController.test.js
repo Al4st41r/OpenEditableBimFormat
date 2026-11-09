@@ -810,3 +810,64 @@ describe('layer start handles', () => {
     expect(same3.x).toBeCloseTo(before.x, 9); expect(same3.y).toBeCloseTo(before.y, 9);   // the next layer did not move
   });
 });
+
+describe('unit handles and clip-aware wall length', () => {
+  const unitDoc = () => {
+    const d = exampleDetail();
+    d.members.find((m) => m.role === 'butting-wall').layer_units = [{ layer: 1, depth_m: 0.2, repeat_m: 0.21 }];
+    return d;
+  };
+  const sel = { type: 'member', role: 'butting-wall' };
+  const handleOf = (doc, which) => buildCanvasModel(doc, { profiles: PROFILES(), materials: MATERIALS(), selection: sel }).handles.find((h) => h.kind === 'unit-handle' && h.which === which);
+
+  test('a layer drawn as units gets a size handle and a pitch handle, and a strip layer gets none', () => {
+    const doc = unitDoc();
+    const hs = buildCanvasModel(doc, { profiles: PROFILES(), materials: MATERIALS(), selection: sel }).handles.filter((h) => h.kind === 'unit-handle');
+    expect(hs.map((h) => h.which).sort()).toEqual(['depth', 'pitch']);
+    expect(buildCanvasModel(exampleDetail(), { profiles: PROFILES(), materials: MATERIALS(), selection: sel }).handles.some((h) => h.kind === 'unit-handle')).toBe(false);
+  });
+
+  test('the handles sit 200 mm and 210 mm along the wall from where the first unit starts', () => {
+    const doc = unitDoc();
+    const d = handleOf(doc, 'depth'), p = handleOf(doc, 'pitch');
+    expect(Math.hypot(p.x - d.x, p.y - d.y)).toBeCloseTo(0.01, 6);
+    // the butting wall runs backward from its origin (0, -0.145) at 90 degrees: along +y is "backward", so units run down (-y)
+    expect(d.y).toBeCloseTo(-0.145 - 0.2, 6);
+  });
+
+  test('dragging the size handle sets the unit size, and the pitch follows when it would be smaller', () => {
+    const doc = unitDoc();
+    const h = handleOf(doc, 'depth');
+    let r = handleEvent(createController(), ev('down', h.x, h.y), ctxFor(doc, sel));
+    expect(r.state.drag.kind).toBe('layer-unit');
+    r = handleEvent(r.state, ev('move', h.x, h.y - 0.05), ctxFor(doc, sel));
+    r = handleEvent(r.state, ev('up', h.x, h.y - 0.05), ctxFor(doc, sel));
+    const u = lastDoc(r).doc.members.find((m) => m.role === 'butting-wall').layer_units[0];
+    expect(u.depth_m).toBeCloseTo(0.25, 2);
+    expect(u.repeat_m).toBeGreaterThanOrEqual(u.depth_m);
+  });
+
+  test('dragging the pitch handle sets the pitch but never below the size', () => {
+    const doc = unitDoc();
+    const h = handleOf(doc, 'pitch');
+    let r = handleEvent(createController(), ev('down', h.x, h.y), ctxFor(doc, sel));
+    r = handleEvent(r.state, ev('move', h.x, h.y - 0.04), ctxFor(doc, sel));
+    r = handleEvent(r.state, ev('up', h.x, h.y - 0.04), ctxFor(doc, sel));
+    expect(lastDoc(r).doc.members.find((m) => m.role === 'butting-wall').layer_units[0].repeat_m).toBeCloseTo(0.25, 2);
+    let r2 = handleEvent(createController(), ev('down', h.x, h.y), ctxFor(doc, sel));
+    r2 = handleEvent(r2.state, ev('move', h.x, h.y + 0.1), ctxFor(doc, sel));    // towards the start: smaller than the unit
+    r2 = handleEvent(r2.state, ev('up', h.x, h.y + 0.1), ctxFor(doc, sel));
+    const u = (lastDoc(r2)?.doc ?? doc).members.find((m) => m.role === 'butting-wall').layer_units[0];
+    expect(u.repeat_m).toBeGreaterThanOrEqual(u.depth_m - 1e-9);
+  });
+
+  test('a clip box makes the walls long enough to fill it; without one they keep the short default', () => {
+    const lengthOf = (d) => {
+      const m = buildCanvasModel(d, { profiles: PROFILES(), materials: MATERIALS() });
+      const ys = m.primitives.filter((p) => p.ref.role === 'butting-wall').flatMap((p) => p.points.map((q) => q.y));
+      return Math.max(...ys) - Math.min(...ys);
+    };
+    expect(lengthOf(exampleDetail())).toBeCloseTo(0.6, 3);
+    expect(lengthOf(setClip(exampleDetail(), { x_max_m: 0.7, y_min_m: -0.65 }))).toBeGreaterThan(1.2);
+  });
+});

@@ -159,6 +159,10 @@ export function renderCanvas(svg, model, view, size, { draft = null, hint = null
   for (const h of model.handles) {
     const s = toScreen(view, size, h);
     if (h.kind === 'clip') { drawClipHandle(svg, h, s); continue; }
+    if (h.kind === 'unit-handle') {   // round, like a vertex, in purple for the pitch
+      svg.appendChild(el('circle', { cx: s.x, cy: s.y, r: 5, fill: h.which === 'pitch' ? '#a64ac9' : '#fff', stroke: h.which === 'pitch' ? '#fff' : '#a64ac9', 'stroke-width': 2 }));
+      continue;
+    }
     if (h.kind === 'layer-start') {   // a diamond, so it is not mistaken for a vertex
       svg.appendChild(el('polygon', { points: `${s.x},${s.y - 6} ${s.x + 6},${s.y} ${s.x},${s.y + 6} ${s.x - 6},${s.y}`, fill: '#2a9d8f', stroke: '#fff', 'stroke-width': 1.5 }));
       continue;

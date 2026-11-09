@@ -75,7 +75,11 @@ function boundsOfPoints(pts) {
  *   selection: { type: 'member', role } | { type: 'region', index, vertex? }
  */
 export function buildCanvasModel(doc, ctx = {}) {
-  const { profiles = {}, materials = {}, values, selection = null, handleDistance = 0.2, length } = ctx;
+  const { profiles = {}, materials = {}, values, selection = null, handleDistance = 0.2 } = ctx;
+  // Members are drawn as long as the detail needs: with a clip box, far enough to fill it, so the clip is meaningful
+  const clipBox = clipOf(doc);
+  const reach = clipBox ? Math.max(0, ...Object.values(clipBox).map(Math.abs)) + 0.1 : 0;
+  const length = ctx.length ?? (reach > 0.3 ? 2 * reach : undefined);
   const plane = doc.plane ?? 'section';
   const colour = (id) => materials[id]?.colour_hex ?? DEFAULT_FILL;
 
@@ -133,6 +137,11 @@ export function buildCanvasModel(doc, ctx = {}) {
       for (const sh of buildMemberShapes(member, profile, { plane, length }).shapes) {
         if (!sh.startPoint) continue;
         handles.push({ id: `member:${member.role}:layer:${sh.key}:start`, kind: 'layer-start', x: sh.startPoint.x, y: sh.startPoint.y, selected: false, ref: { type: 'layer-start', role: member.role, layer: sh.key, frame } });
+        // the first unit of a layer drawn as units: drag its far end for the size, the start of the next for the pitch
+        for (const uh of sh.unitHandles ?? []) {
+          handles.push({ id: `member:${member.role}:layer:${sh.key}:unit-${uh.which}`, kind: 'unit-handle', which: uh.which, x: uh.point.x, y: uh.point.y, selected: false,
+            ref: { type: 'layer-unit', role: member.role, layer: sh.key, which: uh.which, run: uh.run } });
+        }
       }
     }
     handles.push(

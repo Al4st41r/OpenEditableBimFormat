@@ -46,6 +46,9 @@
                 "repeat_m": { "type": "number", "exclusiveMinimum": 0, "description": "Pitch of the units along the run. At least depth_m." },
                 "count":    { "type": "integer", "minimum": 1, "description": "How many units. Omit to fill the run." },
                 "start_m":  { "type": "number", "description": "Offset of the first unit from the start of the run. Default 0." },
+                "height_m": { "type": "number", "exclusiveMinimum": 0, "description": "Plan details only: the height of one unit, so the 3D view can build the wall in courses. Needs course_m." },
+                "course_m": { "type": "number", "exclusiveMinimum": 0, "description": "Plan details only: the vertical pitch of the courses, at least height_m. The gap is the bed joint." },
+                "bond":     { "type": "string", "enum": ["stack", "running"], "description": "Plan details only, with course_m: stack puts every unit over the one below; running offsets every second course by half a unit. Default stack. The plan drawing shows the first course." },
                 "material_id":       { "type": "string", "description": "Material of the units. Defaults to the layer's." },
                 "joint_material_id": { "type": "string", "description": "Fills the joints (eg mortar). Without it the joints are empty." }
               }

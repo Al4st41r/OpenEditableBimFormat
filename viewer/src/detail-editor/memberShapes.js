@@ -84,6 +84,7 @@ function stackedSlabShapes(member, profile, { plane, x0, x1, origin, originX }) 
 }
 
 const MAX_UNITS = 400;
+const MAX_COURSE_SHAPES = 1500;
 
 /**
  * Positions of the repeating units that replace a layer: [start, end] pairs along the run, in metres in the member's
@@ -98,6 +99,51 @@ export function unitSpans(spec, extent) {
   const wanted = spec.count ?? Math.max(fit, 0);
   const n = Math.min(wanted, MAX_UNITS);
   return { spans: Array.from({ length: n }, (_, k) => [first + k * spec.repeat_m, first + k * spec.repeat_m + spec.depth_m]), truncated: wanted > MAX_UNITS };
+}
+
+/**
+ * The units of an odd course in a running bond: a half unit (a bat) at the start, then whole units offset by half a
+ * pitch. Units that would run past the end of the run are left out.
+ * @returns {Array<[number, number]>}
+ */
+export function runningBondSpans(spec, extent) {
+  const [lo, hi] = extent;
+  const first = lo + (spec.start_m ?? 0);
+  const joint = spec.repeat_m - spec.depth_m;
+  const bat = (spec.depth_m - joint) / 2;
+  const spans = [];
+  if (bat > 0.01 && first + bat <= hi + 1e-9) spans.push([first, first + bat]);
+  for (let k = 0; ; k++) {
+    const u0 = first + spec.repeat_m / 2 + k * spec.repeat_m;
+    if (u0 + spec.depth_m > hi + 1e-9 || (spec.count !== undefined && k >= spec.count)) break;
+    spans.push([u0, u0 + spec.depth_m]);
+  }
+  return spans;
+}
+
+/**
+ * Handles on the first unit of a layer drawn as units: the far end of the unit (drag to set its size) and the start of
+ * the next unit (drag to set the pitch). `run` carries what turns a dragged point back into a size: the run's first
+ * unit position, the direction sign and the view.
+ */
+function unitHandles(unit, extent, sign, plane, placement, across) {
+  const first = extent[0] + (unit.start_m ?? 0);
+  const at = (t) => {
+    const along = sign * t;
+    return placePoint(placement, plane === 'section' ? { x: across, y: along } : { x: along, y: -across });
+  };
+  const run = { first, sign, plane, placement };
+  return [{ which: 'depth', point: at(first + unit.depth_m), run }, { which: 'pitch', point: at(first + unit.repeat_m), run }];
+}
+
+/** The position along a unit run (the first unit starts at run.first) of a point in detail space: the inverse of the unit handles. */
+export function runPositionFromPoint(run, point) {
+  const pl = run.placement ?? {};
+  const a = ((pl.rotation_deg ?? 0) * Math.PI) / 180;
+  const c = Math.cos(a), s = Math.sin(a);
+  const dx = point.x - (pl.offset_x_m ?? 0), dy = point.y - (pl.offset_y_m ?? 0);
+  const local = { x: c * dx + s * dy, y: -s * dx + c * dy };
+  return run.sign * (run.plane === 'section' ? local.y : local.x);
 }
 
 /** The x of a profile, from its left face, that the member's placement turns about. */
@@ -198,20 +244,33 @@ export function buildMemberShapes(member, profile, opts = {}) {
         const run = plane === 'section' ? [0, height] : mode === 'backward' ? [0, length] : mode === 'forward' ? [0, length] : [x0, x1];
         const found = unitSpans(unit, run);
         const truncated = found.truncated;
-        const spans = plane === 'plan' && mode === 'backward' ? found.spans.map(([u0, u1]) => [-u1, -u0]) : found.spans;
+        const orient = (sp) => (plane === 'plan' && mode === 'backward' ? sp.map(([u0, u1]) => [-u1, -u0]) : sp);
+        const spans = orient(found.spans);
         if (truncated) warnings.push(`Layer ${info[i].key} of "${member.role}" needs more than ${MAX_UNITS} units; showing ${MAX_UNITS}`);
         if (unit.joint_material_id) {
           shapes.push({ points: ccw(local.map((p) => placePoint(placement, p))), materialId: unit.joint_material_id, function: layer.function, layer: i, key: info[i].key, startPoint, bed: true });
         }
-        spans.forEach(([u0, u1], k) => {
-          const cell = plane === 'section'
-            ? [{ x: a, y: u0 }, { x: b, y: u0 }, { x: b, y: u1 }, { x: a, y: u1 }]
-            : [{ x: u0, y: -b }, { x: u1, y: -b }, { x: u1, y: -a }, { x: u0, y: -a }];
-          shapes.push({
-            points: ccw(cell.map((p) => placePoint(placement, p))), materialId: unit.material_id ?? layer.material_id, function: layer.function,
-            layer: i, key: info[i].key, unit: k, startPoint: k === 0 && !unit.joint_material_id ? startPoint : null,
+        // 3D of a plan detail: the wall in courses, each a row of units, every second one offset in a running bond
+        const coursed = opts.courses && plane === 'plan' && unit.course_m && unit.height_m && opts.wallTop > 0;
+        const courses = coursed ? Math.max(1, Math.floor((opts.wallTop - unit.height_m) / unit.course_m + 1e-9) + 1) : 1;
+        const cell = (u0, u1) => (plane === 'section'
+          ? [{ x: a, y: u0 }, { x: b, y: u0 }, { x: b, y: u1 }, { x: a, y: u1 }]
+          : [{ x: u0, y: -b }, { x: u1, y: -b }, { x: u1, y: -a }, { x: u0, y: -a }]);
+        let made = 0;
+        for (let c = 0; c < courses && made < MAX_COURSE_SHAPES; c++) {
+          const row = coursed && unit.bond === 'running' && c % 2 === 1 ? orient(runningBondSpans(unit, run)) : spans;
+          row.forEach(([u0, u1], k) => {
+            if (made >= MAX_COURSE_SHAPES) return;
+            made++;
+            const z = coursed ? { w0: c * unit.course_m, w1: Math.min(c * unit.course_m + unit.height_m, opts.wallTop), course: c } : {};
+            shapes.push({
+              points: ccw(cell(u0, u1).map((p) => placePoint(placement, p))), materialId: unit.material_id ?? layer.material_id, function: layer.function,
+              layer: i, key: info[i].key, unit: k, ...z, startPoint: c === 0 && k === 0 && !unit.joint_material_id ? startPoint : null,
+              ...(c === 0 && k === 0 ? { unitHandles: unitHandles(unit, run, plane === 'plan' && mode === 'backward' ? -1 : 1, plane, placement, (a + b) / 2) } : {}),
+            });
           });
-        });
+        }
+        if (coursed && made >= MAX_COURSE_SHAPES) warnings.push(`Layer ${info[i].key} of "${member.role}" has more than ${MAX_COURSE_SHAPES} units in courses; showing the lower courses`);
         return;
       }
     }

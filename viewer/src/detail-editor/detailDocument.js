@@ -152,13 +152,19 @@ export function checkLayerUnit(u) {
   const out = [];
   const bad = (field, message) => out.push({ field, message });
   if (!u || typeof u !== 'object') return [{ field: '', message: 'A layer unit must be an object' }];
-  for (const k of Object.keys(u)) if (!['layer', 'depth_m', 'repeat_m', 'count', 'start_m', 'material_id', 'joint_material_id'].includes(k)) bad(k, `Unknown field "${k}"`);
+  for (const k of Object.keys(u)) if (!['layer', 'depth_m', 'repeat_m', 'count', 'start_m', 'height_m', 'course_m', 'bond', 'material_id', 'joint_material_id'].includes(k)) bad(k, `Unknown field "${k}"`);
   if (!Number.isInteger(u.layer) || u.layer < 1) bad('layer', 'layer must be a whole number from 1');
   if (!isNum(u.depth_m) || u.depth_m <= 0) bad('depth_m', 'depth_m must be a number above zero');
   if (!isNum(u.repeat_m) || u.repeat_m <= 0) bad('repeat_m', 'repeat_m must be a number above zero');
   else if (isNum(u.depth_m) && u.repeat_m < u.depth_m - 1e-9) bad('repeat_m', 'repeat_m must be at least depth_m, or the units overlap');
   if (u.count !== undefined && (!Number.isInteger(u.count) || u.count < 1)) bad('count', 'count must be a whole number from 1');
   if (u.start_m !== undefined && !isNum(u.start_m)) bad('start_m', 'start_m must be a number');
+  if (u.height_m !== undefined && (!isNum(u.height_m) || u.height_m <= 0)) bad('height_m', 'height_m must be a number above zero');
+  if (u.course_m !== undefined && (!isNum(u.course_m) || u.course_m <= 0)) bad('course_m', 'course_m must be a number above zero');
+  else if (isNum(u.course_m) && isNum(u.height_m) && u.course_m < u.height_m - 1e-9) bad('course_m', 'course_m must be at least height_m, or the courses overlap');
+  if ((u.height_m === undefined) !== (u.course_m === undefined)) bad(u.height_m === undefined ? 'height_m' : 'course_m', 'height_m and course_m go together');
+  if (u.bond !== undefined && !['stack', 'running'].includes(u.bond)) bad('bond', 'bond must be stack or running');
+  if (u.bond !== undefined && u.course_m === undefined) bad('bond', 'bond needs course_m');
   for (const k of ['material_id', 'joint_material_id']) if (u[k] !== undefined && (typeof u[k] !== 'string' || u[k] === '')) bad(k, `${k} must be a material id`);
   return out;
 }

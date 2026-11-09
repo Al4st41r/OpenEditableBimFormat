@@ -30,12 +30,12 @@
 
 import { hitTest, hitStack } from './canvasModel.js';
 import { dragHandle, translateRegions, regionsInBox, snapValue } from './canvasEdit.js';
-import { addRect, addRegion, removeRegions, setLayerStart } from './detailDocument.js';
+import { addRect, addRegion, removeRegions, setLayerStart, setLayerUnit } from './detailDocument.js';
 import { regionIndices, selectionOfRegions } from './pageState.js';
 import { TOOLS } from './detailConstants.js';
 import { addAnnotation, removeAnnotation, moveAnnotation, setAnnotationPoint, setDimensionOffset, angleOf } from './annotationOps.js';
 import { setClip, resolvePlacement } from './referenceOps.js';
-import { startFromPoint } from './memberShapes.js';
+import { startFromPoint, runPositionFromPoint } from './memberShapes.js';
 import { signedArea, isSelfIntersecting } from '../detail/regionGeometry.js';
 
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
@@ -126,6 +126,9 @@ function selectTool(state, event, ctx) {
     if (hit?.handle && hit.ref.type === 'layer-start') {
       return done({ ...state, drag: { kind: 'layer-start', ref: hit.ref, ...base } }, [{ type: 'select', selection: { type: 'member', role: hit.ref.role } }]);
     }
+    if (hit?.handle && hit.ref.type === 'layer-unit') {
+      return done({ ...state, drag: { kind: 'layer-unit', ref: hit.ref, ...base } }, [{ type: 'select', selection: { type: 'member', role: hit.ref.role } }]);
+    }
     if (hit?.handle && hit.ref.type === 'clip-edge') {
       return done({ ...state, drag: { kind: 'clip-edge', ref: hit.ref, ...base } });
     }
@@ -189,6 +192,20 @@ function selectTool(state, event, ctx) {
       return done({ ...state, drag: { ...drag, last: screen } }, dx || dy ? [{ type: 'pan', dx, dy }] : []);
     }
 
+    if (drag.kind === 'layer-unit') {
+      const sp = snapAt(ctx, point);
+      const size = Math.round((runPositionFromPoint(drag.ref.run, sp.point) - drag.ref.run.first) * 1e6) / 1e6;
+      let doc;
+      try {
+        const m = drag.startDoc.members.find((x) => x.role === drag.ref.role);
+        const u = (m.layer_units ?? []).find((x) => x.layer === drag.ref.layer);
+        if (!(size > 0)) return done(state);
+        const patch = drag.ref.which === 'depth' ? { depth_m: size, repeat_m: Math.max(u.repeat_m, size) } : { repeat_m: Math.max(size, u.depth_m) };
+        doc = setLayerUnit(drag.startDoc, drag.ref.role, drag.ref.layer, { ...u, ...patch });
+      } catch (err) { return done(state, [msg(err.message)]); }
+      const changed = !same(doc, drag.startDoc);
+      return done({ ...state, drag: { ...drag, current: doc, moved: drag.moved || changed } }, changed ? [{ type: 'doc', doc, transient: true }] : []);
+    }
     if (drag.kind === 'layer-start') {
       const sp = snapAt(ctx, point);
       let doc;

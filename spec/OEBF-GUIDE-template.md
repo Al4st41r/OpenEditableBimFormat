@@ -573,7 +573,9 @@ Detail fields:
   for a brick leaf (215 mm bricks on a 225 mm pitch, a 10 mm joint). The unit is as
   thick as the layer; it repeats along the wall in plan and up it in section.
   `count` and `start_m` are optional (no count fills the run); `material_id` swaps
-  the unit's material. For this use only; the profile is unchanged.
+  the unit's material. In a plan detail `height_m`, `course_m` and `bond` (`stack` or
+  `running`) make the 3D view build the wall in courses, every second one offset by
+  half a unit for a running bond. For this use only; the profile is unchanged.
 - `members[].layer_starts[]` — optional `{ "layer": 3, "start_m": 0.1 }`: where that
   layer of the member's profile starts across its width, for this use only. Without
   an entry a layer starts where the one before it ends.

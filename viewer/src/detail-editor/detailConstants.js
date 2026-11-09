@@ -28,9 +28,9 @@ export const MARK_TOOLS = ['line', 'arc', 'circle', 'dim', 'note'];
  * leaves the joint.
  */
 export const UNIT_PRESETS = [
-  { id: 'brick', label: 'Brick 215 x 65, 10 mm joint', plan: [0.215, 0.225], section: [0.065, 0.075] },
-  { id: 'block', label: 'Block 440 x 215, 10 mm joint', plan: [0.44, 0.45], section: [0.215, 0.225] },
-  { id: 'thin-block', label: 'Block 440 x 215, 3 mm joint', plan: [0.44, 0.443], section: [0.215, 0.218] },
+  { id: 'brick', label: 'Brick 215 x 65, 10 mm joint', plan: [0.215, 0.225], section: [0.065, 0.075], course: [0.065, 0.075] },
+  { id: 'block', label: 'Block 440 x 215, 10 mm joint', plan: [0.44, 0.45], section: [0.215, 0.225], course: [0.215, 0.225] },
+  { id: 'thin-block', label: 'Block 440 x 215, 3 mm joint', plan: [0.44, 0.443], section: [0.215, 0.218], course: [0.215, 0.218] },
 ];
 
 /** The keyboard and mouse shortcuts, for the help dialog. Groups of [keys, what it does]. */

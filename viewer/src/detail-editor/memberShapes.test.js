@@ -392,3 +392,62 @@ describe('units start at the origin end of the run', () => {
     expect(xs(buildMemberShapes(m('centred'), profile, { plane: 'plan', length: 0.6 }))[0][0]).toBeCloseTo(-0.3);
   });
 });
+
+import { runningBondSpans } from './memberShapes.js';
+
+describe('bond and courses', () => {
+  const brick = { depth_m: 0.2, repeat_m: 0.21, height_m: 0.06, course_m: 0.07 };
+  const profile = { id: 'p', width: 0.1, origin: { x: 0, y: 0 }, assembly: [{ layer: 1, name: 'b', material_id: 'brick', thickness: 0.1, function: 'finish' }] };
+  const wall = (unit) => ({ role: 'w', kind: 'wall', profile_id: 'p', extent: 'forward', placement: { offset_x_m: 0, offset_y_m: 0, rotation_deg: 0 }, layer_units: [{ layer: 1, ...unit }] });
+  const units = (r) => r.shapes.filter((s) => s.unit !== undefined);
+
+  test('an odd course starts with a half unit and then whole units offset by half a pitch', () => {
+    const s = runningBondSpans({ depth_m: 0.215, repeat_m: 0.225 }, [0, 1]);
+    expect(s[0][0]).toBeCloseTo(0); expect(s[0][1]).toBeCloseTo(0.1025);      // the bat: (215 - 10) / 2
+    expect(s[1][0]).toBeCloseTo(0.1125); expect(s[1][1]).toBeCloseTo(0.3275);  // then whole bricks at the half pitch
+    expect(s.at(-1)[1]).toBeLessThanOrEqual(1 + 1e-9);                         // none run past the end
+  });
+
+  test('without the courses option the plan shows one row, as before', () => {
+    const r = buildMemberShapes(wall(brick), profile, { plane: 'plan', length: 1 });
+    expect(units(r).every((s) => s.w0 === undefined)).toBe(true);
+    expect(units(r)).toHaveLength(4);
+  });
+
+  test('with courses each course is a row at its own height, and a running bond offsets every second one', () => {
+    const r = buildMemberShapes(wall({ ...brick, bond: 'running' }), profile, { plane: 'plan', length: 1, courses: true, wallTop: 0.3 });
+    const byCourse = (c) => units(r).filter((s) => s.course === c);
+    expect(new Set(units(r).map((s) => s.course))).toEqual(new Set([0, 1, 2, 3]));            // 0.3 m / 0.07 = 4 courses
+    expect(byCourse(0)[0].w0).toBeCloseTo(0); expect(byCourse(0)[0].w1).toBeCloseTo(0.06);
+    expect(byCourse(2)[0].w0).toBeCloseTo(0.14);
+    const startX = (s) => Math.min(...s.points.map((p) => p.x));
+    expect(startX(byCourse(0)[1])).toBeCloseTo(0.21);                                         // stretcher course: whole bricks
+    expect(startX(byCourse(1)[1])).toBeGreaterThan(0.1);                                      // odd course: shifted
+    expect(startX(byCourse(1)[1])).not.toBeCloseTo(0.21);
+    expect(byCourse(1).length).toBeGreaterThanOrEqual(byCourse(0).length);                    // the bat adds one
+  });
+
+  test('a stack bond puts every course over the one below', () => {
+    const r = buildMemberShapes(wall({ ...brick, bond: 'stack' }), profile, { plane: 'plan', length: 1, courses: true, wallTop: 0.15 });
+    const xs = (c) => units(r).filter((s) => s.course === c).map((s) => Math.min(...s.points.map((p) => p.x)).toFixed(4));
+    expect(xs(1)).toEqual(xs(0));
+  });
+
+  test('the last course does not rise above the wall', () => {
+    const r = buildMemberShapes(wall(brick), profile, { plane: 'plan', length: 0.3, courses: true, wallTop: 0.2 });
+    expect(Math.max(...units(r).map((s) => s.w1))).toBeLessThanOrEqual(0.2 + 1e-9);
+  });
+
+  test('courses are mirrored for a member that arrives at its origin (backward) and are ignored in section', () => {
+    const back = buildMemberShapes({ ...wall({ ...brick, bond: 'running' }), extent: 'backward' }, profile, { plane: 'plan', length: 1, courses: true, wallTop: 0.15 });
+    expect(Math.max(...units(back).filter((s) => s.course === 0).map((s) => Math.max(...s.points.map((p) => p.x))))).toBeCloseTo(0);
+    const section = buildMemberShapes(wall(brick), profile, { plane: 'section', heightM: 1, courses: true, wallTop: 1 });
+    expect(units(section).every((s) => s.course === undefined)).toBe(true);
+  });
+
+  test('a huge wall is capped with a warning', () => {
+    const r = buildMemberShapes(wall({ depth_m: 0.01, repeat_m: 0.011, height_m: 0.01, course_m: 0.011 }), profile, { plane: 'plan', length: 3, courses: true, wallTop: 3 });
+    expect(units(r).length).toBeLessThanOrEqual(1500);
+    expect(r.warnings.join(' ')).toMatch(/more than 1500/);
+  });
+});

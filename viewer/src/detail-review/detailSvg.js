@@ -92,7 +92,9 @@ export function buildDetailSvg(model, opts = {}) {
   const pt = (p) => `${num(p.x * k)},${num(-p.y * k)}`;
 
   // Larger solids first, so a small item is never hidden under a large one. The 3D pick uses the same rule.
+  // a plan drawing looks down on the wall: only the first course of units shows, not every course stacked over it
   const styled = model.prisms
+    .filter((p) => !(p.course > 0))
     .map((p, i) => ({ p, i, area: Math.abs(signedArea(p.points)), s: styleFor(p, { ...opts, k }) }))
     .sort((a, b) => b.area - a.area || a.i - b.i);
   const defs = hatchDefs(styled.map(({ s }) => ({ kind: s.hatchKind, weight: s.hatch })));
