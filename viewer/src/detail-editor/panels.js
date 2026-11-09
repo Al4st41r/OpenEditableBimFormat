@@ -13,6 +13,7 @@ import { KINDS, PLANES, EXTENTS, DATUM_KINDS, DATUM_REFERENCES, RULES } from './
 import { PACKAGES, BARRIERS, FIRE_ROLES, SHEARING_LAYERS } from '../detail-review/classification.js';
 import { drawReference } from './reference.js';
 import { LINE_STYLES } from './annotationOps.js';
+import { LAYERS, LAYER_LABELS } from './layers.js';
 
 function h(tag, attrs = {}, ...children) {
   const e = document.createElement(tag);
@@ -75,6 +76,14 @@ function leftPanel(pm, bundle, a) {
   const kind = h('select', {}, options(KINDS, 'wall'));
   const profile = h('select', {}, options(bundle.profileIds, bundle.profileIds[0]));
   return [
+    h('h3', {}, 'Layers'),
+    ...LAYERS.map((key) => {
+      const l = bundle.layers[key];
+      return h('div', { class: 'layer' },
+        h('button', { class: l.visible ? 'on' : '', title: l.visible ? 'Hide' : 'Show', onclick: () => a.setLayer(key, 'visible', !l.visible) }, l.visible ? 'Shown' : 'Hidden'),
+        h('button', { class: l.locked ? 'on' : '', title: l.locked ? 'Unlock' : 'Lock: drawn and snapped to, but not picked', onclick: () => a.setLayer(key, 'locked', !l.locked) }, l.locked ? 'Locked' : 'Open'),
+        h('span', { class: l.visible ? '' : 'off' }, LAYER_LABELS[key]));
+    }),
     h('h3', {}, 'Members'),
     ...pm.members.map((m) => h('div', { class: `item${m.selected ? ' selected' : ''}`, onclick: () => a.select({ type: 'member', role: m.role }) },
       h('span', {}, m.role),
@@ -88,6 +97,9 @@ function leftPanel(pm, bundle, a) {
       h('span', { class: 'swatch', style: `background:${bundle.materials[r.materialId]?.colour_hex ?? '#888'}` }),
       h('span', {}, `Region ${r.index}`),
       h('span', { class: `meta${r.materialMissing ? ' warn' : ''}` }, r.materialMissing ? `${r.materialId} missing` : `${r.vertexCount} pts${r.boundCount ? ` · ${r.boundCount} bound` : ''}`))),
+    ...(pm.marks.length ? [h('h3', {}, 'Marks')] : []),
+    ...pm.marks.map((m) => h('div', { class: `item${m.selected ? ' selected' : ''}`, onclick: () => a.select({ type: 'annotation', index: m.index }) },
+      h('span', {}, m.label))),
   ];
 }
 

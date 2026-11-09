@@ -11,6 +11,7 @@
  *   ctx: { doc, model, selection, snap, angleStep, tolerance, material }
  *     doc        the committed document (drags always work from where they began)
  *     model      buildCanvasModel() for the current doc and selection (handles, hit areas)
+ *     blocked    optional { members, regions, marks }: true where the layer is hidden or locked (box select skips it)
  *     material   id used by the rectangle and polygon tools, or null
  *
  *   effects (apply in order):
@@ -137,7 +138,7 @@ function selectTool(state, event, ctx) {
       return done({ ...state, draft }, [{ type: 'draft', draft }]);
     }
     if (type === 'up') {
-      const hits = regionsInBox(ctx.doc, state.draft.a, point);
+      const hits = ctx.blocked?.regions ? [] : regionsInBox(ctx.doc, state.draft.a, point);
       const picked = [...new Set([...drag.base, ...hits])];
       return done({ ...state, drag: null, draft: null }, [{ type: 'draft', draft: null }, { type: 'select', selection: selectionOfRegions(picked) }]);
     }

@@ -12,6 +12,7 @@ import { FsaAdapter, MemoryAdapter } from '../editor/storageAdapter.js';
 import { setUnit, getUnit, toDisplay, fromDisplay } from '../editor/units.js';
 import * as D from './detailDocument.js';
 import * as AN from './annotationOps.js';
+import { defaultLayers, setLayer, applyLayers, blocked, keepSelection, layerOfSelection, editable, LAYER_LABELS } from './layers.js';
 import { validateDetail } from './detailValidate.js';
 import { createDetail } from './detailSerializer.js';
 import { loadDetailContext, saveDetail } from './detailStore.js';
@@ -89,8 +90,11 @@ function status(text, isError = false) {
 const validationContext = () => ({ profileIds: bundle.ctx.profileIds, materialIds: bundle.ctx.materialIds });
 const currentDoc = () => display ?? st.doc;
 
+// Layers: view state only; hidden things are not drawn, picked or snapped to, locked ones are drawn but not picked.
+let layers = defaultLayers();
+
 function canvasModelFor(doc, selection) {
-  return buildCanvasModel(doc, { profiles: bundle.ctx.profiles, materials: bundle.ctx.materials, values: st.preview, selection });
+  return applyLayers(buildCanvasModel(doc, { profiles: bundle.ctx.profiles, materials: bundle.ctx.materials, values: st.preview, selection }), layers);
 }
 
 function visibleSnap() {
@@ -127,7 +131,7 @@ function refresh() {
       canShow3D: !!window.opener && !window.opener.closed,
     };
     renderPanels({ left: $('left-panel'), right: $('right-panel') }, pm, {
-      profileIds: bundle.ctx.profileIds, materialIds: bundle.ctx.materialIds, materials: bundle.ctx.materials, previewValues: st.preview, reference, anchors,
+      profileIds: bundle.ctx.profileIds, materialIds: bundle.ctx.materialIds, materials: bundle.ctx.materials, previewValues: st.preview, reference, anchors, layers,
     }, actions);
     $('save-btn').disabled = !pm.saveEnabled;
     $('undo-btn').disabled = !pm.canUndo;
@@ -164,7 +168,16 @@ function apply(fn) {
 }
 
 const actions = {
-  select: (sel) => { st = select(st, sel); refresh(); },
+  select: (sel) => {
+    const key = layerOfSelection(sel);
+    if (!editable(layers, key)) { status(`The ${LAYER_LABELS[key].toLowerCase()} layer is hidden or locked.`, true); return; }
+    st = select(st, sel); refresh();
+  },
+  setLayer: (key, field, value) => {
+    layers = setLayer(layers, key, field, value);
+    if (st) st = select(st, keepSelection(layers, st.selection));
+    refresh();
+  },
   setDescription: (v) => apply((d) => D.setDescription(d, v)),
   setPlane: (v) => apply((d) => D.setPlane(d, v)),
   setDatum: (kind, reference) => apply((d) => D.setDatum(d, { kind, reference })),
@@ -285,7 +298,7 @@ function controllerContext() {
   const getModel = () => (model ??= canvasModelFor(st.doc, st.selection));
   const step = visibleSnap();
   return {
-    doc: st.doc, selection: st.selection, snap: step, angleStep: 5, tolerance: 9 / view.scale,
+    blocked: blocked(layers), doc: st.doc, selection: st.selection, snap: step, angleStep: 5, tolerance: 9 / view.scale,
     material: $('material-select').value || null,
     suspendSnap: pointer.alt,
     // The smart cursor: named snaps against everything drawn, in pixels converted to metres at this zoom.
@@ -306,7 +319,12 @@ function applyEffects(effects) {
         if (e.transient) display = e.doc;
         else { st = commit(st, e.doc); display = null; needsRefresh = true; status(''); }
         break;
-      case 'select': st = select(st, e.selection); needsRefresh = true; break;
+      case 'select': {
+        // something just drawn on a hidden or locked layer brings that layer back, so it is not lost from view
+        const key = layerOfSelection(e.selection);
+        if (key && !editable(layers, key) && controller.tool !== 'select') layers = setLayer(setLayer(layers, key, 'visible', true), key, 'locked', false);
+        st = select(st, keepSelection(layers, e.selection)); needsRefresh = true; break;
+      }
       case 'pan': view = panByPixels(view, e.dx, e.dy); break;
       case 'draft': draft = e.draft; break;
       case 'hint': hint = e.hint; break;
@@ -418,7 +436,7 @@ window.addEventListener('keydown', (e) => {
   if (mod && e.key.toLowerCase() === 'y') { e.preventDefault(); doRedo(); return; }
   if (typing || !st) return;
   const sel = st.selection;
-  if (mod && e.key.toLowerCase() === 'a' && st.doc.geometry?.regions?.length) {
+  if (mod && e.key.toLowerCase() === 'a' && st.doc.geometry?.regions?.length && editable(layers, 'regions')) {
     e.preventDefault();
     st = select(st, selectionOfRegions(st.doc.geometry.regions.map((_, i) => i))); refresh();
     status(`${st.doc.geometry.regions.length} region(s) selected.`);

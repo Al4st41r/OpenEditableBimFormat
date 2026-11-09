@@ -645,3 +645,16 @@ describe('annotation tools', () => {
     expect(off.state.drag.ref.type).toBe('annotation-offset');
   });
 });
+
+describe('layers and box select', () => {
+  test('box select skips regions when the regions layer is blocked', () => {
+    const doc = exampleDetail();
+    const run = (blocked) => {
+      let r = handleEvent(createController(), ev('down', -5, -5, { shift: true }), ctxFor(doc, null, { blocked }));
+      r = handleEvent(r.state, ev('move', 5, 5), ctxFor(doc, null, { blocked }));
+      return handleEvent(r.state, ev('up', 5, 5), ctxFor(doc, null, { blocked }));
+    };
+    expect(of(run({ regions: false }), 'select')[0].selection).not.toBeNull();
+    expect(of(run({ regions: true }), 'select')[0].selection).toBeNull();
+  });
+});

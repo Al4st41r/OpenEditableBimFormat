@@ -1,11 +1,21 @@
 /**
  * detailDiff.js
  *
- * A plain-words summary of what changed between two versions of a detail: members and regions added,
- * removed or altered. Regions have no id, so they are matched by position.
+ * A plain-words summary of what changed between two versions of a detail: members, regions, annotations and
+ * parameters added, removed or altered. Regions and annotations have no id, so they are matched by position.
  */
 
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+const ANN = { line: 'Line', dimension: 'Dimension', note: 'Note' };
+
+/** Lines for two ordered lists compared by position. */
+function byPosition(before, after, label, lines) {
+  for (let i = 0; i < Math.max(before.length, after.length); i++) {
+    if (i >= before.length) lines.push(`${label(after[i], i)} added.`);
+    else if (i >= after.length) lines.push(`${label(before[i], i)} removed.`);
+    else if (!same(before[i], after[i])) lines.push(`${label(after[i], i)} changed.`);
+  }
+}
 
 /** @returns {string[]} one line per change; empty when the details match */
 export function diffDetails(before, after) {
@@ -18,15 +28,21 @@ export function diffDetails(before, after) {
   }
   for (const role of mb.keys()) if (!ma.has(role)) lines.push(`Member "${role}" removed.`);
 
-  const rb = before.regions ?? [];
-  const ra = after.regions ?? [];
-  const label = (r, i) => `Region ${i + 1}${r?.material_id ? ` (${r.material_id})` : ''}`;
-  for (let i = 0; i < Math.max(rb.length, ra.length); i++) {
-    if (i >= rb.length) lines.push(`${label(ra[i], i)} added.`);
-    else if (i >= ra.length) lines.push(`${label(rb[i], i)} removed.`);
-    else if (!same(rb[i], ra[i])) lines.push(`${label(ra[i], i)} changed.`);
+  const region = (r, i) => `Region ${i + 1}${r?.material_id ? ` (${r.material_id})` : ''}`;
+  byPosition(before.geometry?.regions ?? [], after.geometry?.regions ?? [], region, lines);
+  if (before.geometry?.extrusion_m !== after.geometry?.extrusion_m && (before.geometry || after.geometry)) lines.push('Extrusion changed.');
+
+  const mark = (a, i) => `${ANN[a?.type] ?? 'Annotation'} ${i + 1}${a?.type === 'note' ? ` ("${a.text}")` : ''}`;
+  byPosition(before.annotations ?? [], after.annotations ?? [], mark, lines);
+
+  const pb = before.parameters ?? {}, pa = after.parameters ?? {};
+  for (const [name, p] of Object.entries(pa)) {
+    if (!(name in pb)) lines.push(`Parameter "${name}" added.`);
+    else if (!same(pb[name], p)) lines.push(`Parameter "${name}" changed.`);
   }
-  const known = new Set(['members', 'regions']);
+  for (const name of Object.keys(pb)) if (!(name in pa)) lines.push(`Parameter "${name}" removed.`);
+
+  const known = new Set(['members', 'geometry', 'annotations', 'parameters']);
   for (const k of new Set([...Object.keys(before), ...Object.keys(after)])) {
     if (!known.has(k) && !same(before[k], after[k])) lines.push(`Field "${k}" changed.`);
   }

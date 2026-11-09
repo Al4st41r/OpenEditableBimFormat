@@ -193,7 +193,7 @@ export function hitTest(model, pt, tolerance = 0.02) {
 
   // annotations sit above the shapes: the nearest segment or anchor within tolerance
   let near = null;
-  for (const a of model.annotations ?? []) {
+  for (const a of (model.annotations ?? []).filter((x) => !x.locked)) {
     const anchor = a.ann.type === 'note' ? [{ a: a.ann.at, b: a.ann.at }] : [];
     for (const seg of [...annotationSegments(a.ann), ...anchor]) {
       const d = distanceToSegment(pt, seg);
@@ -202,6 +202,6 @@ export function hitTest(model, pt, tolerance = 0.02) {
   }
   if (near) return { id: near.a.id, ref: { type: 'annotation', index: near.a.index }, handle: false };
 
-  const hit = [...model.primitives].sort((a, b) => b.order - a.order).find((p) => pointInPolygon(pt, p.points));
+  const hit = [...model.primitives].filter((p) => !p.locked).sort((a, b) => b.order - a.order).find((p) => pointInPolygon(pt, p.points));
   return hit ? { id: hit.id, ref: hit.ref, handle: false } : null;
 }

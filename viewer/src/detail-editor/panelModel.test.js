@@ -251,3 +251,14 @@ describe('dimensions of the selected region (issue #105)', () => {
     expect(m.selectedRegion.edges[1].length).toBeCloseTo(0.1, 9);
   });
 });
+
+describe('marks list', () => {
+  test('lists annotations with a label and the selected one', async () => {
+    const { addAnnotation } = await import('./annotationOps.js');
+    const doc = addAnnotation(addAnnotation(exampleDetail(), { type: 'note', at: { x: 0, y: 0 }, text: 'DPC' }), { type: 'line', points: [{ x: 0, y: 0 }, { x: 1, y: 0 }] });
+    const pm = buildPanelModel({ doc, selection: { type: 'annotation', index: 1 }, validation: [] });
+    expect(pm.marks.map((m) => m.label)).toEqual(['Note: DPC', 'Line, 2 points']);
+    expect(pm.marks.map((m) => m.selected)).toEqual([false, true]);
+    expect(pm.selectedAnnotation).toMatchObject({ type: 'line', points: 2 });
+  });
+});

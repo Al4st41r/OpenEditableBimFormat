@@ -118,7 +118,10 @@ export function buildPanelModel({ doc, selection, validation, dirty, canUndo, ca
     },
     condition: doc.condition ?? null,
     members, regions: regionRows, parameters, selectedMember, selectedRegion, selectedAnnotation,
-    annotationCount: doc.annotations?.length ?? 0,
+    marks: (doc.annotations ?? []).map((a, index) => ({
+      index, type: a.type, selected: selection?.type === 'annotation' && selection.index === index,
+      label: a.type === 'note' ? `Note: ${a.text}` : a.type === 'line' ? `Line, ${a.points.length} points` : 'Dimension',
+    })),
     usage: {
       needsSave: dirty,
       junctions: findUsages(doc.id, junctions).map((j) => {
