@@ -42,6 +42,9 @@
     #sheet-dialog::backdrop { background: rgba(0,0,0,0.5); }
     #sheet-dialog > button { margin-right: 6px; margin-top: 8px; }
     #help-dialog { background: #222; color: #ddd; border: 1px solid #555; border-radius: 6px; padding: 14px 18px; max-width: 620px; max-height: 80vh; overflow-y: auto; }
+    #publish-dialog { background: #222; color: #ddd; border: 1px solid #555; border-radius: 6px; padding: 14px 18px; max-width: 700px; max-height: 80vh; overflow-y: auto; font-size: 12px; }
+    #publish-dialog::backdrop { background: rgba(0,0,0,0.5); }
+    #publish-dialog code { display: block; background: #151515; padding: 4px 8px; margin: 3px 0; user-select: all; }
     #help-dialog::backdrop { background: rgba(0,0,0,0.5); }
     #help-dialog dl { display: grid; grid-template-columns: 150px 1fr; gap: 3px 12px; margin: 0 0 6px; font-size: 12px; }
     #help-dialog dt { color: #fff; font-family: monospace; }
@@ -155,6 +158,7 @@
     <select id="units-select" title="Display units"><option value="mm" selected>mm</option><option value="m">m</option></select>
     <span class="sep"></span>
     <span id="dirty" hidden title="Unsaved changes">●</span>
+    <button id="publish-btn" title="Download the edited files and show how to put them on the site">Publish</button>
     <button id="profile-btn" title="Edit the profile of the selected member (opens the profile editor); changes come back here when you save there">Profile</button>
     <button id="view3d-btn" title="See this detail in 3D, including unsaved changes (opens the review page)">3D</button>
     <button id="help-btn" title="Keyboard and mouse shortcuts (?)">?</button>
@@ -172,6 +176,7 @@
     <div id="right-panel" class="panel"></div>
   </div>
   <dialog id="help-dialog"></dialog>
+  <dialog id="publish-dialog"></dialog>
   <dialog id="sheet-dialog"></dialog>
   <dialog id="new-dialog"></dialog>
   <dialog id="loc-dialog"></dialog>

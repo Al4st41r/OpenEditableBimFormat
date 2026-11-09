@@ -32,6 +32,7 @@ import { createState, commit, undo, redo, select, setPreview, setTool, markSaved
 import { buildCanvasModel, rulerTicks } from './canvasModel.js';
 import { createController, setControllerTool, handleEvent } from './canvasController.js';
 import { buildPanelModel } from './panelModel.js';
+import { publishSteps } from './publishSteps.js';
 import { fitView, toDetail, zoomAt, panByPixels } from './viewTransform.js';
 import { translateRegions, transformRegions, selectionCentre } from './canvasEdit.js';
 import { renderCanvas } from './render.js';
@@ -820,6 +821,7 @@ window.__detailEditor = { snapState: () => snapState, hint: () => hint, state: (
 // view, which reads the served bundle and would otherwise show the old build-up.
 const PROFILE_DRAFT_KEY = 'oebf-profile-drafts';
 const editedProfiles = new Map();
+const editedSvgs = new Map();
 
 function profileToEdit() {
   const sel = st?.selection;
@@ -837,7 +839,8 @@ $('profile-btn').addEventListener('click', () => {
     if (e.data?.type === 'ready') {
       tab.postMessage({ type: 'memory-bundle', profiles: structuredClone(bundle.ctx.profiles), matMap: structuredClone(bundle.ctx.materials), activeProfileId: active, projectName: bundle.adapter?.name ?? '' }, window.location.origin);
     } else if (e.data?.type === 'profile-saved') {
-      const { id, json } = e.data;
+      const { id, json, svg } = e.data;
+      if (svg) editedSvgs.set(id, svg);
       bundle.ctx.profiles[id] = json;
       if (!bundle.ctx.profileIds.includes(id)) bundle.ctx.profileIds.push(id);
       editedProfiles.set(id, json);
@@ -847,6 +850,44 @@ $('profile-btn').addEventListener('click', () => {
     }
   };
   window.addEventListener('message', send);
+});
+
+// ── publish ──────────────────────────────────────────────────────────────────
+// The served bundle is a build of the repository, so the page cannot write to it. Publish downloads the edited detail
+// (and any edited profiles) and lists what to do with them.
+const download = (name, text, type) => {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type }));
+  a.download = name;
+  a.click();
+  URL.revokeObjectURL(a.href);
+};
+
+$('publish-btn').addEventListener('click', () => {
+  if (!st || !bundle) { status('Open a detail first.', true); return; }
+  if (!bundle.urlName) { status('Save writes straight to a bundle opened from a folder. Publish is for the served examples.', true); return; }
+  const problems = validateDetail(st.doc, validationContext());
+  if (problems.length) { status(`Not published: ${problems[0].message}`, true); return; }
+  const steps = publishSteps({ bundleName: bundle.urlName, detailId: st.doc.id, profiles: [...editedProfiles.keys()].map((id) => ({ id, svg: editedSvgs.has(id) })) });
+  download(`${st.doc.id}.json`, toJsonText(st.doc), 'application/json');
+  for (const [id, json] of editedProfiles) {
+    download(`${id}.json`, JSON.stringify(json, null, 2), 'application/json');
+    if (editedSvgs.has(id)) download(`${id}.svg`, editedSvgs.get(id), 'image/svg+xml');
+  }
+  const mk = (tag, text) => Object.assign(document.createElement(tag), { textContent: text });
+  const dlg = $('publish-dialog');
+  const close = mk('button', 'Close');
+  close.addEventListener('click', () => dlg.close());
+  dlg.replaceChildren(
+    mk('h3', 'Publish'),
+    mk('p', 'These files were downloaded. Copy each into the repository, replacing what is there:'),
+    ...steps.files.map((f) => mk('code', `${f.name}  →  ${f.to}`)),
+    mk('p', 'Then run, from the repository root:'),
+    ...steps.commands.map((c) => mk('code', c)),
+    mk('p', 'The site serves the build in viewer/dist, so it shows the edit once the build has run. Reload with a hard refresh.'),
+    close,
+  );
+  dlg.showModal();
 });
 
 // ── 3D ───────────────────────────────────────────────────────────────────────
