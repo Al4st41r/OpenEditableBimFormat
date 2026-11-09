@@ -25,6 +25,7 @@ import { createController, setControllerTool, handleEvent } from './canvasContro
 import { buildPanelModel } from './panelModel.js';
 import { fitView, toDetail, zoomAt, panByPixels } from './viewTransform.js';
 import { renderCanvas } from './render.js';
+import { primitiveStyle } from './drawStyle.js';
 import { renderPanels } from './panels.js';
 import { snapPoint, SNAP_KINDS } from '../snap/snapEngine.js';
 import { buildTooltip } from '../snap/tooltip.js';
@@ -96,7 +97,7 @@ function visibleSnap() {
 // ── painting ─────────────────────────────────────────────────────────────────
 function paint() {
   if (!st) { svg.replaceChildren(); return; }
-  renderCanvas(svg, canvasModelFor(currentDoc(), st.selection), view, size, { draft, hint });
+  renderCanvas(svg, canvasModelFor(currentDoc(), st.selection), view, size, { draft, hint, styleOf: (p) => primitiveStyle(p, { doc: currentDoc(), materials: bundle.ctx.materials, profiles: bundle.ctx.profiles }) });
   paintTip();
 }
 
@@ -173,6 +174,8 @@ const actions = {
   moveMember: (role, o) => apply((d) => D.moveMember(d, role, o)),
   rotateMember: (role, v) => apply((d) => D.rotateMember(d, role, v)),
   setRegionMaterial: (i, v) => apply((d) => D.setRegionMaterial(d, i, v)),
+  setRegionNumber: (i, f, v) => apply((d) => D.setRegionNumber(d, i, f, v)),
+  setRegionTag: (i, k, v) => apply((d) => D.setRegionTag(d, i, k, v)),
   removeRegion: (i) => apply((d) => D.removeRegion(d, i)),
   moveVertex: (r, v, c) => apply((d) => D.moveVertex(d, r, v, c)),
   bind: (r, v, axis, param) => apply((d) => D.bindCoordinate(d, r, v, axis, { param })),

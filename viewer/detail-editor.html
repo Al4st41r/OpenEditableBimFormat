@@ -58,8 +58,11 @@
     .box { border: 1px solid #333; border-radius: 3px; padding: 6px 8px; margin: 6px 0; }
     .param { margin: 6px 0; padding: 6px 8px; border: 1px solid #333; border-radius: 3px; }
     .param input[type=range] { width: 100%; }
-    .vtx { display: grid; grid-template-columns: 18px 1fr 1fr; gap: 4px; align-items: center; margin: 3px 0; }
+    .vtx { display: grid; grid-template-columns: 18px minmax(0,1fr) minmax(0,1fr); gap: 4px; align-items: center; margin: 3px 0; }
     .vtx.selected { background: #1e3a5a; border-radius: 3px; }
+    .fold { margin: 8px 0; border-top: 1px solid #333; padding-top: 6px; }
+    .fold > summary { cursor: pointer; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: #999; margin-bottom: 4px; }
+    .vtx select, .vtx input { min-width: 0; width: 100%; }
     .bound { color: #8cf; font-size: 11px; }
     .box.hl { border-color: #0a6cff; box-shadow: 0 0 0 1px #0a6cff; }
     .ref { margin: 4px 0; line-height: 0; }

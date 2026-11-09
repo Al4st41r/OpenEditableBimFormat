@@ -207,6 +207,37 @@ export function setRegionMaterial(doc, index, material_id) {
   return d;
 }
 
+const REGION_NUMBERS = ['depth_m', 'repeat_x_m', 'repeat_y_m', 'count_x', 'count_y', 'stagger_x_m'];
+const INTEGER_FIELDS = ['count_x', 'count_y'];
+
+/** Set or clear (null) one numeric field of a region: depth and the repeat pitch, counts and stagger. */
+export function setRegionNumber(doc, index, field, value) {
+  if (!REGION_NUMBERS.includes(field)) throw new DetailEditError(`"${field}" is not a region number field`);
+  const d = clone(doc);
+  const region = regionAt(d, index);
+  if (value === null || value === undefined || value === '') { delete region[field]; return d; }
+  if (!isNum(value)) throw new DetailEditError(`${field} must be a finite number`);
+  if (field !== 'stagger_x_m' && value <= 0) throw new DetailEditError(`${field} must be greater than zero`);
+  if (INTEGER_FIELDS.includes(field) && !Number.isInteger(value)) throw new DetailEditError(`${field} must be a whole number`);
+  region[field] = value;
+  return d;
+}
+
+/** Set or clear one classification tag on a region. An empty value (or empty list) removes it; tags is dropped when empty. */
+export function setRegionTag(doc, index, key, value) {
+  if (!['package', 'barrier', 'fire_role', 'sequence', 'shearing_layer'].includes(key)) throw new DetailEditError(`"${key}" is not a tag`);
+  const d = clone(doc);
+  const region = regionAt(d, index);
+  const empty = value === null || value === undefined || value === '' || (Array.isArray(value) && value.length === 0);
+  if (empty) {
+    if (region.tags) { delete region.tags[key]; if (Object.keys(region.tags).length === 0) delete region.tags; }
+    return d;
+  }
+  if (key === 'sequence' && (!Number.isInteger(value) || value < 1 || value > 99)) throw new DetailEditError('sequence must be a whole number from 1 to 99');
+  region.tags = { ...(region.tags ?? {}), [key]: value };
+  return d;
+}
+
 /** Set one or both axes of a vertex to plain numbers (this unbinds a bound axis). */
 export function moveVertex(doc, r, v, { x, y } = {}) {
   for (const c of [x, y]) if (c !== undefined && !isNum(c)) throw new DetailEditError('Coordinates must be finite numbers');

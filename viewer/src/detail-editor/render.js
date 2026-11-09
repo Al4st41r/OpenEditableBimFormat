@@ -7,6 +7,7 @@
 
 import { toScreen } from './viewTransform.js';
 import { toDisplay, unitLabel } from '../editor/units.js';
+import { patternDefs, patternId } from './drawStyle.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 const el = (name, attrs = {}, text) => {
@@ -25,7 +26,7 @@ const pointsAttr = (pts, view, size) => pts.map((p) => { const s = toScreen(view
  * @param {{width, height}} size - pixels
  * @param {{ draft?: object|null, hint?: { snap: object, lastPoint: object|null }|null }} [opts]
  */
-export function renderCanvas(svg, model, view, size, { draft = null, hint = null } = {}) {
+export function renderCanvas(svg, model, view, size, { draft = null, hint = null, styleOf = null } = {}) {
   while (svg.firstChild) svg.removeChild(svg.firstChild);
   svg.setAttribute('viewBox', `0 0 ${size.width} ${size.height}`);
 
@@ -49,14 +50,27 @@ export function renderCanvas(svg, model, view, size, { draft = null, hint = null
   const o = toScreen(view, size, { x: 0, y: 0 });
   svg.appendChild(el('circle', { cx: o.x, cy: o.y, r: 4, fill: '#d33' }));
 
-  // Shapes
-  for (const p of model.primitives) {
-    svg.appendChild(el('polygon', {
-      points: pointsAttr(p.points, view, size), fill: p.fill, 'fill-opacity': p.kind === 'region' ? 0.95 : 0.85,
-      stroke: p.selected ? '#0a6cff' : p.kind === 'region' ? '#222' : '#666', 'stroke-width': p.selected ? 2.5 : 1,
-      'data-id': p.id, 'stroke-linejoin': 'round',
-    }));
+  // Shapes: tint, hatch and cut weight as in the review drawing when a style function is given
+  const styles = styleOf ? model.primitives.map(styleOf) : [];
+  if (styleOf) {
+    const defs = el('defs');
+    defs.innerHTML = patternDefs(styles);
+    svg.appendChild(defs);
   }
+  model.primitives.forEach((p, i) => {
+    const s = styles[i];
+    const pts = pointsAttr(p.points, view, size);
+    const stroke = p.selected ? '#0a6cff' : s ? '#000' : p.kind === 'region' ? '#222' : '#666';
+    const width = p.selected ? 2.5 : s ? s.cutPx : 1;
+    svg.appendChild(el('polygon', {
+      points: pts, fill: s ? s.fill : p.fill, 'fill-opacity': s ? 1 : p.kind === 'region' ? 0.95 : 0.85,
+      stroke: s ? 'none' : stroke, 'stroke-width': s ? 0 : width, 'data-id': p.id, 'stroke-linejoin': 'round',
+    }));
+    if (s && s.hatchKind !== 'none') {
+      svg.appendChild(el('polygon', { points: pts, fill: `url(#${patternId(s.hatchKind, s.hatch)})`, stroke: 'none', 'pointer-events': 'none' }));
+    }
+    if (s) svg.appendChild(el('polygon', { points: pts, fill: 'none', stroke, 'stroke-width': width, 'stroke-linejoin': 'miter', 'pointer-events': 'none' }));
+  });
 
   // Draft (rubber band)
   if (draft?.kind === 'rect') {

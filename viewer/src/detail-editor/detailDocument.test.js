@@ -330,3 +330,34 @@ describe('scalar settings', () => {
       .toEqual({ rule: 'butt', member_count: 2, member_kinds: ['wall', 'wall'] });
   });
 });
+
+describe('region repeat and tags', () => {
+  test('setRegionNumber sets and clears a field', () => {
+    const d = D.setRegionNumber(base(), 0, 'depth_m', 0.21);
+    expect(d.geometry.regions[0].depth_m).toBe(0.21);
+    expect('depth_m' in D.setRegionNumber(d, 0, 'depth_m', null).geometry.regions[0]).toBe(false);
+  });
+  test('setRegionNumber rejects bad values and fields', () => {
+    expect(() => D.setRegionNumber(base(), 0, 'repeat_x_m', 0)).toThrow(/greater than zero/);
+    expect(() => D.setRegionNumber(base(), 0, 'count_x', 2.5)).toThrow(/whole number/);
+    expect(() => D.setRegionNumber(base(), 0, 'colour', 1)).toThrow(/not a region number/);
+    expect(() => D.setRegionNumber(base(), 9, 'depth_m', 1)).toThrow(/No region/);
+    expect(D.setRegionNumber(base(), 0, 'stagger_x_m', -0.1).geometry.regions[0].stagger_x_m).toBe(-0.1);
+  });
+  test('setRegionTag sets, merges and removes tags, dropping an empty object', () => {
+    let d = D.setRegionTag(base(), 0, 'package', 'cladding');
+    d = D.setRegionTag(d, 0, 'barrier', ['water']);
+    expect(d.geometry.regions[0].tags).toEqual({ package: 'cladding', barrier: ['water'] });
+    d = D.setRegionTag(D.setRegionTag(d, 0, 'package', null), 0, 'barrier', []);
+    expect('tags' in d.geometry.regions[0]).toBe(false);
+  });
+  test('setRegionTag checks the key and the sequence range', () => {
+    expect(() => D.setRegionTag(base(), 0, 'colour', 'red')).toThrow(/not a tag/);
+    expect(() => D.setRegionTag(base(), 0, 'sequence', 100)).toThrow(/1 to 99/);
+    expect(D.setRegionTag(base(), 0, 'sequence', 5).geometry.regions[0].tags.sequence).toBe(5);
+  });
+  test('the operations do not mutate their input', () => {
+    const d = deepFreeze(base());
+    expect(() => { D.setRegionNumber(d, 0, 'depth_m', 1); D.setRegionTag(d, 0, 'package', 'mep'); }).not.toThrow();
+  });
+});

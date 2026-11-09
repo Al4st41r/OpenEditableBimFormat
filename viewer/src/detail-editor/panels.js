@@ -10,6 +10,7 @@
 import { toDisplay, unitLabel, getUnit } from '../editor/units.js';
 import { parseDimension } from '../snap/dimension.js';
 import { KINDS, PLANES, EXTENTS, DATUM_KINDS, DATUM_REFERENCES, RULES } from './detailConstants.js';
+import { PACKAGES, BARRIERS, FIRE_ROLES, SHEARING_LAYERS } from '../detail-review/classification.js';
 import { drawReference } from './reference.js';
 
 function h(tag, attrs = {}, ...children) {
@@ -216,10 +217,52 @@ function regionEditor(r, pm, bundle, a) {
   return [
     h('h3', {}, `Region ${r.index}`),
     row('Material', select(bundle.materialIds.includes(r.materialId) ? bundle.materialIds : [r.materialId, ...bundle.materialIds], r.materialId, (v) => a.setRegionMaterial(r.index, v))),
+    ...regionRepeatEditor(r, a),
+    ...regionTagEditor(r, a),
     h('div', { class: 'note' }, `Vertices (x, y in ${unitLabel()}). Bind a coordinate to a parameter to make it adjustable per junction.`),
     ...vertexRows,
     h('div', { class: 'row' }, h('button', { onclick: () => a.removeRegion(r.index) }, 'Remove region')),
   ];
+}
+
+/** Depth and repeat of a region: one unit is drawn, repeated at a pitch (brick 210 deep every 220, tile 90 deep on 98). */
+function regionRepeatEditor(r, a) {
+  const n = r.numbers;
+  const len = (field, label, title) => row(label, num(n[field], (m) => a.setRegionNumber(r.index, field, m), { title, placeholder: '-' }));
+  const count = (field, label) => row(label, h('input', {
+    type: 'number', min: 1, step: 1, value: n[field] ?? '', placeholder: '-',
+    onchange: (e) => a.setRegionNumber(r.index, field, e.target.value === '' ? null : parseInt(e.target.value, 10)),
+  }));
+  const used = Object.values(n).some((v) => v !== null);
+  return [h('details', { class: 'fold', open: used },
+    h('summary', {}, 'Depth and repeat'),
+    len('depth_m', `Depth (${unitLabel()})`, 'How far the unit extends in plan or section'),
+    len('repeat_x_m', `Pitch x (${unitLabel()})`, 'Distance between units along x, from start to start'),
+    len('repeat_y_m', `Pitch y (${unitLabel()})`, 'Distance between units along y'),
+    count('count_x', 'Count x'), count('count_y', 'Count y'),
+    len('stagger_x_m', `Stagger x (${unitLabel()})`, 'Shift of each row along x, for bond'),
+    h('div', { class: 'note' }, 'The vertices draw one unit; the gap to the next is left empty.'))];
+}
+
+/** Classification tags on a region: an override of its material's defaults. */
+function regionTagEditor(r, a) {
+  const t = r.tags;
+  const pick = (label, key, values) => row(label, h('select', { onchange: (e) => a.setRegionTag(r.index, key, e.target.value || null) },
+    h('option', { value: '' }, 'from material'), ...values.map((v) => h('option', { value: v, selected: v === t[key] }, v))));
+  const barrier = h('div', { class: 'row' }, h('label', {}, 'Barrier'), h('div', {}, ...BARRIERS.map((b) => h('label', { style: 'margin-right:8px;font-size:12px' },
+    h('input', { type: 'checkbox', checked: (t.barrier ?? []).includes(b), onchange: (e) => {
+      const set = new Set(t.barrier ?? []);
+      if (e.target.checked) set.add(b); else set.delete(b);
+      a.setRegionTag(r.index, 'barrier', [...set]);
+    } }), ` ${b}`))));
+  return [h('details', { class: 'fold', open: Object.keys(t).length > 0 },
+    h('summary', {}, 'Tags'),
+    pick('Package', 'package', PACKAGES), barrier, pick('Fire', 'fire_role', FIRE_ROLES), pick('Shearing', 'shearing_layer', SHEARING_LAYERS),
+    row('Sequence', h('input', {
+      type: 'number', min: 1, max: 99, step: 1, value: t.sequence ?? '', placeholder: 'from material',
+      onchange: (e) => a.setRegionTag(r.index, 'sequence', e.target.value === '' ? null : parseInt(e.target.value, 10)),
+    })),
+    h('div', { class: 'note' }, 'A tag here overrides the material for this region only.'))];
 }
 
 /** Edge lengths and rectangle size for the selected region, typed directly (issue #105). */
