@@ -76,3 +76,33 @@ describe('print page and file name', () => {
     expect(sheetFileName('detail-nmb ew/slab', 5, 'svg')).toBe('detail-nmb-ew-slab-1to5.svg');
   });
 });
+
+describe('overlay key and embedded font', () => {
+  const legend = { title: 'Fire strategy', rows: [{ colour: '#cc0000', label: 'Firestop', count: 2 }, { colour: null, label: 'No data', count: 1 }], noData: 1 };
+
+  it('draws the key with a swatch per row, counts above one, and the no-data note', () => {
+    const s = buildSheet(drawing(), { ...meta, legend });
+    expect(s.svg).toContain('KEY');
+    expect(s.svg).toContain('Fire strategy');
+    expect(s.svg).toContain('Firestop (2)');
+    expect(s.svg).toContain('stroke-dasharray="0.8 0.6"');
+    expect(s.svg).toContain('1 solid(s) have no data');
+  });
+  it('reserves room for the key, so the drawing is narrower than the no-key area', () => {
+    expect(drawingArea('A3', { legend: true }).width).toBeLessThan(drawingArea('A3').width);
+    const tight = { ...drawing(), width: drawingArea('A3').width - 1, height: 100 };
+    expect(buildSheet(tight, meta).paper).toBe('A3');
+    expect(buildSheet(tight, { ...meta, legend }).paper).toBe('A2');
+  });
+  it('summarises rows past the limit, and escapes labels', () => {
+    const rows = Array.from({ length: 25 }, (_, i) => ({ colour: '#123456', label: i === 0 ? '<b>' : `row ${i}` }));
+    const s = buildSheet(drawing(), { ...meta, legend: { title: 't', rows } });
+    expect(s.svg).toContain('and 7 more');
+    expect(s.svg).toContain('&lt;b&gt;');
+    expect(s.svg).not.toContain('<b>');
+  });
+  it('embeds font rules, and omits the style block without them', () => {
+    expect(buildSheet(drawing(), { ...meta, fontCss: "@font-face{font-family:'Barlow'}" }).svg).toContain("<defs><style>@font-face{font-family:'Barlow'}</style></defs>");
+    expect(buildSheet(drawing(), meta).svg).not.toContain('@font-face');
+  });
+});

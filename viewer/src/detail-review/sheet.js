@@ -9,22 +9,26 @@
 export const PAPERS = { A4: [297, 210], A3: [420, 297], A2: [594, 420], A1: [841, 594] };   // landscape, width by height
 export const PAPER_NAMES = Object.keys(PAPERS);
 
+import { tint } from './detailSvg.js';
+
 const BORDER = 8;       // margin outside the frame
 const FRAME_PAD = 6;    // space inside the frame around the drawing
 const TITLE_H = 24;     // title block height
+const LEGEND_W = 62;    // strip reserved on the right for an overlay key
+const LEGEND_ROWS_MAX = 18;
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const num = (n) => String(Math.round(n * 1000) / 1000);
 
 /** Space left for the drawing on a paper size, in mm. */
-export function drawingArea(paper) {
+export function drawingArea(paper, { legend = false } = {}) {
   const [w, h] = PAPERS[paper];
-  return { width: w - 2 * (BORDER + FRAME_PAD), height: h - 2 * (BORDER + FRAME_PAD) - TITLE_H };
+  return { width: w - 2 * (BORDER + FRAME_PAD) - (legend ? LEGEND_W : 0), height: h - 2 * (BORDER + FRAME_PAD) - TITLE_H };
 }
 
 /** The smallest listed paper the drawing fits on, or null when it fits none. */
-export function smallestPaper(width, height) {
-  return PAPER_NAMES.find((p) => { const a = drawingArea(p); return width <= a.width && height <= a.height; }) ?? null;
+export function smallestPaper(width, height, opts) {
+  return PAPER_NAMES.find((p) => { const a = drawingArea(p, opts); return width <= a.width && height <= a.height; }) ?? null;
 }
 
 /** Break text into lines of about `max` characters at spaces, at most `lines` lines (the last is cut with an ellipsis). */
@@ -40,19 +44,40 @@ export function wrapText(text, max, lines) {
   return out;
 }
 
+/** The overlay key as SVG, in a strip at the right of the frame. Rows past the limit are summarised. */
+function legendSvg(legend, x, y, font) {
+  const rows = legend.rows.slice(0, LEGEND_ROWS_MAX);
+  const hidden = legend.rows.length - rows.length;
+  let out = `<text x="${num(x)}" y="${num(y + 3)}" font-size="2.2" fill="#666" ${font}>KEY</text>` +
+    wrapText(legend.title, 30, 2).map((l, i) => `<text x="${num(x)}" y="${num(y + 8 + i * 3.4)}" font-size="3" fill="#000" ${font}>${esc(l)}</text>`).join('');
+  let ry = y + 18;
+  for (const r of rows) {
+    const fill = r.colour ? tint(r.colour, 0.62) : '#fff';
+    out += `<rect x="${num(x)}" y="${num(ry)}" width="6" height="3.6" fill="${esc(fill)}" stroke="#000" stroke-width="0.2"${r.colour ? '' : ' stroke-dasharray="0.8 0.6"'}/>` +
+      `<text x="${num(x + 8)}" y="${num(ry + 2.9)}" font-size="2.5" fill="#000" ${font}>${esc(wrapText(r.label, 26, 1)[0] ?? '')}${r.count > 1 ? ` (${r.count})` : ''}</text>`;
+    ry += 5.2;
+  }
+  if (hidden > 0) out += `<text x="${num(x)}" y="${num(ry + 2.9)}" font-size="2.3" fill="#666" ${font}>and ${hidden} more</text>`;
+  if (legend.noData) out += `<text x="${num(x)}" y="${num(ry + (hidden > 0 ? 7 : 2.9) + 1)}" font-size="2.3" fill="#666" ${font}>${legend.noData} solid(s) have no data</text>`;
+  return out;
+}
+
 /**
  * @param {{ svg: string, width: number, height: number, scale: number }} drawing - buildDetailSvg() result
  * @param {{ paper?: string, title: string, description?: string, project?: string, date?: string, note?: string }} meta
  *   paper: 'A4' | 'A3' | 'A2' | 'A1', or omitted for the smallest that fits
+ *   legend: { title, rows: [{ colour, label, count }], noData } draws an overlay key beside the drawing
+ *   fontCss: @font-face rules to embed, so the sheet shows the same font anywhere
  * @returns {{ svg: string, paper: string, width: number, height: number }} the sheet; width and height in mm
  * @throws {Error} when there is no drawing, or the drawing does not fit the paper asked for
  */
 export function buildSheet(drawing, meta) {
   if (!drawing?.svg) throw new Error('There is no drawing to export.');
-  const paper = meta.paper ?? smallestPaper(drawing.width, drawing.height);
+  const lg = meta.legend?.rows?.length ? { legend: true } : {};
+  const paper = meta.paper ?? smallestPaper(drawing.width, drawing.height, lg);
   if (!paper) throw new Error(`The drawing (${Math.round(drawing.width)} x ${Math.round(drawing.height)} mm) does not fit on A1. Choose a smaller scale.`);
   if (!PAPERS[paper]) throw new Error(`Unknown paper size "${paper}".`);
-  const area = drawingArea(paper);
+  const area = drawingArea(paper, lg);
   if (drawing.width > area.width || drawing.height > area.height) {
     throw new Error(`The drawing (${Math.round(drawing.width)} x ${Math.round(drawing.height)} mm) does not fit on ${paper}. Choose a larger paper or a smaller scale.`);
   }
@@ -73,9 +98,11 @@ export function buildSheet(drawing, meta) {
     `<text x="${num(x)}" y="${num(ty + 5 + size + 2)}" font-size="${size}" fill="#000" ${font}>${esc(value)}</text>`;
 
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}mm" height="${H}mm" viewBox="0 0 ${W} ${H}" data-paper="${paper}">` +
+    (meta.fontCss ? `<defs><style>${meta.fontCss}</style></defs>` : '') +
     `<rect width="${W}" height="${H}" fill="#fff"/>` +
     `<rect x="${fx}" y="${fy}" width="${fw}" height="${fh}" fill="none" stroke="#000" stroke-width="0.5"/>` +
     nested +
+    (lg.legend ? legendSvg(meta.legend, fx + fw - LEGEND_W + 2, areaTop, font) : '') +
     `<line x1="${fx}" y1="${ty}" x2="${fx + fw}" y2="${ty}" stroke="#000" stroke-width="0.35"/>` +
     [colX[1], colX[2], colX[3]].map((x) => `<line x1="${num(x - 3)}" y1="${ty}" x2="${num(x - 3)}" y2="${fy + fh}" stroke="#000" stroke-width="0.18"/>`).join('') +
     cell(colX[0], 'DETAIL', meta.title, 4.2) +
