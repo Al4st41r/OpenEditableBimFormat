@@ -15,6 +15,9 @@ import { buildAxoModel, materialsUsed, usagesOf, AXO_VIEWS } from './detailAxo.j
 import { httpReader, loadDetailData } from './loadDetailData.js';
 import { buildDetailSvg } from '../detail-review/detailSvg.js';
 import { createSelection, describeItem } from '../detail-review/selection.js';
+import { buildSnapshot } from '../detail-editor/bundleSnapshot.js';
+import { isTrustedReady, buildOpenerReply, parseSaved } from '../detail-editor/messages.js';
+import { diffDetails } from '../detail-review/detailDiff.js';
 import { OVERLAYS, applyOverlay, tagsOf, carbonValues } from '../detail-review/overlays.js';
 
 const $ = (id) => document.getElementById(id);
@@ -28,6 +31,11 @@ let model = null;
 const selection = createSelection();
 const view2d = { on: true, scale: 5, hairline: false, overlay: '', carbonUnit: 'kg' };
 let overlayResult = null;
+let source = { kind: 'http', readJson: null, handle: null };
+let editorTab = null;
+const originals = new Map();  // detail id -> the detail as first loaded, kept once it has been edited
+let showOriginal = false;
+const edited = new Map();   // detail id -> JSON edited in this page but not written to disk
 
 function status(text, error = false) {
   $('status').textContent = text;
@@ -53,6 +61,21 @@ function renderList() {
   }
 }
 
+function changeSummary(shown) {
+  const original = originals.get(shown.id);
+  if (!original) return '';
+  const current = data.details.find((d) => d.id === shown.id);
+  const lines = diffDetails(original, current);
+  return `<h3>${showOriginal ? 'Showing the original' : 'Changes from the original'}</h3>` +
+    (lines.length ? lines.map((l) => `<div class="use">${esc(l)}</div>`).join('') : '<div class="note">No difference from the original.</div>');
+}
+
+function syncCompare() {
+  $('compare-btn').hidden = !originals.has(selectedId);
+  $('compare-btn').classList.toggle('active', showOriginal);
+  $('compare-btn').textContent = showOriginal ? 'Showing original' : 'Original';
+}
+
 function renderInfo(detail, model) {
   const uses = usagesOf(detail.id, data.junctions);
   const mats = [...materialsUsed(model)].map(([id, n]) => {
@@ -64,6 +87,7 @@ function renderInfo(detail, model) {
   $('info').innerHTML =
     `<div id="detail-title">${esc(detail.id)}</div>` +
     `<div class="note">${esc(detail.description)}</div>` +
+    changeSummary(detail) +
     `<div id="selected"></div><div id="legend"></div>` +
     `<h3>Drawn at</h3>` +
     (uses.length
@@ -75,7 +99,10 @@ function renderInfo(detail, model) {
     (warnings.length ? `<h3>Notes</h3>${warnings.map((w) => `<div class="warn">${esc(w)}</div>`).join('')}` : '');
 }
 
-function currentDetail() { return data?.details.find((d) => d.id === selectedId); }
+function detailById(id) {
+  return showOriginal && originals.has(id) ? originals.get(id) : data?.details.find((d) => d.id === id);
+}
+function currentDetail() { return detailById(selectedId); }
 
 /** Recompute the overlay for the current model and push it to both panes and the legend. */
 function applyOverlays() {
@@ -165,7 +192,8 @@ $('thin-btn').addEventListener('click', () => {
 });
 
 function select(id) {
-  const detail = data?.details.find((d) => d.id === id);
+  if (id !== selectedId) showOriginal = false;
+  const detail = detailById(id);
   if (!detail) return;
   selectedId = id;
   selection.set(null);
@@ -177,21 +205,24 @@ function select(id) {
   renderInfo(detail, model);
   applyOverlays(); // after renderInfo, which rebuilds the panel that holds the legend
   renderList();
+  syncCompare();
   const url = new URL(location.href);
   url.searchParams.set('detail', id);
   history.replaceState(null, '', url);
   status('');
 }
 
-async function open(readJson, label) {
+async function open(readJson, label, handle = null) {
   try {
+    source = { kind: handle ? 'fsa' : 'http', readJson, handle };
     status('Loading…');
     data = await loadDetailData(readJson);
     $('project-name').textContent = data.projectName ?? label;
-    selectedId = null;
+    if (!data.details?.some((d) => d.id === selectedId)) selectedId = null;
     renderList();
     if (!data.details.length) { status('This bundle has no details.', true); return; }
-    const wanted = params.get('detail');
+    $('edit-btn').disabled = false;
+    const wanted = selectedId ?? params.get('detail');
     select(data.details.some((d) => d.id === wanted) ? wanted : data.details[0].id);
     if (data.warnings.length) status(`${data.warnings.length} file(s) could not be read; see the console.`, true);
     data.warnings.forEach((w) => console.warn('[OEBF]', w));
@@ -223,9 +254,9 @@ $('png-btn').addEventListener('click', async () => {
 });
 $('open-btn').addEventListener('click', async () => {
   try {
-    const handle = await window.showDirectoryPicker({ mode: 'read' });
+    const handle = await window.showDirectoryPicker({ mode: 'readwrite' });
     const adapter = new FsaAdapter(handle);
-    await open((p) => adapter.readJson(p), handle.name);
+    await open((p) => adapter.readJson(p), handle.name, handle);
   } catch (err) {
     if (err.name !== 'AbortError') status(`Could not open the folder: ${err.message}`, true);
   }
@@ -234,6 +265,88 @@ if (!window.showDirectoryPicker) {
   $('open-btn').disabled = true;
   $('open-btn').title = 'Needs a Chromium-based browser; use the NMB example instead.';
 }
+
+// ── panels ───────────────────────────────────────────────────────────────────
+for (const [btn, panel, key] of [['left-btn', 'left-panel', 'oebf-axo-left'], ['right-btn', 'right-panel', 'oebf-axo-right']]) {
+  const set = (on) => {
+    $(panel).hidden = !on;
+    $(btn).classList.toggle('active', on);
+    try { localStorage.setItem(key, on ? '1' : '0'); } catch { /* storage unavailable */ }
+    viewer.resize();
+    draw2d();
+  };
+  $(btn).addEventListener('click', () => set($(panel).hidden));
+  let saved = null;
+  try { saved = localStorage.getItem(key); } catch { /* storage unavailable */ }
+  if (saved === '0') set(false);
+}
+document.addEventListener('keydown', (e) => {
+  if (e.target.matches?.('input, select, textarea') || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (e.key === '[') $('left-btn').click();
+  if (e.key === ']') $('right-btn').click();
+});
+
+// ── editing ──────────────────────────────────────────────────────────────────
+// The detail editor is its own page. This page is its opener: it answers the editor's ready message with
+// the bundle (a folder handle, so the editor writes the file itself, or a snapshot for the served example)
+// and takes the saved detail back to redraw both panes.
+function snapshotOfData() {
+  return buildSnapshot({
+    projectName: data.projectName,
+    details: data.details,
+    profiles: Object.fromEntries(data.profiles),
+    materials: Object.fromEntries(data.materials),
+    junctions: data.junctions,
+    elements: {},
+  }, selectedId);
+}
+
+$('edit-btn').addEventListener('click', () => {
+  if (!selectedId) return;
+  if (editorTab && !editorTab.closed) { editorTab.focus(); return; }
+  editorTab = window.open(import.meta.env.BASE_URL + 'detail-editor.html', 'oebf-detail-editor');
+  if (!editorTab) status('The browser blocked the editor window. Allow pop-ups for this site.', true);
+});
+
+window.addEventListener('message', async (event) => {
+  const own = window.location.origin;
+  if (isTrustedReady(event, { ownOrigin: own, tab: editorTab })) {
+    const reply = source.kind === 'fsa'
+      ? buildOpenerReply({ adapterType: 'fsa', handle: source.handle, activeDetailId: selectedId })
+      : buildOpenerReply({ adapterType: 'memory', snapshot: snapshotOfData(), activeDetailId: selectedId });
+    editorTab.postMessage(reply, own);
+    return;
+  }
+  const saved = parseSaved(event, { ownOrigin: own, tab: editorTab });
+  if (!saved) return;
+  const at = data.details.findIndex((d) => d.id === saved.id);
+  if (at >= 0 && !originals.has(saved.id)) originals.set(saved.id, structuredClone(data.details[at]));
+  showOriginal = false;
+  if (at >= 0) data.details[at] = saved.json; else data.details.push(saved.json);
+  data.details.sort((a, b) => a.id.localeCompare(b.id));
+  if (!saved.persisted) {
+    edited.set(saved.id, saved.json);
+    $('download-btn').hidden = false;
+  }
+  if (saved.persisted && source.readJson) await open(source.readJson, data.projectName, source.handle);  // pick up new profiles
+  else select(saved.id);
+  status(saved.persisted ? `Saved ${saved.id}.` : `Updated ${saved.id} in this page only. The example is read-only: use Download edit to keep it.`);
+});
+
+$('compare-btn').addEventListener('click', () => {
+  showOriginal = !showOriginal;
+  select(selectedId);
+});
+
+$('download-btn').addEventListener('click', () => {
+  const json = edited.get(selectedId);
+  if (!json) { status('This detail has not been edited in this page.', true); return; }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(json, null, 2) + '\n'], { type: 'application/json' }));
+  a.download = `${selectedId}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
 
 // Load the example straight away when a detail is named in the URL, so a link opens the picture.
 if (params.has('detail') || params.has('bundle')) $('demo-btn').click();
