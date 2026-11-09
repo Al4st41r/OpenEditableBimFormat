@@ -24,6 +24,7 @@ import { buildCanvasModel, rulerTicks } from './canvasModel.js';
 import { createController, setControllerTool, handleEvent } from './canvasController.js';
 import { buildPanelModel } from './panelModel.js';
 import { fitView, toDetail, zoomAt, panByPixels } from './viewTransform.js';
+import { translateRegion } from './canvasEdit.js';
 import { renderCanvas } from './render.js';
 import { primitiveStyle } from './drawStyle.js';
 import { renderPanels } from './panels.js';
@@ -301,6 +302,32 @@ window.addEventListener('keydown', (e) => {
   if (mod && e.key.toLowerCase() === 'z') { e.preventDefault(); if (e.shiftKey) doRedo(); else doUndo(); return; }
   if (mod && e.key.toLowerCase() === 'y') { e.preventDefault(); doRedo(); return; }
   if (typing || !st) return;
+  const sel = st.selection;
+  if (sel?.type === 'region') {
+    const n = st.doc.geometry.regions.length;
+    const step = visibleSnap() * (e.shiftKey ? 10 : 1);
+    const arrows = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, step], ArrowDown: [0, -step] };
+    if (!mod && arrows[e.key]) {
+      e.preventDefault();
+      const r = translateRegion(st.doc, sel.index, ...arrows[e.key]);
+      apply(() => r.doc);
+      if (r.locked.length) status('Coordinates bound to a parameter stay where they are.');
+      return;
+    }
+    if (mod && e.key.toLowerCase() === 'd') {
+      e.preventDefault();
+      const off = visibleSnap() * 5;
+      apply((d) => D.duplicateRegion(d, sel.index, off, -off));
+      st = select(st, { type: 'region', index: n }); refresh();
+      status('Duplicated. Drag or use the arrow keys to place the copy.');
+      return;
+    }
+    if (!mod && (e.key === ']' || e.key === '[')) {
+      const to = e.key === ']' ? Math.min(n - 1, sel.index + 1) : Math.max(0, sel.index - 1);
+      if (to !== sel.index) { apply((d) => D.moveRegionTo(d, sel.index, to)); st = select(st, { type: 'region', index: to }); refresh(); }
+      return;
+    }
+  }
   const tools = { v: 'select', r: 'rect', p: 'polygon' };
   if (!mod && tools[e.key.toLowerCase()]) { chooseTool(tools[e.key.toLowerCase()]); return; }
   if (!mod && e.key.toLowerCase() === 'f') { fit(); return; }

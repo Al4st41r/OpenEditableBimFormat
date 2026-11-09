@@ -361,3 +361,27 @@ describe('region repeat and tags', () => {
     expect(() => { D.setRegionNumber(d, 0, 'depth_m', 1); D.setRegionTag(d, 0, 'package', 'mep'); }).not.toThrow();
   });
 });
+
+describe('duplicate and reorder regions', () => {
+  test('duplicateRegion appends a shifted copy and leaves the original', () => {
+    const d = D.duplicateRegion(base(), 0, 0.1, -0.2);
+    const [a, b] = d.geometry.regions;
+    expect(d.geometry.regions).toHaveLength(2);
+    expect(b.vertices[0].x).toBeCloseTo(a.vertices[0].x + 0.1, 6);
+    expect(b.vertices[0].y).toBeCloseTo(a.vertices[0].y - 0.2, 6);
+    expect(b.material_id).toBe(a.material_id);
+  });
+  test('duplicateRegion keeps a bound coordinate bound', () => {
+    const d = D.duplicateRegion(bound(), 0, 1, 1);
+    const orig = d.geometry.regions[0].vertices[1].x;
+    expect(typeof orig).toBe('object');
+    expect(d.geometry.regions[1].vertices[1].x).toEqual(orig);
+  });
+  test('moveRegionTo reorders and checks the range', () => {
+    const d = D.setRegionMaterial(D.duplicateRegion(base(), 0), 1, 'other-mat');
+    const moved = D.moveRegionTo(d, 1, 0);
+    expect(moved.geometry.regions[0].material_id).toBe('other-mat');
+    expect(() => D.moveRegionTo(d, 0, 5)).toThrow(/No position/);
+    expect(() => D.moveRegionTo(d, 7, 0)).toThrow(/No region/);
+  });
+});

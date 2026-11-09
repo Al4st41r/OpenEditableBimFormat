@@ -193,6 +193,27 @@ export function addRect(doc, material_id, a, b) {
   });
 }
 
+/** Copy a region, shifted by (dx, dy) metres. Bound coordinates keep their binding. The copy is the last region. */
+export function duplicateRegion(doc, index, dx = 0, dy = 0) {
+  const d = clone(doc);
+  const copy = clone(regionAt(d, index));
+  for (const v of copy.vertices) {
+    for (const [axis, delta] of [['x', dx], ['y', dy]]) if (isNum(v[axis])) v[axis] = Math.round((v[axis] + delta) * 1e6) / 1e6;
+  }
+  d.geometry.regions.push(copy);
+  return d;
+}
+
+/** Move a region to a new position in the drawing order (later regions draw on top). */
+export function moveRegionTo(doc, index, to) {
+  const d = clone(doc);
+  const regions = d.geometry.regions;
+  regionAt(d, index);
+  if (!Number.isInteger(to) || to < 0 || to >= regions.length) throw new DetailEditError(`No position ${to} in the drawing order`);
+  regions.splice(to, 0, regions.splice(index, 1)[0]);
+  return d;
+}
+
 export function removeRegion(doc, index) {
   const d = clone(doc);
   regionAt(d, index);
