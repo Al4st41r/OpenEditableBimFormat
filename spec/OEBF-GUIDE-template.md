@@ -479,22 +479,79 @@ axes and a level). The detail says *what* (members, drawn regions, parameters).
       "kind": "wall",
       "profile_id": "profile-cavity-250",
       "placement": {
-        "offset_x_m": 0.0,
-        "offset_y_m": 0.0,
-        "rotation_deg": 0
+        "offset_x_m": 0,
+        "offset_y_m": 0,
+        "rotation_deg": 0,
+        "reference": {
+          "y": "grid-y"
+        }
       },
-      "extent": "forward"
+      "extent": "forward",
+      "layer_ends": [
+        {
+          "layer": 1,
+          "near_m": 0.145
+        },
+        {
+          "layer": 2,
+          "near_m": 0.043
+        },
+        {
+          "layer": 3,
+          "near_m": -0.032
+        },
+        {
+          "layer": 4,
+          "near_m": -0.145
+        }
+      ],
+      "insertion": {
+        "layer": 3,
+        "at": "left-face"
+      }
     },
     {
       "role": "butting-wall",
       "kind": "wall",
       "profile_id": "profile-cavity-250",
       "placement": {
-        "offset_x_m": 0.0,
+        "offset_x_m": 0,
         "offset_y_m": -0.145,
-        "rotation_deg": 90
+        "rotation_deg": 90,
+        "reference": {
+          "x": "grid-x"
+        }
       },
-      "extent": "backward"
+      "extent": "backward",
+      "layer_ends": [
+        {
+          "layer": 1,
+          "near_m": 0.188
+        },
+        {
+          "layer": 2,
+          "near_m": 0.113
+        },
+        {
+          "layer": 3,
+          "near_m": 0.013
+        },
+        {
+          "layer": 4,
+          "near_m": 0.013
+        }
+      ],
+      "insertion": {
+        "layer": 3,
+        "at": "left-face"
+      },
+      "layer_units": [
+        {
+          "layer": 1,
+          "depth_m": 0.145,
+          "repeat_m": 0.153
+        }
+      ]
     }
   ],
   "datum": {
@@ -510,7 +567,7 @@ axes and a level). The detail says *what* (members, drawn regions, parameters).
         "material_id": "mat-brick-common",
         "vertices": [
           {
-            "x": 0.0,
+            "x": 0,
             "y": 0.145
           },
           {
@@ -521,21 +578,37 @@ axes and a level). The detail says *what* (members, drawn regions, parameters).
             "x": 0.05,
             "y": {
               "param": "cavity_closer_width_m",
-              "scale": 1.0,
               "offset": 0.145
             }
           },
           {
-            "x": 0.0,
+            "x": 0,
             "y": {
               "param": "cavity_closer_width_m",
-              "scale": 1.0,
               "offset": 0.145
             }
           }
         ]
       }
     ]
+  },
+  "reference_lines": [
+    {
+      "id": "grid-x",
+      "kind": "grid",
+      "axis": "x",
+      "offset_m": 0.032
+    },
+    {
+      "id": "grid-y",
+      "kind": "grid",
+      "axis": "y",
+      "offset_m": -0.032
+    }
+  ],
+  "clip": {
+    "x_max_m": 0.767,
+    "y_min_m": -0.673
   },
   "parameters": {
     "cavity_closer_width_m": {
