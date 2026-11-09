@@ -22,6 +22,7 @@
     #project-name { opacity: 0.6; max-width: 64px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     #detail-select { max-width: 130px; }
     #material-select { max-width: 100px; }
+    #export-select { max-width: 96px; }
     #header .sep { margin: 0 1px; }
     #status { position: absolute; left: 10px; bottom: 10px; z-index: 5; max-width: 62%; padding: 5px 10px; border-radius: 4px; background: rgba(24,24,24,0.88); color: #ddd; font-size: 12px; pointer-events: none; }
     #status:empty { display: none; }
@@ -130,7 +131,7 @@
     <button id="open-btn" title="Open a bundle folder">Folder</button>
     <button id="open-file-btn" title="Open a .oebfz archive">File</button>
     <button id="demo-btn">Demo</button>
-    <select id="export-select" title="Export this detail as a CAD drawing"><option value="">Export / import</option><option value="json">Detail JSON</option><option value="sheet">Sheet (SVG or PDF)…</option><option value="dxf">DXF (mm)</option><option value="import-dxf">Import DXF…</option></select>
+    <select id="export-select" title="Export this detail as a CAD drawing"><option value="">Export…</option><option value="json">Detail JSON</option><option value="sheet">Sheet (SVG or PDF)…</option><option value="dxf">DXF (mm)</option><option value="import-dxf">Import DXF…</option></select>
     <button id="zip-btn" hidden title="Download the whole bundle as a zip">Zip</button>
     <span class="sep"></span>
     <button id="tool-select" class="active" title="Select and move (V)">Select</button>
@@ -154,6 +155,7 @@
     <select id="units-select" title="Display units"><option value="mm" selected>mm</option><option value="m">m</option></select>
     <span class="sep"></span>
     <span id="dirty" hidden title="Unsaved changes">●</span>
+    <button id="profile-btn" title="Edit the profile of the selected member (opens the profile editor); changes come back here when you save there">Profile</button>
     <button id="view3d-btn" title="See this detail in 3D, including unsaved changes (opens the review page)">3D</button>
     <button id="help-btn" title="Keyboard and mouse shortcuts (?)">?</button>
     <button id="save-btn" class="primary" disabled title="Save (Ctrl+S)">Save</button>

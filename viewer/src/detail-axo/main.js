@@ -277,6 +277,7 @@ function applyDraft() {
   if (at >= 0 && !originals.has(draft.id)) originals.set(draft.id, structuredClone(data.details[at]));
   if (at >= 0) data.details[at] = draft.json; else data.details.push(draft.json);
   data.details.sort((a, b) => a.id.localeCompare(b.id));
+  for (const [id, profile] of Object.entries(draft.profiles ?? {})) data.profiles.set(id, profile);   // profiles edited in the editor
   edited.set(draft.id, draft.json);
   $('download-btn').hidden = false;
 }

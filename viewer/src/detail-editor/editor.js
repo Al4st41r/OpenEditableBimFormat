@@ -814,13 +814,48 @@ else if (query.has('demo')) openDemo();
 
 // Read-only hook for headless checks and bug reports.
 window.__detailEditor = { snapState: () => snapState, hint: () => hint, state: () => st, view: () => view, size: () => size, adapter: () => bundle?.adapter ?? null, status: () => $('status').textContent };
+// ── profile editing ──────────────────────────────────────────────────────────
+// The profile editor opens in a tab and is sent the bundle's profiles and materials. When it saves, the profile comes
+// back here and replaces the one in the bundle, so the layers redraw at once. Edited profiles are also kept for the 3D
+// view, which reads the served bundle and would otherwise show the old build-up.
+const PROFILE_DRAFT_KEY = 'oebf-profile-drafts';
+const editedProfiles = new Map();
+
+function profileToEdit() {
+  const sel = st?.selection;
+  const member = sel?.type === 'member' ? st.doc.members.find((m) => m.role === sel.role) : st?.doc.members[0];
+  return member?.profile_id ?? bundle.ctx.profileIds[0];
+}
+
+$('profile-btn').addEventListener('click', () => {
+  if (!bundle || !st) { status('Open a detail first.', true); return; }
+  const active = profileToEdit();
+  const tab = window.open(`${import.meta.env.BASE_URL}profile-editor.html`, '_blank');
+  if (!tab) { status('The browser blocked the profile editor tab. Allow pop-ups for this site.', true); return; }
+  const send = (e) => {
+    if (e.source !== tab || e.origin !== window.location.origin) return;
+    if (e.data?.type === 'ready') {
+      tab.postMessage({ type: 'memory-bundle', profiles: structuredClone(bundle.ctx.profiles), matMap: structuredClone(bundle.ctx.materials), activeProfileId: active, projectName: bundle.adapter?.name ?? '' }, window.location.origin);
+    } else if (e.data?.type === 'profile-saved') {
+      const { id, json } = e.data;
+      bundle.ctx.profiles[id] = json;
+      if (!bundle.ctx.profileIds.includes(id)) bundle.ctx.profileIds.push(id);
+      editedProfiles.set(id, json);
+      Promise.resolve(bundle.adapter?.writeJson?.(`profiles/${id}.json`, json)).catch(() => {});
+      refresh();
+      status(`Profile ${id} updated from the profile editor. Layer numbers may have changed: check the layer settings on the members.`);
+    }
+  };
+  window.addEventListener('message', send);
+});
+
 // ── 3D ───────────────────────────────────────────────────────────────────────
 // The review page draws the 3D view. It reads the served bundle, so the detail as it is now (saved or not) is left for it
 // in localStorage and shown in place of the stored one. Needs a bundle the review page can open by name.
 $('view3d-btn').addEventListener('click', () => {
   if (!st) { status('Open a detail first.', true); return; }
   if (!bundle?.urlName) { status('3D from here works for the served examples. For other bundles, use Edit detail on the review page.', true); return; }
-  try { localStorage.setItem('oebf-detail-draft', JSON.stringify({ id: st.doc.id, json: JSON.parse(toJsonText(st.doc)) })); } catch (err) { status(`Could not hand the detail over: ${err.message}`, true); return; }
+  try { localStorage.setItem('oebf-detail-draft', JSON.stringify({ id: st.doc.id, json: JSON.parse(toJsonText(st.doc)), profiles: Object.fromEntries(editedProfiles) })); } catch (err) { status(`Could not hand the detail over: ${err.message}`, true); return; }
   window.open(`${import.meta.env.BASE_URL}detail-axo.html?bundle=${encodeURIComponent(bundle.urlName)}&detail=${encodeURIComponent(st.doc.id)}&draft=1`, '_blank');
 });
 
