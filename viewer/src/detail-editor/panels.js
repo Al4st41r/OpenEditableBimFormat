@@ -447,9 +447,10 @@ function layerDetailFold(m, role, bundle, a) {
         row(`Pitch (${unitLabel()})`, num(u.repeat_m, (v) => edit({ repeat_m: v }), { min: 0, title: 'Distance from one unit to the next; the joint is pitch minus size' })),
         row('Count', optionalCount(u.count, (v) => edit({ count: v }))),
         row(`Start (${unitLabel()})`, num(u.start_m ?? 0, (v) => edit({ start_m: v === 0 ? undefined : v }))),
-        axis === 'plan' ? row(`Height (${unitLabel()})`, optionalLength(u.height_m ?? null, (v) => edit({ height_m: v ?? undefined, course_m: v === null ? undefined : u.course_m ?? v, bond: v === null ? undefined : u.bond }), { placeholder: 'full height', title: 'Height of one unit, for the 3D courses' })) : null,
-        axis === 'plan' && u.height_m ? row(`Course (${unitLabel()})`, num(u.course_m ?? u.height_m, (v) => edit({ course_m: v }), { min: 0, title: 'Vertical pitch of the courses; the bed joint is the course pitch minus the height' })) : null,
-        axis === 'plan' && u.height_m ? row('Bond', select(['stack', 'running'], u.bond ?? 'stack', (v) => edit({ bond: v }), { title: 'Running offsets every second course by half a unit' })) : null,
+        // courses: always listed for a plan detail; setting the course or the bond on a unit with no height gives it a brick's
+        axis === 'plan' ? row(`Height (${unitLabel()})`, optionalLength(u.height_m ?? null, (v) => edit({ height_m: v ?? undefined, course_m: v === null ? undefined : u.course_m ?? v, bond: v === null ? undefined : u.bond }), { placeholder: 'full height', title: 'Height of one unit, for the 3D courses (102.5 mm for a brick on its face)' })) : null,
+        axis === 'plan' ? row(`Course (${unitLabel()})`, num(u.course_m ?? u.height_m ?? 0.075, (v) => edit({ course_m: v, height_m: u.height_m ?? Math.min(0.065, v) }), { min: 0, title: 'Vertical pitch of the courses; the bed joint is the course pitch minus the height' })) : null,
+        axis === 'plan' ? row('Bond', select(['stack', 'running'], u.bond ?? 'stack', (v) => edit({ bond: v, height_m: u.height_m ?? 0.065, course_m: u.course_m ?? 0.075 }), { title: 'Running offsets every second course by half a unit' })) : null,
         row('Unit material', matSelect(u.material_id, (v) => edit({ material_id: v }), 'the layer\'s own')),
         row('Joints', matSelect(u.joint_material_id, (v) => edit({ joint_material_id: v }), 'empty')),
         h('div', { class: 'note' }, `Joint ${toDisplay(Math.max(0, u.repeat_m - u.depth_m))} ${unitLabel()}. ${m.plane === 'plan' ? 'Units run along the wall; the drawing shows the first course, the 3D view all of them.' : 'Units run up the wall.'}`)) : null,
