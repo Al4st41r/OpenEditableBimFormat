@@ -14,6 +14,7 @@
 
 import { buildMemberShapes, placePoint } from './memberShapes.js';
 import { evaluateCoordinate } from './detailDocument.js';
+import { dimensionGeometry, annotationSegments, distanceToSegment } from './annotationOps.js';
 
 const DEFAULT_FILL = '#888888';
 const MIN_VIEW_M = 0.5;
@@ -141,7 +142,23 @@ export function buildCanvasModel(doc, ctx = {}) {
     });
   }
 
-  const bounds = primitives.length ? boundsOfPoints(primitives.flatMap((p) => p.points)) : null;
+  // Annotations: drawn over the shapes; only the selected one shows handles
+  const selAnn = selection?.type === 'annotation' ? selection.index : null;
+  const annotations = (doc.annotations ?? []).map((ann, index) => ({ id: `annotation:${index}`, index, ann, selected: index === selAnn }));
+  const selected = annotations.find((a) => a.selected)?.ann;
+  if (selected) {
+    const h = (key, p, kind = 'annotation-point') => handles.push({
+      id: `annotation:${selAnn}:${key}`, kind: 'vertex', x: p.x, y: p.y, selected: false, ref: { type: kind, index: selAnn, key },
+    });
+    if (selected.type === 'line') selected.points.forEach((p, k) => h(k, p));
+    else if (selected.type === 'dimension') {
+      h('from', selected.from); h('to', selected.to);
+      h('offset', dimensionGeometry(selected).mid, 'annotation-offset');
+    } else { h('at', selected.at); if (selected.leader_to) h('leader_to', selected.leader_to); }
+  }
+  const annPoints = annotations.flatMap(({ ann }) => ann.type === 'line' ? ann.points : ann.type === 'dimension' ? [ann.from, ann.to] : [ann.at]);
+
+  const bounds = primitives.length || annPoints.length ? boundsOfPoints([...primitives.flatMap((p) => p.points), ...annPoints]) : null;
 
   // View box: content plus the origin, a margin, and a minimum size.
   const box = boundsOfPoints([{ x: 0, y: 0 }, ...(bounds ? [bounds.min, bounds.max] : [])]);
@@ -155,7 +172,7 @@ export function buildCanvasModel(doc, ctx = {}) {
   const { step } = rulerTicks(0, Math.max(viewBox.width, viewBox.height), 8);
   const ruler = { step, x: ticksWithStep(viewBox.x, viewBox.x + viewBox.width, step), y: ticksWithStep(viewBox.y, viewBox.y + viewBox.height, step) };
 
-  return { primitives, handles, bounds, viewBox, ruler, warnings };
+  return { primitives, annotations, handles, bounds, viewBox, ruler, warnings };
 }
 
 // ── hit testing ─────────────────────────────────────────────────────────────
@@ -173,6 +190,17 @@ export function hitTest(model, pt, tolerance = 0.02) {
     if (d <= tolerance && (!best || d < best.d)) best = { d, h };
   }
   if (best) return { id: best.h.id, ref: best.h.ref, handle: true };
+
+  // annotations sit above the shapes: the nearest segment or anchor within tolerance
+  let near = null;
+  for (const a of model.annotations ?? []) {
+    const anchor = a.ann.type === 'note' ? [{ a: a.ann.at, b: a.ann.at }] : [];
+    for (const seg of [...annotationSegments(a.ann), ...anchor]) {
+      const d = distanceToSegment(pt, seg);
+      if (d <= tolerance && (!near || d < near.d)) near = { d, a };
+    }
+  }
+  if (near) return { id: near.a.id, ref: { type: 'annotation', index: near.a.index }, handle: false };
 
   const hit = [...model.primitives].sort((a, b) => b.order - a.order).find((p) => pointInPolygon(pt, p.points));
   return hit ? { id: hit.id, ref: hit.ref, handle: false } : null;

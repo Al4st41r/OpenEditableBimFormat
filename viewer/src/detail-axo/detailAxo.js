@@ -105,7 +105,7 @@ export function buildAxoModel(detail, ctx = {}) {
   // A stable id per prism, shared by every view of the model (the 3D pane and the 2D drawing select by it).
   prisms.forEach((p, i) => { p.id = `item-${i}`; });
 
-  return { plane, extrusion, prisms, skipped, warnings, bounds: boundsOf(prisms.map((p) => p.points)) };
+  return { plane, extrusion, prisms, skipped, warnings, annotations: detail.annotations ?? [], bounds: boundsOf(prisms.map((p) => p.points)) };
 }
 
 /** World position of a detail-space point and a w value (Z up in both planes). */

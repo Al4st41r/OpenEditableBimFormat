@@ -147,3 +147,30 @@ describe('overlay fills', () => {
     expect(svg).toMatch(/data-item="b"[^>]*fill="#f6f6f6"/);
   });
 });
+
+describe('annotations in the review drawing', () => {
+  const marks = [
+    { type: 'line', points: [{ x: 0, y: 0 }, { x: 0.3, y: 0 }], style: 'dashed' },
+    { type: 'dimension', from: { x: 0, y: 0 }, to: { x: 0.3, y: 0 }, offset_m: 0.5 },
+    { type: 'note', at: { x: 0.1, y: 0.1 }, text: 'DPC <lapped> 150', leader_to: { x: 0.05, y: 0.02 } },
+  ];
+  const render = (annotations) => {
+    const { detail, materials, profiles } = loadPilot();
+    const model = buildAxoModel({ ...detail, annotations }, { profiles });
+    return buildDetailSvg(model, { materials });
+  };
+
+  it('carries the annotations through the model and draws them', () => {
+    const { svg } = render(marks);
+    expect(svg).toContain('class="marks"');
+    expect(svg).toContain('stroke-dasharray="3 1.6"');
+    expect(svg).toContain('>300<');                      // the dimension text, in mm
+    expect(svg).toContain('DPC &lt;lapped&gt; 150');     // text is escaped
+  });
+
+  it('draws nothing extra without annotations, and widens the sheet for a far dimension line', () => {
+    expect(render(undefined).svg).not.toContain('class="marks"');
+    const plain = render(undefined), withDim = render([marks[1]]);
+    expect(withDim.height).toBeGreaterThan(plain.height);
+  });
+});

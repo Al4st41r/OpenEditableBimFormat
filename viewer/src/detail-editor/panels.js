@@ -12,6 +12,7 @@ import { parseDimension } from '../snap/dimension.js';
 import { KINDS, PLANES, EXTENTS, DATUM_KINDS, DATUM_REFERENCES, RULES } from './detailConstants.js';
 import { PACKAGES, BARRIERS, FIRE_ROLES, SHEARING_LAYERS } from '../detail-review/classification.js';
 import { drawReference } from './reference.js';
+import { LINE_STYLES } from './annotationOps.js';
 
 function h(tag, attrs = {}, ...children) {
   const e = document.createElement(tag);
@@ -111,6 +112,8 @@ function rightPanel(pm, bundle, a) {
 
   if (pm.selectedMember) out.push(...memberEditor(pm.selectedMember, bundle, a));
   if (pm.selectedRegion) out.push(...regionEditor(pm.selectedRegion, pm, bundle, a), ...dimensionEditor(pm.selectedRegion, bundle, a));
+
+  if (pm.selectedAnnotation) out.push(...annotationEditor(pm.selectedAnnotation, a));
 
   out.push(h('h3', {}, 'Parameters'));
   if (pm.parameters.length === 0) out.push(h('div', { class: 'note' }, 'None. Add one, then bind a vertex coordinate to it.'));
@@ -316,6 +319,25 @@ function regionTagEditor(r, a) {
       onchange: (e) => a.setRegionTag(r.index, 'sequence', e.target.value === '' ? null : parseInt(e.target.value, 10)),
     })),
     h('div', { class: 'note' }, 'A tag here overrides the material for this region only.'))];
+}
+
+/** Properties of the selected line, dimension or note. */
+function annotationEditor(n, a) {
+  const title = { line: 'Line', dimension: 'Dimension', note: 'Note' }[n.type];
+  const out = [h('h3', {}, `${title} ${n.index}`)];
+  if (n.type === 'line') {
+    out.push(row('Style', select(LINE_STYLES, n.style, (v) => a.updateAnnotation(n.index, { style: v === 'solid' ? undefined : v }))),
+      h('div', { class: 'note' }, `${n.points} points. Drag a point to move it.`));
+  } else if (n.type === 'dimension') {
+    out.push(row(`Length (${unitLabel()})`, h('input', { type: 'text', value: String(Math.round(toDisplay(n.length) * 1000) / 1000), disabled: true })),
+      row(`Line offset (${unitLabel()})`, num(n.offset_m, (v) => a.updateAnnotation(n.index, { offset_m: v }))),
+      h('div', { class: 'note' }, 'Measured between the two points. A negative offset puts the line on the other side.'));
+  } else {
+    out.push(row('Text', text(n.text, (v) => a.updateAnnotation(n.index, { text: v }))),
+      n.hasLeader ? row('Leader', h('button', { onclick: () => a.updateAnnotation(n.index, { leader_to: undefined }) }, 'Remove leader')) : null);
+  }
+  out.push(h('button', { class: 'danger', onclick: () => a.removeAnnotation(n.index) }, `Delete ${title.toLowerCase()}`));
+  return out;
 }
 
 /** Edge lengths and rectangle size for the selected region, typed directly (issue #105). */

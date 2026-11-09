@@ -11,6 +11,7 @@ import { evaluateCoordinate } from './detailDocument.js';
 import { edgeLengths, regionAsRect } from './dimensionOps.js';
 import { applyOverrides } from '../detail/detailParams.js';
 import { detailFit, suggestLocation } from './junctionAssign.js';
+import { dimensionGeometry, DEFAULT_DIM_OFFSET_M } from './annotationOps.js';
 
 const tidy = (x) => Math.round(x * 1e9) / 1e9 + 0;
 const boundParam = (c) => (c && typeof c === 'object' ? c.param : null);
@@ -88,6 +89,15 @@ export function buildPanelModel({ doc, selection, validation, dirty, canUndo, ca
     };
   }
 
+  let selectedAnnotation = null;
+  const ann = selection?.type === 'annotation' ? doc.annotations?.[selection.index] : null;
+  if (ann) {
+    selectedAnnotation = { index: selection.index, type: ann.type };
+    if (ann.type === 'line') Object.assign(selectedAnnotation, { style: ann.style ?? 'solid', points: ann.points.length });
+    if (ann.type === 'dimension') Object.assign(selectedAnnotation, { length: tidy(dimensionGeometry(ann).length), offset_m: ann.offset_m ?? DEFAULT_DIM_OFFSET_M });
+    if (ann.type === 'note') Object.assign(selectedAnnotation, { text: ann.text, hasLeader: !!ann.leader_to });
+  }
+
   const suggestionRow = (j) => {
     const s = suggestLocation(j, { grids, levels, elementPaths });
     return {
@@ -107,7 +117,8 @@ export function buildPanelModel({ doc, selection, validation, dirty, canUndo, ca
       extrusion_m: doc.geometry?.extrusion_m ?? null,
     },
     condition: doc.condition ?? null,
-    members, regions: regionRows, parameters, selectedMember, selectedRegion,
+    members, regions: regionRows, parameters, selectedMember, selectedRegion, selectedAnnotation,
+    annotationCount: doc.annotations?.length ?? 0,
     usage: {
       needsSave: dirty,
       junctions: findUsages(doc.id, junctions).map((j) => {

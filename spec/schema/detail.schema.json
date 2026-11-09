@@ -98,6 +98,46 @@
         }
       }
     },
+    "annotations": {
+      "type": "array",
+      "description": "Drawing marks for the 2D detail only: open lines, dimensions and notes. They are never extruded into 3D and carry no material. Coordinates are plain metres in detail space.",
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": ["type", "points"],
+            "additionalProperties": false,
+            "properties": {
+              "type":   { "const": "line" },
+              "points": { "type": "array", "minItems": 2, "items": { "$ref": "#/definitions/point" }, "description": "An open polyline." },
+              "style":  { "type": "string", "enum": ["solid", "dashed", "centre"], "default": "solid" }
+            }
+          },
+          {
+            "type": "object",
+            "required": ["type", "from", "to"],
+            "additionalProperties": false,
+            "properties": {
+              "type": { "const": "dimension" },
+              "from": { "$ref": "#/definitions/point" },
+              "to":   { "$ref": "#/definitions/point" },
+              "offset_m": { "type": "number", "description": "How far the dimension line sits to the left of the from-to direction. Default 0.1." }
+            }
+          },
+          {
+            "type": "object",
+            "required": ["type", "at", "text"],
+            "additionalProperties": false,
+            "properties": {
+              "type": { "const": "note" },
+              "at":   { "$ref": "#/definitions/point" },
+              "text": { "type": "string", "minLength": 1 },
+              "leader_to": { "$ref": "#/definitions/point", "description": "Optional point the note's leader line points at." }
+            }
+          }
+        ]
+      }
+    },
     "parameters": {
       "type": "object",
       "description": "Named values a junction may override through detail_overrides. Bounds are checked by the integrity tests and the resolver, not by JSON Schema.",
@@ -115,6 +155,12 @@
     "tags": { "type": "array", "items": { "type": "string" } }
   },
   "definitions": {
+    "point": {
+      "type": "object",
+      "required": ["x", "y"],
+      "additionalProperties": false,
+      "properties": { "x": { "type": "number" }, "y": { "type": "number" } }
+    },
     "classification": {
       "description": "Classification used by the detail review overlays. All fields optional. On a material it is the default; the same object under `tags` on an assembly layer or detail region overrides it for that use.",
       "type": "object",

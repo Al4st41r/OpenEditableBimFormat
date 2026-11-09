@@ -86,6 +86,8 @@ export function serializeDetail(doc) {
   }
   if (Object.keys(g).length > 0) out.geometry = g;
 
+  if (doc.annotations?.length) out.annotations = structuredClone(doc.annotations);
+
   if (doc.parameters && Object.keys(doc.parameters).length > 0) {
     out.parameters = Object.fromEntries(Object.entries(doc.parameters).map(([k, p]) => {
       const o = { default: p.default };

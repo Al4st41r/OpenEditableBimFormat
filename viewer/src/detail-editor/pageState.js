@@ -34,6 +34,7 @@ export function reconcileSelection(doc, selection) {
     }
     return out;
   }
+  if (selection.type === 'annotation') return doc.annotations?.[selection.index] ? selection : null;
   return null;
 }
 

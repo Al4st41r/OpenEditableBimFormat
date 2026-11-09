@@ -32,6 +32,7 @@ import { dragHandle, translateRegions, regionsInBox, snapValue } from './canvasE
 import { addRect, addRegion, removeRegions } from './detailDocument.js';
 import { regionIndices, selectionOfRegions } from './pageState.js';
 import { TOOLS } from './detailConstants.js';
+import { addAnnotation, removeAnnotation, moveAnnotation, setAnnotationPoint, setDimensionOffset } from './annotationOps.js';
 import { signedArea, isSelfIntersecting } from '../detail/regionGeometry.js';
 
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
@@ -62,6 +63,9 @@ export function handleEvent(state, event, ctx) {
     case 'rect': return rectTool(state, event, ctx);
     case 'polygon': return polygonTool(state, event, ctx);
     case 'measure': return measureTool(state, event, ctx);
+    case 'line': return lineTool(state, event, ctx);
+    case 'dim': return dimTool(state, event, ctx);
+    case 'note': return noteTool(state, event, ctx);
     default: return selectTool(state, event, ctx);
   }
 }
@@ -76,6 +80,9 @@ function selectTool(state, event, ctx) {
     if (!state.drag && (event.key === 'Delete' || event.key === 'Backspace') && ctx.selection?.type === 'region') {
       return done(state, [{ type: 'doc', doc: removeRegions(ctx.doc, regionIndices(ctx.selection)), transient: false }, { type: 'select', selection: null }]);
     }
+    if (!state.drag && (event.key === 'Delete' || event.key === 'Backspace') && ctx.selection?.type === 'annotation') {
+      return done(state, [{ type: 'doc', doc: removeAnnotation(ctx.doc, ctx.selection.index), transient: false }, { type: 'select', selection: null }]);
+    }
     return done(state);
   }
 
@@ -83,13 +90,19 @@ function selectTool(state, event, ctx) {
     const hit = hitTest(ctx.model, point, ctx.tolerance);
     const base = { startDoc: ctx.doc, current: ctx.doc, moved: false, notified: false };
 
-    if (hit?.handle) {
+    if (hit?.handle && !hit.ref.type.startsWith('annotation')) {
       const h = ctx.model.handles.find((x) => x.id === hit.id);
       const selection = hit.ref.type === 'vertex'
         ? { type: 'region', index: hit.ref.region, vertex: hit.ref.vertex }
         : { type: 'member', role: hit.ref.role };
       return done({ ...state, drag: { kind: 'handle', ref: hit.ref, grab: { x: point.x - h.x, y: point.y - h.y }, ...base } },
         [{ type: 'select', selection }]);
+    }
+    if (hit?.handle && hit.ref.type.startsWith('annotation')) {
+      return done({ ...state, drag: { kind: 'annotation-handle', ref: hit.ref, ...base } }, [{ type: 'select', selection: { type: 'annotation', index: hit.ref.index } }]);
+    }
+    if (hit?.ref.type === 'annotation') {
+      return done({ ...state, drag: { kind: 'annotation-body', index: hit.ref.index, start: point, ...base } }, [{ type: 'select', selection: { type: 'annotation', index: hit.ref.index } }]);
     }
     if (hit?.ref.type === 'member') {
       const p = ctx.doc.members.find((m) => m.role === hit.ref.role).placement;
@@ -137,6 +150,22 @@ function selectTool(state, event, ctx) {
       return done({ ...state, drag: { ...drag, last: screen } }, dx || dy ? [{ type: 'pan', dx, dy }] : []);
     }
 
+    if (drag.kind.startsWith('annotation')) {
+      let doc, hint = null;
+      try {
+        if (drag.kind === 'annotation-body') {
+          doc = moveAnnotation(drag.startDoc, drag.index, snapValue(point.x - drag.start.x, ctx.snap), snapValue(point.y - drag.start.y, ctx.snap));
+        } else {
+          const sp = snapAt(ctx, point);
+          hint = sp.snap ? hintEffect(sp) : null;
+          doc = drag.ref.type === 'annotation-offset'
+            ? setDimensionOffset(drag.startDoc, drag.ref.index, sp.point)
+            : setAnnotationPoint(drag.startDoc, drag.ref.index, drag.ref.key, sp.point);
+        }
+      } catch (err) { return done(state, [msg(err.message)]); }
+      const changed = !same(doc, drag.startDoc);
+      return done({ ...state, drag: { ...drag, current: doc, moved: drag.moved || changed } }, [...(hint ? [hint] : []), ...(changed ? [{ type: 'doc', doc, transient: true }] : [])]);
+    }
     let result;
     let hint = null;
     const snapDrag = (exclude) => {
@@ -308,4 +337,104 @@ function polygonTool(state, event, ctx) {
   }
   if (type === 'dblclick') return closePolygon(state, ctx);
   return done(state);
+}
+
+// ── annotation tools: open line, dimension, note ────────────────────────────
+
+const cancelDraft = (state, ctx) => done({ ...state, draft: null }, [{ type: 'draft', draft: null }, ...clearHint(ctx)]);
+const apart = (a, b) => Math.hypot(a.x - b.x, a.y - b.y) >= 1e-9;
+
+/** Commit an annotation, select it and clear the draft. A refused annotation leaves the draft alone with a message. */
+function commitAnnotation(state, ctx, annotation) {
+  let doc;
+  try { doc = addAnnotation(ctx.doc, annotation); } catch (err) { return done(state, [msg(err.message)]); }
+  return done({ ...state, draft: null }, [
+    { type: 'doc', doc, transient: false },
+    { type: 'select', selection: { type: 'annotation', index: doc.annotations.length - 1 } },
+    { type: 'draft', draft: null },
+    ...clearHint(ctx),
+  ]);
+}
+
+/** Shared by the three tools: Escape cancels; mouse move updates the cursor and the snap marker. */
+function hoverOrCancel(state, event, ctx, lastPoint) {
+  if (event.type === 'key') return event.key === 'Escape' && state.draft ? cancelDraft(state, ctx) : null;
+  if (event.type !== 'move') return null;
+  const s = snapAt(ctx, event.point, lastPoint ? { lastPoint } : {});
+  const draft = state.draft ? { ...state.draft, cursor: s.point } : null;
+  return done(draft ? { ...state, draft } : state, [...(draft ? [{ type: 'draft', draft }] : []), ...(s.snap ? [hintEffect(s)] : [])]);
+}
+
+function lineTool(state, event, ctx) {
+  const d = state.draft;
+  const last = d?.points.at(-1) ?? null;
+  const finish = () => (d.points.length < 2 ? done(state, [msg('A line needs at least two points.')]) : commitAnnotation(state, ctx, { type: 'line', points: d.points }));
+  if (event.type === 'key' && d) {
+    if (event.key === 'Enter') return finish();
+    if (event.key === 'Backspace') {
+      const points = d.points.slice(0, -1);
+      if (points.length === 0) return cancelDraft(state, ctx);
+      const draft = { kind: 'line', points, cursor: points.at(-1) };
+      return done({ ...state, draft }, [{ type: 'draft', draft }]);
+    }
+  }
+  const handled = hoverOrCancel(state, event, ctx, last);
+  if (handled) return handled;
+  if (event.type === 'dblclick' && d) return finish();
+  if (event.type !== 'down') return done(state);
+  const p = snapAt(ctx, event.point, last ? { lastPoint: last } : {}).point;
+  if (last && !apart(p, last)) return done(state);   // the first click of a double click
+  const draft = { kind: 'line', points: [...(d?.points ?? []), p], cursor: p };
+  return done({ ...state, draft }, [{ type: 'draft', draft }]);
+}
+
+// Dimension: first end, second end, then a click for where the dimension line sits.
+function dimTool(state, event, ctx) {
+  const d = state.draft;
+  const stage = d?.stage ?? 0;
+  const anchor = stage === 1 ? d.a : null;
+  if (event.type === 'move' && stage === 2) {
+    const draft = { ...d, offset: setOffsetFor(d, event.point) };
+    return done({ ...state, draft }, [{ type: 'draft', draft }]);
+  }
+  if (event.type === 'move' && stage === 1) {
+    const s = snapAt(ctx, event.point, { lastPoint: d.a });
+    const draft = { ...d, b: s.point };
+    return done({ ...state, draft }, [{ type: 'draft', draft }, ...(s.snap ? [hintEffect(s)] : [])]);
+  }
+  const handled = hoverOrCancel(state, event, ctx, anchor);
+  if (handled) return handled;
+  if (event.type !== 'down') return done(state);
+  if (stage === 2) return commitAnnotation(state, ctx, { type: 'dimension', from: d.a, to: d.b, offset_m: setOffsetFor(d, event.point) });
+  const p = snapAt(ctx, event.point, anchor ? { lastPoint: anchor } : {}).point;
+  if (stage === 0) {
+    const draft = { kind: 'dim', stage: 1, a: p, b: p, offset: 0.1 };
+    return done({ ...state, draft }, [{ type: 'draft', draft }]);
+  }
+  if (!apart(p, d.a)) return done(state, [msg('Pick a second point away from the first.')]);
+  const draft = { ...d, stage: 2, b: p };
+  return done({ ...state, draft }, [{ type: 'draft', draft }, ...clearHint(ctx)]);
+}
+
+/** Signed distance of a point from the line a-b, positive to the left of a to b. */
+function setOffsetFor(d, p) {
+  const dx = d.b.x - d.a.x, dy = d.b.y - d.a.y;
+  const off = (dx * (p.y - d.a.y) - dy * (p.x - d.a.x)) / Math.hypot(dx, dy);
+  return Math.round(off * 1e6) / 1e6;
+}
+
+// Note: click the point to label, then click where the text goes. A second click on the same spot gives a note with no leader.
+function noteTool(state, event, ctx) {
+  const d = state.draft;
+  const handled = hoverOrCancel(state, event, ctx, null);
+  if (handled) return handled;
+  if (event.type !== 'down') return done(state);
+  const p = snapAt(ctx, event.point).point;
+  if (!d) {
+    const draft = { kind: 'note', to: p, cursor: p };
+    return done({ ...state, draft }, [{ type: 'draft', draft }]);
+  }
+  const note = { type: 'note', at: p, text: 'Note' };
+  if (Math.hypot(p.x - d.to.x, p.y - d.to.y) > ctx.tolerance) note.leader_to = d.to;
+  return commitAnnotation(state, ctx, note);
 }

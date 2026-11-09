@@ -568,6 +568,11 @@ Detail fields:
   storey.
 - `geometry.regions[]` — extra shapes (trim, membranes, fillers): a `material_id`
   and at least three `vertices` in drawing space, simple (not self-intersecting).
+- `annotations[]` — optional drawing marks for the 2D view only, never extruded
+  into 3D: `{ "type": "line", "points": [...], "style": "dashed" }` (an open
+  line; `solid`, `dashed` or `centre`), `{ "type": "dimension", "from": {x, y},
+  "to": {x, y}, "offset_m": 0.1 }` and `{ "type": "note", "at": {x, y},
+  "text": "...", "leader_to": {x, y} }`. Coordinates are plain metres.
 - `parameters{}` — named numbers with a `default` and optional `min` and `max`.
   A vertex coordinate may use one: `{ "param": "name", "scale": 1, "offset": 0.145 }`
   means `offset + scale * value`.

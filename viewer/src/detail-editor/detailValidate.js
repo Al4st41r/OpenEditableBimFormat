@@ -13,6 +13,7 @@ import {
   KINDS, EXTENTS, PLANES, VIEW_DIRECTIONS, DATUM_KINDS, DATUM_REFERENCES, RULES, SLUG, PARAM_NAME, SCHEMA_ID,
 } from './detailConstants.js';
 import { evaluateCoordinate } from './detailDocument.js';
+import { checkAnnotation } from './annotationOps.js';
 import { signedArea, isSelfIntersecting } from '../detail/regionGeometry.js';
 import { checkRepeat } from '../detail/regionRepeat.js';
 import { checkClassification } from '../detail-review/classification.js';
@@ -42,7 +43,7 @@ export function validateDetail(doc, ctx) {
     return out;
   }
 
-  noExtra(doc, ['$schema', 'id', 'type', 'description', 'condition', 'members', 'datum', 'plane', 'view_direction', 'geometry', 'parameters', 'tags'], '');
+  noExtra(doc, ['$schema', 'id', 'type', 'description', 'condition', 'members', 'datum', 'plane', 'view_direction', 'geometry', 'annotations', 'parameters', 'tags'], '');
 
   if (typeof doc.$schema !== 'string') add('$schema', 'required', `Missing "$schema" (expected "${SCHEMA_ID}")`);
   if (doc.type !== 'Detail') add('type', 'type', 'type must be "Detail"');
@@ -159,6 +160,12 @@ export function validateDetail(doc, ctx) {
         for (const p of checkRepeat(region, evaluable ? pts : undefined)) add(`${rp}.${p.field}`, p.code, p.message);
       });
     }
+  }
+
+  // ── annotations ──
+  if (doc.annotations !== undefined) {
+    if (!Array.isArray(doc.annotations)) add('annotations', 'annotation', 'annotations must be an array');
+    else doc.annotations.forEach((a, i) => { for (const p of checkAnnotation(a)) add(`annotations[${i}]${p.field ? '.' + p.field : ''}`, p.code, p.message); });
   }
 
   // ── condition ──

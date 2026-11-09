@@ -2,6 +2,7 @@ import { describe, test, expect } from 'vitest';
 import { createController, setControllerTool, handleEvent } from './canvasController.js';
 import { buildCanvasModel } from './canvasModel.js';
 import { addRect } from './detailDocument.js';
+import { addAnnotation } from './annotationOps.js';
 import { exampleDetail, readExample, deepFreeze } from './testUtils.js';
 
 const close = (a, b, d = 9) => expect(a).toBeCloseTo(b, d);
@@ -569,5 +570,78 @@ describe('box select: Escape', () => {
     expect(r.state.draft).toBeNull();
     expect(r.state.drag).toBeNull();
     expect(of(r, 'draft').at(-1).draft).toBeNull();
+  });
+});
+
+describe('annotation tools', () => {
+  const run = (tool, steps, doc = exampleDetail()) => {
+    let state = createController(tool), last;
+    for (const [type, x, y, extra] of steps) {
+      last = handleEvent(state, type === 'key' ? key(x) : ev(type, x, y, extra), ctxFor(doc));
+      state = last.state;
+    }
+    return last;
+  };
+
+  test('line: clicks add points, Enter commits an open polyline and selects it', () => {
+    const r = run('line', [['down', 1, 1], ['down', 2, 1], ['down', 2, 2], ['key', 'Enter']]);
+    expect(lastDoc(r).doc.annotations).toEqual([{ type: 'line', points: [{ x: 1, y: 1 }, { x: 2, y: 1 }, { x: 2, y: 2 }] }]);
+    expect(of(r, 'select')[0].selection).toEqual({ type: 'annotation', index: 0 });
+  });
+
+  test('line: a double click finishes without a repeated point', () => {
+    const r = run('line', [['down', 1, 1], ['down', 2, 1], ['down', 2, 1], ['dblclick', 2, 1]]);
+    expect(lastDoc(r).doc.annotations[0].points).toHaveLength(2);
+  });
+
+  test('line: one point is not enough; Backspace removes the last; Escape cancels', () => {
+    expect(of(run('line', [['down', 1, 1], ['key', 'Enter']]), 'message')).toHaveLength(1);
+    const back = run('line', [['down', 1, 1], ['down', 2, 1], ['key', 'Backspace']]);
+    expect(back.state.draft.points).toHaveLength(1);
+    expect(run('line', [['down', 1, 1], ['key', 'Escape']]).state.draft).toBeNull();
+  });
+
+  test('dimension: two points then a click for the line position', () => {
+    let r = run('dim', [['down', 0, 0], ['down', 1, 0]]);
+    expect(r.state.draft.stage).toBe(2);
+    r = handleEvent(r.state, ev('move', 0.5, 0.3), ctxFor(exampleDetail()));
+    expect(r.state.draft.offset).toBeCloseTo(0.3);
+    r = handleEvent(r.state, ev('down', 0.5, -0.25), ctxFor(exampleDetail()));
+    expect(lastDoc(r).doc.annotations[0]).toMatchObject({ type: 'dimension', from: { x: 0, y: 0 }, to: { x: 1, y: 0 } });
+    expect(lastDoc(r).doc.annotations[0].offset_m).toBeCloseTo(-0.25);
+  });
+
+  test('dimension: the same point twice is refused', () => {
+    expect(of(run('dim', [['down', 1, 1], ['down', 1, 1]]), 'message')).toHaveLength(1);
+  });
+
+  test('note: leader point then text position; the same spot gives no leader', () => {
+    const withLeader = run('note', [['down', 1, 1], ['down', 1.5, 1.4]]);
+    expect(lastDoc(withLeader).doc.annotations[0]).toMatchObject({ type: 'note', at: { x: 1.5, y: 1.4 }, leader_to: { x: 1, y: 1 } });
+    const bare = run('note', [['down', 1, 1], ['down', 1, 1]]);
+    expect(lastDoc(bare).doc.annotations[0].leader_to).toBeUndefined();
+  });
+
+  test('select: an annotation is picked, dragged as a whole and deleted', () => {
+    const doc = addAnnotation(exampleDetail(), { type: 'line', points: [{ x: 1, y: 1 }, { x: 2, y: 1 }] });
+    let r = handleEvent(createController(), ev('down', 1.5, 1.001), ctxFor(doc));
+    expect(of(r, 'select')[0].selection).toEqual({ type: 'annotation', index: 0 });
+    r = handleEvent(r.state, ev('move', 1.5, 1.201), ctxFor(doc));
+    r = handleEvent(r.state, ev('up', 1.5, 1.201), ctxFor(doc));
+    expect(lastDoc(r).doc.annotations[0].points[0].y).toBeCloseTo(1.2, 2);
+    const del = handleEvent(createController(), key('Delete'), ctxFor(doc, { type: 'annotation', index: 0 }));
+    expect(lastDoc(del).doc.annotations).toBeUndefined();
+  });
+
+  test('select: a handle drags one point and a dimension offset handle sets the offset', () => {
+    const doc = addAnnotation(exampleDetail(), { type: 'dimension', from: { x: 1, y: 1 }, to: { x: 2, y: 1 } });
+    const sel = { type: 'annotation', index: 0 };
+    let r = handleEvent(createController(), ev('down', 2, 1), ctxFor(doc, sel));
+    expect(r.state.drag.kind).toBe('annotation-handle');
+    r = handleEvent(r.state, ev('move', 2.5, 1), ctxFor(doc, sel));
+    r = handleEvent(r.state, ev('up', 2.5, 1), ctxFor(doc, sel));
+    expect(lastDoc(r).doc.annotations[0].to.x).toBeCloseTo(2.5, 2);
+    const off = handleEvent(createController(), ev('down', 1.5, 1.1), ctxFor(doc, sel));
+    expect(off.state.drag.ref.type).toBe('annotation-offset');
   });
 });

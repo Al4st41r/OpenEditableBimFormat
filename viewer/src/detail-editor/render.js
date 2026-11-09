@@ -6,8 +6,9 @@
  */
 
 import { toScreen } from './viewTransform.js';
-import { toDisplay, unitLabel } from '../editor/units.js';
+import { toDisplay, unitLabel, getUnit } from '../editor/units.js';
 import { patternDefs, patternId } from './drawStyle.js';
+import { dimensionGeometry } from './annotationOps.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 const el = (name, attrs = {}, text) => {
@@ -72,6 +73,8 @@ export function renderCanvas(svg, model, view, size, { draft = null, hint = null
     if (s) svg.appendChild(el('polygon', { points: pts, fill: 'none', stroke, 'stroke-width': width, 'stroke-linejoin': 'miter', 'pointer-events': 'none' }));
   });
 
+  for (const a of model.annotations ?? []) drawAnnotation(svg, a.ann, a.selected, view, size);
+
   // Draft (rubber band)
   if (draft?.kind === 'rect') {
     const { a, b } = draft;
@@ -106,6 +109,20 @@ export function renderCanvas(svg, model, view, size, { draft = null, hint = null
       svg.appendChild(el('text', { x: lx, y: ly + 2, fill: '#fff', 'font-size': 12, 'text-anchor': 'middle' }, label));
     }
   }
+  if (draft?.kind === 'line') {
+    const pts = draft.cursor ? [...draft.points, draft.cursor] : draft.points;
+    svg.appendChild(el('polyline', { points: pointsAttr(pts, view, size), fill: 'none', stroke: '#0a6cff', 'stroke-dasharray': '5 4', 'stroke-width': 1.5 }));
+    for (const p of draft.points) { const q = toScreen(view, size, p); svg.appendChild(el('circle', { cx: q.x, cy: q.y, r: 3.5, fill: '#0a6cff' })); }
+  }
+  if (draft?.kind === 'dim') {
+    const ann = { type: 'dimension', from: draft.a, to: draft.b, offset_m: draft.stage === 2 ? draft.offset : 0 };
+    if (Math.hypot(draft.b.x - draft.a.x, draft.b.y - draft.a.y) > 1e-9) drawAnnotation(svg, ann, true, view, size);
+  }
+  if (draft?.kind === 'note') {
+    const a = toScreen(view, size, draft.to), c = toScreen(view, size, draft.cursor ?? draft.to);
+    svg.appendChild(el('line', { x1: a.x, y1: a.y, x2: c.x, y2: c.y, stroke: '#0a6cff', 'stroke-dasharray': '5 4' }));
+    svg.appendChild(el('circle', { cx: a.x, cy: a.y, r: 3.5, fill: '#0a6cff' }));
+  }
   if (draft?.kind === 'polygon') {
     const pts = draft.cursor ? [...draft.points, draft.cursor] : draft.points;
     svg.appendChild(el('polyline', { points: pointsAttr(pts, view, size), fill: 'none', stroke: '#0a6cff', 'stroke-dasharray': '5 4', 'stroke-width': 1.5 }));
@@ -126,6 +143,51 @@ export function renderCanvas(svg, model, view, size, { draft = null, hint = null
             : { cx: s.x, cy: s.y, r: 5.5, fill: h.kind === 'origin' ? '#fff' : colour, stroke: h.kind === 'origin' ? colour : '#fff', 'stroke-width': 2 }));
   }
   drawHint(svg, hint, view, size);
+}
+
+const INK = '#1a1a1a';
+/** A dimension's length for the drawing: whole millimetres or a tenth, three places in metres. */
+export const dimText = (metres) => String(Math.round(toDisplay(metres) * (getUnit() === 'mm' ? 10 : 1000)) / (getUnit() === 'mm' ? 10 : 1000));
+const DASH = { solid: null, dashed: '8 5', centre: '14 4 3 4' };
+
+/** One annotation. Text is horizontal and its size is in pixels, so it stays readable at any zoom. */
+function drawAnnotation(svg, a, selected, view, size) {
+  const colour = selected ? '#0a6cff' : INK;
+  const S = (p) => toScreen(view, size, p);
+  const line = (p, q, extra = {}) => { const u = S(p), v = S(q); svg.appendChild(el('line', { x1: u.x, y1: u.y, x2: v.x, y2: v.y, stroke: colour, 'stroke-width': 1.25, ...extra })); };
+  const label = (at, text, extra = {}) => {
+    const t = S(at);
+    svg.appendChild(el('text', { x: t.x, y: t.y, fill: colour, stroke: '#fff', 'stroke-width': 3, 'paint-order': 'stroke', 'font-size': 12, ...extra }, text));
+  };
+  if (a.type === 'line') {
+    const dash = DASH[a.style ?? 'solid'];
+    svg.appendChild(el('polyline', {
+      points: pointsAttr(a.points, view, size), fill: 'none', stroke: colour, 'stroke-width': selected ? 2 : 1.5,
+      'stroke-linejoin': 'round', 'stroke-linecap': 'round', ...(dash ? { 'stroke-dasharray': dash } : {}),
+    }));
+  } else if (a.type === 'dimension') {
+    const g = dimensionGeometry(a);
+    for (const e of g.extensions) line(e.a, e.b, { 'stroke-width': 0.75 });
+    line(g.line.a, g.line.b);
+    // ticks: short 45 degree strokes on the dimension line, as drawn by hand
+    for (const p of [g.line.a, g.line.b]) {
+      const t = S(p);
+      svg.appendChild(el('line', { x1: t.x - 4, y1: t.y + 4, x2: t.x + 4, y2: t.y - 4, stroke: colour, 'stroke-width': 1.5 }));
+    }
+    const m = S(g.mid);
+    let deg = -g.angle * 180 / Math.PI;                    // screen y is flipped
+    if (deg > 90) deg -= 180; else if (deg < -90) deg += 180;   // never upside down
+    label({ x: g.mid.x, y: g.mid.y }, dimText(g.length), { 'text-anchor': 'middle', transform: `rotate(${deg} ${m.x} ${m.y}) translate(0 -4)`, 'font-size': 11 });
+  } else {
+    if (a.leader_to) {
+      line(a.at, a.leader_to);
+      const d = S(a.leader_to);
+      svg.appendChild(el('circle', { cx: d.x, cy: d.y, r: 2.5, fill: colour }));
+    }
+    const t = S(a.at);
+    label(a.at, a.text, { x: t.x + 4, y: t.y - 4 });
+    if (selected) svg.appendChild(el('circle', { cx: t.x, cy: t.y, r: 3, fill: colour }));
+  }
 }
 
 const SNAP_COLOUR = '#e8590c';

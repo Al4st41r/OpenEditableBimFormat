@@ -15,6 +15,7 @@
 import { resolveLineweight, functionForCategory, DEFAULT_LINEWEIGHTS, HAIRLINE_MM } from '../lineweights.js';
 import { NONE_COLOUR } from './overlays.js';
 import { signedArea } from '../detail/regionGeometry.js';
+import { annotationSvg, annotationBounds } from './annotationSvg.js';
 import { hatchKindFor, hatchDefs, patternId, noDataDef, NO_DATA_PATTERN_ID } from './hatches.js';
 
 export const DEFAULT_SCALE = 5;
@@ -76,8 +77,10 @@ export function styleFor(prism, { materials, profiles, k = 200 } = {}) {
 export function buildDetailSvg(model, opts = {}) {
   const scale = opts.scale > 0 ? opts.scale : DEFAULT_SCALE;
   const k = 1000 / scale;
-  const b = model.bounds;
-  if (!b || !model.prisms.length) return { svg: '', width: 0, height: 0, scale };
+  const own = model.bounds;
+  if (!own || !model.prisms.length) return { svg: '', width: 0, height: 0, scale };
+  const ab = annotationBounds(model.annotations);
+  const b = ab ? { minU: Math.min(own.minU, ab.minU), maxU: Math.max(own.maxU, ab.maxU), minV: Math.min(own.minV, ab.minV), maxV: Math.max(own.maxV, ab.maxV) } : own;
 
   const x0 = b.minU * k - MARGIN_MM;
   const x1 = b.maxU * k + MARGIN_MM;
@@ -144,7 +147,7 @@ export function buildDetailSvg(model, opts = {}) {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" class="detail-2d${opts.hairline ? ' thin' : ''}" ` +
     `viewBox="${num(x0)} ${num(y0)} ${num(width)} ${num(height)}" data-scale="${num(scale)}" role="img">` +
     `${style}<defs>${defs}${opts.fills ? noDataDef() : ''}</defs><rect x="${num(x0)}" y="${num(y0)}" width="${num(width)}" height="${num(height)}" fill="#fff"/>` +
-    `<g class="fills">${fills}</g><g class="outlines">${outlines}</g>${annotations}</svg>`;
+    `<g class="fills">${fills}</g><g class="outlines">${outlines}</g>${annotations}${annotationSvg(model.annotations, k, { weight: ann, format: (m) => String(Math.round(m * 1000)) })}</svg>`;
 
   return { svg, width, height, scale };
 }

@@ -11,6 +11,7 @@
 import { FsaAdapter, MemoryAdapter } from '../editor/storageAdapter.js';
 import { setUnit, getUnit, toDisplay, fromDisplay } from '../editor/units.js';
 import * as D from './detailDocument.js';
+import * as AN from './annotationOps.js';
 import { validateDetail } from './detailValidate.js';
 import { createDetail } from './detailSerializer.js';
 import { loadDetailContext, saveDetail } from './detailStore.js';
@@ -34,7 +35,7 @@ import { snapPoint, SNAP_KINDS } from '../snap/snapEngine.js';
 import { buildTooltip } from '../snap/tooltip.js';
 import { buildSnapScene } from './snapScene.js';
 import { setRegionEdgeLength, setRegionSize } from './dimensionOps.js';
-import { KINDS, PLANES } from './detailConstants.js';
+import { KINDS, PLANES, TOOLS } from './detailConstants.js';
 
 const $ = (id) => document.getElementById(id);
 const svg = $('canvas');
@@ -138,7 +139,7 @@ function refresh() {
     $('left-panel').replaceChildren(); $('right-panel').replaceChildren();
     $('undo-btn').disabled = $('redo-btn').disabled = true; $('dirty').hidden = true;
   }
-  for (const t of ['select', 'rect', 'polygon', 'measure']) $(`tool-${t}`).classList.toggle('active', st?.tool === t || (!st && t === 'select'));
+  for (const t of TOOLS) $(`tool-${t}`).classList.toggle('active', st?.tool === t || (!st && t === 'select'));
   svg.style.cursor = st?.tool === 'select' || !st ? 'default' : 'crosshair';
   paint();
 }
@@ -222,6 +223,8 @@ const actions = {
   },
   setRegionNumber: (i, f, v) => apply((d) => D.setRegionNumber(d, i, f, v)),
   setRegionTag: (i, k, v) => apply((d) => D.setRegionTag(d, i, k, v)),
+  updateAnnotation: (i, patch) => apply((d) => AN.updateAnnotation(d, i, patch)),
+  removeAnnotation: (i) => { apply((d) => AN.removeAnnotation(d, i)); st = select(st, null); refresh(); },
   removeRegion: (i) => apply((d) => D.removeRegion(d, i)),
   moveVertex: (r, v, c) => apply((d) => D.moveVertex(d, r, v, c)),
   bind: (r, v, axis, param) => apply((d) => D.bindCoordinate(d, r, v, axis, { param })),
@@ -274,7 +277,7 @@ function chooseTool(tool) {
   draft = null;
   refresh();
 }
-for (const t of ['select', 'rect', 'polygon', 'measure']) $(`tool-${t}`).addEventListener('click', () => chooseTool(t));
+for (const t of TOOLS) $(`tool-${t}`).addEventListener('click', () => chooseTool(t));
 
 // ── canvas interaction ───────────────────────────────────────────────────────
 function controllerContext() {
@@ -343,11 +346,12 @@ svg.addEventListener('wheel', (e) => {
 // ── typed coordinates ────────────────────────────────────────────────────────
 // With a drawing tool active, typing a digit, minus, @ or . opens a command box. Enter places the point exactly,
 // with no snapping: 2400,1200 absolute, @300,0 relative, 500<45 polar, or a distance towards the cursor.
-const DRAWING_TOOLS = ['rect', 'polygon', 'measure'];
+const DRAWING_TOOLS = TOOLS.filter((t) => t !== 'select');
 function lastPoint() {
   const d = controller.draft;
   if (!d) return null;
-  if (d.kind === 'polygon') return d.points.at(-1) ?? null;
+  if (d.kind === 'polygon' || d.kind === 'line') return d.points.at(-1) ?? null;
+  if (d.kind === 'note') return d.to;
   return d.a ?? null;
 }
 function cmdHint() {
@@ -355,6 +359,9 @@ function cmdHint() {
   const tool = st?.tool;
   if (tool === 'rect') return d ? 'Opposite corner: @w,h' : 'First corner: x,y';
   if (tool === 'polygon') return d ? 'Next point: @dx,dy or d<angle. Enter on empty closes.' : 'First point: x,y';
+  if (tool === 'line') return d ? 'Next point: @dx,dy or d<angle. Enter on empty finishes.' : 'First point: x,y';
+  if (tool === 'dim') return d?.stage === 2 ? 'Click to place the dimension line' : d ? 'Second point: @dx,dy or d<angle' : 'First point: x,y';
+  if (tool === 'note') return d ? 'Text position: x,y' : 'Point to label: x,y';
   return d && !d.fixed ? 'Second point: @dx,dy or d<angle' : 'First point: x,y';
 }
 function openCmd(initial = '') {
@@ -384,7 +391,7 @@ $('cmd-input').addEventListener('keydown', (e) => {
   e.preventDefault();
   const text = $('cmd-input').value.trim();
   if (text === '') {
-    if (st.tool === 'polygon' && controller.draft) { dispatch('key', { clientX: 0, clientY: 0 }, 'Enter'); closeCmd(); }
+    if ((st.tool === 'polygon' || st.tool === 'line') && controller.draft) { dispatch('key', { clientX: 0, clientY: 0 }, 'Enter'); closeCmd(); }
     return;
   }
   const res = parseTypedPoint(text, { last: lastPoint(), cursor: pointer.x || pointer.y ? toDetail(view, size, pointer) : null, unit: getUnit() });
@@ -443,7 +450,7 @@ window.addEventListener('keydown', (e) => {
       return;
     }
   }
-  const tools = { v: 'select', r: 'rect', p: 'polygon', m: 'measure' };
+  const tools = { v: 'select', r: 'rect', p: 'polygon', m: 'measure', l: 'line', d: 'dim', n: 'note' };
   if (!mod && tools[e.key.toLowerCase()]) { chooseTool(tools[e.key.toLowerCase()]); return; }
   if (!mod && e.key.toLowerCase() === 'f') { fit(); return; }
   if (!mod && e.key.toLowerCase() === 's') { toggleSnap(); return; }
