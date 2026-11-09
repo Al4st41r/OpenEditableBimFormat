@@ -159,6 +159,7 @@ selection.subscribe((id, source) => {
 });
 
 $('drawing').addEventListener('click', (e) => {
+  if (justPanned) return;
   const el = e.target.closest?.('[data-item]');
   selection.toggle(el ? el.dataset.item : null, '2d');
 });
@@ -170,10 +171,59 @@ $('canvas').addEventListener('pointerup', (e) => {
   const id = viewer.pick(e.clientX, e.clientY);
   selection.toggle(id, '3d');
 });
+// ── 2D pane: zoom, pan and the divider ───────────────────────────────────────
+const zoom2d = { k: 1, x: 0, y: 0 };
+const applyZoom = () => { $('drawing').style.transform = `translate(${zoom2d.x}px, ${zoom2d.y}px) scale(${zoom2d.k})`; };
+const resetZoom = () => { Object.assign(zoom2d, { k: 1, x: 0, y: 0 }); applyZoom(); };
+$('pane-2d').addEventListener('wheel', (e) => {
+  e.preventDefault();
+  const r = $('pane-2d').getBoundingClientRect();
+  const p = { x: e.clientX - r.left, y: e.clientY - r.top };
+  const k = Math.min(40, Math.max(0.2, zoom2d.k * (e.deltaY < 0 ? 1.15 : 1 / 1.15)));
+  zoom2d.x = p.x - (p.x - zoom2d.x) * (k / zoom2d.k);
+  zoom2d.y = p.y - (p.y - zoom2d.y) * (k / zoom2d.k);
+  zoom2d.k = k;
+  applyZoom();
+}, { passive: false });
+let pan = null;
+let justPanned = false;
+$('pane-2d').addEventListener('pointerdown', (e) => {
+  if (e.button !== 0) return;
+  pan = { x: e.clientX, y: e.clientY, zx: zoom2d.x, zy: zoom2d.y, moved: false };
+});
+window.addEventListener('pointermove', (e) => {
+  if (!pan) return;
+  const dx = e.clientX - pan.x, dy = e.clientY - pan.y;
+  if (!pan.moved && Math.hypot(dx, dy) < 4) return;
+  pan.moved = true;
+  $('pane-2d').classList.add('panning');
+  zoom2d.x = pan.zx + dx; zoom2d.y = pan.zy + dy;
+  applyZoom();
+});
+window.addEventListener('pointerup', () => {
+  if (pan?.moved) { justPanned = true; setTimeout(() => { justPanned = false; }, 0); }  // the click that ends a pan selects nothing
+  pan = null;
+  $('pane-2d').classList.remove('panning');
+});
+$('pane-2d').addEventListener('dblclick', resetZoom);
+
+let split = null;
+$('divider').addEventListener('pointerdown', (e) => { split = true; $('divider').classList.add('drag'); e.preventDefault(); });
+window.addEventListener('pointermove', (e) => {
+  if (!split) return;
+  const r = $('panes').getBoundingClientRect();
+  const frac = Math.min(0.85, Math.max(0.15, (e.clientX - r.left) / r.width));
+  $('pane-2d').style.flex = `0 0 ${frac * 100}%`;
+  $('canvas-wrap').style.flex = '1 1 0';
+  viewer.resize();
+});
+window.addEventListener('pointerup', () => { split = null; $('divider').classList.remove('drag'); });
+
 $('pane2d-btn').addEventListener('click', () => {
   view2d.on = !view2d.on;
   $('pane2d-btn').classList.toggle('active', view2d.on);
   $('pane-2d').hidden = !view2d.on;
+  $('divider').hidden = !view2d.on;
   viewer.resize();
   draw2d();
 });
@@ -192,7 +242,7 @@ $('thin-btn').addEventListener('click', () => {
 });
 
 function select(id) {
-  if (id !== selectedId) showOriginal = false;
+  if (id !== selectedId) { showOriginal = false; resetZoom(); }
   const detail = detailById(id);
   if (!detail) return;
   selectedId = id;
