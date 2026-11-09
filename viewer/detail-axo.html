@@ -82,6 +82,12 @@
     <button id="edges-btn" class="active" title="Outline each solid">Edges</button>
     <button id="fit-btn" title="Fit to view">Fit</button>
     <button id="png-btn" title="Save the current view as a PNG">PNG</button>
+    <select id="export-select" title="Export the 2D drawing on a sheet with a title block">
+      <option value="">Export 2D</option><option value="svg">SVG sheet</option><option value="pdf">PDF (print)</option>
+    </select>
+    <select id="paper-select" title="Sheet size for export">
+      <option value="">Auto paper</option><option>A4</option><option>A3</option><option>A2</option><option>A1</option>
+    </select>
     <span class="sep"></span>
     <button id="edit-btn" title="Open this detail in the detail editor" disabled>Edit detail</button>
     <button id="compare-btn" title="Show the detail as it was before your edits" hidden>Original</button>

@@ -17,6 +17,7 @@ import { buildDetailSvg } from '../detail-review/detailSvg.js';
 import { createSelection, describeItem } from '../detail-review/selection.js';
 import { buildSnapshot } from '../detail-editor/bundleSnapshot.js';
 import { isTrustedReady, buildOpenerReply, parseSaved } from '../detail-editor/messages.js';
+import { buildSheet, printHtml, sheetFileName } from '../detail-review/sheet.js';
 import { diffDetails } from '../detail-review/detailDiff.js';
 import { OVERLAYS, applyOverlay, tagsOf, carbonValues } from '../detail-review/overlays.js';
 
@@ -302,6 +303,51 @@ $('png-btn').addEventListener('click', async () => {
   a.click();
   URL.revokeObjectURL(a.href);
 });
+/** The 2D drawing as it stands (without the selection highlight), on a sheet with a title block. */
+function currentSheet() {
+  if (!model) throw new Error('Pick a detail first.');
+  const drawing = buildDetailSvg(model, { materials: data.materials, profiles: data.profiles, scale: view2d.scale, hairline: view2d.hairline, fills: overlayResult?.colours });
+  const detail = currentDetail();
+  return {
+    sheet: buildSheet(drawing, {
+      paper: $('paper-select').value || undefined,
+      title: detail.id, description: detail.description, project: data.projectName ?? '',
+      date: new Date().toISOString().slice(0, 10),
+      note: view2d.overlay ? `Coloured by: ${OVERLAYS.find((o) => o.id === view2d.overlay).label}` : '',
+    }),
+    name: detail.id, scale: drawing.scale,
+  };
+}
+
+$('export-select').addEventListener('change', (e) => {
+  const kind = e.target.value;
+  e.target.value = '';
+  if (!kind) return;
+  try {
+    const { sheet, name, scale } = currentSheet();
+    if (kind === 'svg') {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([sheet.svg], { type: 'image/svg+xml' }));
+      a.download = sheetFileName(name, scale, 'svg');
+      a.click();
+      URL.revokeObjectURL(a.href);
+      status(`Saved ${sheet.paper} sheet as SVG.`);
+    } else {
+      // PDF: print the sheet at real size from a hidden frame; choose "Save as PDF" in the print dialog
+      const frame = document.createElement('iframe');
+      frame.style.cssText = 'position:fixed;width:0;height:0;border:0;visibility:hidden';
+      frame.srcdoc = printHtml(sheet, sheetFileName(name, scale, 'pdf').replace(/\.pdf$/, ''));
+      frame.onload = () => {
+        frame.contentWindow.focus();
+        frame.contentWindow.print();
+        setTimeout(() => frame.remove(), 60000);
+      };
+      document.body.appendChild(frame);
+      status(`Printing ${sheet.paper} sheet: choose "Save as PDF" as the printer.`);
+    }
+  } catch (err) { status(err.message, true); }
+});
+
 $('open-btn').addEventListener('click', async () => {
   try {
     const handle = await window.showDirectoryPicker({ mode: 'readwrite' });
