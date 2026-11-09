@@ -175,6 +175,8 @@ function _appendRow(formEl, layer, index) {
       }
     }
     matSelect.value = result.id;
+    // an air cavity is classed as a finish
+    if (formEl._matMap[result.id]?.category === 'air') fnSelect.value = 'finish';
     swatchBtn.style.background = formEl._matMap[result.id]?.colour_hex ?? '#888888';
     _emit(formEl);
   });
@@ -201,6 +203,7 @@ function _appendRow(formEl, layer, index) {
   const delBtn  = _btn('bin.svg',          'Delete layer',    () => _deleteRow(formEl, index));
   const insBtn  = _textBtn('+', 'Insert a layer below this one', () => _insertAfter(formEl, index));
 
+  matSelect.addEventListener('change', () => { if (matMap[matSelect.value]?.category === 'air') fnSelect.value = 'finish'; });   // an air cavity is a finish
   [nameInput, thickInput, matSelect, fnSelect].forEach(el => {
     el.addEventListener('input', () => _emit(formEl));
     el.addEventListener('change', () => _emit(formEl));
