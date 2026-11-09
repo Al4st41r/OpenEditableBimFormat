@@ -893,6 +893,20 @@ describe('layer end handles', () => {
     expect(other.y).toBeCloseTo(endOf(doc, 2, 'near').y, 9);        // the other layers did not move
   });
 
+  test('a layer-end drag snaps against the drawing as the drag began, and shows the snap', () => {
+    const doc = exampleDetail();
+    const h = endOf(doc, 1, 'near');
+    const calls = [];
+    const snapFn = (point, extra) => { calls.push(extra); return { point: { x: point.x, y: h.y + 0.04 }, snap: { kind: 'endpoint', point: { x: point.x, y: h.y + 0.04 } } }; };
+    const ctx = { ...ctxFor(doc, sel), snapFn };
+    let r = handleEvent(createController(), ev('down', h.x, h.y), ctx);
+    r = handleEvent(r.state, ev('move', h.x, h.y + 0.037), ctx);
+    expect(calls.at(-1).doc).toBe(doc);                                       // not the document being changed
+    expect(r.effects.some((e) => e.type === 'hint' && e.hint?.snap)).toBe(true);
+    r = handleEvent(r.state, ev('up', h.x, h.y + 0.037), ctx);
+    expect(lastDoc(r).doc.members.find((m) => m.role === 'butting-wall').layer_ends[0].near_m).toBeCloseTo(0.04, 3);
+  });
+
   test('the far-end handle extends the layer away from the origin', () => {
     const doc = exampleDetail();
     const h = endOf(doc, 3, 'far');

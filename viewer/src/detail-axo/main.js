@@ -278,6 +278,7 @@ function applyDraft() {
   if (at >= 0) data.details[at] = draft.json; else data.details.push(draft.json);
   data.details.sort((a, b) => a.id.localeCompare(b.id));
   for (const [id, profile] of Object.entries(draft.profiles ?? {})) data.profiles.set(id, profile);   // profiles edited in the editor
+  for (const m of draft.materials ?? []) data.materials.set?.(m.id, m);                               // and materials added there
   edited.set(draft.id, draft.json);
   $('download-btn').hidden = false;
 }

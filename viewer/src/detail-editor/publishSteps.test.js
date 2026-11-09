@@ -14,4 +14,8 @@ describe('publishSteps', () => {
       'example/b.oebf/details/d.json', 'example/b.oebf/profiles/p1.json', 'example/b.oebf/profiles/p1.svg', 'example/b.oebf/profiles/p2.json',
     ]);
   });
+  test('new materials add the library', () => {
+    const r = publishSteps({ bundleName: 'b.oebf', detailId: 'd', materials: true });
+    expect(r.files.at(-1)).toEqual({ name: 'library.json', to: 'example/b.oebf/materials/library.json' });
+  });
 });

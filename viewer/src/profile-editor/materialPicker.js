@@ -3,6 +3,9 @@
  * Shows project materials, default library materials, and an inline create-new form.
  */
 
+/** Categories offered for a new material; the schema takes any string. */
+export const MATERIAL_CATEGORIES = ['masonry', 'insulation', 'air', 'mortar', 'plaster', 'timber', 'concrete', 'metal', 'membrane', 'glass', 'other'];
+
 export function sortedMaterials(matMap) {
   return Object.entries(matMap)
     .map(([id, m]) => ({ id, name: m.name ?? id, colour_hex: m.colour_hex ?? '#888888' }))
@@ -29,6 +32,7 @@ export async function _fetchLibMaterials() {
       id: m.id,
       name: m.name ?? m.id,
       colour_hex: m.colour_hex ?? '#888888',
+      raw: m,   // the whole entry, so choosing it adds it to the project as it is
     }));
     return _libCache;
   } catch { return []; }
@@ -95,7 +99,16 @@ export function openMaterialPicker(matMap, { onNewMaterial } = {}) {
       const name = document.createElement('span');
       name.textContent = mat.name; name.style.cssText = 'font-size:12px;color:#ddd;';
       row.appendChild(swatch); row.appendChild(name);
-      row.addEventListener('click', () => { modal.remove(); resolve({ id: mat.id }); });
+      row.addEventListener('click', async () => {
+        // A library material is not in the project yet: add it, or the layer would name a material the bundle lacks.
+        if (mat.raw) {
+          const full = { type: 'Material', category: 'other', interactions: {}, ...mat.raw };
+          try { await onNewMaterial?.(full); } catch { return; }
+          modal.remove(); resolve({ id: full.id, newMat: full });
+          return;
+        }
+        modal.remove(); resolve({ id: mat.id });
+      });
       return row;
     }
 
@@ -151,6 +164,18 @@ export function openMaterialPicker(matMap, { onNewMaterial } = {}) {
       const { wrap: nameWrap, inp: nameInp } = mkField('Name', 'text', 'e.g. Common Brick');
       const { wrap: colWrap,  inp: colInp  } = mkField('Colour hex', 'color', '#888888');
       colInp.value = '#888888';
+      // category is required by the material schema
+      const catWrap = document.createElement('div');
+      catWrap.style.cssText = 'display:flex;flex-direction:column;gap:4px;margin-bottom:10px;';
+      const catLbl = document.createElement('label');
+      catLbl.textContent = 'Category';
+      catLbl.style.cssText = 'font-size:11px;color:#888;';
+      const catSel = document.createElement('select');
+      catSel.style.cssText = 'background:#2a2a2a;color:#ddd;border:1px solid #444;padding:4px 8px;border-radius:3px;font-size:12px;';
+      for (const c of MATERIAL_CATEGORIES) catSel.appendChild(Object.assign(document.createElement('option'), { value: c, textContent: c }));
+      catWrap.append(catLbl, catSel);
+      // an air cavity has no colour worth drawing: offer a pale one
+      catSel.addEventListener('change', () => { if (catSel.value === 'air' && colInp.value === '#888888') colInp.value = '#e8f1f5'; });
 
       const btns = document.createElement('div');
       btns.style.cssText = 'display:flex;gap:8px;';
@@ -162,8 +187,9 @@ export function openMaterialPicker(matMap, { onNewMaterial } = {}) {
         const name = nameInp.value.trim();
         if (!name) { nameInp.focus(); return; }
         const colour_hex = colInp.value || '#888888';
-        const id = 'mat-' + name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-        const mat = { id, type: 'Material', name, colour_hex, interactions: {} };
+        let id = 'mat-' + name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+        for (let n = 2; matMap[id]; n++) id = `${id.replace(/-\d+$/, '')}-${n}`;   // never overwrite a material that exists
+        const mat = { id, type: 'Material', name, category: catSel.value, colour_hex, interactions: {} };
         try {
           await onNewMaterial(mat);
           modal.remove();
@@ -179,7 +205,7 @@ export function openMaterialPicker(matMap, { onNewMaterial } = {}) {
       cancelBtn.addEventListener('click', () => { list.style.padding = ''; _render(searchInp.value); });
 
       btns.append(confirmBtn, cancelBtn);
-      list.append(nameWrap, colWrap, btns);
+      list.append(nameWrap, catWrap, colWrap, btns);
       nameInp.focus();
     }
 

@@ -32,6 +32,7 @@ import { createState, commit, undo, redo, select, setPreview, setTool, markSaved
 import { buildCanvasModel, rulerTicks } from './canvasModel.js';
 import { createController, setControllerTool, handleEvent } from './canvasController.js';
 import { buildPanelModel } from './panelModel.js';
+import { remapDocLayers } from './layerRemap.js';
 import { publishSteps } from './publishSteps.js';
 import { fitView, toDetail, zoomAt, panByPixels } from './viewTransform.js';
 import { translateRegions, transformRegions, selectionCentre } from './canvasEdit.js';
@@ -166,6 +167,8 @@ function fit() {
   view = fitView(canvasModelFor(st.doc, null).viewBox, size);
   paint();
 }
+
+const staticModels = new WeakMap();   // snap scenes for the drawing as a drag began, one per document
 
 // ── applying edits ───────────────────────────────────────────────────────────
 function apply(fn) {
@@ -329,6 +332,7 @@ for (const t of TOOLS) $(`tool-${t}`).addEventListener('click', () => { $('marks
 function controllerContext() {
   let model;
   const getModel = () => (model ??= canvasModelFor(st.doc, st.selection));
+  const modelOf = (doc) => (doc === st.doc ? getModel() : (staticModels.get(doc) ?? staticModels.set(doc, canvasModelFor(doc, null)).get(doc)));
   const step = visibleSnap();
   return {
     blocked: blocked(layers), doc: st.doc, selection: st.selection, snap: step, angleStep: 5, tolerance: 9 / view.scale,
@@ -336,7 +340,7 @@ function controllerContext() {
     suspendSnap: pointer.alt,
     // The smart cursor: named snaps against everything drawn, in pixels converted to metres at this zoom.
     snapFn: snapState.on
-      ? (point, extra) => snapPoint(point, buildSnapScene(getModel(), { exclude: extra.exclude, lastPoint: extra.lastPoint, step }), {
+      ? (point, extra) => snapPoint(point, buildSnapScene(extra.doc ? modelOf(extra.doc) : getModel(), { exclude: extra.exclude, lastPoint: extra.lastPoint, step }), {
         tolerance: 9 / view.scale, kinds: snapState.kinds, angleStep: snapState.angleStep, suspend: extra.suspend,
       })
       : null,
@@ -822,6 +826,7 @@ window.__detailEditor = { snapState: () => snapState, hint: () => hint, state: (
 const PROFILE_DRAFT_KEY = 'oebf-profile-drafts';
 const editedProfiles = new Map();
 const editedSvgs = new Map();
+const editedMaterials = new Map();   // materials added in the profile editor, id -> the library entry
 
 function profileToEdit() {
   const sel = st?.selection;
@@ -839,14 +844,23 @@ $('profile-btn').addEventListener('click', () => {
     if (e.data?.type === 'ready') {
       tab.postMessage({ type: 'memory-bundle', profiles: structuredClone(bundle.ctx.profiles), matMap: structuredClone(bundle.ctx.materials), activeProfileId: active, projectName: bundle.adapter?.name ?? '' }, window.location.origin);
     } else if (e.data?.type === 'profile-saved') {
-      const { id, json, svg } = e.data;
+      const { id, json, svg, newMaterials = [] } = e.data;
+      for (const m of newMaterials) {
+        editedMaterials.set(m.id, m);
+        bundle.ctx.materials[m.id] = { id: m.id, name: m.name ?? m.id, colour_hex: m.colour_hex, category: m.category };
+        if (!bundle.ctx.materialIds.includes(m.id)) bundle.ctx.materialIds.push(m.id);
+      }
       if (svg) editedSvgs.set(id, svg);
+      const old = bundle.ctx.profiles[id];
       bundle.ctx.profiles[id] = json;
+      // layer numbers may have shifted: move this detail's per-layer settings to the layers they belong to
+      const remap = old ? remapDocLayers(st.doc, id, old, json) : { changed: false, dropped: 0 };
+      if (remap.changed) st = commit(st, remap.doc);
       if (!bundle.ctx.profileIds.includes(id)) bundle.ctx.profileIds.push(id);
       editedProfiles.set(id, json);
       Promise.resolve(bundle.adapter?.writeJson?.(`profiles/${id}.json`, json)).catch(() => {});
       refresh();
-      status(`Profile ${id} updated from the profile editor. Layer numbers may have changed: check the layer settings on the members.`);
+      status(remap.changed ? `Profile ${id} updated. Layer settings moved with their layers${remap.dropped ? `; ${remap.dropped} for removed layers dropped` : ''}.` : `Profile ${id} updated from the profile editor.`);
     }
   };
   window.addEventListener('message', send);
@@ -863,13 +877,19 @@ const download = (name, text, type) => {
   URL.revokeObjectURL(a.href);
 };
 
-$('publish-btn').addEventListener('click', () => {
+$('publish-btn').addEventListener('click', async () => {
   if (!st || !bundle) { status('Open a detail first.', true); return; }
   if (!bundle.urlName) { status('Save writes straight to a bundle opened from a folder. Publish is for the served examples.', true); return; }
   const problems = validateDetail(st.doc, validationContext());
   if (problems.length) { status(`Not published: ${problems[0].message}`, true); return; }
-  const steps = publishSteps({ bundleName: bundle.urlName, detailId: st.doc.id, profiles: [...editedProfiles.keys()].map((id) => ({ id, svg: editedSvgs.has(id) })) });
+  const steps = publishSteps({ bundleName: bundle.urlName, detailId: st.doc.id, profiles: [...editedProfiles.keys()].map((id) => ({ id, svg: editedSvgs.has(id) })), materials: editedMaterials.size > 0 });
   download(`${st.doc.id}.json`, toJsonText(st.doc), 'application/json');
+  if (editedMaterials.size) {
+    // the served library plus the materials added here
+    const lib = structuredClone(await bundle.adapter.readJson('materials/library.json'));
+    for (const m of editedMaterials.values()) if (!lib.materials.some((x) => x.id === m.id)) lib.materials.push(m);
+    download('library.json', JSON.stringify(lib, null, 2) + '\n', 'application/json');
+  }
   for (const [id, json] of editedProfiles) {
     download(`${id}.json`, JSON.stringify(json, null, 2), 'application/json');
     if (editedSvgs.has(id)) download(`${id}.svg`, editedSvgs.get(id), 'image/svg+xml');
@@ -896,7 +916,7 @@ $('publish-btn').addEventListener('click', () => {
 $('view3d-btn').addEventListener('click', () => {
   if (!st) { status('Open a detail first.', true); return; }
   if (!bundle?.urlName) { status('3D from here works for the served examples. For other bundles, use Edit detail on the review page.', true); return; }
-  try { localStorage.setItem('oebf-detail-draft', JSON.stringify({ id: st.doc.id, json: JSON.parse(toJsonText(st.doc)), profiles: Object.fromEntries(editedProfiles) })); } catch (err) { status(`Could not hand the detail over: ${err.message}`, true); return; }
+  try { localStorage.setItem('oebf-detail-draft', JSON.stringify({ id: st.doc.id, json: JSON.parse(toJsonText(st.doc)), profiles: Object.fromEntries(editedProfiles), materials: [...editedMaterials.values()] })); } catch (err) { status(`Could not hand the detail over: ${err.message}`, true); return; }
   window.open(`${import.meta.env.BASE_URL}detail-axo.html?bundle=${encodeURIComponent(bundle.urlName)}&detail=${encodeURIComponent(st.doc.id)}&draft=1`, '_blank');
 });
 

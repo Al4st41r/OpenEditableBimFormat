@@ -56,7 +56,9 @@ let matMap     = {};
 let matIds     = [];
 
 // ── Material create callback ───────────────────────────────────────────────────
+const _newMaterials = {};   // materials added in this session, sent back to the page that opened this one
 async function _onNewMaterial(mat) {
+  _newMaterials[mat.id] = mat;
   matMap[mat.id] = mat;
   if (!matIds.includes(mat.id)) matIds.push(mat.id);
   if (!dirHandle) return;
@@ -308,7 +310,7 @@ saveBtn.addEventListener('click', async () => {
     if (memoryMode) {
       if (window.opener) {
         window.opener.postMessage(
-          { type: 'profile-saved', id: currentId, json, svg },
+          { type: 'profile-saved', id: currentId, json, svg, newMaterials: Object.values(_newMaterials) },
           window.location.origin,
         );
         _setStatus('Saved');

@@ -6,16 +6,17 @@
  */
 
 /**
- * @param {{ bundleName: string, detailId: string, profiles?: Array<{ id: string, svg: boolean }> }} o
+ * @param {{ bundleName: string, detailId: string, profiles?: Array<{ id: string, svg: boolean }>, materials?: boolean }} o
  * @returns {{ files: Array<{ name: string, to: string }>, commands: string[] }}
  */
-export function publishSteps({ bundleName, detailId, profiles = [] }) {
+export function publishSteps({ bundleName, detailId, profiles = [], materials = false }) {
   const base = `example/${bundleName}`;
   const files = [{ name: `${detailId}.json`, to: `${base}/details/${detailId}.json` }];
   for (const p of profiles) {
     files.push({ name: `${p.id}.json`, to: `${base}/profiles/${p.id}.json` });
     if (p.svg) files.push({ name: `${p.id}.svg`, to: `${base}/profiles/${p.id}.svg` });
   }
+  if (materials) files.push({ name: 'library.json', to: `${base}/materials/library.json` });
   const commands = [
     `cd ifc-tools && uv run oebf validate ../${base}`,
     `cd ifc-tools && uv run --quiet --with zstandard python ../tools/pack_oebfz.py ../${base} ../viewer/public/${bundleName.replace(/\.oebf$/, '')}.oebfz`,

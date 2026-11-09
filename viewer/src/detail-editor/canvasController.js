@@ -195,18 +195,22 @@ function selectTool(state, event, ctx) {
       return done({ ...state, drag: { ...drag, last: screen } }, dx || dy ? [{ type: 'pan', dx, dy }] : []);
     }
 
+    // These drags snap against the drawing as it was when the drag began (the part being moved would otherwise snap to
+    // itself as it moves), and show the snap.
+    const snapStatic = () => snapAt(ctx, point, { doc: drag.startDoc });
+    const withHint = (sp, effects) => [...(sp.snap ? [hintEffect(sp)] : [{ type: 'hint', hint: null }]), ...effects];
     if (drag.kind === 'layer-end') {
-      const sp = snapAt(ctx, point);
+      const sp = snapStatic();
       const t = runPositionFromPoint(drag.ref.run, sp.point);
       // near: the further the end is dragged back past the member's end (smaller t), the more it extends; far: the reverse
       const ext = drag.ref.which === 'near' ? drag.ref.run.base - t : t - drag.ref.run.base;
       let doc;
       try { doc = setLayerEnds(drag.startDoc, drag.ref.role, drag.ref.layer, { [drag.ref.which === 'near' ? 'near_m' : 'far_m']: ext }); } catch (err) { return done(state, [msg(err.message)]); }
       const changed = !same(doc, drag.startDoc);
-      return done({ ...state, drag: { ...drag, current: doc, moved: drag.moved || changed } }, changed ? [{ type: 'doc', doc, transient: true }] : []);
+      return done({ ...state, drag: { ...drag, current: doc, moved: drag.moved || changed } }, withHint(sp, changed ? [{ type: 'doc', doc, transient: true }] : []));
     }
     if (drag.kind === 'layer-unit') {
-      const sp = snapAt(ctx, point);
+      const sp = snapStatic();
       const size = Math.round((runPositionFromPoint(drag.ref.run, sp.point) - drag.ref.run.first) * 1e6) / 1e6;
       let doc;
       try {
@@ -217,22 +221,22 @@ function selectTool(state, event, ctx) {
         doc = setLayerUnit(drag.startDoc, drag.ref.role, drag.ref.layer, { ...u, ...patch });
       } catch (err) { return done(state, [msg(err.message)]); }
       const changed = !same(doc, drag.startDoc);
-      return done({ ...state, drag: { ...drag, current: doc, moved: drag.moved || changed } }, changed ? [{ type: 'doc', doc, transient: true }] : []);
+      return done({ ...state, drag: { ...drag, current: doc, moved: drag.moved || changed } }, withHint(sp, changed ? [{ type: 'doc', doc, transient: true }] : []));
     }
     if (drag.kind === 'layer-start') {
-      const sp = snapAt(ctx, point);
+      const sp = snapStatic();
       let doc;
       try { doc = setLayerStart(drag.startDoc, drag.ref.role, drag.ref.layer, startFromPoint(drag.ref.frame, sp.point)); } catch (err) { return done(state, [msg(err.message)]); }
       const changed = !same(doc, drag.startDoc);
-      return done({ ...state, drag: { ...drag, current: doc, moved: drag.moved || changed } }, changed ? [{ type: 'doc', doc, transient: true }] : []);
+      return done({ ...state, drag: { ...drag, current: doc, moved: drag.moved || changed } }, withHint(sp, changed ? [{ type: 'doc', doc, transient: true }] : []));
     }
     if (drag.kind === 'clip-edge') {
-      const sp = snapAt(ctx, point);
+      const sp = snapStatic();
       const value = drag.ref.side.startsWith('x') ? sp.point.x : sp.point.y;
       let doc;
       try { doc = setClip(drag.startDoc, { [drag.ref.side]: value }); } catch (err) { return done(state, [msg(err.message)]); }
       const changed = !same(doc, drag.startDoc);
-      return done({ ...state, drag: { ...drag, current: doc, moved: drag.moved || changed } }, changed ? [{ type: 'doc', doc, transient: true }] : []);
+      return done({ ...state, drag: { ...drag, current: doc, moved: drag.moved || changed } }, withHint(sp, changed ? [{ type: 'doc', doc, transient: true }] : []));
     }
     if (drag.kind.startsWith('annotation')) {
       let doc, hint = null;

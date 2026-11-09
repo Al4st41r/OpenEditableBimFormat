@@ -114,14 +114,14 @@ function _appendRow(formEl, layer, index) {
   row.dataset.layerType = isRegion ? 'region' : 'band';
   if (isRegion) row.dataset.vertices = JSON.stringify(layer.vertices ?? []);
   const fnColour = FUNCTION_META[layer.function]?.colour ?? '#555';
-  row.style.cssText = `display:flex;gap:6px;align-items:center;padding:4px 0;border-bottom:1px solid #333;border-left:3px solid ${fnColour};padding-left:6px;`;
+  row.style.cssText = `display:flex;flex-wrap:wrap;gap:4px 6px;align-items:center;padding:4px 0;border-bottom:1px solid #333;border-left:3px solid ${fnColour};padding-left:6px;`;
 
   const nameInput = document.createElement('input');
   nameInput.className = 'layer-name';
   nameInput.type = 'text';
   nameInput.value = layer.name;
   nameInput.placeholder = 'Layer name';
-  nameInput.style.flex = '2';
+  nameInput.style.flex = '1 1 100%';   // the name takes its own line, so the rest fits the panel
 
   const thickInput = document.createElement('input');
   thickInput.className = 'layer-thick';
@@ -145,7 +145,8 @@ function _appendRow(formEl, layer, index) {
     if (id === layer.material_id) opt.selected = true;
     matSelect.appendChild(opt);
   });
-  matSelect.style.flex = '2';
+  matSelect.style.flex = '1 1 90px';
+  matSelect.style.minWidth = '0';
 
   const swatchBtn = document.createElement('button');
   const swatchColour = matMap[layer.material_id]?.colour_hex ?? '#888888';
@@ -163,12 +164,14 @@ function _appendRow(formEl, layer, index) {
     if (!result) return;
     if (result.newMat) {
       const m = result.newMat;
-      if (!formEl._matMap[m.id]) {
-        formEl._matMap[m.id] = m;
-        if (!formEl._matIds.includes(m.id)) formEl._matIds.push(m.id);
-        const opt = document.createElement('option');
-        opt.value = m.id; opt.textContent = m.name;
-        matSelect.appendChild(opt);
+      // the page may have added it to the shared maps already, so look at this select, not the map
+      formEl._matMap[m.id] ??= m;
+      if (!formEl._matIds.includes(m.id)) formEl._matIds.push(m.id);
+    }
+    // a material added from the picker is an option on every row's select, not only this one
+    for (const sel of formEl.querySelectorAll('.layer-mat')) {
+      if (![...sel.options].some((o) => o.value === result.id)) {
+        sel.appendChild(Object.assign(document.createElement('option'), { value: result.id, textContent: formEl._matMap[result.id]?.name ?? result.id }));
       }
     }
     matSelect.value = result.id;
@@ -196,13 +199,14 @@ function _appendRow(formEl, layer, index) {
   const upBtn   = _btn('chevron-up.svg',   'Move layer up',   () => _move(formEl, index, -1));
   const downBtn = _btn('chevron-down.svg', 'Move layer down', () => _move(formEl, index, +1));
   const delBtn  = _btn('bin.svg',          'Delete layer',    () => _deleteRow(formEl, index));
+  const insBtn  = _textBtn('+', 'Insert a layer below this one', () => _insertAfter(formEl, index));
 
   [nameInput, thickInput, matSelect, fnSelect].forEach(el => {
     el.addEventListener('input', () => _emit(formEl));
     el.addEventListener('change', () => _emit(formEl));
   });
 
-  row.append(nameInput, thickInput, swatchBtn, matSelect, fnIcon, fnSelect, upBtn, downBtn, delBtn);
+  row.append(nameInput, thickInput, swatchBtn, matSelect, fnIcon, fnSelect, upBtn, downBtn, insBtn, delBtn);
   formEl.appendChild(row);
 
   if (isRegion) {
@@ -247,6 +251,24 @@ function _btn(iconFile, ariaLabel, onClick) {
   b.appendChild(img);
   b.addEventListener('click', onClick);
   return b;
+}
+
+function _textBtn(text, ariaLabel, onClick) {
+  const b = document.createElement('button');
+  b.setAttribute('aria-label', ariaLabel);
+  b.title = ariaLabel;
+  b.textContent = text;
+  b.style.cssText = 'padding:0 7px;height:22px;cursor:pointer;background:#333;color:#ddd;border:1px solid #555;border-radius:2px;font-size:14px;line-height:1;';
+  b.addEventListener('click', onClick);
+  return b;
+}
+
+/** A blank layer straight after the one at index: how a cavity is put between two existing layers. */
+function _insertAfter(formEl, index) {
+  const layers = getLayers(formEl);
+  layers.splice(index + 1, 0, { name: '', material_id: formEl._matIds[0] ?? '', thickness: 0.05, function: 'structure' });
+  setLayers(formEl, layers);
+  _emit(formEl);
 }
 
 function _move(formEl, index, delta) {
