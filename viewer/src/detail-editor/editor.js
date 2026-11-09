@@ -12,6 +12,7 @@ import { FsaAdapter, MemoryAdapter } from '../editor/storageAdapter.js';
 import { setUnit, getUnit, toDisplay, fromDisplay } from '../editor/units.js';
 import * as D from './detailDocument.js';
 import * as AN from './annotationOps.js';
+import { detailToDxf } from './dxfExport.js';
 import { copySelection, parsePayload, pasteInto } from './clipboard.js';
 import { defaultLayers, setLayer, applyLayers, blocked, keepSelection, layerOfSelection, editable, LAYER_LABELS } from './layers.js';
 import { validateDetail } from './detailValidate.js';
@@ -775,6 +776,20 @@ if (new URLSearchParams(window.location.search).has('demo')) openDemo();
 
 // Read-only hook for headless checks and bug reports.
 window.__detailEditor = { snapState: () => snapState, hint: () => hint, state: () => st, view: () => view, size: () => size, adapter: () => bundle?.adapter ?? null, status: () => $('status').textContent };
+// ── export ───────────────────────────────────────────────────────────────────
+$('export-select').addEventListener('change', (e) => {
+  const kind = e.target.value;
+  e.target.value = '';
+  if (!st || kind !== 'dxf') return;
+  const text = detailToDxf(st.doc, { profiles: bundle.ctx.profiles, materials: bundle.ctx.materials, values: st.preview ?? undefined });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type: 'application/dxf' }));
+  a.download = `${st.doc.id}.dxf`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  status('Saved a DXF in millimetres.');
+});
+
 // ── clipboard ────────────────────────────────────────────────────────────────
 // Uses the page's copy, cut and paste events, so it works through the system clipboard without a permission prompt.
 let clipFrom = null, pasteCount = 0;   // the detail last copied from, and how many times it has been pasted back

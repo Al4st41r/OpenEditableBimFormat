@@ -17,6 +17,7 @@ import { buildDetailSvg } from '../detail-review/detailSvg.js';
 import { createSelection, describeItem } from '../detail-review/selection.js';
 import { buildSnapshot } from '../detail-editor/bundleSnapshot.js';
 import { isTrustedReady, buildOpenerReply, parseSaved } from '../detail-editor/messages.js';
+import { detailToDxf } from '../detail-editor/dxfExport.js';
 import { buildSheet, printHtml, sheetFileName } from '../detail-review/sheet.js';
 import { diffDetails } from '../detail-review/detailDiff.js';
 import { OVERLAYS, applyOverlay, tagsOf, carbonValues } from '../detail-review/overlays.js';
@@ -341,6 +342,18 @@ $('export-select').addEventListener('change', async (e) => {
   e.target.value = '';
   if (!kind) return;
   try {
+    if (kind === 'dxf') {
+      if (!model) throw new Error('Pick a detail first.');
+      const detail = currentDetail();
+      const text = detailToDxf(detail, { profiles: Object.fromEntries(data.profiles), materials: Object.fromEntries(data.materials) });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([text], { type: 'application/dxf' }));
+      a.download = `${detail.id}.dxf`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      status('Saved a DXF in millimetres.');
+      return;
+    }
     const { sheet, name, scale } = await currentSheet();
     if (kind === 'svg') {
       const a = document.createElement('a');
