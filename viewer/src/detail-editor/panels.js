@@ -153,7 +153,7 @@ function rightPanel(pm, bundle, a) {
 function propertiesTab(pm, bundle, a) {
   const out = [];
   if (pm.selectedMember) out.push(...memberEditor(pm.selectedMember, bundle, a));
-  if (pm.selectedRegion) out.push(...regionEditor(pm.selectedRegion, pm, bundle, a), ...dimensionEditor(pm.selectedRegion, bundle, a));
+  if (pm.selectedRegion) out.push(...regionEditor(pm.selectedRegion, pm, bundle, a));
   if (pm.selectedAnnotation) out.push(...annotationEditor(pm.selectedAnnotation, a));
   if (!out.length) out.push(h('div', { class: 'note' }, 'Select a member, region or mark to edit it.'));
   return out;
@@ -295,8 +295,11 @@ function regionEditor(r, pm, bundle, a) {
     ...regionCornerEditor(r, a),
     ...regionRepeatEditor(r, a),
     ...regionTagEditor(r, a),
-    h('div', { class: 'note' }, `Vertices (x, y in ${unitLabel()}). Bind a coordinate to a parameter to make it adjustable per junction.`),
-    ...vertexRows,
+    ...dimensionEditor(r, bundle, a),
+    h('details', { class: 'fold', open: r.vertices.some((v) => v.selected) },
+      h('summary', {}, 'Vertices'),
+      h('div', { class: 'note' }, `${r.vertices.length} vertices (x, y in ${unitLabel()}). Bind a coordinate to a parameter to make it adjustable per junction.`),
+      ...vertexRows),
     h('div', { class: 'row' }, h('button', { onclick: () => a.removeRegion(r.index) }, 'Remove region')),
   ];
 }
@@ -563,19 +566,20 @@ function annotationEditor(n, a) {
 /** Edge lengths and rectangle size for the selected region, typed directly (issue #105). */
 function dimensionEditor(r, bundle, a) {
   const anchors = bundle.anchors ?? { edge: 'start', rect: 'bottom-left' };
-  const out = [h('h3', {}, `Dimensions: region ${r.index}`)];
-
+  const out = [];
   if (r.rect) {
     out.push(
+      h('h3', {}, 'Size'),
       row(`Width (${unitLabel()})`, num(r.rect.width, (v) => a.setRegionSize(r.index, v, undefined), { disabled: !r.rect.editable, min: 0 })),
       row(`Height (${unitLabel()})`, num(r.rect.height, (v) => a.setRegionSize(r.index, undefined, v), { disabled: !r.rect.editable, min: 0 })),
       row('Resize about', select(['bottom-left', 'bottom-right', 'top-left', 'top-right', 'centre'], anchors.rect, (v) => a.setAnchor('rect', v))),
       r.rect.editable ? null : h('div', { class: 'note' }, 'A vertex is driven by a parameter: unbind it to resize by size.'));
   }
-  out.push(
-    h('div', { class: 'note' }, 'Edge lengths (the edge from each vertex to the next):'),
+  out.push(h('details', { class: 'fold' },
+    h('summary', {}, 'Edge lengths'),
+    h('div', { class: 'note' }, 'The edge from each vertex to the next.'),
     ...r.edges.map((e) => row(`Edge ${e.index} (${unitLabel()})`, num(e.length, (v) => a.setEdgeLength(r.index, e.index, v), { disabled: e.bound, min: 0, title: e.bound ? 'An end vertex is driven by a parameter' : undefined }))),
-    row('Hold fixed', select(['start', 'end', 'centre'], anchors.edge, (v) => a.setAnchor('edge', v))));
+    row('Hold fixed', select(['start', 'end', 'centre'], anchors.edge, (v) => a.setAnchor('edge', v)))));
   return out;
 }
 
