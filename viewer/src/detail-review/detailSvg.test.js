@@ -100,7 +100,7 @@ describe('buildDetailSvg (pilot detail)', () => {
   });
 
   it('hatches timber and insulation and references only defined patterns', () => {
-    const used = new Set([...out.svg.matchAll(/url\(#([^)]+)\)/g)].map((m) => m[1]));
+    const used = new Set([...out.svg.matchAll(/url\(#([^)]+)\)/g)].map((m) => m[1]).filter((id) => id !== 'detail-frame'));
     expect(used.size).toBeGreaterThan(0);
     for (const id of used) expect(out.svg).toContain(`<pattern id="${id}"`);
   });
@@ -205,9 +205,9 @@ describe('reference lines and clip in the review drawing', () => {
     expect(svg).toContain('fill-rule="evenodd"');
     expect(svg).toContain('stroke-dasharray="3 1.6"');
   });
-  it('does not add to the sheet size', () => {
+  it('never makes the sheet larger than the whole drawing', () => {
     const plain = render({}), clipped = render({ clip: { x_max_m: 0.3 } });
-    expect(clipped.width).toBe(plain.width);
+    expect(clipped.width).toBeLessThanOrEqual(plain.width);
   });
 });
 
@@ -222,5 +222,23 @@ describe('courses in the plan drawing', () => {
     const { svg } = buildDetailSvg(model, {});
     expect(svg).toContain('data-item="a"');
     expect(svg).not.toContain('data-item="b"');
+  });
+});
+
+describe('buildDetailSvg with a clip box', () => {
+  const sq = (x, y, s) => [{ x, y }, { x: x + s, y }, { x: x + s, y: y + s }, { x, y: y + s }];
+  const model = (clip) => ({
+    plane: 'plan', extrusion: 1, warnings: [], skipped: [], refLines: [], annotations: [], clip,
+    prisms: [{ id: 'item-0', kind: 'region', role: 'region 0', materialId: 'm', points: sq(0, 0, 4), w0: 0, w1: 1 }],
+    bounds: { minU: 0, maxU: 4, minV: 0, maxV: 4 },
+  });
+  it('fits the unclipped zone, not the whole drawing', () => {
+    const whole = buildDetailSvg(model(null));
+    const clipped = buildDetailSvg(model({ x_max_m: 1, y_max_m: 2 }));
+    expect(clipped.width).toBeLessThan(whole.width);
+    expect(clipped.height).toBeLessThan(whole.height);
+  });
+  it('falls back to the whole drawing when the clip box misses it', () => {
+    expect(buildDetailSvg(model({ x_min_m: 10 })).width).toBe(buildDetailSvg(model(null)).width);
   });
 });

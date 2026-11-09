@@ -81,7 +81,14 @@ export function buildDetailSvg(model, opts = {}) {
   const own = model.bounds;
   if (!own || !model.prisms.length) return { svg: '', width: 0, height: 0, scale };
   const ab = annotationBounds(model.annotations);
-  const b = ab ? { minU: Math.min(own.minU, ab.minU), maxU: Math.max(own.maxU, ab.maxU), minV: Math.min(own.minV, ab.minV), maxV: Math.max(own.maxV, ab.maxV) } : own;
+  const joined = ab ? { minU: Math.min(own.minU, ab.minU), maxU: Math.max(own.maxU, ab.maxU), minV: Math.min(own.minV, ab.minV), maxV: Math.max(own.maxV, ab.maxV) } : own;
+  // With a clip box the drawing fits the unclipped zone; what lies outside it stays faded in the margin only.
+  const c = model.clip ?? {};
+  const b = {
+    minU: Math.max(joined.minU, c.x_min_m ?? -Infinity), maxU: Math.min(joined.maxU, c.x_max_m ?? Infinity),
+    minV: Math.max(joined.minV, c.y_min_m ?? -Infinity), maxV: Math.min(joined.maxV, c.y_max_m ?? Infinity),
+  };
+  if (!(b.maxU > b.minU && b.maxV > b.minV)) Object.assign(b, joined);   // a clip box that misses the drawing
 
   const x0 = b.minU * k - MARGIN_MM;
   const x1 = b.maxU * k + MARGIN_MM;
@@ -150,8 +157,8 @@ export function buildDetailSvg(model, opts = {}) {
 
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" class="detail-2d${opts.hairline ? ' thin' : ''}" ` +
     `viewBox="${num(x0)} ${num(y0)} ${num(width)} ${num(height)}" data-scale="${num(scale)}" role="img">` +
-    `${style}<defs>${defs}${opts.fills ? noDataDef() : ''}</defs><rect x="${num(x0)}" y="${num(y0)}" width="${num(width)}" height="${num(height)}" fill="#fff"/>` +
-    `<g class="fills">${fills}</g><g class="outlines">${outlines}</g>${guides.fade}${guides.lines}${annotations}${annotationSvg(model.annotations, k, { weight: ann, format: (m) => String(Math.round(m * 1000)) })}</svg>`;
+    `${style}<defs>${defs}${opts.fills ? noDataDef() : ''}<clipPath id="detail-frame"><rect x="${num(x0)}" y="${num(y0)}" width="${num(width)}" height="${num(height)}"/></clipPath></defs><rect x="${num(x0)}" y="${num(y0)}" width="${num(width)}" height="${num(height)}" fill="#fff"/>` +
+    `<g clip-path="url(#detail-frame)"><g class="fills">${fills}</g><g class="outlines">${outlines}</g>${guides.fade}${guides.lines}${annotations}${annotationSvg(model.annotations, k, { weight: ann, format: (m) => String(Math.round(m * 1000)) })}</g></svg>`;
 
   return { svg, width, height, scale };
 }
