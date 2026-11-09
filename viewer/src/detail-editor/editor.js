@@ -15,6 +15,7 @@ import * as AN from './annotationOps.js';
 import * as RF from './referenceOps.js';
 import { HttpAdapter, BUNDLE_NAME } from './httpAdapter.js';
 import { detailToDxf } from './dxfExport.js';
+import { parseDxf, dxfToDetail, scaleFromUnits } from './dxfImport.js';
 import { copySelection, parsePayload, pasteInto } from './clipboard.js';
 import { defaultLayers, setLayer, applyLayers, blocked, keepSelection, layerOfSelection, editable, LAYER_LABELS } from './layers.js';
 import { validateDetail } from './detailValidate.js';
@@ -838,6 +839,7 @@ $('export-select').addEventListener('change', (e) => {
     status('Saved the detail as JSON.');
     return;
   }
+  if (kind === 'import-dxf') { $('dxf-input').click(); return; }
   if (kind !== 'dxf') return;
   const text = detailToDxf(st.doc, { profiles: bundle.ctx.profiles, materials: bundle.ctx.materials, values: st.preview ?? undefined });
   const a = document.createElement('a');
@@ -846,6 +848,27 @@ $('export-select').addEventListener('change', (e) => {
   a.click();
   URL.revokeObjectURL(a.href);
   status('Saved a DXF in millimetres.');
+});
+
+// Import: closed shapes become regions in the material chosen in the toolbar, everything else becomes marks. One undo step.
+$('dxf-input').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file || !st) return;
+  try {
+    const { entities, units } = parseDxf(await file.text());
+    const scale = scaleFromUnits(units) ?? 0.001;
+    const found = dxfToDetail(entities, { scale });
+    const material = $('material-select').value;
+    const regions = material ? found.regions.map((r) => ({ material_id: material, vertices: r.vertices })) : [];
+    const dropped = material ? 0 : found.regions.length;
+    if (!regions.length && !found.annotations.length) { status(dropped ? 'Choose a material in the toolbar to import closed shapes as regions.' : 'Nothing in that DXF could be imported.', true); return; }
+    const r = pasteInto(st.doc, { regions, annotations: found.annotations }, { materialIds: bundle.ctx.materialIds });
+    st = commit(st, r.doc); st = select(st, r.selection); display = null; refresh(); fit();
+    const skipped = Object.entries(found.skipped).map(([t, n]) => `${n} ${t}`).join(', ');
+    status([`Imported ${regions.length} region(s) and ${found.annotations.length} mark(s)${units === null || scaleFromUnits(units) === null ? ' (units not stated: read as millimetres)' : ''}.`,
+      dropped ? `${dropped} closed shape(s) skipped: choose a material first.` : '', skipped ? `Skipped ${skipped}.` : '', ...found.notes].filter(Boolean).join(' '));
+  } catch (err) { status(`Could not import: ${err.message}`, true); }
 });
 
 // ── clipboard ────────────────────────────────────────────────────────────────
