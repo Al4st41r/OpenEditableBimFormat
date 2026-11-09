@@ -9,7 +9,7 @@
  * never make the document dirty.
  */
 
-const TOOLS = ['select', 'rect', 'polygon'];
+import { TOOLS } from './canvasController.js';
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
 /** Drop selection parts that no longer exist in the document. */

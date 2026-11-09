@@ -32,7 +32,7 @@ import { dragHandle, translateRegion, snapValue } from './canvasEdit.js';
 import { addRect, addRegion, removeRegion } from './detailDocument.js';
 import { signedArea, isSelfIntersecting } from '../detail/regionGeometry.js';
 
-const TOOLS = ['select', 'rect', 'polygon', 'measure'];
+export const TOOLS = ['select', 'rect', 'polygon', 'measure'];
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
 export function createController(tool = 'select') {
