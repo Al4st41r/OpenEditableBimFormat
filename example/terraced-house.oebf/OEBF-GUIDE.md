@@ -570,7 +570,10 @@ Detail fields:
   and at least three `vertices` in drawing space, simple (not self-intersecting).
 - `annotations[]` — optional drawing marks for the 2D view only, never extruded
   into 3D: `{ "type": "line", "points": [...], "style": "dashed" }` (an open
-  line; `solid`, `dashed` or `centre`), `{ "type": "dimension", "from": {x, y},
+  line; `solid`, `dashed` or `centre`), `{ "type": "arc", "centre": {x, y},
+  "radius_m": 0.05, "start_deg": 0, "end_deg": 90 }` (anticlockwise from start
+  to end), `{ "type": "circle", "centre": {x, y}, "radius_m": 0.05 }`,
+  `{ "type": "dimension", "from": {x, y},
   "to": {x, y}, "offset_m": 0.1 }` and `{ "type": "note", "at": {x, y},
   "text": "...", "leader_to": {x, y} }`. Coordinates are plain metres.
 - `parameters{}` — named numbers with a `default` and optional `min` and `max`.

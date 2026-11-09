@@ -5,7 +5,7 @@
  * Units are sheet millimetres: `k` is sheet mm per metre of detail, y is flipped. Text is 2.6 mm high.
  */
 
-import { dimensionGeometry } from '../detail-editor/annotationOps.js';
+import { dimensionGeometry, arcPoints, pointAtAngle, arcSweep } from '../detail-editor/annotationOps.js';
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const num = (n) => String(Math.round(n * 1000) / 1000);
@@ -17,6 +17,7 @@ export function annotationBounds(annotations) {
   const pts = [];
   for (const a of annotations ?? []) {
     if (a.type === 'line') pts.push(...a.points);
+    else if (a.type === 'arc' || a.type === 'circle') pts.push(...arcPoints(a));
     else if (a.type === 'dimension') { const g = dimensionGeometry(a); pts.push(g.line.a, g.line.b); }
     else pts.push(a.at, ...(a.leader_to ? [a.leader_to] : []));
   }
@@ -40,6 +41,16 @@ export function annotationSvg(annotations, k, { weight, format }) {
     if (a.type === 'line') {
       const dash = DASH[a.style];
       out += `<polyline points="${a.points.map(P).join(' ')}" fill="none" stroke="#000" stroke-width="${weight}" stroke-linejoin="round"${dash ? ` stroke-dasharray="${dash}"` : ''}/>`;
+    } else if (a.type === 'arc' || a.type === 'circle') {
+      const dash = DASH[a.style];
+      const attrs = `fill="none" stroke="#000" stroke-width="${weight}"${dash ? ` stroke-dasharray="${dash}"` : ''}`;
+      const r = num(a.radius_m * k);
+      if (a.type === 'circle') out += `<circle cx="${num(a.centre.x * k)}" cy="${num(-a.centre.y * k)}" r="${r}" ${attrs}/>`;
+      else {
+        const s = pointAtAngle(a, a.start_deg), e = pointAtAngle(a, a.end_deg);
+        // y is flipped for the sheet, so an anticlockwise sweep is sweep-flag 0
+        out += `<path d="M${num(s.x * k)},${num(-s.y * k)} A${r},${r} 0 ${arcSweep(a) > 180 ? 1 : 0} 0 ${num(e.x * k)},${num(-e.y * k)}" ${attrs}/>`;
+      }
     } else if (a.type === 'dimension') {
       const g = dimensionGeometry(a);
       const seg = (s, w) => `<line x1="${num(s.a.x * k)}" y1="${num(-s.a.y * k)}" x2="${num(s.b.x * k)}" y2="${num(-s.b.y * k)}" stroke-width="${w}"/>`;

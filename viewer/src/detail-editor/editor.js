@@ -371,6 +371,7 @@ function lastPoint() {
   if (!d) return null;
   if (d.kind === 'polygon' || d.kind === 'line') return d.points.at(-1) ?? null;
   if (d.kind === 'note') return d.to;
+  if (d.kind === 'arc' || d.kind === 'circle') return d.c;
   return d.a ?? null;
 }
 function cmdHint() {
@@ -379,6 +380,8 @@ function cmdHint() {
   if (tool === 'rect') return d ? 'Opposite corner: @w,h' : 'First corner: x,y';
   if (tool === 'polygon') return d ? 'Next point: @dx,dy or d<angle. Enter on empty closes.' : 'First point: x,y';
   if (tool === 'line') return d ? 'Next point: @dx,dy or d<angle. Enter on empty finishes.' : 'First point: x,y';
+  if (tool === 'circle') return d ? 'Point on the circle: @dx,dy or d<angle' : 'Centre: x,y';
+  if (tool === 'arc') return !d ? 'Centre: x,y' : d.stage === 1 ? 'Start point: @dx,dy or d<angle' : 'End point: @dx,dy or d<angle';
   if (tool === 'dim') return d?.stage === 2 ? 'Click to place the dimension line' : d ? 'Second point: @dx,dy or d<angle' : 'First point: x,y';
   if (tool === 'note') return d ? 'Text position: x,y' : 'Point to label: x,y';
   return d && !d.fixed ? 'Second point: @dx,dy or d<angle' : 'First point: x,y';
@@ -469,7 +472,7 @@ window.addEventListener('keydown', (e) => {
       return;
     }
   }
-  const tools = { v: 'select', r: 'rect', p: 'polygon', m: 'measure', l: 'line', d: 'dim', n: 'note' };
+  const tools = { v: 'select', r: 'rect', p: 'polygon', m: 'measure', l: 'line', a: 'arc', c: 'circle', d: 'dim', n: 'note' };
   if (!mod && tools[e.key.toLowerCase()]) { chooseTool(tools[e.key.toLowerCase()]); return; }
   if (!mod && e.key.toLowerCase() === 'f') { fit(); return; }
   if (!mod && e.key.toLowerCase() === 's') { toggleSnap(); return; }

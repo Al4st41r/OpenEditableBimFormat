@@ -335,11 +335,19 @@ function regionTagEditor(r, a) {
 
 /** Properties of the selected line, dimension or note. */
 function annotationEditor(n, a) {
-  const title = { line: 'Line', dimension: 'Dimension', note: 'Note' }[n.type];
+  const title = { line: 'Line', arc: 'Arc', circle: 'Circle', dimension: 'Dimension', note: 'Note' }[n.type];
   const out = [h('h3', {}, `${title} ${n.index}`)];
   if (n.type === 'line') {
     out.push(row('Style', select(LINE_STYLES, n.style, (v) => a.updateAnnotation(n.index, { style: v === 'solid' ? undefined : v }))),
       h('div', { class: 'note' }, `${n.points} points. Drag a point to move it.`));
+  } else if (n.type === 'arc' || n.type === 'circle') {
+    out.push(row('Style', select(LINE_STYLES, n.style, (v) => a.updateAnnotation(n.index, { style: v === 'solid' ? undefined : v }))),
+      row(`Radius (${unitLabel()})`, num(n.radius_m, (v) => a.updateAnnotation(n.index, { radius_m: v }), { min: 0 })));
+    if (n.type === 'arc') {
+      out.push(row('Start (deg)', plain(n.start_deg, (v) => a.updateAnnotation(n.index, { start_deg: v }))),
+        row('End (deg)', plain(n.end_deg, (v) => a.updateAnnotation(n.index, { end_deg: v }))),
+        h('div', { class: 'note' }, 'Anticlockwise from start to end. Drag a handle to change it.'));
+    }
   } else if (n.type === 'dimension') {
     out.push(row(`Length (${unitLabel()})`, h('input', { type: 'text', value: String(Math.round(toDisplay(n.length) * 1000) / 1000), disabled: true })),
       row(`Line offset (${unitLabel()})`, num(n.offset_m, (v) => a.updateAnnotation(n.index, { offset_m: v }))),

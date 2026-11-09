@@ -100,7 +100,7 @@
     },
     "annotations": {
       "type": "array",
-      "description": "Drawing marks for the 2D detail only: open lines, dimensions and notes. They are never extruded into 3D and carry no material. Coordinates are plain metres in detail space.",
+      "description": "Drawing marks for the 2D detail only: open lines, arcs, circles, dimensions and notes. They are never extruded into 3D and carry no material. Coordinates are plain metres in detail space.",
       "items": {
         "oneOf": [
           {
@@ -111,6 +111,30 @@
               "type":   { "const": "line" },
               "points": { "type": "array", "minItems": 2, "items": { "$ref": "#/definitions/point" }, "description": "An open polyline." },
               "style":  { "type": "string", "enum": ["solid", "dashed", "centre"], "default": "solid" }
+            }
+          },
+          {
+            "type": "object",
+            "required": ["type", "centre", "radius_m", "start_deg", "end_deg"],
+            "additionalProperties": false,
+            "properties": {
+              "type":      { "const": "arc" },
+              "centre":    { "$ref": "#/definitions/point" },
+              "radius_m":  { "type": "number", "exclusiveMinimum": 0 },
+              "start_deg": { "type": "number", "description": "Angle of the start, degrees anticlockwise from the +x direction." },
+              "end_deg":   { "type": "number", "description": "Angle of the end. The arc runs anticlockwise from start to end, so it must differ from start_deg by something other than a multiple of 360 (use a circle for that)." },
+              "style":     { "type": "string", "enum": ["solid", "dashed", "centre"], "default": "solid" }
+            }
+          },
+          {
+            "type": "object",
+            "required": ["type", "centre", "radius_m"],
+            "additionalProperties": false,
+            "properties": {
+              "type":     { "const": "circle" },
+              "centre":   { "$ref": "#/definitions/point" },
+              "radius_m": { "type": "number", "exclusiveMinimum": 0 },
+              "style":    { "type": "string", "enum": ["solid", "dashed", "centre"], "default": "solid" }
             }
           },
           {

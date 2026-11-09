@@ -173,4 +173,15 @@ describe('annotations in the review drawing', () => {
     const plain = render(undefined), withDim = render([marks[1]]);
     expect(withDim.height).toBeGreaterThan(plain.height);
   });
+
+  it('draws arcs as SVG arc paths (anticlockwise on the sheet) and circles as circles', () => {
+    const { svg } = render([
+      { type: 'arc', centre: { x: 0, y: 0 }, radius_m: 0.1, start_deg: 0, end_deg: 90 },
+      { type: 'arc', centre: { x: 0, y: 0 }, radius_m: 0.1, start_deg: 0, end_deg: 270, style: 'dashed' },
+      { type: 'circle', centre: { x: 0.2, y: 0.2 }, radius_m: 0.05 },
+    ]);
+    expect(svg).toMatch(/M20,0 A20,20 0 0 0 0,-20/);     // quarter turn: small arc, sweep 0
+    expect(svg).toMatch(/A20,20 0 1 0 /);                  // three quarters: large arc
+    expect(svg).toContain('<circle cx="40" cy="-40" r="10"');
+  });
 });

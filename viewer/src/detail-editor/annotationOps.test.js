@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   checkAnnotation, addAnnotation, removeAnnotation, updateAnnotation, moveAnnotation,
-  dimensionGeometry, annotationSegments, distanceToSegment,
+  dimensionGeometry, annotationSegments, distanceToSegment, arcSweep, arcPoints, setAnnotationPoint,
 } from './annotationOps.js';
 import { validateDetail } from './detailValidate.js';
 import { serializeDetail } from './detailSerializer.js';
@@ -88,5 +88,54 @@ describe('document integration', () => {
     expect(serializeDetail(d).annotations).toHaveLength(3);
     d.annotations[0].points = [{ x: 0, y: 0 }];
     expect(validateDetail(d).some((p) => p.path === 'annotations[0].points')).toBe(true);
+  });
+});
+
+describe('arcs and circles', () => {
+  const arc = { type: 'arc', centre: { x: 1, y: 1 }, radius_m: 0.5, start_deg: 0, end_deg: 90 };
+  const circle = { type: 'circle', centre: { x: 0, y: 0 }, radius_m: 0.2 };
+
+  it('checks fields', () => {
+    expect(checkAnnotation(arc)).toEqual([]);
+    expect(checkAnnotation(circle)).toEqual([]);
+    expect(checkAnnotation({ ...arc, radius_m: 0 })).not.toEqual([]);
+    expect(checkAnnotation({ ...arc, end_deg: 360 })).not.toEqual([]);   // a full turn is a circle
+    expect(checkAnnotation({ ...arc, end_deg: -270 })).toEqual([]);      // 90 degrees by another name
+    expect(checkAnnotation({ ...circle, start_deg: 0 })).not.toEqual([]);
+    expect(checkAnnotation({ ...arc, centre: { x: 'a', y: 0 } })).not.toEqual([]);
+  });
+  it('sweeps anticlockwise and wraps through 0', () => {
+    expect(arcSweep(arc)).toBe(90);
+    expect(arcSweep({ ...arc, start_deg: 270, end_deg: 90 })).toBe(180);
+    expect(arcSweep(circle)).toBe(360);
+  });
+  it('samples points that all lie on the circle and include both ends', () => {
+    const pts = arcPoints(arc);
+    expect(pts[0].x).toBeCloseTo(1.5); expect(pts[0].y).toBeCloseTo(1);
+    expect(pts.at(-1).x).toBeCloseTo(1); expect(pts.at(-1).y).toBeCloseTo(1.5);
+    for (const p of pts) expect(Math.hypot(p.x - 1, p.y - 1)).toBeCloseTo(0.5);
+    expect(arcPoints(circle)).toHaveLength(73);
+  });
+  it('moves by the centre and is picked along its length', () => {
+    const d = moveAnnotation(addAnnotation(base(), arc), 0, 1, 1);
+    expect(d.annotations[0].centre).toEqual({ x: 2, y: 2 });
+    expect(annotationSegments(arc).length).toBeGreaterThan(10);
+  });
+  it('edits through handle points: radius, start, end and centre', () => {
+    let d = addAnnotation(base(), arc);
+    d = setAnnotationPoint(d, 0, 'end', { x: 0.2, y: 1 });
+    expect(d.annotations[0].end_deg).toBe(180);
+    expect(d.annotations[0].radius_m).toBe(0.5);                      // the end handle does not change the radius
+    d = setAnnotationPoint(d, 0, 'start', { x: 1, y: 1.4 });
+    expect(d.annotations[0]).toMatchObject({ start_deg: 90, radius_m: 0.4 });
+    d = setAnnotationPoint(d, 0, 'centre', { x: 5, y: 5 });
+    expect(d.annotations[0].centre).toEqual({ x: 5, y: 5 });
+    const c = setAnnotationPoint(addAnnotation(base(), circle), 0, 'radius', { x: 0.5, y: 0 });
+    expect(c.annotations[0].radius_m).toBe(0.5);
+  });
+  it('refuses a handle on the centre and a start that meets the end', () => {
+    const d = addAnnotation(base(), arc);
+    expect(() => setAnnotationPoint(d, 0, 'start', { x: 1, y: 1 })).toThrow(/centre/);
+    expect(() => setAnnotationPoint(d, 0, 'start', { x: 1, y: 2 })).toThrow(/coincide/);
   });
 });

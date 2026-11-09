@@ -708,3 +708,45 @@ describe('select under', () => {
     expect(of(r, 'select')[0].selection).toEqual(sel);
   });
 });
+
+describe('circle and arc tools', () => {
+  const run = (tool, pts, doc = exampleDetail()) => {
+    let state = createController(tool), last;
+    for (const [x, y] of pts) { last = handleEvent(state, ev('down', x, y), ctxFor(doc)); state = last.state; }
+    return last;
+  };
+
+  test('circle: centre then a point sets the radius', () => {
+    const r = run('circle', [[1, 1], [1.5, 1]]);
+    expect(lastDoc(r).doc.annotations[0]).toEqual({ type: 'circle', centre: { x: 1, y: 1 }, radius_m: 0.5 });
+    expect(of(r, 'select')[0].selection).toEqual({ type: 'annotation', index: 0 });
+  });
+  test('circle: a second point on the centre is refused', () => {
+    expect(of(run('circle', [[1, 1], [1, 1]]), 'message')).toHaveLength(1);
+  });
+  test('arc: centre, start, end run anticlockwise from start to end', () => {
+    const r = run('arc', [[0, 0], [1, 0], [0, 2]]);
+    expect(lastDoc(r).doc.annotations[0]).toEqual({ type: 'arc', centre: { x: 0, y: 0 }, radius_m: 1, start_deg: 0, end_deg: 90 });
+  });
+  test('arc: end below the start wraps round (270 to 90 is half a turn)', () => {
+    const a = lastDoc(run('arc', [[0, 0], [0, -1], [0, 1]])).doc.annotations[0];
+    expect([a.start_deg, a.end_deg]).toEqual([270, 90]);
+  });
+  test('arc: Escape cancels at any stage', () => {
+    let r = run('arc', [[0, 0], [1, 0]]);
+    expect(r.state.draft.stage).toBe(2);
+    r = handleEvent(r.state, key('Escape'), ctxFor(exampleDetail()));
+    expect(r.state.draft).toBeNull();
+  });
+  test('select: an arc is picked along its length and its end handle drags the end angle', () => {
+    const doc = addAnnotation(exampleDetail(), { type: 'arc', centre: { x: 1, y: 1 }, radius_m: 0.5, start_deg: 0, end_deg: 90 });
+    const sel = { type: 'annotation', index: 0 };
+    const pick = handleEvent(createController(), ev('down', 1 + 0.5 * Math.cos(Math.PI / 4), 1 + 0.5 * Math.sin(Math.PI / 4)), ctxFor(doc));
+    expect(of(pick, 'select')[0].selection).toEqual(sel);
+    let r = handleEvent(createController(), ev('down', 1, 1.5), ctxFor(doc, sel));    // the end handle
+    expect(r.state.drag.ref.key).toBe('end');
+    r = handleEvent(r.state, ev('move', 0.5, 1), ctxFor(doc, sel));
+    r = handleEvent(r.state, ev('up', 0.5, 1), ctxFor(doc, sel));
+    expect(lastDoc(r).doc.annotations[0].end_deg).toBe(180);
+  });
+});

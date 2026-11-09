@@ -14,7 +14,7 @@
 
 import { buildMemberShapes, placePoint } from './memberShapes.js';
 import { evaluateCoordinate } from './detailDocument.js';
-import { dimensionGeometry, annotationSegments, distanceToSegment } from './annotationOps.js';
+import { dimensionGeometry, annotationSegments, distanceToSegment, arcPoints, pointAtAngle } from './annotationOps.js';
 
 const DEFAULT_FILL = '#888888';
 const MIN_VIEW_M = 0.5;
@@ -154,9 +154,13 @@ export function buildCanvasModel(doc, ctx = {}) {
     else if (selected.type === 'dimension') {
       h('from', selected.from); h('to', selected.to);
       h('offset', dimensionGeometry(selected).mid, 'annotation-offset');
+    } else if (selected.type === 'arc') {
+      h('centre', selected.centre); h('start', pointAtAngle(selected, selected.start_deg)); h('end', pointAtAngle(selected, selected.end_deg));
+    } else if (selected.type === 'circle') {
+      h('centre', selected.centre); h('radius', pointAtAngle(selected, 0));
     } else { h('at', selected.at); if (selected.leader_to) h('leader_to', selected.leader_to); }
   }
-  const annPoints = annotations.flatMap(({ ann }) => ann.type === 'line' ? ann.points : ann.type === 'dimension' ? [ann.from, ann.to] : [ann.at]);
+  const annPoints = annotations.flatMap(({ ann }) => ann.type === 'line' ? ann.points : ann.type === 'dimension' ? [ann.from, ann.to] : ann.type === 'arc' || ann.type === 'circle' ? arcPoints(ann) : [ann.at]);
 
   const bounds = primitives.length || annPoints.length ? boundsOfPoints([...primitives.flatMap((p) => p.points), ...annPoints]) : null;
 

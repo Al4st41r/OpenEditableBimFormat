@@ -33,7 +33,7 @@ import { dragHandle, translateRegions, regionsInBox, snapValue } from './canvasE
 import { addRect, addRegion, removeRegions } from './detailDocument.js';
 import { regionIndices, selectionOfRegions } from './pageState.js';
 import { TOOLS } from './detailConstants.js';
-import { addAnnotation, removeAnnotation, moveAnnotation, setAnnotationPoint, setDimensionOffset } from './annotationOps.js';
+import { addAnnotation, removeAnnotation, moveAnnotation, setAnnotationPoint, setDimensionOffset, angleOf } from './annotationOps.js';
 import { signedArea, isSelfIntersecting } from '../detail/regionGeometry.js';
 
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
@@ -67,6 +67,8 @@ export function handleEvent(state, event, ctx) {
     case 'line': return lineTool(state, event, ctx);
     case 'dim': return dimTool(state, event, ctx);
     case 'note': return noteTool(state, event, ctx);
+    case 'circle': return circleTool(state, event, ctx);
+    case 'arc': return arcTool(state, event, ctx);
     default: return rememberClick(selectTool(state, event, ctx), event);
   }
 }
@@ -466,4 +468,45 @@ function noteTool(state, event, ctx) {
   const note = { type: 'note', at: p, text: 'Note' };
   if (Math.hypot(p.x - d.to.x, p.y - d.to.y) > ctx.tolerance) note.leader_to = d.to;
   return commitAnnotation(state, ctx, note);
+}
+
+// Circle: the centre, then a point on the circle. Arc: the centre, the start (which sets the radius), then the end;
+// the arc runs anticlockwise from start to end.
+const round6 = (v) => Math.round(v * 1e6) / 1e6;
+
+function circleTool(state, event, ctx) {
+  const d = state.draft;
+  const handled = hoverOrCancel(state, event, ctx, d?.c ?? null);
+  if (handled) return handled;
+  if (event.type !== 'down') return done(state);
+  const p = snapAt(ctx, event.point, d ? { lastPoint: d.c } : {}).point;
+  if (!d) {
+    const draft = { kind: 'circle', c: p, cursor: p };
+    return done({ ...state, draft }, [{ type: 'draft', draft }]);
+  }
+  const r = Math.hypot(p.x - d.c.x, p.y - d.c.y);
+  if (r < 1e-9) return done(state, [msg('Pick a point away from the centre.')]);
+  return commitAnnotation(state, ctx, { type: 'circle', centre: d.c, radius_m: round6(r) });
+}
+
+function arcTool(state, event, ctx) {
+  const d = state.draft;
+  const handled = hoverOrCancel(state, event, ctx, d?.c ?? null);
+  if (handled) return handled;
+  if (event.type !== 'down') return done(state);
+  const p = snapAt(ctx, event.point, d ? { lastPoint: d.c } : {}).point;
+  if (!d) {
+    const draft = { kind: 'arc', stage: 1, c: p, cursor: p };
+    return done({ ...state, draft }, [{ type: 'draft', draft }]);
+  }
+  const r = Math.hypot(p.x - d.c.x, p.y - d.c.y);
+  if (r < 1e-9) return done(state, [msg('Pick a point away from the centre.')]);
+  if (d.stage === 1) {
+    const draft = { ...d, stage: 2, s: p, cursor: p };
+    return done({ ...state, draft }, [{ type: 'draft', draft }]);
+  }
+  return commitAnnotation(state, ctx, {
+    type: 'arc', centre: d.c, radius_m: round6(Math.hypot(d.s.x - d.c.x, d.s.y - d.c.y)),
+    start_deg: round6(angleOf(d.c, d.s)), end_deg: round6(angleOf(d.c, p)),
+  });
 }

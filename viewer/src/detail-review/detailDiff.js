@@ -6,7 +6,7 @@
  */
 
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
-const ANN = { line: 'Line', dimension: 'Dimension', note: 'Note' };
+const ANN = { line: 'Line', arc: 'Arc', circle: 'Circle', dimension: 'Dimension', note: 'Note' };
 
 /** Lines for two ordered lists compared by position. */
 function byPosition(before, after, label, lines) {

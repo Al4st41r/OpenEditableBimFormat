@@ -94,6 +94,7 @@ export function buildPanelModel({ doc, selection, validation, dirty, canUndo, ca
   if (ann) {
     selectedAnnotation = { index: selection.index, type: ann.type };
     if (ann.type === 'line') Object.assign(selectedAnnotation, { style: ann.style ?? 'solid', points: ann.points.length });
+    if (ann.type === 'arc' || ann.type === 'circle') Object.assign(selectedAnnotation, { style: ann.style ?? 'solid', radius_m: ann.radius_m, ...(ann.type === 'arc' ? { start_deg: ann.start_deg, end_deg: ann.end_deg } : {}) });
     if (ann.type === 'dimension') Object.assign(selectedAnnotation, { length: tidy(dimensionGeometry(ann).length), offset_m: ann.offset_m ?? DEFAULT_DIM_OFFSET_M });
     if (ann.type === 'note') Object.assign(selectedAnnotation, { text: ann.text, hasLeader: !!ann.leader_to });
   }
@@ -120,7 +121,7 @@ export function buildPanelModel({ doc, selection, validation, dirty, canUndo, ca
     members, regions: regionRows, parameters, selectedMember, selectedRegion, selectedAnnotation,
     marks: (doc.annotations ?? []).map((a, index) => ({
       index, type: a.type, selected: selection?.type === 'annotation' && selection.index === index,
-      label: a.type === 'note' ? `Note: ${a.text}` : a.type === 'line' ? `Line, ${a.points.length} points` : 'Dimension',
+      label: a.type === 'note' ? `Note: ${a.text}` : a.type === 'line' ? `Line, ${a.points.length} points` : a.type === 'arc' ? 'Arc' : a.type === 'circle' ? 'Circle' : 'Dimension',
     })),
     usage: {
       needsSave: dirty,

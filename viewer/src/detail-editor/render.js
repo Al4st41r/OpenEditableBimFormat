@@ -8,7 +8,7 @@
 import { toScreen } from './viewTransform.js';
 import { toDisplay, unitLabel, getUnit } from '../editor/units.js';
 import { patternDefs, patternId } from './drawStyle.js';
-import { dimensionGeometry } from './annotationOps.js';
+import { dimensionGeometry, arcPoints, pointAtAngle, angleOf } from './annotationOps.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 const el = (name, attrs = {}, text) => {
@@ -114,6 +114,25 @@ export function renderCanvas(svg, model, view, size, { draft = null, hint = null
     svg.appendChild(el('polyline', { points: pointsAttr(pts, view, size), fill: 'none', stroke: '#0a6cff', 'stroke-dasharray': '5 4', 'stroke-width': 1.5 }));
     for (const p of draft.points) { const q = toScreen(view, size, p); svg.appendChild(el('circle', { cx: q.x, cy: q.y, r: 3.5, fill: '#0a6cff' })); }
   }
+  if (draft?.kind === 'circle' || draft?.kind === 'arc') {
+    const cur = draft.cursor ?? draft.c;
+    const r = Math.hypot(cur.x - draft.c.x, cur.y - draft.c.y);
+    const c = toScreen(view, size, draft.c);
+    svg.appendChild(el('circle', { cx: c.x, cy: c.y, r: 3.5, fill: '#0a6cff' }));
+    if (r > 1e-9 && (draft.kind === 'circle' || draft.stage === 1)) {
+      const q = toScreen(view, size, cur);
+      svg.appendChild(el('line', { x1: c.x, y1: c.y, x2: q.x, y2: q.y, stroke: '#0a6cff', 'stroke-dasharray': '5 4' }));
+      svg.appendChild(el('polyline', { points: pointsAttr(arcPoints({ type: 'circle', centre: draft.c, radius_m: r }), view, size), fill: 'none', stroke: '#0a6cff', 'stroke-dasharray': '5 4', 'stroke-width': 1.5 }));
+    } else if (draft.kind === 'arc' && draft.stage === 2) {
+      const rs = Math.hypot(draft.s.x - draft.c.x, draft.s.y - draft.c.y);
+      const end = angleOf(draft.c, cur);
+      const ann = { type: 'arc', centre: draft.c, radius_m: rs, start_deg: angleOf(draft.c, draft.s), end_deg: end };
+      if (((end - ann.start_deg) % 360 + 360) % 360 > 1e-9) svg.appendChild(el('polyline', { points: pointsAttr(arcPoints(ann), view, size), fill: 'none', stroke: '#0a6cff', 'stroke-width': 2 }));
+      const q = toScreen(view, size, pointAtAngle(ann, end)), st = toScreen(view, size, draft.s);
+      svg.appendChild(el('line', { x1: c.x, y1: c.y, x2: st.x, y2: st.y, stroke: '#0a6cff', 'stroke-dasharray': '5 4' }));
+      svg.appendChild(el('line', { x1: c.x, y1: c.y, x2: q.x, y2: q.y, stroke: '#0a6cff', 'stroke-dasharray': '2 3' }));
+    }
+  }
   if (draft?.kind === 'dim') {
     const ann = { type: 'dimension', from: draft.a, to: draft.b, offset_m: draft.stage === 2 ? draft.offset : 0 };
     if (Math.hypot(draft.b.x - draft.a.x, draft.b.y - draft.a.y) > 1e-9) drawAnnotation(svg, ann, true, view, size);
@@ -159,7 +178,14 @@ function drawAnnotation(svg, a, selected, view, size) {
     const t = S(at);
     svg.appendChild(el('text', { x: t.x, y: t.y, fill: colour, stroke: '#fff', 'stroke-width': 3, 'paint-order': 'stroke', 'font-size': 12, ...extra }, text));
   };
-  if (a.type === 'line') {
+  if (a.type === 'arc' || a.type === 'circle') {
+    const dash = DASH[a.style ?? 'solid'];
+    svg.appendChild(el('polyline', {
+      points: pointsAttr(arcPoints(a, 2), view, size), fill: 'none', stroke: colour, 'stroke-width': selected ? 2 : 1.5,
+      'stroke-linejoin': 'round', 'stroke-linecap': 'round', ...(dash ? { 'stroke-dasharray': dash } : {}),
+    }));
+    if (a.style === 'centre') { const c = S(a.centre); svg.appendChild(el('path', { d: `M${c.x - 5},${c.y}h10M${c.x},${c.y - 5}v10`, stroke: colour, 'stroke-width': 1 })); }
+  } else if (a.type === 'line') {
     const dash = DASH[a.style ?? 'solid'];
     svg.appendChild(el('polyline', {
       points: pointsAttr(a.points, view, size), fill: 'none', stroke: colour, 'stroke-width': selected ? 2 : 1.5,
