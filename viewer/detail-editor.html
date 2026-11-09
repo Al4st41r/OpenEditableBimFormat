@@ -80,7 +80,14 @@
     .param input[type=range] { width: 100%; }
     .vtx { display: grid; grid-template-columns: 18px minmax(0,1fr) minmax(0,1fr); gap: 4px; align-items: center; margin: 3px 0; }
     .vtx.selected { background: #1e3a5a; border-radius: 3px; }
+    .tabs { display: flex; gap: 2px; margin: -8px -12px 10px; padding: 6px 8px 0; position: sticky; top: -8px; z-index: 3; background: #1e1e1e; border-bottom: 1px solid #333; }
+    .tab { flex: 1; padding: 5px 4px; border: 0; border-bottom: 2px solid transparent; border-radius: 3px 3px 0 0; background: transparent; color: #999; font-size: 12px; }
+    .tab:hover:not(:disabled) { color: #ddd; background: #262626; }
+    .tab.active { color: #fff; border-bottom-color: #4a8aaa; background: #262626; }
+    .tab:disabled { opacity: 0.35; }
+    .badge { display: inline-block; margin-left: 4px; padding: 0 5px; border-radius: 8px; background: #b33; color: #fff; font-size: 10px; }
     .fold { margin: 8px 0; border-top: 1px solid #333; padding-top: 6px; }
+    .fold.first { margin-top: 0; border-top: 0; padding-top: 0; }
     .fold > summary { cursor: pointer; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: #999; margin-bottom: 4px; }
     .vtx select, .vtx input { min-width: 0; width: 100%; }
     .bound { color: #8cf; font-size: 11px; }

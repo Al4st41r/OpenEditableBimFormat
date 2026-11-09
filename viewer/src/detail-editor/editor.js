@@ -175,6 +175,7 @@ function apply(fn) {
 }
 
 const actions = {
+  rerender: () => refresh(),
   select: (sel) => {
     const key = layerOfSelection(sel);
     if (!editable(layers, key)) { status(`The ${LAYER_LABELS[key].toLowerCase()} layer is hidden or locked.`, true); return; }

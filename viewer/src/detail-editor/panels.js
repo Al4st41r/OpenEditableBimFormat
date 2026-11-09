@@ -67,8 +67,38 @@ export function renderPanels({ left, right }, pm, bundle, a) {
   notify = a.notify ?? (() => {});
   // a conditional that gives null or false would otherwise print as the text "null"
   const real = (nodes) => nodes.filter((n) => n !== null && n !== undefined && n !== false);
+  const scroll = { left: left.scrollTop, right: right.scrollTop, tab: ui.tab };
+  syncTab(pm);
   left.replaceChildren(...real(leftPanel(pm, bundle, a)));
   right.replaceChildren(...real(rightPanel(pm, bundle, a)));
+  for (const root of [left, right]) rememberFolds(root);
+  left.scrollTop = scroll.left;
+  right.scrollTop = ui.tab === scroll.tab ? scroll.right : 0;   // a new tab starts at the top
+}
+
+// ── panel state: the active tab and which folds are open ────────────────────
+// Re-rendering rebuilds every node, so without this each edit would close the folds and jump back to the top.
+
+const ui = { tab: 'detail', selKey: null };
+const foldOpen = new Map();   // fold title -> open
+
+function rememberFolds(root) {
+  for (const d of root.querySelectorAll('details.fold')) {
+    const key = d.querySelector('summary')?.textContent ?? '';
+    if (foldOpen.has(key)) d.open = foldOpen.get(key);
+    d.addEventListener('toggle', () => foldOpen.set(key, d.open));
+  }
+}
+
+/** Selecting something opens the Properties tab; clearing the selection leaves it. */
+function syncTab(pm) {
+  const key = pm.selectedMember ? `m:${pm.selectedMember.role}` : pm.selectedRegion ? `r:${pm.selectedRegion.index}` : pm.selectedAnnotation ? `a:${pm.selectedAnnotation.index}` : null;
+  if (key !== ui.selKey) {
+    if (key) ui.tab = 'properties';
+    else if (ui.tab === 'properties') ui.tab = 'detail';
+    ui.selKey = key;
+  }
+  if (!key && ui.tab === 'properties') ui.tab = 'detail';
 }
 
 // ── left: members and regions ───────────────────────────────────────────────
@@ -77,14 +107,15 @@ function leftPanel(pm, bundle, a) {
   const kind = h('select', {}, options(KINDS, 'wall'));
   const profile = h('select', {}, options(bundle.profileIds, bundle.profileIds[0]));
   return [
-    h('h3', {}, 'Layers'),
-    ...LAYERS.map((key) => {
-      const l = bundle.layers[key];
-      return h('div', { class: 'layer' },
-        h('button', { class: l.visible ? 'on' : '', title: l.visible ? 'Hide' : 'Show', onclick: () => a.setLayer(key, 'visible', !l.visible) }, l.visible ? 'Shown' : 'Hidden'),
-        h('button', { class: l.locked ? 'on' : '', title: l.locked ? 'Unlock' : 'Lock: drawn and snapped to, but not picked', onclick: () => a.setLayer(key, 'locked', !l.locked) }, l.locked ? 'Locked' : 'Open'),
-        h('span', { class: l.visible ? '' : 'off' }, LAYER_LABELS[key]));
-    }),
+    h('details', { class: 'fold first', open: false },
+      h('summary', { title: 'Show, hide and lock the members, regions and marks' }, 'Layers'),
+      ...LAYERS.map((key) => {
+        const l = bundle.layers[key];
+        return h('div', { class: 'layer' },
+          h('button', { class: l.visible ? 'on' : '', title: l.visible ? 'Hide' : 'Show', onclick: () => a.setLayer(key, 'visible', !l.visible) }, l.visible ? 'Shown' : 'Hidden'),
+          h('button', { class: l.locked ? 'on' : '', title: l.locked ? 'Unlock' : 'Lock: drawn and snapped to, but not picked', onclick: () => a.setLayer(key, 'locked', !l.locked) }, l.locked ? 'Locked' : 'Open'),
+          h('span', { class: l.visible ? '' : 'off' }, LAYER_LABELS[key]));
+      })),
     h('h3', {}, 'Members'),
     ...pm.members.map((m) => h('div', { class: `item${m.selected ? ' selected' : ''}`, onclick: () => a.select({ type: 'member', role: m.role }) },
       h('span', {}, m.role),
@@ -106,11 +137,32 @@ function leftPanel(pm, bundle, a) {
 
 // ── right: properties, selection, parameters, usage ─────────────────────────
 
-function rightPanel(pm, bundle, a) {
-  const out = [];
-  const hd = pm.header;
+const TABS = [['properties', 'Properties'], ['detail', 'Detail'], ['usage', 'Used at'], ['checks', 'Checks']];
 
-  out.push(
+function rightPanel(pm, bundle, a) {
+  const tabs = h('div', { class: 'tabs' }, ...TABS.map(([id, label]) => {
+    const disabled = id === 'properties' && ui.tab !== 'properties' && !(pm.selectedMember || pm.selectedRegion || pm.selectedAnnotation);
+    const badge = id === 'checks' && pm.messages.length ? h('span', { class: 'badge' }, pm.messages.length) : null;
+    return h('button', { class: `tab${ui.tab === id ? ' active' : ''}`, disabled, onclick: () => { ui.tab = id; a.rerender(); } }, label, badge);
+  }));
+  const body = { properties: propertiesTab, detail: detailTab, usage: usageTab, checks: checksTab }[ui.tab] ?? detailTab;
+  return [tabs, ...body(pm, bundle, a)];
+}
+
+/** The selected member, region or mark. */
+function propertiesTab(pm, bundle, a) {
+  const out = [];
+  if (pm.selectedMember) out.push(...memberEditor(pm.selectedMember, bundle, a));
+  if (pm.selectedRegion) out.push(...regionEditor(pm.selectedRegion, pm, bundle, a), ...dimensionEditor(pm.selectedRegion, bundle, a));
+  if (pm.selectedAnnotation) out.push(...annotationEditor(pm.selectedAnnotation, a));
+  if (!out.length) out.push(h('div', { class: 'note' }, 'Select a member, region or mark to edit it.'));
+  return out;
+}
+
+/** What the whole detail is: description, view, datum, setting-out, clip, parameters and condition. */
+function detailTab(pm, bundle, a) {
+  const hd = pm.header;
+  return [
     h('h3', {}, 'Detail'),
     row('Description', text(hd.description, a.setDescription)),
     row('View', select(PLANES, hd.plane, a.setPlane)),
@@ -121,28 +173,26 @@ function rightPanel(pm, bundle, a) {
     h('div', { class: 'note' }, hd.plane === 'plan'
       ? 'Plan: regions rise from the level by the extrusion.'
       : 'Section: regions run along the primary member, centred.'),
-  );
+    ...referenceEditor(pm, a), ...clipEditor(pm, a),
+    h('h3', {}, 'Parameters'),
+    ...(pm.parameters.length === 0 ? [h('div', { class: 'note' }, 'None. Add one, then bind a vertex coordinate to it.')] : []),
+    ...pm.parameters.map((p) => parameterBox(p, bundle, a)),
+    newParameterForm(a),
+    h('h3', {}, 'Condition'), ...conditionEditor(pm, a),
+  ];
+}
 
-  out.push(...referenceEditor(pm, a), ...clipEditor(pm, a));
+/** Where the detail is used in the building. */
+function usageTab(pm, bundle, a) {
+  return [h('h3', {}, 'Used at'), ...referenceSection(bundle.reference, a), ...usageSection(pm, bundle.reference?.highlight ?? null, a)];
+}
 
-  if (pm.selectedMember) out.push(...memberEditor(pm.selectedMember, bundle, a));
-  if (pm.selectedRegion) out.push(...regionEditor(pm.selectedRegion, pm, bundle, a), ...dimensionEditor(pm.selectedRegion, bundle, a));
-
-  if (pm.selectedAnnotation) out.push(...annotationEditor(pm.selectedAnnotation, a));
-
-  out.push(h('h3', {}, 'Parameters'));
-  if (pm.parameters.length === 0) out.push(h('div', { class: 'note' }, 'None. Add one, then bind a vertex coordinate to it.'));
-  for (const p of pm.parameters) out.push(parameterBox(p, bundle, a));
-  out.push(newParameterForm(a));
-
-  out.push(h('h3', {}, 'Condition'), ...conditionEditor(pm, a));
-
-  out.push(h('h3', {}, 'Used at'), ...referenceSection(bundle.reference, a), ...usageSection(pm, bundle.reference?.highlight ?? null, a));
-
-  out.push(h('h3', {}, 'Checks'));
-  if (pm.messages.length === 0) out.push(h('div', { class: 'note' }, 'No problems found.'));
-  for (const m of pm.messages) out.push(h('div', { class: 'msg err' }, h('span', { class: 'note' }, `${m.path || 'detail'}: `), m.message));
-  return out;
+function checksTab(pm) {
+  return [
+    h('h3', {}, 'Checks'),
+    ...(pm.messages.length === 0 ? [h('div', { class: 'note' }, 'No problems found.')] : []),
+    ...pm.messages.map((m) => h('div', { class: 'msg err' }, h('span', { class: 'note' }, `${m.path || 'detail'}: `), m.message)),
+  ];
 }
 
 function referenceSection(ref, a) {
@@ -223,9 +273,9 @@ function memberEditor(m, bundle, a) {
     row('Plan extent', select(EXTENTS, m.extent, (v) => a.setMemberExtent(role, v))),
     insertionRow('x', m, role, a),
     insertionRow('y', m, role, a),
+    row('Rotation (deg)', plain(m.rotation_deg, (v) => a.rotateMember(role, v))),
     layerStartsFold(m, role, a),
     layerDetailFold(m, role, bundle, a),
-    row('Rotation (deg)', plain(m.rotation_deg, (v) => a.rotateMember(role, v))),
     h('div', { class: 'row' }, h('button', { onclick: () => a.removeMember(role) }, 'Remove member')),
   ];
 }
