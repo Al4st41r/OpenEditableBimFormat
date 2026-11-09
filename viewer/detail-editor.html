@@ -37,6 +37,9 @@
     #empty[hidden] { display: none; }
     #tip { position: absolute; pointer-events: none; z-index: 5; background: rgba(24,24,24,0.92); color: #fff; padding: 5px 9px; border-radius: 3px; font-size: 12px; line-height: 1.45; white-space: nowrap; border-left: 3px solid #e8590c; }
     #tip[hidden] { display: none; }
+    #sheet-dialog { background: #222; color: #ddd; border: 1px solid #555; border-radius: 6px; padding: 14px 18px; min-width: 320px; }
+    #sheet-dialog::backdrop { background: rgba(0,0,0,0.5); }
+    #sheet-dialog > button { margin-right: 6px; margin-top: 8px; }
     #help-dialog { background: #222; color: #ddd; border: 1px solid #555; border-radius: 6px; padding: 14px 18px; max-width: 620px; max-height: 80vh; overflow-y: auto; }
     #help-dialog::backdrop { background: rgba(0,0,0,0.5); }
     #help-dialog dl { display: grid; grid-template-columns: 150px 1fr; gap: 3px 12px; margin: 0 0 6px; font-size: 12px; }
@@ -123,7 +126,7 @@
     <button id="open-btn" title="Open a bundle folder">Folder</button>
     <button id="open-file-btn" title="Open a .oebfz archive">File</button>
     <button id="demo-btn">Demo</button>
-    <select id="export-select" title="Export this detail as a CAD drawing"><option value="">Export / import</option><option value="json">Detail JSON</option><option value="dxf">DXF (mm)</option><option value="import-dxf">Import DXF…</option></select>
+    <select id="export-select" title="Export this detail as a CAD drawing"><option value="">Export / import</option><option value="json">Detail JSON</option><option value="sheet">Sheet (SVG or PDF)…</option><option value="dxf">DXF (mm)</option><option value="import-dxf">Import DXF…</option></select>
     <button id="zip-btn" hidden title="Download the whole bundle as a zip">Zip</button>
     <span class="sep"></span>
     <button id="tool-select" class="active" title="Select and move (V)">Select</button>
@@ -162,6 +165,7 @@
     <div id="right-panel" class="panel"></div>
   </div>
   <dialog id="help-dialog"></dialog>
+  <dialog id="sheet-dialog"></dialog>
   <dialog id="new-dialog"></dialog>
   <dialog id="loc-dialog"></dialog>
   <input id="dxf-input" type="file" accept=".dxf" hidden>

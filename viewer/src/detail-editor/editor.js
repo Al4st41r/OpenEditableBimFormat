@@ -14,6 +14,7 @@ import * as D from './detailDocument.js';
 import * as AN from './annotationOps.js';
 import * as RF from './referenceOps.js';
 import { HttpAdapter, BUNDLE_NAME } from './httpAdapter.js';
+import { buildDetailSheet, embeddedFontCss, deliverSheet } from '../detail-review/sheetExport.js';
 import { detailToDxf } from './dxfExport.js';
 import { parseDxf, dxfToDetail, scaleFromUnits } from './dxfImport.js';
 import { copySelection, parsePayload, pasteInto } from './clipboard.js';
@@ -825,6 +826,42 @@ function showHelp() {
 }
 $('help-btn').addEventListener('click', showHelp);
 
+// ── sheet export ─────────────────────────────────────────────────────────────
+// The drawing as the review page draws it (hatches, line weights, marks, reference lines) on a sheet with a title block.
+function openSheetDialog() {
+  if (!st) return;
+  const dlg = $('sheet-dialog');
+  const mk = (tag, props = {}) => Object.assign(document.createElement(tag), props);
+  const rowOf = (label, control) => { const r = mk('div', { className: 'row' }); r.append(mk('label', { textContent: label }), control); return r; };
+  const scale = mk('select');
+  for (const n of [1, 2, 5, 10, 20]) scale.append(mk('option', { value: n, textContent: `1:${n}`, selected: n === 5 }));
+  const paper = mk('select');
+  paper.append(mk('option', { value: '', textContent: 'Auto (smallest that fits)' }));
+  for (const p of ['A4', 'A3', 'A2', 'A1']) paper.append(mk('option', { value: p, textContent: p }));
+  const thin = mk('input', { type: 'checkbox' });
+  const go = async (kind) => {
+    try {
+      const built = buildDetailSheet({
+        detail: st.doc, profiles: bundle.ctx.profiles, materials: bundle.ctx.materials, scale: Number(scale.value), hairline: thin.checked,
+        paper: paper.value, project: bundle.ctx.projectName, fontCss: await embeddedFontCss(import.meta.env.BASE_URL),
+      });
+      dlg.close();
+      status(deliverSheet(built, kind));
+    } catch (err) { msg.textContent = err.message; }
+  };
+  const msg = mk('div', { className: 'note warn' });
+  const svgBtn = mk('button', { className: 'primary', textContent: 'Save SVG' });
+  const pdfBtn = mk('button', { textContent: 'Print / PDF' });
+  const cancel = mk('button', { textContent: 'Cancel' });
+  svgBtn.addEventListener('click', () => go('svg'));
+  pdfBtn.addEventListener('click', () => go('pdf'));
+  cancel.addEventListener('click', () => dlg.close());
+  dlg.replaceChildren(
+    mk('h3', { textContent: 'Export a sheet' }), rowOf('Scale', scale), rowOf('Paper', paper), rowOf('Hairlines', thin), msg,
+    Object.assign(mk('div', { className: 'row' }), {}), svgBtn, pdfBtn, cancel);
+  dlg.showModal();
+}
+
 // ── export ───────────────────────────────────────────────────────────────────
 $('export-select').addEventListener('change', (e) => {
   const kind = e.target.value;
@@ -839,6 +876,7 @@ $('export-select').addEventListener('change', (e) => {
     status('Saved the detail as JSON.');
     return;
   }
+  if (kind === 'sheet') { openSheetDialog(); return; }
   if (kind === 'import-dxf') { $('dxf-input').click(); return; }
   if (kind !== 'dxf') return;
   const text = detailToDxf(st.doc, { profiles: bundle.ctx.profiles, materials: bundle.ctx.materials, values: st.preview ?? undefined });

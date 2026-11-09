@@ -18,7 +18,7 @@ import { createSelection, describeItem } from '../detail-review/selection.js';
 import { buildSnapshot } from '../detail-editor/bundleSnapshot.js';
 import { isTrustedReady, buildOpenerReply, parseSaved } from '../detail-editor/messages.js';
 import { detailToDxf } from '../detail-editor/dxfExport.js';
-import { buildSheet, printHtml, sheetFileName } from '../detail-review/sheet.js';
+import { buildDetailSheet, embeddedFontCss, deliverSheet } from '../detail-review/sheetExport.js';
 import { diffDetails } from '../detail-review/detailDiff.js';
 import { OVERLAYS, applyOverlay, tagsOf, carbonValues } from '../detail-review/overlays.js';
 
@@ -305,37 +305,17 @@ $('png-btn').addEventListener('click', async () => {
   a.click();
   URL.revokeObjectURL(a.href);
 });
-/** Barlow as @font-face rules with the font files inline, so an exported sheet looks the same on any machine. Cached. */
-let fontCssPromise = null;
-function embeddedFontCss() {
-  fontCssPromise ??= Promise.all([[400, 'Barlow-Regular'], [700, 'Barlow-Bold']].map(async ([weight, file]) => {
-    const res = await fetch(`${import.meta.env.BASE_URL}fonts/${file}.woff2`);
-    if (!res.ok) throw new Error(`font ${file}: ${res.status}`);
-    const bytes = new Uint8Array(await res.arrayBuffer());
-    let bin = '';
-    for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-    return `@font-face{font-family:'Barlow';font-weight:${weight};src:url(data:font/woff2;base64,${btoa(bin)}) format('woff2')}`;
-  })).then((rules) => rules.join('')).catch(() => { fontCssPromise = null; return ''; });   // no font: the sheet still exports, in a fallback face
-  return fontCssPromise;
-}
-
 /** The 2D drawing as it stands (without the selection highlight), on a sheet with a title block. */
 async function currentSheet() {
   if (!model) throw new Error('Pick a detail first.');
-  const drawing = buildDetailSvg(model, { materials: data.materials, profiles: data.profiles, scale: view2d.scale, hairline: view2d.hairline, fills: overlayResult?.colours });
-  const detail = currentDetail();
   const legend = overlayResult
     ? { title: OVERLAYS.find((o) => o.id === view2d.overlay).label, rows: overlayResult.legend, noData: overlayResult.noData }
     : null;
-  return {
-    sheet: buildSheet(drawing, {
-      legend, fontCss: await embeddedFontCss(),
-      paper: $('paper-select').value || undefined,
-      title: detail.id, description: detail.description, project: data.projectName ?? '',
-      date: new Date().toISOString().slice(0, 10),
-    }),
-    name: detail.id, scale: drawing.scale,
-  };
+  return buildDetailSheet({
+    detail: currentDetail(), model, profiles: data.profiles, materials: data.materials, scale: view2d.scale, hairline: view2d.hairline,
+    fills: overlayResult?.colours, legend, paper: $('paper-select').value, project: data.projectName ?? '',
+    fontCss: await embeddedFontCss(import.meta.env.BASE_URL),
+  });
 }
 
 $('export-select').addEventListener('change', async (e) => {
@@ -355,27 +335,8 @@ $('export-select').addEventListener('change', async (e) => {
       status('Saved a DXF in millimetres.');
       return;
     }
-    const { sheet, name, scale } = await currentSheet();
-    if (kind === 'svg') {
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(new Blob([sheet.svg], { type: 'image/svg+xml' }));
-      a.download = sheetFileName(name, scale, 'svg');
-      a.click();
-      URL.revokeObjectURL(a.href);
-      status(`Saved ${sheet.paper} sheet as SVG.`);
-    } else {
-      // PDF: print the sheet at real size from a hidden frame; choose "Save as PDF" in the print dialog
-      const frame = document.createElement('iframe');
-      frame.style.cssText = 'position:fixed;width:0;height:0;border:0;visibility:hidden';
-      frame.srcdoc = printHtml(sheet, sheetFileName(name, scale, 'pdf').replace(/\.pdf$/, ''));
-      frame.onload = () => {
-        frame.contentWindow.focus();
-        frame.contentWindow.print();
-        setTimeout(() => frame.remove(), 60000);
-      };
-      document.body.appendChild(frame);
-      status(`Printing ${sheet.paper} sheet: choose "Save as PDF" as the printer.`);
-    }
+    const built = await currentSheet();
+    status(deliverSheet(built, kind));
   } catch (err) { status(err.message, true); }
 });
 
