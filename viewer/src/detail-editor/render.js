@@ -80,6 +80,23 @@ export function renderCanvas(svg, model, view, size, { draft = null, hint = null
       fill: 'rgba(10,108,255,0.12)', stroke: '#0a6cff', 'stroke-dasharray': '5 4', 'stroke-width': 1.5,
     }));
   }
+  if (draft?.kind === 'measure') {
+    const a = toScreen(view, size, draft.a), b = toScreen(view, size, draft.b);
+    const dx = draft.b.x - draft.a.x, dy = draft.b.y - draft.a.y;
+    const dist = Math.hypot(dx, dy);
+    svg.appendChild(el('line', { x1: a.x, y1: a.y, x2: a.x, y2: b.y, stroke: '#8a8', 'stroke-dasharray': '3 3' }));
+    svg.appendChild(el('line', { x1: a.x, y1: b.y, x2: b.x, y2: b.y, stroke: '#8a8', 'stroke-dasharray': '3 3' }));
+    svg.appendChild(el('line', { x1: a.x, y1: a.y, x2: b.x, y2: b.y, stroke: '#0a8a3a', 'stroke-width': 2 }));
+    for (const p of [a, b]) svg.appendChild(el('circle', { cx: p.x, cy: p.y, r: 4, fill: '#0a8a3a' }));
+    if (dist > 0) {
+      const angle = Math.round(Math.atan2(dy, dx) * 1800 / Math.PI) / 10;
+      const label = `${toDisplay(dist)} ${unitLabel()}   dx ${toDisplay(dx)}  dy ${toDisplay(dy)}   ${angle}°`;
+      const w = label.length * 6.4 + 14;
+      const lx = (a.x + b.x) / 2, ly = (a.y + b.y) / 2 - 14;
+      svg.appendChild(el('rect', { x: lx - w / 2, y: ly - 12, width: w, height: 20, rx: 3, fill: 'rgba(24,24,24,0.9)' }));
+      svg.appendChild(el('text', { x: lx, y: ly + 2, fill: '#fff', 'font-size': 12, 'text-anchor': 'middle' }, label));
+    }
+  }
   if (draft?.kind === 'polygon') {
     const pts = draft.cursor ? [...draft.points, draft.cursor] : draft.points;
     svg.appendChild(el('polyline', { points: pointsAttr(pts, view, size), fill: 'none', stroke: '#0a6cff', 'stroke-dasharray': '5 4', 'stroke-width': 1.5 }));

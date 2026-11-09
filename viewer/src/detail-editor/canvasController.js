@@ -32,7 +32,7 @@ import { dragHandle, translateRegion, snapValue } from './canvasEdit.js';
 import { addRect, addRegion, removeRegion } from './detailDocument.js';
 import { signedArea, isSelfIntersecting } from '../detail/regionGeometry.js';
 
-const TOOLS = ['select', 'rect', 'polygon'];
+const TOOLS = ['select', 'rect', 'polygon', 'measure'];
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
 export function createController(tool = 'select') {
@@ -60,6 +60,7 @@ export function handleEvent(state, event, ctx) {
   switch (state.tool) {
     case 'rect': return rectTool(state, event, ctx);
     case 'polygon': return polygonTool(state, event, ctx);
+    case 'measure': return measureTool(state, event, ctx);
     default: return selectTool(state, event, ctx);
   }
 }
@@ -193,6 +194,32 @@ function rectTool(state, event, ctx) {
     ]);
   }
   return done(state);
+}
+
+// ── measure ─────────────────────────────────────────────────────────────────
+// Two clicks, snapped: the draft carries both points; the DOM layer prints distance, dx, dy and angle. It never
+// changes the document. A third click starts a new measurement; Escape clears it.
+
+function measureTool(state, event, ctx) {
+  const { type, point } = event;
+  const d = state.draft;
+  if (type === 'key') return event.key === 'Escape' && d ? done({ ...state, draft: null }, [{ type: 'draft', draft: null }, ...clearHint(ctx)]) : done(state);
+  if (type === 'move') {
+    const s = snapAt(ctx, point, d && !d.fixed ? { lastPoint: d.a } : {});
+    if (d && !d.fixed) {
+      const draft = { ...d, b: s.point };
+      return done({ ...state, draft }, [{ type: 'draft', draft }, ...(s.snap ? [hintEffect(s)] : [])]);
+    }
+    return ctx.snapFn ? done(state, [hintEffect(s)]) : done(state);
+  }
+  if (type !== 'down') return done(state);
+  const s = snapAt(ctx, point, d && !d.fixed ? { lastPoint: d.a } : {});
+  if (!d || d.fixed) {
+    const draft = { kind: 'measure', a: s.point, b: s.point, fixed: false };
+    return done({ ...state, draft }, [{ type: 'draft', draft }]);
+  }
+  const draft = { ...d, b: s.point, fixed: true };
+  return done({ ...state, draft }, [{ type: 'draft', draft }, ...clearHint(ctx)]);
 }
 
 // ── polygon ─────────────────────────────────────────────────────────────────

@@ -136,7 +136,7 @@ function refresh() {
     $('left-panel').replaceChildren(); $('right-panel').replaceChildren();
     $('undo-btn').disabled = $('redo-btn').disabled = true; $('dirty').hidden = true;
   }
-  for (const t of ['select', 'rect', 'polygon']) $(`tool-${t}`).classList.toggle('active', st?.tool === t || (!st && t === 'select'));
+  for (const t of ['select', 'rect', 'polygon', 'measure']) $(`tool-${t}`).classList.toggle('active', st?.tool === t || (!st && t === 'select'));
   svg.style.cursor = st?.tool === 'select' || !st ? 'default' : 'crosshair';
   paint();
 }
@@ -228,7 +228,7 @@ function chooseTool(tool) {
   draft = null;
   refresh();
 }
-for (const t of ['select', 'rect', 'polygon']) $(`tool-${t}`).addEventListener('click', () => chooseTool(t));
+for (const t of ['select', 'rect', 'polygon', 'measure']) $(`tool-${t}`).addEventListener('click', () => chooseTool(t));
 
 // ── canvas interaction ───────────────────────────────────────────────────────
 function controllerContext() {
@@ -328,7 +328,7 @@ window.addEventListener('keydown', (e) => {
       return;
     }
   }
-  const tools = { v: 'select', r: 'rect', p: 'polygon' };
+  const tools = { v: 'select', r: 'rect', p: 'polygon', m: 'measure' };
   if (!mod && tools[e.key.toLowerCase()]) { chooseTool(tools[e.key.toLowerCase()]); return; }
   if (!mod && e.key.toLowerCase() === 'f') { fit(); return; }
   if (!mod && e.key.toLowerCase() === 's') { toggleSnap(); return; }

@@ -458,3 +458,35 @@ describe('smart cursor (ctx.snapFn)', () => {
     expect(stub.calls.at(-1).extra.suspend).toBe(false);
   });
 });
+
+describe('measure tool', () => {
+  const tool = () => createController('measure');
+  const doc = () => exampleDetail();
+
+  test('two clicks fix a measurement and never change the document', () => {
+    let r = handleEvent(tool(), ev('down', 0.2, 0.3), ctxFor(doc()));
+    expect(of(r, 'draft')[0].draft).toMatchObject({ kind: 'measure', a: { x: 0.2, y: 0.3 }, fixed: false });
+    r = handleEvent(r.state, ev('move', 0.5, 0.7), ctxFor(doc()));
+    expect(of(r, 'draft')[0].draft.b).toEqual({ x: 0.5, y: 0.7 });
+    r = handleEvent(r.state, ev('down', 0.5, 0.7), ctxFor(doc()));
+    expect(of(r, 'draft')[0].draft).toMatchObject({ a: { x: 0.2, y: 0.3 }, b: { x: 0.5, y: 0.7 }, fixed: true });
+    expect(of(r, 'doc')).toHaveLength(0);
+  });
+
+  test('a fixed measurement does not follow the pointer; a third click starts a new one', () => {
+    let r = handleEvent(tool(), ev('down', 0.1, 0.1), ctxFor(doc()));
+    r = handleEvent(r.state, ev('down', 0.4, 0.1), ctxFor(doc()));
+    const fixed = r.state.draft;
+    r = handleEvent(r.state, ev('move', 0.9, 0.9), ctxFor(doc()));
+    expect(r.state.draft).toEqual(fixed);
+    r = handleEvent(r.state, ev('down', 0.6, 0.6), ctxFor(doc()));
+    expect(r.state.draft).toMatchObject({ a: { x: 0.6, y: 0.6 }, fixed: false });
+  });
+
+  test('Escape clears the measurement', () => {
+    let r = handleEvent(tool(), ev('down', 0.1, 0.1), ctxFor(doc()));
+    r = handleEvent(r.state, key('Escape'), ctxFor(doc()));
+    expect(r.state.draft).toBeNull();
+    expect(of(r, 'draft').at(-1).draft).toBeNull();
+  });
+});
