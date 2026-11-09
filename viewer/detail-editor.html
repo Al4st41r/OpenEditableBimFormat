@@ -19,12 +19,13 @@
     button.primary:hover:not(:disabled) { background: #3a5a3a; }
     button.active { background: #1e3a5a; border-color: #4a8aaa; color: #fff; }
     .sep { width: 1px; align-self: stretch; background: #333; margin: 0 4px; }
-    #project-name { opacity: 0.6; max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    #detail-select { max-width: 150px; }
-    #material-select { max-width: 120px; }
+    #project-name { opacity: 0.6; max-width: 64px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #detail-select { max-width: 130px; }
+    #material-select { max-width: 100px; }
     #header .sep { margin: 0 1px; }
-    #status { margin-left: auto; opacity: 0.8; font-size: 12px; max-width: 40%; text-align: right; }
-    #status.error { color: #f88; opacity: 1; }
+    #status { position: absolute; left: 10px; bottom: 10px; z-index: 5; max-width: 62%; padding: 5px 10px; border-radius: 4px; background: rgba(24,24,24,0.88); color: #ddd; font-size: 12px; pointer-events: none; }
+    #status:empty { display: none; }
+    #status.error { color: #f99; border: 1px solid #733; }
     #dirty { color: #fc6; font-size: 18px; line-height: 1; }
     #main { display: flex; flex: 1; min-height: 0; }
     .panel { overflow-y: auto; padding: 8px 12px; background: #1e1e1e; flex-shrink: 0; }
@@ -36,6 +37,11 @@
     #empty[hidden] { display: none; }
     #tip { position: absolute; pointer-events: none; z-index: 5; background: rgba(24,24,24,0.92); color: #fff; padding: 5px 9px; border-radius: 3px; font-size: 12px; line-height: 1.45; white-space: nowrap; border-left: 3px solid #e8590c; }
     #tip[hidden] { display: none; }
+    #help-dialog { background: #222; color: #ddd; border: 1px solid #555; border-radius: 6px; padding: 14px 18px; max-width: 620px; max-height: 80vh; overflow-y: auto; }
+    #help-dialog::backdrop { background: rgba(0,0,0,0.5); }
+    #help-dialog dl { display: grid; grid-template-columns: 150px 1fr; gap: 3px 12px; margin: 0 0 6px; font-size: 12px; }
+    #help-dialog dt { color: #fff; font-family: monospace; }
+    #help-dialog dd { margin: 0; color: #bbb; }
     #cmd { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 6; background: rgba(24,24,24,0.94); border: 1px solid #555; border-radius: 4px; padding: 6px 8px; display: flex; align-items: center; gap: 10px; }
     #cmd[hidden] { display: none; }
     #cmd-input { width: 260px; background: #333; color: #fff; border: 1px solid #777; padding: 4px 8px; border-radius: 3px; }
@@ -114,8 +120,8 @@
     <select id="detail-select" disabled><option value="">— select detail —</option></select>
     <button id="new-btn" disabled>New</button>
     <span class="sep"></span>
-    <button id="open-btn">Open folder</button>
-    <button id="open-file-btn">Open file</button>
+    <button id="open-btn" title="Open a bundle folder">Folder</button>
+    <button id="open-file-btn" title="Open a .oebfz archive">File</button>
     <button id="demo-btn">Demo</button>
     <select id="export-select" title="Export this detail as a CAD drawing"><option value="">Export</option><option value="json">Detail JSON</option><option value="dxf">DXF (mm)</option></select>
     <button id="zip-btn" hidden title="Download the whole bundle as a zip">Zip</button>
@@ -141,19 +147,21 @@
     <select id="units-select" title="Display units"><option value="mm" selected>mm</option><option value="m">m</option></select>
     <span class="sep"></span>
     <span id="dirty" hidden title="Unsaved changes">●</span>
+    <button id="help-btn" title="Keyboard and mouse shortcuts (?)">?</button>
     <button id="save-btn" class="primary" disabled title="Save (Ctrl+S)">Save</button>
-    <span id="status"></span>
   </div>
   <div id="main">
     <div id="left-panel" class="panel"></div>
     <div id="canvas-wrap">
       <svg id="canvas" xmlns="http://www.w3.org/2000/svg"></svg>
       <div id="tip" hidden></div>
+      <div id="status" role="status"></div>
       <div id="cmd" hidden><input id="cmd-input" type="text" autocomplete="off" spellcheck="false" placeholder="2400,1200   @300,0   500<45   or a distance"><span id="cmd-hint"></span></div>
       <div id="empty">Open a bundle or the demo, then choose a detail.</div>
     </div>
     <div id="right-panel" class="panel"></div>
   </div>
+  <dialog id="help-dialog"></dialog>
   <dialog id="new-dialog"></dialog>
   <dialog id="loc-dialog"></dialog>
   <input id="oebfz-input" type="file" accept=".oebfz" hidden>

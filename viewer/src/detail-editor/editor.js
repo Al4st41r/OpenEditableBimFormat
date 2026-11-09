@@ -40,7 +40,7 @@ import { snapPoint, SNAP_KINDS } from '../snap/snapEngine.js';
 import { buildTooltip } from '../snap/tooltip.js';
 import { buildSnapScene } from './snapScene.js';
 import { setRegionEdgeLength, setRegionSize } from './dimensionOps.js';
-import { KINDS, PLANES, TOOLS, MARK_TOOLS } from './detailConstants.js';
+import { KINDS, PLANES, TOOLS, MARK_TOOLS, SHORTCUTS } from './detailConstants.js';
 
 const $ = (id) => document.getElementById(id);
 const svg = $('canvas');
@@ -84,10 +84,13 @@ $('units-select').addEventListener('change', () => {
 });
 
 // ── status ───────────────────────────────────────────────────────────────────
+let statusTimer = null;
 function status(text, isError = false) {
   const s = $('status');
   s.textContent = text;
   s.classList.toggle('error', isError);
+  clearTimeout(statusTimer);
+  if (text && !isError) statusTimer = setTimeout(() => { s.textContent = ''; }, 8000);   // information fades; an error stays until the next message
 }
 
 // ── derived data ─────────────────────────────────────────────────────────────
@@ -496,6 +499,7 @@ window.addEventListener('keydown', (e) => {
       return;
     }
   }
+  if (e.key === '?') { showHelp(); return; }
   const tools = { v: 'select', r: 'rect', p: 'polygon', m: 'measure', l: 'line', a: 'arc', c: 'circle', d: 'dim', n: 'note' };
   if (!mod && tools[e.key.toLowerCase()]) { chooseTool(tools[e.key.toLowerCase()]); return; }
   if (!mod && e.key.toLowerCase() === 'f') { fit(); return; }
@@ -804,6 +808,22 @@ else if (query.has('demo')) openDemo();
 
 // Read-only hook for headless checks and bug reports.
 window.__detailEditor = { snapState: () => snapState, hint: () => hint, state: () => st, view: () => view, size: () => size, adapter: () => bundle?.adapter ?? null, status: () => $('status').textContent };
+// ── help ─────────────────────────────────────────────────────────────────────
+function showHelp() {
+  const dlg = $('help-dialog');
+  if (dlg.open) { dlg.close(); return; }
+  const mk = (tag, text) => Object.assign(document.createElement(tag), { textContent: text });
+  const close = mk('button', 'Close');
+  close.addEventListener('click', () => dlg.close());
+  dlg.replaceChildren(mk('h3', 'Shortcuts'), ...SHORTCUTS.flatMap(([title, rows]) => {
+    const dl = document.createElement('dl');
+    for (const [k, what] of rows) dl.append(mk('dt', k), mk('dd', what));
+    return [mk('h3', title), dl];
+  }), close);
+  dlg.showModal();
+}
+$('help-btn').addEventListener('click', showHelp);
+
 // ── export ───────────────────────────────────────────────────────────────────
 $('export-select').addEventListener('change', (e) => {
   const kind = e.target.value;

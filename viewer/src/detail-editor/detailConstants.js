@@ -32,3 +32,12 @@ export const UNIT_PRESETS = [
   { id: 'block', label: 'Block 440 x 215, 10 mm joint', plan: [0.44, 0.45], section: [0.215, 0.225] },
   { id: 'thin-block', label: 'Block 440 x 215, 3 mm joint', plan: [0.44, 0.443], section: [0.215, 0.218] },
 ];
+
+/** The keyboard and mouse shortcuts, for the help dialog. Groups of [keys, what it does]. */
+export const SHORTCUTS = [
+  ['Tools', [['V', 'Select'], ['R', 'Rectangle region'], ['P', 'Polygon region'], ['M', 'Measure'], ['L', 'Line'], ['A', 'Arc'], ['C', 'Circle'], ['D', 'Dimension'], ['N', 'Note']]],
+  ['Selecting', [['Click', 'Pick; click the same spot again to pick what is underneath'], ['Shift+click', 'Add to or remove from the selection'], ['Shift+drag', 'Box select: left to right takes what is inside, right to left what it touches'], ['Ctrl+A', 'Select all regions']]],
+  ['Editing', [['Arrows', 'Nudge the selection by the snap step (Shift: ten times)'], ['Ctrl+D', 'Duplicate'], ['Ctrl+C / X / V', 'Copy, cut, paste (between details too)'], ['Delete', 'Delete the selection'], ['[ and ]', 'Send a region back or forward'], ['Ctrl+Z / Ctrl+Y', 'Undo and redo'], ['Ctrl+S', 'Save']]],
+  ['Drawing', [['Digits, - @ .', 'Type a point: 2400,1200  @300,0  500<45  or a distance'], ['Enter', 'Finish a polygon or line'], ['Backspace', 'Remove the last point'], ['Esc', 'Cancel'], ['Alt (hold)', 'Suspend snapping'], ['S', 'Snap on or off']]],
+  ['View', [['Wheel', 'Zoom'], ['Drag empty canvas', 'Pan'], ['F', 'Fit to the drawing'], ['?', 'This help']]],
+];
