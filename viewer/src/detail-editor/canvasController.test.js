@@ -871,3 +871,34 @@ describe('unit handles and clip-aware wall length', () => {
     expect(lengthOf(setClip(exampleDetail(), { x_max_m: 0.7, y_min_m: -0.65 }))).toBeGreaterThan(1.2);
   });
 });
+
+describe('layer end handles', () => {
+  const sel = { type: 'member', role: 'butting-wall' };
+  const endOf = (doc, layer, which) => buildCanvasModel(doc, { profiles: PROFILES(), materials: MATERIALS(), selection: sel }).handles.find((h) => h.kind === 'layer-end' && h.ref.layer === layer && h.which === which);
+
+  test('dragging the origin-end handle of a layer past the end extends it, and back shortens it', () => {
+    const doc = exampleDetail();
+    const h = endOf(doc, 1, 'near');
+    // the butting wall runs backward from its origin at 90 degrees, so past the origin end is +y
+    let r = handleEvent(createController(), ev('down', h.x, h.y), ctxFor(doc, sel));
+    expect(r.state.drag.kind).toBe('layer-end');
+    r = handleEvent(r.state, ev('move', h.x, h.y + 0.05), ctxFor(doc, sel));
+    r = handleEvent(r.state, ev('up', h.x, h.y + 0.05), ctxFor(doc, sel));
+    const e = lastDoc(r).doc.members.find((m) => m.role === 'butting-wall').layer_ends[0];
+    expect(e.layer).toBe(1);
+    expect(e.near_m).toBeCloseTo(0.05, 2);
+    const h2 = endOf(lastDoc(r).doc, 1, 'near');
+    expect(h2.y).toBeCloseTo(h.y + 0.05, 2);
+    const other = endOf(lastDoc(r).doc, 2, 'near');
+    expect(other.y).toBeCloseTo(endOf(doc, 2, 'near').y, 9);        // the other layers did not move
+  });
+
+  test('the far-end handle extends the layer away from the origin', () => {
+    const doc = exampleDetail();
+    const h = endOf(doc, 3, 'far');
+    let r = handleEvent(createController(), ev('down', h.x, h.y), ctxFor(doc, sel));
+    r = handleEvent(r.state, ev('move', h.x, h.y - 0.1), ctxFor(doc, sel));
+    r = handleEvent(r.state, ev('up', h.x, h.y - 0.1), ctxFor(doc, sel));
+    expect(lastDoc(r).doc.members.find((m) => m.role === 'butting-wall').layer_ends[0]).toMatchObject({ layer: 3, far_m: expect.closeTo(0.1, 2) });
+  });
+});

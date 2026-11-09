@@ -159,6 +159,10 @@ export function renderCanvas(svg, model, view, size, { draft = null, hint = null
   for (const h of model.handles) {
     const s = toScreen(view, size, h);
     if (h.kind === 'clip') { drawClipHandle(svg, h, s); continue; }
+    if (h.kind === 'layer-end') {   // a small square, orange, at each end of a layer
+      svg.appendChild(el('rect', { x: s.x - 4.5, y: s.y - 4.5, width: 9, height: 9, fill: '#f08c00', stroke: '#fff', 'stroke-width': 1.5 }));
+      continue;
+    }
     if (h.kind === 'unit-handle') {   // round, like a vertex, in purple for the pitch
       svg.appendChild(el('circle', { cx: s.x, cy: s.y, r: 5, fill: h.which === 'pitch' ? '#a64ac9' : '#fff', stroke: h.which === 'pitch' ? '#fff' : '#a64ac9', 'stroke-width': 2 }));
       continue;

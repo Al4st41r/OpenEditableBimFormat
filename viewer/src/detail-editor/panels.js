@@ -271,10 +271,12 @@ function memberEditor(m, bundle, a) {
     row('Kind', select(KINDS, m.kind, (v) => a.setMemberKind(role, v))),
     row('Profile', select(bundle.profileIds.includes(m.profileId) ? bundle.profileIds : [m.profileId, ...bundle.profileIds], m.profileId, (v) => a.setMemberProfile(role, v))),
     row('Plan extent', select(EXTENTS, m.extent, (v) => a.setMemberExtent(role, v))),
+    insertionPointRow(m, role, a),
     insertionRow('x', m, role, a),
     insertionRow('y', m, role, a),
     row('Rotation (deg)', plain(m.rotation_deg, (v) => a.rotateMember(role, v))),
     layerStartsFold(m, role, a),
+    layerEndsFold(m, role, a),
     layerDetailFold(m, role, bundle, a),
     h('div', { class: 'row' }, h('button', { onclick: () => a.removeMember(role) }, 'Remove member')),
   ];
@@ -464,6 +466,47 @@ const optionalCount = (value, onChange) => h('input', {
   type: 'number', min: 1, step: 1, value: value ?? '', placeholder: 'fill',
   onchange: (e) => onChange(e.target.value === '' ? undefined : Math.max(1, parseInt(e.target.value, 10) || 1)),
 });
+
+/** Let layers start or finish at different points along the wall: the extension at each end, negative to shorten. */
+function layerEndsFold(m, role, a) {
+  const bands = m.layers.filter((l) => l.type !== 'region');
+  if (m.stacked || !bands.length) return null;
+  const optional = (value, onChange, title) => h('input', {
+    type: 'text', inputmode: 'decimal', value: value === undefined ? '' : String(toDisplay(value)), placeholder: '0', title,
+    onchange: (e) => {
+      const raw = e.target.value.trim();
+      if (raw === '') { onChange(null); return; }
+      const v = parseDimension(raw, { unit: getUnit() });
+      if (v === null) { notify(`Could not read "${raw}" as a length.`); return; }
+      onChange(v);
+    },
+  });
+  const rows = bands.map((l) => h('div', { class: 'layerend' },
+    h('span', { title: l.name }, `${l.key}. ${l.name || 'layer'}`),
+    optional(l.ends.near_m, (v) => a.setLayerEnds(role, l.key, { near_m: v }), 'Extension at the origin end; negative shortens'),
+    optional(l.ends.far_m, (v) => a.setLayerEnds(role, l.key, { far_m: v }), 'Extension at the far end; negative shortens'),
+    h('button', { disabled: l.ends.near_m === undefined && l.ends.far_m === undefined, title: 'Back to the full length', onclick: () => a.setLayerEnds(role, l.key, { near_m: null, far_m: null }) }, '↺')));
+  return h('details', { class: 'fold', open: bands.some((l) => l.ends.near_m !== undefined || l.ends.far_m !== undefined) },
+    h('summary', {}, 'Layer ends (stagger)'),
+    h('div', { class: 'layerend head' }, h('span', {}, ''), h('span', {}, 'origin end'), h('span', {}, 'far end'), h('span', {}, '')),
+    ...rows,
+    h('div', { class: 'note' }, `Extend (+) or shorten (−) each layer at either end, in ${unitLabel()}, so layers can start and finish at different points. Drag the orange squares on the canvas.`));
+}
+
+/** Which point of the profile is the insertion point: its own origin, or a face or centre of one of its layers. */
+function insertionPointRow(m, role, a) {
+  if (m.stacked || !m.layers.length) return null;
+  const ins = m.insertion;
+  const layerSel = h('select', { title: 'The layer the insertion point sits on', onchange: (e) => (e.target.value === '' ? a.setMemberInsertion(role, null) : a.setMemberInsertion(role, { layer: Number(e.target.value), at: ins?.at ?? 'left-face' })) },
+    h('option', { value: '' }, 'profile origin'),
+    ...m.layers.map((l) => h('option', { value: l.key, selected: ins?.layer === l.key }, `${l.key}. ${l.name || 'layer'}`)));
+  const atSel = h('select', { disabled: !ins, onchange: (e) => a.setMemberInsertion(role, { layer: ins.layer, at: e.target.value }) },
+    ...[['left-face', 'left face'], ['centre', 'centre'], ['right-face', 'right face']].map(([v, label]) => h('option', { value: v, selected: ins?.at === v }, label)));
+  return h('div', { class: 'insertion' },
+    h('div', { class: 'row' }, h('label', {}, 'Inserted at'), layerSel),
+    ins ? h('div', { class: 'row' }, h('label', {}, ''), atSel) : null,
+    ins ? h('div', { class: 'note' }, 'The origin sits on that face; the left face is the first layer\'s side.') : null);
+}
 
 /** Where each layer of the member's profile starts across its width. Blank follows the layer before it. */
 function layerStartsFold(m, role, a) {

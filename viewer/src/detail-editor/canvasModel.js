@@ -12,7 +12,7 @@
  *   member:<role>:origin      member:<role>:rotate
  */
 
-import { buildMemberShapes, placePoint, profileOriginX, isStackedSlab } from './memberShapes.js';
+import { buildMemberShapes, placePoint, effectiveOriginX, isStackedSlab } from './memberShapes.js';
 import { evaluateCoordinate } from './detailDocument.js';
 import { referenceLinesOf, clipOf, resolveMember } from './referenceOps.js';
 import { dimensionGeometry, annotationSegments, distanceToSegment, arcPoints, pointAtAngle } from './annotationOps.js';
@@ -133,10 +133,14 @@ export function buildCanvasModel(doc, ctx = {}) {
     // One start handle per layer: drag it across the member to set where that layer starts (not for stacked slabs)
     const profile = profiles[member.profile_id];
     if (profile && !isStackedSlab(profile)) {
-      const frame = { placement, originX: profileOriginX(profile), plane };
+      const frame = { placement, originX: effectiveOriginX(member, profile), plane };
       for (const sh of buildMemberShapes(member, profile, { plane, length }).shapes) {
         if (!sh.startPoint) continue;
         handles.push({ id: `member:${member.role}:layer:${sh.key}:start`, kind: 'layer-start', x: sh.startPoint.x, y: sh.startPoint.y, selected: false, ref: { type: 'layer-start', role: member.role, layer: sh.key, frame } });
+        for (const eh of sh.endHandles ?? []) {
+          handles.push({ id: `member:${member.role}:layer:${sh.key}:end-${eh.which}`, kind: 'layer-end', which: eh.which, x: eh.point.x, y: eh.point.y, selected: false,
+            ref: { type: 'layer-end', role: member.role, layer: sh.key, which: eh.which, run: eh.run } });
+        }
         // the first unit of a layer drawn as units: drag its far end for the size, the start of the next for the pitch
         for (const uh of sh.unitHandles ?? []) {
           handles.push({ id: `member:${member.role}:layer:${sh.key}:unit-${uh.which}`, kind: 'unit-handle', which: uh.which, x: uh.point.x, y: uh.point.y, selected: false,

@@ -70,6 +70,8 @@ export function serializeDetail(doc) {
     };
     if (m.placement?.reference && Object.keys(m.placement.reference).length) o.placement.reference = structuredClone(m.placement.reference);
     if (m.extent !== undefined) o.extent = m.extent;
+    if (m.layer_ends?.length) o.layer_ends = structuredClone(m.layer_ends);
+    if (m.insertion) o.insertion = { layer: m.insertion.layer, at: m.insertion.at };
     if (m.layer_units?.length) o.layer_units = structuredClone(m.layer_units);
     if (m.layer_starts?.length) o.layer_starts = structuredClone(m.layer_starts);
     return o;

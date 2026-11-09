@@ -451,3 +451,92 @@ describe('bond and courses', () => {
     expect(r.warnings.join(' ')).toMatch(/more than 1500/);
   });
 });
+
+import { effectiveOriginX } from './memberShapes.js';
+
+describe('insertion point on a layer', () => {
+  const profile = {
+    id: 'p', width: 0.3, origin: { x: 0.15, y: 0 }, height_limit_m: 2,
+    assembly: [
+      { layer: 1, name: 'brick', material_id: 'a', thickness: 0.1, function: 'finish' },
+      { layer: 2, name: 'cavity', material_id: 'b', thickness: 0.05, function: 'insulation' },
+      { layer: 3, name: 'block', material_id: 'c', thickness: 0.15, function: 'structure' },
+    ],
+  };
+  const member = (insertion, extra = {}) => ({ role: 'w', kind: 'wall', profile_id: 'p', insertion, placement: { offset_x_m: 0, offset_y_m: 0, rotation_deg: 0 }, ...extra });
+
+  test('without an insertion the profile origin is used', () => {
+    expect(effectiveOriginX(member(undefined), profile)).toBe(0.15);
+  });
+  test('left face, centre and right face of a layer', () => {
+    expect(effectiveOriginX(member({ layer: 3, at: 'left-face' }), profile)).toBeCloseTo(0.15);    // block starts at 0.15
+    expect(effectiveOriginX(member({ layer: 3, at: 'centre' }), profile)).toBeCloseTo(0.225);
+    expect(effectiveOriginX(member({ layer: 3, at: 'right-face' }), profile)).toBeCloseTo(0.3);
+    expect(effectiveOriginX(member({ layer: 1, at: 'left-face' }), profile)).toBe(0);
+  });
+  test('follows a layer start override, and an unknown layer falls back to the profile origin', () => {
+    expect(effectiveOriginX(member({ layer: 3, at: 'left-face' }, { layer_starts: [{ layer: 3, start_m: 0.2 }] }), profile)).toBeCloseTo(0.2);
+    expect(effectiveOriginX(member({ layer: 9, at: 'centre' }), profile)).toBe(0.15);
+  });
+  test('the member is drawn with that point at its origin: the chosen face is at x = 0 in a section', () => {
+    const xsOf = (m, key) => buildMemberShapes(m, profile, { plane: 'section' }).shapes.find((s) => s.key === key).points.map((p) => p.x);
+    expect(Math.min(...xsOf(member({ layer: 3, at: 'left-face' }), 3))).toBeCloseTo(0);          // block's left face on the origin
+    expect(Math.min(...xsOf(member({ layer: 1, at: 'left-face' }), 1))).toBeCloseTo(0);          // the external face of the brick
+    expect(Math.max(...xsOf(member({ layer: 3, at: 'right-face' }), 3))).toBeCloseTo(0);
+    expect(Math.min(...xsOf(member(undefined), 1))).toBeCloseTo(-0.15);                           // default: the middle of the profile
+  });
+  test('in plan the chosen face sits on the member axis, whichever way the member turns', () => {
+    const m = member({ layer: 3, at: 'left-face' }, { placement: { offset_x_m: 1, offset_y_m: 2, rotation_deg: 90 } });
+    const sh = buildMemberShapes(m, profile, { plane: 'plan', length: 1 }).shapes.find((s) => s.key === 3);
+    // rotated a quarter turn the across axis is x: the block's near face is on x = 1 (the offset)
+    expect(Math.max(...sh.points.map((p) => p.x))).toBeCloseTo(1 + 0.15, 6);
+    expect(Math.min(...sh.points.map((p) => p.x))).toBeCloseTo(1, 6);
+  });
+});
+
+describe('layers starting and finishing at different points', () => {
+  const profile = {
+    id: 'p', width: 0.3, origin: { x: 0.15, y: 0 }, height_limit_m: 2,
+    assembly: [
+      { layer: 1, name: 'brick', material_id: 'a', thickness: 0.1, function: 'finish' },
+      { layer: 2, name: 'block', material_id: 'c', thickness: 0.2, function: 'structure' },
+    ],
+  };
+  const member = (ends, extent, extra = {}) => ({ role: 'w', kind: 'wall', profile_id: 'p', extent, layer_ends: ends, placement: { offset_x_m: 0, offset_y_m: 0, rotation_deg: 0 }, ...extra });
+  const runOf = (r, key) => { const s = r.shapes.find((x) => x.key === key); const xs = s.points.map((p) => p.x); return [Math.min(...xs), Math.max(...xs)]; };
+
+  test('a backward wall: the origin end is its right end, the far end its left', () => {
+    const r = buildMemberShapes(member([{ layer: 1, near_m: 0.1, far_m: -0.05 }], 'backward'), profile, { plane: 'plan', length: 1 });
+    expect(runOf(r, 1)[1]).toBeCloseTo(0.1);               // brick runs 100 mm past the origin
+    expect(runOf(r, 1)[0]).toBeCloseTo(-0.95);             // and stops 50 mm short at the far end
+    expect(runOf(r, 2)).toEqual([expect.closeTo(-1, 9), expect.closeTo(0, 9)]);   // the block is untouched
+  });
+  test('a forward wall: the origin end is its left end', () => {
+    const r = buildMemberShapes(member([{ layer: 2, near_m: -0.2, far_m: 0.3 }], 'forward'), profile, { plane: 'plan', length: 1 });
+    expect(runOf(r, 2)[0]).toBeCloseTo(0.2);
+    expect(runOf(r, 2)[1]).toBeCloseTo(1.3);
+  });
+  test('in a section the origin end is the bottom and the far end the top', () => {
+    const r = buildMemberShapes(member([{ layer: 1, near_m: 0.1, far_m: -0.2 }]), profile, { plane: 'section', heightM: 2 });
+    const ys = r.shapes.find((s) => s.key === 1).points.map((p) => p.y);
+    expect(Math.min(...ys)).toBeCloseTo(-0.1); expect(Math.max(...ys)).toBeCloseTo(1.8);
+  });
+  test('a layer shortened away to nothing is left out; the others stay', () => {
+    const r = buildMemberShapes(member([{ layer: 1, near_m: -0.6, far_m: -0.6 }], 'forward'), profile, { plane: 'plan', length: 1 });
+    expect(r.shapes.map((s) => s.key)).toEqual([2]);
+  });
+  test('units fill the layer\'s own run, so a staggered brick leaf gets more bricks', () => {
+    const units = [{ layer: 1, depth_m: 0.2, repeat_m: 0.21 }];
+    const count = (ends) => buildMemberShapes(member(ends, 'forward', { layer_units: units }), profile, { plane: 'plan', length: 1 }).shapes.filter((s) => s.unit !== undefined).length;
+    expect(count(undefined)).toBe(4);
+    expect(count([{ layer: 1, far_m: 0.5 }])).toBe(7);
+  });
+  test('each layer gets a handle at both ends, at the ends the layer really has', () => {
+    const r = buildMemberShapes(member([{ layer: 1, near_m: 0.1 }], 'backward'), profile, { plane: 'plan', length: 1 });
+    const hs = r.shapes.find((s) => s.key === 1).endHandles;
+    expect(hs.map((h) => h.which)).toEqual(['near', 'far']);
+    expect(hs[0].point.x).toBeCloseTo(0.1); expect(hs[1].point.x).toBeCloseTo(-1);
+    expect(hs[0].run).toMatchObject({ sign: -1, base: 0 });
+    expect(hs[1].run.base).toBe(1);
+  });
+});

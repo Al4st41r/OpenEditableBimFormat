@@ -568,6 +568,13 @@ Detail fields:
   storey.
 - `geometry.regions[]` — extra shapes (trim, membranes, fillers): a `material_id`
   and at least three `vertices` in drawing space, simple (not self-intersecting).
+- `members[].layer_ends[]` — optional `{ "layer": 1, "near_m": 0.1, "far_m": -0.05 }`: let that
+  layer start or finish at a different point along the run (positive extends past the
+  member's end, negative shortens), so a cavity wall's leaves can stop at different
+  places. For this use only.
+- `members[].insertion` — optional `{ "layer": 3, "at": "left-face" }`: put the member's
+  insertion point on the left face, centre or right face of that profile layer (eg the
+  external face of the blockwork) instead of the profile's own origin.
 - `members[].layer_units[]` — optional: draw a profile layer as repeating units, eg
   `{ "layer": 1, "depth_m": 0.215, "repeat_m": 0.225, "joint_material_id": "mat-mortar" }`
   for a brick leaf (215 mm bricks on a 225 mm pitch, a 10 mm joint). The unit is as

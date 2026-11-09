@@ -150,6 +150,19 @@ export function runPositionFromPoint(run, point) {
 export const profileOriginX = (profile) => profile?.origin?.x ?? (profile?.width ?? 0) / 2;
 
 /**
+ * The profile x the member's placement turns about: the profile's own origin, or, when the member has an `insertion`,
+ * the left face, centre or right face of the chosen layer (where that layer starts for this member).
+ */
+export function effectiveOriginX(member, profile) {
+  const ins = member.insertion;
+  if (ins) {
+    const layer = describeLayers(member, profile).find((l) => l.key === ins.layer);
+    if (layer) return layer.start + (ins.at === 'centre' ? layer.width / 2 : ins.at === 'right-face' ? layer.width : 0);
+  }
+  return profileOriginX(profile);
+}
+
+/**
  * Where each layer of a profile starts across its width, in profile x (from the left face): the natural start (the
  * layers stacked one after another) and the member's own override, if any (member.layer_starts). Region layers start at
  * the left edge of their vertices. A layer is keyed by its number in the profile.
@@ -165,7 +178,8 @@ export function describeLayers(member, profile) {
     let natural;
     if (layer.type === 'region') natural = Array.isArray(layer.vertices) && layer.vertices.length ? Math.min(...layer.vertices.map((v) => v.x)) : 0;
     else { natural = cursor; cursor += layer.thickness ?? 0; }
-    return { index, key, name: layer.name ?? '', type: layer.type ?? 'band', thickness: layer.thickness ?? 0, natural, override, start: override ?? natural, unit: (member.layer_units ?? []).find((u) => u.layer === key) };
+    const width = layer.type === 'region' ? (Array.isArray(layer.vertices) && layer.vertices.length ? Math.max(...layer.vertices.map((v) => v.x)) - natural : 0) : layer.thickness ?? 0;
+    return { index, key, name: layer.name ?? '', type: layer.type ?? 'band', thickness: layer.thickness ?? 0, width, natural, override, start: override ?? natural, ends: (member.layer_ends ?? []).find((e) => e.layer === key) ?? {}, unit: (member.layer_units ?? []).find((u) => u.layer === key) };
   });
 }
 
@@ -201,7 +215,7 @@ export function buildMemberShapes(member, profile, opts = {}) {
   if (!Array.isArray(profile.assembly)) return empty(`Profile "${member.profile_id}" has no assembly`);
 
   const height = opts.heightM ?? (profile.height > 0 ? profile.height : DEFAULT_HEIGHT_M);
-  const originX = profile.origin?.x ?? (profile.width ?? 0) / 2;
+  const originX = effectiveOriginX(member, profile);
   const mode = opts.extent ?? member.extent ?? 'centred';
   const [x0, x1] = mode === 'forward' ? [0, length] : mode === 'backward' ? [-length, 0] : [-length / 2, length / 2];
 
@@ -213,6 +227,7 @@ export function buildMemberShapes(member, profile, opts = {}) {
   profile.assembly.forEach((layer, i) => {
     let local; // polygon in the member's local frame
     let startPoint = null;
+    let endHandles = null;
     if (layer.type === 'region') {
       if (!Array.isArray(layer.vertices) || layer.vertices.length < 3) return;
       const shift = info[i].start - info[i].natural;            // a region moves as a whole
@@ -231,24 +246,38 @@ export function buildMemberShapes(member, profile, opts = {}) {
       const t = layer.thickness ?? 0;
       if (!(t > 0)) return;
       const a = info[i].start - originX, b = a + t;
+      // This layer's run: the member's, with the layer's own extension at its near (origin) end and far end. Negative
+      // values shorten it, so layers can start and finish at different points.
+      const near = info[i].ends.near_m ?? 0, far = info[i].ends.far_m ?? 0;
+      const [ex0, ex1] = plane === 'section' ? [-near, height + far] : mode === 'backward' ? [x0 - far, x1 + near] : [x0 - near, x1 + far];
+      if (!(ex1 > ex0)) return;
       local = plane === 'section'
-        ? [{ x: a, y: 0 }, { x: b, y: 0 }, { x: b, y: height }, { x: a, y: height }]
-        : [{ x: x0, y: -b }, { x: x1, y: -b }, { x: x1, y: -a }, { x: x0, y: -a }];
-      startPoint = plane === 'section' ? placePoint(placement, { x: a, y: height / 2 }) : placePoint(placement, { x: (x0 + x1) / 2, y: -a });
+        ? [{ x: a, y: ex0 }, { x: b, y: ex0 }, { x: b, y: ex1 }, { x: a, y: ex1 }]
+        : [{ x: ex0, y: -b }, { x: ex1, y: -b }, { x: ex1, y: -a }, { x: ex0, y: -a }];
+      startPoint = plane === 'section' ? placePoint(placement, { x: a, y: (ex0 + ex1) / 2 }) : placePoint(placement, { x: (ex0 + ex1) / 2, y: -a });
+      // handles at each end of the layer: drag to extend or shorten it
+      const sign = plane === 'plan' && mode === 'backward' ? -1 : 1;
+      const tNear = plane === 'plan' && mode === 'centred' ? x0 : 0;
+      const tFar = plane === 'section' ? height : mode === 'centred' ? x1 : length;
+      const endAt = (along) => placePoint(placement, plane === 'section' ? { x: (a + b) / 2, y: along } : { x: along, y: -(a + b) / 2 });
+      endHandles = [
+        { which: 'near', point: endAt(plane === 'plan' && mode === 'backward' ? ex1 : ex0), run: { plane, placement, sign, base: tNear } },
+        { which: 'far', point: endAt(plane === 'plan' && mode === 'backward' ? ex0 : ex1), run: { plane, placement, sign, base: tFar } },
+      ];
 
       // The layer drawn as repeating units (a brick, a block, a tile) instead of one strip. The joints are empty, or
       // filled by the joint material when there is one, which keeps the strip underneath as the bed.
       const unit = (member.layer_units ?? []).find((u) => u.layer === info[i].key);
       if (unit) {
         // Units start at the member's origin end and run away from it, so a wall arriving at a junction starts with a whole unit there
-        const run = plane === 'section' ? [0, height] : mode === 'backward' ? [0, length] : mode === 'forward' ? [0, length] : [x0, x1];
+        const run = plane === 'section' ? [ex0, ex1] : mode === 'centred' ? [ex0, ex1] : [-near, length + far];
         const found = unitSpans(unit, run);
         const truncated = found.truncated;
         const orient = (sp) => (plane === 'plan' && mode === 'backward' ? sp.map(([u0, u1]) => [-u1, -u0]) : sp);
         const spans = orient(found.spans);
         if (truncated) warnings.push(`Layer ${info[i].key} of "${member.role}" needs more than ${MAX_UNITS} units; showing ${MAX_UNITS}`);
         if (unit.joint_material_id) {
-          shapes.push({ points: ccw(local.map((p) => placePoint(placement, p))), materialId: unit.joint_material_id, function: layer.function, layer: i, key: info[i].key, startPoint, bed: true });
+          shapes.push({ points: ccw(local.map((p) => placePoint(placement, p))), materialId: unit.joint_material_id, function: layer.function, layer: i, key: info[i].key, startPoint, bed: true, endHandles });
         }
         // 3D of a plan detail: the wall in courses, each a row of units, every second one offset in a running bond
         const coursed = opts.courses && plane === 'plan' && unit.course_m && unit.height_m && opts.wallTop > 0;
@@ -266,7 +295,7 @@ export function buildMemberShapes(member, profile, opts = {}) {
             shapes.push({
               points: ccw(cell(u0, u1).map((p) => placePoint(placement, p))), materialId: unit.material_id ?? layer.material_id, function: layer.function,
               layer: i, key: info[i].key, unit: k, ...z, startPoint: c === 0 && k === 0 && !unit.joint_material_id ? startPoint : null,
-              ...(c === 0 && k === 0 ? { unitHandles: unitHandles(unit, run, plane === 'plan' && mode === 'backward' ? -1 : 1, plane, placement, (a + b) / 2) } : {}),
+              ...(c === 0 && k === 0 ? { ...(unit.joint_material_id ? {} : { endHandles }), unitHandles: unitHandles(unit, run, plane === 'plan' && mode === 'backward' ? -1 : 1, plane, placement, (a + b) / 2) } : {}),
             });
           });
         }
@@ -281,6 +310,7 @@ export function buildMemberShapes(member, profile, opts = {}) {
       layer: i,
       key: info[i].key,
       startPoint,
+      ...(endHandles ? { endHandles } : {}),
     });
   });
 

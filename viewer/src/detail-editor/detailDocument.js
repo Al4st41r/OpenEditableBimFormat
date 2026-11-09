@@ -147,6 +147,45 @@ export function setLayerStart(doc, role, layer, start) {
   return d;
 }
 
+/**
+ * Let one layer of a member's profile start or finish at a different point along the run. `ends` is { near_m, far_m }:
+ * a number sets that end, null puts it back to the member's own end, undefined leaves it. A layer with both ends back at
+ * the member's is removed.
+ */
+export function setLayerEnds(doc, role, layer, ends) {
+  if (!Number.isInteger(layer) || layer < 1) throw new DetailEditError('layer must be a whole number from 1');
+  for (const k of ['near_m', 'far_m']) if (ends[k] !== undefined && ends[k] !== null && !isNum(ends[k])) throw new DetailEditError(`${k} must be a finite number`);
+  const d = clone(doc);
+  const m = d.members[memberIndex(d, role)];
+  const list = m.layer_ends ?? [];
+  const entry = { ...(list.find((e) => e.layer === layer) ?? {}), layer };
+  for (const k of ['near_m', 'far_m']) {
+    if (ends[k] === undefined) continue;
+    if (ends[k] === null || Math.abs(ends[k]) < 1e-9) delete entry[k]; else entry[k] = Math.round(ends[k] * 1e6) / 1e6 + 0;
+  }
+  const next = list.filter((e) => e.layer !== layer);
+  if (entry.near_m !== undefined || entry.far_m !== undefined) next.push(entry);
+  next.sort((a, b) => a.layer - b.layer);
+  if (next.length) m.layer_ends = next; else delete m.layer_ends;
+  return d;
+}
+
+export const INSERTION_AT = ['left-face', 'centre', 'right-face'];
+
+/**
+ * Put a member's insertion point on the left face, centre or right face of one of its profile's layers, or null for the
+ * profile's own origin. The member's placement offsets stay as they are, so the member moves to keep that point at them.
+ */
+export function setMemberInsertion(doc, role, spec) {
+  const d = clone(doc);
+  const m = d.members[memberIndex(d, role)];
+  if (spec === null) { delete m.insertion; return d; }
+  if (!Number.isInteger(spec?.layer) || spec.layer < 1) throw new DetailEditError('layer must be a whole number from 1');
+  if (!INSERTION_AT.includes(spec.at)) throw new DetailEditError(`at must be one of ${INSERTION_AT.join(', ')}`);
+  m.insertion = { layer: spec.layer, at: spec.at };
+  return d;
+}
+
 /** Problems with one layer_units entry as { field, message }; empty when valid. */
 export function checkLayerUnit(u) {
   const out = [];

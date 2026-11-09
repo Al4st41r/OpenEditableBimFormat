@@ -33,6 +33,30 @@
           "kind":       { "$ref": "#/definitions/kind" },
           "profile_id": { "type": "string" },
           "extent": { "type": "string", "enum": ["centred", "forward", "backward"], "description": "Drawing aid for the editor canvas, not geometry. How a plan view draws this member relative to its origin along its local x (the direction of travel): centred on it, forward (runs away from it) or backward (arrives at it). Default centred." },
+          "insertion": {
+            "type": "object",
+            "description": "Put the member's insertion point (the origin its placement turns about) on a face or the centre of one layer of its profile, eg the external face of the blockwork. Without it the insertion point is the profile's own origin.",
+            "required": ["layer", "at"],
+            "additionalProperties": false,
+            "properties": {
+              "layer": { "type": "integer", "minimum": 1, "description": "The layer's number in the profile's assembly." },
+              "at":    { "type": "string", "enum": ["left-face", "centre", "right-face"], "description": "Left face is the side where the profile's x is smaller (the first layer's side)." }
+            }
+          },
+          "layer_ends": {
+            "type": "array",
+            "description": "Let particular layers of the member's profile start or finish at different points along the run, for this use only: a cavity wall's brick leaf running on past its blockwork, say. near_m moves the layer's end at the member's origin end and far_m its other end. Positive extends the layer past the member's end, negative shortens it.",
+            "items": {
+              "type": "object",
+              "required": ["layer"],
+              "additionalProperties": false,
+              "properties": {
+                "layer":  { "type": "integer", "minimum": 1, "description": "The layer's number in the profile's assembly." },
+                "near_m": { "type": "number", "description": "Extension at the origin end. Negative shortens." },
+                "far_m":  { "type": "number", "description": "Extension at the far end. Negative shortens." }
+              }
+            }
+          },
           "layer_units": {
             "type": "array",
             "description": "Draw a layer of the member's profile as repeating units instead of one strip: a masonry leaf as bricks, a block wall as blocks. The unit is as thick as the layer; depth_m is its size along the run (the wall's length in plan, its height in section) and repeat_m the pitch, so repeat_m minus depth_m is the joint. For this use only; the profile is not changed.",

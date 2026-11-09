@@ -532,3 +532,60 @@ describe('layer unit courses', () => {
     expect(() => setLayerUnit(doc(), 'w', 1, { ...base, bond: 'running' })).toThrow(/needs course_m/);
   });
 });
+
+describe('setMemberInsertion', () => {
+  const doc = () => ({ $schema: 'x', id: 'd', type: 'Detail', description: 'x', datum: {}, members: [{ role: 'w', kind: 'wall', profile_id: 'p', placement: { offset_x_m: 0, offset_y_m: 0, rotation_deg: 0 } }] });
+
+  test('sets and clears the insertion without touching the placement or the input', async () => {
+    const { setMemberInsertion } = await import('./detailDocument.js');
+    const d0 = doc();
+    const d = setMemberInsertion(d0, 'w', { layer: 3, at: 'right-face' });
+    expect(d.members[0].insertion).toEqual({ layer: 3, at: 'right-face' });
+    expect(d.members[0].placement).toEqual(d0.members[0].placement);
+    expect(d0.members[0].insertion).toBeUndefined();
+    expect(setMemberInsertion(d, 'w', null).members[0].insertion).toBeUndefined();
+  });
+  test('refuses a bad layer, a bad face and an unknown member; validates and serialises', async () => {
+    const { setMemberInsertion } = await import('./detailDocument.js');
+    const { validateDetail } = await import('./detailValidate.js');
+    const { serializeDetail } = await import('./detailSerializer.js');
+    expect(() => setMemberInsertion(doc(), 'w', { layer: 0, at: 'centre' })).toThrow(/from 1/);
+    expect(() => setMemberInsertion(doc(), 'w', { layer: 1, at: 'middle' })).toThrow(/at must be/);
+    expect(() => setMemberInsertion(doc(), 'nope', { layer: 1, at: 'centre' })).toThrow(/No member/);
+    const d = setMemberInsertion(doc(), 'w', { layer: 2, at: 'centre' });
+    expect(validateDetail(d).filter((p) => p.path.includes('insertion'))).toEqual([]);
+    expect(serializeDetail(d).members[0].insertion).toEqual({ layer: 2, at: 'centre' });
+    d.members[0].insertion = { layer: 0, at: 'x', extra: 1 };
+    expect(validateDetail(d).filter((p) => p.path.includes('insertion')).length).toBeGreaterThanOrEqual(3);
+  });
+});
+
+describe('setLayerEnds', () => {
+  const doc = () => ({ $schema: 'x', id: 'd', type: 'Detail', description: 'x', datum: {}, members: [{ role: 'w', kind: 'wall', profile_id: 'p', placement: { offset_x_m: 0, offset_y_m: 0, rotation_deg: 0 } }] });
+
+  test('sets each end separately, keeps the other, and clears back to the full length', async () => {
+    const { setLayerEnds } = await import('./detailDocument.js');
+    const d0 = doc();
+    let d = setLayerEnds(d0, 'w', 2, { near_m: 0.1 });
+    d = setLayerEnds(d, 'w', 2, { far_m: -0.05 });
+    expect(d.members[0].layer_ends).toEqual([{ layer: 2, near_m: 0.1, far_m: -0.05 }]);
+    expect(d0.members[0].layer_ends).toBeUndefined();
+    d = setLayerEnds(d, 'w', 2, { near_m: null });
+    expect(d.members[0].layer_ends).toEqual([{ layer: 2, far_m: -0.05 }]);
+    expect(setLayerEnds(d, 'w', 2, { far_m: 0 }).members[0].layer_ends).toBeUndefined();     // zero is the default
+    expect(setLayerEnds(setLayerEnds(d, 'w', 1, { far_m: 1 }), 'w', 1, { near_m: null, far_m: null }).members[0].layer_ends).toHaveLength(1);
+  });
+  test('refuses bad input, validates and serialises', async () => {
+    const { setLayerEnds } = await import('./detailDocument.js');
+    const { validateDetail } = await import('./detailValidate.js');
+    const { serializeDetail } = await import('./detailSerializer.js');
+    expect(() => setLayerEnds(doc(), 'w', 0, { near_m: 1 })).toThrow(/from 1/);
+    expect(() => setLayerEnds(doc(), 'w', 1, { near_m: NaN })).toThrow(/finite/);
+    expect(() => setLayerEnds(doc(), 'nope', 1, { near_m: 1 })).toThrow(/No member/);
+    const d = setLayerEnds(doc(), 'w', 1, { far_m: 0.2 });
+    expect(validateDetail(d).filter((p) => p.path.includes('layer_ends'))).toEqual([]);
+    expect(serializeDetail(d).members[0].layer_ends).toEqual([{ layer: 1, far_m: 0.2 }]);
+    d.members[0].layer_ends = [{ layer: 1, near_m: 'a' }, { layer: 1 }];
+    expect(validateDetail(d).filter((p) => p.path.includes('layer_ends')).length).toBeGreaterThanOrEqual(2);
+  });
+});

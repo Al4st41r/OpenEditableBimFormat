@@ -12,7 +12,7 @@
 import {
   KINDS, EXTENTS, PLANES, VIEW_DIRECTIONS, DATUM_KINDS, DATUM_REFERENCES, RULES, SLUG, PARAM_NAME, SCHEMA_ID,
 } from './detailConstants.js';
-import { evaluateCoordinate, checkLayerUnit } from './detailDocument.js';
+import { evaluateCoordinate, checkLayerUnit, INSERTION_AT } from './detailDocument.js';
 import { checkAnnotation } from './annotationOps.js';
 import { checkReferenceLine, checkClip, checkPlacementReference, duplicateLineIds } from './referenceOps.js';
 import { signedArea, isSelfIntersecting } from '../detail/regionGeometry.js';
@@ -62,7 +62,7 @@ export function validateDetail(doc, ctx) {
   members.forEach((m, i) => {
     const p = `members[${i}]`;
     if (!isObj(m)) { add(p, 'member', 'A member must be an object'); return; }
-    noExtra(m, ['role', 'kind', 'profile_id', 'extent', 'layer_units', 'layer_starts', 'placement'], p);
+    noExtra(m, ['role', 'kind', 'profile_id', 'extent', 'insertion', 'layer_ends', 'layer_units', 'layer_starts', 'placement'], p);
     if (m.extent !== undefined && !EXTENTS.includes(m.extent)) add(`${p}.extent`, 'enum', `extent must be one of ${EXTENTS.join(', ')}`);
     if (typeof m.role !== 'string' || !SLUG.test(m.role)) add(`${p}.role`, 'role', 'role must be lower-case letters, numbers and hyphens');
     else if (seenRoles.has(m.role)) add(`${p}.role`, 'role-duplicate', `Role "${m.role}" is used more than once`);
@@ -70,6 +70,28 @@ export function validateDetail(doc, ctx) {
     if (!KINDS.includes(m.kind)) add(`${p}.kind`, 'enum', `kind must be one of ${KINDS.join(', ')}`);
     if (typeof m.profile_id !== 'string' || m.profile_id === '') add(`${p}.profile_id`, 'required', 'profile_id is required');
     else if (profileIds && !profileIds.has(m.profile_id)) add(`${p}.profile_id`, 'profile-missing', `Profile "${m.profile_id}" is not in the bundle`);
+    if (m.layer_ends !== undefined) {
+      if (!Array.isArray(m.layer_ends)) add(`${p}.layer_ends`, 'layer-ends', 'layer_ends must be an array');
+      else {
+        const seenEnds = new Set();
+        m.layer_ends.forEach((e, k) => {
+          const ep = `${p}.layer_ends[${k}]`;
+          if (!isObj(e)) { add(ep, 'layer-ends', 'A layer end must be an object'); return; }
+          noExtra(e, ['layer', 'near_m', 'far_m'], ep);
+          if (!Number.isInteger(e.layer) || e.layer < 1) add(`${ep}.layer`, 'layer-ends', 'layer must be a whole number from 1');
+          else { if (seenEnds.has(e.layer)) add(`${ep}.layer`, 'layer-ends', `Layer ${e.layer} is listed twice`); seenEnds.add(e.layer); }
+          for (const f of ['near_m', 'far_m']) if (e[f] !== undefined && !isNum(e[f])) add(`${ep}.${f}`, 'layer-ends', `${f} must be a number`);
+        });
+      }
+    }
+    if (m.insertion !== undefined) {
+      if (!isObj(m.insertion)) add(`${p}.insertion`, 'insertion', 'insertion must be an object');
+      else {
+        noExtra(m.insertion, ['layer', 'at'], `${p}.insertion`);
+        if (!Number.isInteger(m.insertion.layer) || m.insertion.layer < 1) add(`${p}.insertion.layer`, 'insertion', 'layer must be a whole number from 1');
+        if (!INSERTION_AT.includes(m.insertion.at)) add(`${p}.insertion.at`, 'insertion', `at must be one of ${INSERTION_AT.join(', ')}`);
+      }
+    }
     if (m.layer_units !== undefined) {
       if (!Array.isArray(m.layer_units)) add(`${p}.layer_units`, 'layer-units', 'layer_units must be an array');
       else {

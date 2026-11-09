@@ -57,6 +57,10 @@
     #marks-menu-body { position: absolute; z-index: 20; top: 30px; left: 0; background: #262626; border: 1px solid #555; border-radius: 3px; padding: 6px; display: flex; flex-direction: column; gap: 4px; min-width: 120px; }
     #marks-menu-body button { text-align: left; }
     .unitbox { margin: 2px 0 8px 12px; padding-left: 8px; border-left: 2px solid #333; }
+    .layerend { display: grid; grid-template-columns: 1fr 62px 62px 24px; gap: 3px; align-items: center; margin: 3px 0; font-size: 12px; }
+    .layerend.head { color: #888; font-size: 10px; text-transform: uppercase; }
+    .layerend > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .layerend input { min-width: 0; }
     .layerstart { display: grid; grid-template-columns: 1fr 44px 74px 24px; gap: 3px; align-items: center; margin: 3px 0; font-size: 12px; }
     .layerstart > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .layerstart input { min-width: 0; }
