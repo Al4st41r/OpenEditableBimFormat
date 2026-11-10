@@ -35,6 +35,17 @@ function _svgPt(svgEl, cx, cy) {
   pt.x = cx; pt.y = cy;
   return pt.matrixTransform(ctm.inverse());
 }
+/**
+ * The pointer as a profile point, rounded, and snapped when a snap function is given (Alt suspends it).
+ * @param {((p:{x:number,y:number}, tolerance:number) => {x:number,y:number})|null} snap - tolerance is eight screen pixels
+ */
+function _pt(svgEl, e, snap) {
+  const p = _svgPt(svgEl, e.clientX, e.clientY);
+  if (!p) return null;
+  const pt = { x: _r(p.x), y: _r(p.y) };
+  const ctm = svgEl.getScreenCTM();
+  return snap && !e.altKey && ctm && ctm.a > 0 ? snap(pt, 8 / ctm.a) : pt;
+}
 function _r(v) { return Math.round(v * 1e4) / 1e4; }
 function _mm(m) { return Math.round(m * 1000); }
 
@@ -60,16 +71,16 @@ export function deactivateTool(svgEl) {
   svgEl.style.cursor = '';
 }
 
-export function activateRectTool(svgEl, onDone) {
+export function activateRectTool(svgEl, onDone, snap = null) {
   deactivateTool(svgEl);
   svgEl.style.cursor = 'crosshair';
   let startPt = null, previewEl = null;
 
   const onDown = e => {
     if (e.button !== 0) return;
-    const p = _svgPt(svgEl, e.clientX, e.clientY);
+    const p = _pt(svgEl, e, snap);
     if (!p) return;
-    startPt = { x: _r(p.x), y: _r(p.y) };
+    startPt = p;
     previewEl = document.createElementNS(SVG_NS, 'rect');
     previewEl.setAttribute('fill', 'rgba(68,136,255,0.15)');
     previewEl.setAttribute('stroke', '#4488ff');
@@ -81,19 +92,19 @@ export function activateRectTool(svgEl, onDone) {
   };
   const onMove = e => {
     if (!startPt || !previewEl) return;
-    const p = _svgPt(svgEl, e.clientX, e.clientY);
+    const p = _pt(svgEl, e, snap);
     if (!p) return;
-    const { x1,y1,x2,y2 } = normaliseRect(startPt, { x:_r(p.x), y:_r(p.y) });
+    const { x1,y1,x2,y2 } = normaliseRect(startPt, p);
     previewEl.setAttribute('x', String(x1)); previewEl.setAttribute('y', String(y1));
     previewEl.setAttribute('width', String(x2-x1)); previewEl.setAttribute('height', String(y2-y1));
     _dimLabel(svgEl, x1, y2 + 0.07, `${_mm(x2-x1)} × ${_mm(y2-y1)} mm`);
   };
   const onUp = e => {
     if (!startPt) return;
-    const p = _svgPt(svgEl, e.clientX, e.clientY);
+    const p = _pt(svgEl, e, snap);
     previewEl?.remove(); previewEl = null;
     if (!p) { startPt = null; return; }
-    const verts = rectToVertices(startPt, { x:_r(p.x), y:_r(p.y) });
+    const verts = rectToVertices(startPt, p);
     startPt = null;
     deactivateTool(svgEl);
     onDone(verts);
@@ -112,7 +123,7 @@ export function activateRectTool(svgEl, onDone) {
   };
 }
 
-export function activatePolygonTool(svgEl, onDone) {
+export function activatePolygonTool(svgEl, onDone, snap = null) {
   deactivateTool(svgEl);
   svgEl.style.cursor = 'crosshair';
   const points = [];
@@ -155,17 +166,16 @@ export function activatePolygonTool(svgEl, onDone) {
 
   const onClick = e => {
     if (e.detail >= 2) return;
-    const p = _svgPt(svgEl, e.clientX, e.clientY);
-    if (!p) return;
-    const pt = { x: _r(p.x), y: _r(p.y) };
+    const pt = _pt(svgEl, e, snap);
+    if (!pt) return;
     if (points.length >= 3 && isPolygonClosed(points, pt, SNAP_DIST)) { _commit(); return; }
     points.push(pt);
   };
   const onDbl = () => { if (points.length >= 3) _commit(); };
   const onMove = e => {
-    const p = _svgPt(svgEl, e.clientX, e.clientY);
+    const p = _pt(svgEl, e, snap);
     if (!p) return;
-    _updatePreview({ x: _r(p.x), y: _r(p.y) });
+    _updatePreview(p);
   };
 
   svgEl.addEventListener('click', onClick);

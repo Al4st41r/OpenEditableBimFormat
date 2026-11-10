@@ -10,6 +10,8 @@
  *   - Handle "New profile" creation
  */
 
+import { HttpAdapter, BUNDLE_NAME } from '../detail-editor/httpAdapter.js';
+import { loadDetailContext } from '../detail-editor/detailStore.js';
 import { initCanvas, renderCanvas, setOriginSnap, setView, fitBox, contentSize } from './profileCanvas.js';
 import { snapTargets, snapToTargets } from './profileSnap.js';
 import { initForm, setLayers, getLayers, highlightRow, addBlankLayer } from './profileForm.js';
@@ -96,6 +98,14 @@ function _snapTo(axis, value, tolerance) {
   const r = snapToTargets(value, axis === 'x' ? t.x : t.y, tolerance);
   _setStatus(r.target ? `Snapped to ${r.target.label}` : '');
   return r.value;
+}
+/** Snap a drawn point to layer faces, centres and the corners of other regions, each axis on its own. */
+function _snapPoint(p, tolerance) {
+  const t = snapTargets(getLayers(layerList), { stacked: isStackedProfile(profileType, alignment), alignment, planWidth });
+  const sx = snapToTargets(p.x, t.x, tolerance), sy = snapToTargets(p.y, t.y, tolerance);
+  const what = [sx.target, sy.target].filter(Boolean).map(x => x.label);
+  _setStatus(what.length ? `Snapped to ${[...new Set(what)].join(' and ')}` : '');
+  return { x: sx.value, y: sy.value };
 }
 setupGuideDrag(profileSvg, () => _renderCanvas(), () => _renderCanvas(), (axis, value, tol) => _snapTo(axis === 'v' ? 'x' : 'y', value, tol));
 setOriginSnap((value, tol) => _snapTo('x', value, tol));
@@ -321,7 +331,7 @@ document.getElementById('tool-rect-btn').addEventListener('click', () => {
     layers.push({ name: 'Region', material_id: matIds[0] ?? '', type: 'region', function: 'structure', vertices });
     setLayers(layerList, layers);
     _renderCanvas();
-  });
+  }, _snapPoint);
 });
 
 document.getElementById('tool-poly-btn').addEventListener('click', () => {
@@ -330,7 +340,7 @@ document.getElementById('tool-poly-btn').addEventListener('click', () => {
     layers.push({ name: 'Region', material_id: matIds[0] ?? '', type: 'region', function: 'structure', vertices });
     setLayers(layerList, layers);
     _renderCanvas();
-  });
+  }, _snapPoint);
 });
 
 // ── Save ──────────────────────────────────────────────────────────────────────
@@ -350,7 +360,12 @@ saveBtn.addEventListener('click', async () => {
         );
         _setStatus('Saved');
       } else {
-        _setStatus('Save failed: editor window closed.');
+        // opened on its own (?bundle=): hand the files over as downloads
+        _download(`${currentId}.json`, JSON.stringify(json, null, 2), 'application/json');
+        _download(`${currentId}.svg`, svg, 'image/svg+xml');
+        const lib = Object.values(_newMaterials);
+        if (lib.length) _download('new-materials.json', JSON.stringify(lib, null, 2), 'application/json');
+        _setStatus('Downloaded. Put the files in the bundle\'s profiles/ folder (see Publish in the detail editor).');
       }
     } else {
       await _writeFile(`profiles/${currentId}.json`, JSON.stringify(json, null, 2));
@@ -411,6 +426,50 @@ async function _writeFile(path, content) {
   await writer.close();
 }
 
+
+/** Work on profiles held in memory: sent by the detail editor, or read from a served bundle (?bundle=). */
+function _openMemoryBundle({ profiles, matMap: incomingMatMap, activeProfileId, projectName: pName }) {
+  memoryMode      = true;
+  _memoryProfiles = profiles ?? {};
+  matMap  = incomingMatMap ?? {};
+  matIds  = Object.keys(matMap);
+
+  if (pName) projectName.textContent = pName;
+  initForm(layerList, matIds, matMap, { onNewMaterial: _onNewMaterial });
+  _listProfilesFromMemory(_memoryProfiles);
+
+  profileSelect.disabled = false;
+  newBtn.disabled        = false;
+  addLayerBtn.disabled   = false;
+
+  if (activeProfileId && _memoryProfiles[activeProfileId]) {
+    profileSelect.value = activeProfileId;
+    profileSelect.dispatchEvent(new Event('change'));
+  }
+}
+
+// ── ?bundle=terraced-house.oebf&profile=profile-cavity-250 ──────────────────────────
+// Opens a bundle served beside the app. There is no page to send edits back to, so Save downloads the profile.
+async function _openFromUrl(name, profileId) {
+  try {
+    if (!BUNDLE_NAME.test(name)) throw new Error(`"${name}" is not a bundle name`);
+    const adapter = await HttpAdapter.open(`${import.meta.env.BASE_URL}${name}/`, name.replace(/\.oebf$/, ''));
+    const ctx = await loadDetailContext(adapter);
+    _openMemoryBundle({ profiles: ctx.profiles, matMap: ctx.materials, activeProfileId: profileId, projectName: adapter.name ?? name });
+    if (profileId && !ctx.profiles[profileId]) _setStatus(`Profile "${profileId}" is not in ${name}`);
+  } catch (err) { _setStatus(`Could not open ${name}: ${err.message}`); }
+}
+const _query = new URLSearchParams(window.location.search);
+if (_query.has('bundle') && !window.opener) _openFromUrl(_query.get('bundle'), _query.get('profile'));
+
+function _download(name, text, type) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type }));
+  a.download = name;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
 // ── postMessage handle transfer ───────────────────────────────────────────────
 if (window.opener) {
   window.opener.postMessage({ type: 'ready' }, window.location.origin);
@@ -426,28 +485,8 @@ if (window.opener) {
     }
 
     if (e.data?.type === 'memory-bundle') {
-      try {
-        const { profiles, matMap: incomingMatMap, activeProfileId, projectName: pName } = e.data;
-        memoryMode      = true;
-        _memoryProfiles = profiles ?? {};
-        matMap  = incomingMatMap ?? {};
-        matIds  = Object.keys(matMap);
-
-        if (pName) projectName.textContent = pName;
-        initForm(layerList, matIds, matMap, { onNewMaterial: _onNewMaterial });
-        _listProfilesFromMemory(_memoryProfiles);
-
-        profileSelect.disabled = false;
-        newBtn.disabled        = false;
-        addLayerBtn.disabled   = false;
-
-        if (activeProfileId && _memoryProfiles[activeProfileId]) {
-          profileSelect.value = activeProfileId;
-          profileSelect.dispatchEvent(new Event('change'));
-        }
-      } catch (err) {
-        _setStatus(`Error loading memory bundle: ${err.message}`);
-      }
+      try { _openMemoryBundle(e.data); }
+      catch (err) { _setStatus(`Error loading memory bundle: ${err.message}`); }
     }
   });
 }
