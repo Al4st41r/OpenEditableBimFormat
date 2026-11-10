@@ -17,6 +17,7 @@ import { HttpAdapter, BUNDLE_NAME } from './httpAdapter.js';
 import { buildDetailSheet, embeddedFontCss, deliverSheet } from '../detail-review/sheetExport.js';
 import { detailToDxf } from './dxfExport.js';
 import { parseDxf, dxfToDetail, scaleFromUnits } from './dxfImport.js';
+import { svgToDetail } from './svgImport.js';
 import { copySelection, parsePayload, pasteInto } from './clipboard.js';
 import { defaultLayers, setLayer, applyLayers, blocked, keepSelection, layerOfSelection, editable, LAYER_LABELS } from './layers.js';
 import { validateDetail } from './detailValidate.js';
@@ -241,6 +242,7 @@ const actions = {
   moveMember: (role, o) => apply((d) => D.moveMember(d, role, o)),
   rotateMember: (role, v) => apply((d) => D.rotateMember(d, role, v)),
   setRegionMaterial: (i, v) => apply((d) => D.setRegionMaterial(d, i, v)),
+  refresh: () => refresh(),   // for panel controls that change which fields are shown
   // Numeric move, copy, rotate and mirror of every picked region, about the centre of the selection
   moveBy: (dx, dy, copy) => {
     const picked = regionIndices(st.selection);
@@ -258,7 +260,7 @@ const actions = {
   },
   transform: (op) => {
     const picked = regionIndices(st.selection);
-    const about = selectionCentre(st.doc, picked);
+    const about = op.about ?? selectionCentre(st.doc, picked);
     if (!about) { status('Nothing to transform: every vertex is bound to a parameter.', true); return; }
     const r = transformRegions(st.doc, picked, { ...op, about });
     apply(() => r.doc);
@@ -1029,6 +1031,7 @@ $('export-select').addEventListener('change', (e) => {
   }
   if (kind === 'sheet') { openSheetDialog(); return; }
   if (kind === 'import-dxf') { $('dxf-input').click(); return; }
+  if (kind === 'import-svg') { $('svg-input').click(); return; }
   if (kind !== 'dxf') return;
   const text = detailToDxf(st.doc, { profiles: bundle.ctx.profiles, materials: bundle.ctx.materials, values: st.preview ?? undefined });
   const a = document.createElement('a');
@@ -1039,7 +1042,20 @@ $('export-select').addEventListener('change', (e) => {
   status('Saved a DXF in millimetres.');
 });
 
-// Import: closed shapes become regions in the material chosen in the toolbar, everything else becomes marks. One undo step.
+// Import (DXF or SVG): closed shapes become regions in the material chosen in the toolbar, everything else becomes
+// marks. One undo step.
+function importFound(found, { label, unitsNote = '' }) {
+  const material = $('material-select').value;
+  const regions = material ? found.regions.map((r) => ({ material_id: material, vertices: r.vertices })) : [];
+  const dropped = material ? 0 : found.regions.length;
+  if (!regions.length && !found.annotations.length) { status(dropped ? `Choose a material in the toolbar to import closed shapes as regions.` : `Nothing in that ${label} could be imported.`, true); return; }
+  const r = pasteInto(st.doc, { regions, annotations: found.annotations }, { materialIds: bundle.ctx.materialIds });
+  st = commit(st, r.doc); st = select(st, r.selection); display = null; refresh(); fit();
+  const skipped = Object.entries(found.skipped).map(([t, n]) => `${n} ${t}`).join(', ');
+  status([`Imported ${regions.length} region(s) and ${found.annotations.length} mark(s)${unitsNote}.`,
+    dropped ? `${dropped} closed shape(s) skipped: choose a material first.` : '', skipped ? `Skipped ${skipped}.` : '', ...found.notes].filter(Boolean).join(' '));
+}
+
 $('dxf-input').addEventListener('change', async (e) => {
   const file = e.target.files[0];
   e.target.value = '';
@@ -1047,16 +1063,17 @@ $('dxf-input').addEventListener('change', async (e) => {
   try {
     const { entities, units } = parseDxf(await file.text());
     const scale = scaleFromUnits(units) ?? 0.001;
-    const found = dxfToDetail(entities, { scale });
-    const material = $('material-select').value;
-    const regions = material ? found.regions.map((r) => ({ material_id: material, vertices: r.vertices })) : [];
-    const dropped = material ? 0 : found.regions.length;
-    if (!regions.length && !found.annotations.length) { status(dropped ? 'Choose a material in the toolbar to import closed shapes as regions.' : 'Nothing in that DXF could be imported.', true); return; }
-    const r = pasteInto(st.doc, { regions, annotations: found.annotations }, { materialIds: bundle.ctx.materialIds });
-    st = commit(st, r.doc); st = select(st, r.selection); display = null; refresh(); fit();
-    const skipped = Object.entries(found.skipped).map(([t, n]) => `${n} ${t}`).join(', ');
-    status([`Imported ${regions.length} region(s) and ${found.annotations.length} mark(s)${units === null || scaleFromUnits(units) === null ? ' (units not stated: read as millimetres)' : ''}.`,
-      dropped ? `${dropped} closed shape(s) skipped: choose a material first.` : '', skipped ? `Skipped ${skipped}.` : '', ...found.notes].filter(Boolean).join(' '));
+    importFound(dxfToDetail(entities, { scale }), { label: 'DXF', unitsNote: units === null || scaleFromUnits(units) === null ? ' (units not stated: read as millimetres)' : '' });
+  } catch (err) { status(`Could not import: ${err.message}`, true); }
+});
+
+$('svg-input').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file || !st) return;
+  try {
+    const found = svgToDetail(await file.text(), { scale: 0.001 });
+    importFound(found, { label: 'SVG', unitsNote: found.scaleStated ? '' : ' (size not stated: one unit read as one millimetre)' });
   } catch (err) { status(`Could not import: ${err.message}`, true); }
 });
 

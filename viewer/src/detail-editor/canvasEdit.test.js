@@ -181,3 +181,18 @@ describe('region groups and transforms', () => {
     expect(() => { translateRegions(doc, [0, 1], 1, 1); transformRegions(doc, [0], { mirror: 'y', about: { x: 0, y: 0 } }); }).not.toThrow();
   });
 });
+
+describe('transformRegions about a chosen point (#120)', () => {
+  const doc = { geometry: { regions: [{ material_id: 'm', vertices: [{ x: 1, y: 0 }, { x: 2, y: 0 }, { x: 2, y: 1 }, { x: 1, y: 1 }] }] } };
+
+  test('rotates about the origin, not the centre of the shape', () => {
+    const { doc: d } = transformRegions(doc, [0], { rotate_deg: 90, about: { x: 0, y: 0 } });
+    expect(d.geometry.regions[0].vertices[0]).toEqual({ x: 0, y: 1 });   // (1,0) turned a quarter turn anticlockwise
+    expect(d.geometry.regions[0].vertices[2]).toEqual({ x: -1, y: 2 });
+  });
+
+  test('mirrors across a vertical line through the chosen point', () => {
+    const { doc: d } = transformRegions(doc, [0], { mirror: 'x', about: { x: 3, y: 0 } });
+    expect(d.geometry.regions[0].vertices.map((v) => v.x).sort()).toEqual([4, 4, 5, 5]);
+  });
+});

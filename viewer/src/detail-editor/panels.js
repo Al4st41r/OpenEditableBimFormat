@@ -350,7 +350,8 @@ function regionCornerEditor(r, a) {
 }
 
 /** Numeric move, copy, rotate and mirror. Acts on every selected region; rotate and mirror turn about the selection's centre. */
-const transformDraft = { dx: 0, dy: 0, deg: 90 };
+const transformDraft = { dx: 0, dy: 0, deg: 90, about: 'centre', ax: 0, ay: 0 };
+const aboutOf = () => (transformDraft.about === 'origin' ? { x: 0, y: 0 } : transformDraft.about === 'point' ? { x: transformDraft.ax, y: transformDraft.ay } : undefined);
 function regionTransformEditor(r, a) {
   const scope = r.pickedCount > 1 ? `${r.pickedCount} regions` : 'this region';
   return [h('details', { class: 'fold' },
@@ -361,13 +362,17 @@ function regionTransformEditor(r, a) {
       h('button', { onclick: () => a.moveBy(transformDraft.dx, transformDraft.dy, false) }, 'Move'),
       h('button', { onclick: () => a.moveBy(transformDraft.dx, transformDraft.dy, true) }, 'Copy')),
     row('Angle (deg)', plain(transformDraft.deg, (v) => { transformDraft.deg = v; })),
+    row('About', select(['centre', 'origin', 'point'], transformDraft.about, (v) => { transformDraft.about = v; a.refresh?.(); })),
+    ...(transformDraft.about === 'point' ? [
+      row(`Point x (${unitLabel()})`, num(transformDraft.ax, (m) => { transformDraft.ax = m; })),
+      row(`Point y (${unitLabel()})`, num(transformDraft.ay, (m) => { transformDraft.ay = m; }))] : []),
     h('div', { class: 'row' },
-      h('button', { onclick: () => a.transform({ rotate_deg: transformDraft.deg }) }, 'Rotate left'),
-      h('button', { onclick: () => a.transform({ rotate_deg: -transformDraft.deg }) }, 'Rotate right')),
+      h('button', { onclick: () => a.transform({ rotate_deg: transformDraft.deg, about: aboutOf() }) }, 'Rotate left'),
+      h('button', { onclick: () => a.transform({ rotate_deg: -transformDraft.deg, about: aboutOf() }) }, 'Rotate right')),
     h('div', { class: 'row' },
-      h('button', { onclick: () => a.transform({ mirror: 'x' }) }, 'Mirror left-right'),
-      h('button', { onclick: () => a.transform({ mirror: 'y' }) }, 'Mirror top-bottom')),
-    h('div', { class: 'note' }, `Applies to ${scope}. Rotate and mirror turn about the centre of the selection.`))];
+      h('button', { onclick: () => a.transform({ mirror: 'x', about: aboutOf() }) }, 'Mirror left-right'),
+      h('button', { onclick: () => a.transform({ mirror: 'y', about: aboutOf() }) }, 'Mirror top-bottom')),
+    h('div', { class: 'note' }, `Applies to ${scope}. Rotate and mirror turn about the centre of the selection, the drawing's origin, or a point you type (the mirror line passes through it).`))];
 }
 
 /** Depth and repeat of a region: one unit is drawn, repeated at a pitch (brick 210 deep every 220, tile 90 deep on 98). */
