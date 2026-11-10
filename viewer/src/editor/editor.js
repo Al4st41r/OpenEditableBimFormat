@@ -34,6 +34,7 @@ import { buildSymbolGeometries } from '../loader/loadSymbol.js';
 import { buildGridLineSegments } from '../loader/loadGrid.js';
 import { StoreyManager } from './storeyManager.js';
 import { GridOverlayManager } from './gridOverlayManager.js';
+import { STARTERS, starterFor } from './starters.js';
 import { GuideManager } from './guideManager.js';
 import { readEntity, writeEntity } from './bundleWriter.js';
 import { WallTool } from './wallTool.js';
@@ -1924,21 +1925,33 @@ window.__editor = {
   },
 };
 
-// ?demo opens the terraced house; ?demo=nmb-two-storey opens the larger example
-const _demoParams = new URLSearchParams(window.location.search);
-if (_demoParams.has('demo')) {
-  (async () => {
-    try {
-      const demo = ['terraced-house', 'nmb-two-storey'].includes(_demoParams.get('demo')) ? _demoParams.get('demo') : 'terraced-house';
-      const resp = await fetch(`${import.meta.env.BASE_URL}${demo}.oebfz`);
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      adapter = await MemoryAdapter.fromFile(new File([await resp.blob()], `${demo}.oebfz`));
-      await _loadAndRenderBundle(adapter);
-      _enableEditorTools();
-      _setBundleOpen(adapter.name, true);
-      saveBtn.disabled = false;
-    } catch (e) { statusBar.textContent = `Error: ${e.message}`; }
-  })();
+// ── Starter models (#118): the welcome overlay lists them; ?demo opens the default, ?demo=<id> another ─────
+async function _openStarter(starter) {
+  try {
+    statusBar.textContent = `Opening ${starter.title}…`;
+    const resp = await fetch(import.meta.env.BASE_URL + starter.file);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    adapter = await MemoryAdapter.fromFile(new File([await resp.blob()], starter.file));
+    await _loadAndRenderBundle(adapter);
+    _enableEditorTools();
+    _setBundleOpen(adapter.name, true);
+    saveBtn.disabled = false;
+  } catch (e) { statusBar.textContent = `Error: ${e.message}`; }
+}
+
+for (const starter of STARTERS) {
+  const btn = document.createElement('button');
+  btn.className = 'welcome-starter';
+  const title = document.createElement('strong'); title.textContent = starter.title;
+  const about = document.createElement('span'); about.textContent = starter.description;
+  btn.append(title, about);
+  btn.addEventListener('click', () => _openStarter(starter));
+  document.getElementById('welcome-starters').appendChild(btn);
+}
+
+{
+  const params = new URLSearchParams(window.location.search);
+  if (params.has('demo')) _openStarter(starterFor(params.get('demo')));
 }
 
 // ── Junctions: list, and make one by hand ─────────────────────────────────────

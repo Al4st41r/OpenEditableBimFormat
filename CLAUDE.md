@@ -52,8 +52,7 @@ The open issue list is the plan: `gh issue list --state open`. At the time of wr
 | # | Title |
 |---|---|
 | #114 | NMB example: placed-detail floor regions can flicker (fixed from the cause; awaiting a check on a real GPU) |
-| #97 | Feature: bezier and spline path segments |
-| #125 | IFC import: openings, curved axes, non-rectangular sections |
+| #133 | IFC import: other profiles, boolean-clipped and BREP bodies, constituent sets |
 | #120, #119, #115, #116 | Detail editor CAD tools, linked review panes, line weights |
 | #126, #127 | Object maker; membranes and tapes |
 
@@ -62,7 +61,7 @@ The open issue list is the plan: `gh issue list --state open`. At the time of wr
 | # | Title |
 |---|---|
 | #104 | Parametric grid frame generator (future scope) |
-| #117, #118 | Quantities and carbon panel; starter models |
+| #117 | Quantities and carbon panel |
 | #128, #129, #130, #131, #132 | IFC comparison; junction-based IFC workflow; plan/section switch; detail game; Archicad |
 | #10 | Desktop wrapper: Tauri v2 and file watching |
 
