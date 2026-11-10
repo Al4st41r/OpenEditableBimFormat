@@ -35,6 +35,18 @@ const SHEARING_COLOURS = {
   stuff: ['Stuff', '#9b6fb0'],
 };
 
+/** CI/SfB table 1, by the first digit of the element code. */
+export const SFB_GROUPS = {
+  1: ['(1-) Ground, substructure', '#8c6d46'],
+  2: ['(2-) Structure, primary elements', '#3b6ea8'],
+  3: ['(3-) Secondary elements', '#4f8a8b'],
+  4: ['(4-) Finishes', '#d9a441'],
+  5: ['(5-) Services, pipework', '#d1495b'],
+  6: ['(6-) Services, ductwork', '#e07a3f'],
+  7: ['(7-) Fittings', '#9b6fb0'],
+  9: ['(9-) External elements', '#7a9a50'],
+};
+
 const BARRIER_ORDER = ['water', 'air', 'vapour', 'breathable'];
 const BARRIER_COLOURS = { water: '#1f77b4', air: '#2ca02c', vapour: '#9467bd', breathable: '#17becf' };
 
@@ -122,6 +134,17 @@ export const OVERLAYS = [
     valueOf(tags) {
       const e = SHEARING_COLOURS[tags.shearing_layer];
       return e ? { key: tags.shearing_layer, label: e[0], colour: e[1], order: Object.keys(SHEARING_COLOURS).indexOf(tags.shearing_layer) } : null;
+    },
+  },
+  {
+    id: 'sfb',
+    label: 'SfB elements',
+    absentMeansNone: false,
+    // grouped by the first digit of the code, so the legend stays short; the code itself is in the side panel
+    valueOf(tags) {
+      const m = /^\((\d)/.exec(tags.sfb ?? '');
+      const e = m && SFB_GROUPS[m[1]];
+      return e ? { key: `sfb-${m[1]}`, label: e[0], colour: e[1], order: Number(m[1]) } : null;
     },
   },
   {

@@ -10,7 +10,7 @@
 
 import { FUNCTIONS, FUNCTION_META } from './profileConstants.js';
 import { openMaterialPicker } from './materialPicker.js';
-import { PACKAGES, BARRIERS, FIRE_ROLES, SHEARING_LAYERS } from '../detail-review/classification.js';
+import { PACKAGES, BARRIERS, FIRE_ROLES, SHEARING_LAYERS, SFB_PATTERN } from '../detail-review/classification.js';
 import { withTag, tagsToSave } from './layerTags.js';
 import { PEN_SERIES } from '../lineweights.js';
 import { toDisplay, fromDisplay, unitLabel } from '../editor/units.js';
@@ -349,6 +349,15 @@ function _tagsFold(formEl, row) {
     ...PEN_SERIES.map(w => Object.assign(document.createElement('option'), { value: String(w), textContent: `${w} mm`, selected: row.dataset.outline === String(w) })));
   outline.addEventListener('change', () => { row.dataset.outline = outline.value; _emit(formEl); });
 
+  const sfb = Object.assign(document.createElement('input'), { type: 'text', placeholder: 'from material, eg (21)', value: read().sfb ?? '', title: 'CI/SfB element code in brackets, for example (21) external walls' });
+  sfb.style.cssText = css + 'width:130px;';
+  sfb.addEventListener('change', () => {
+    const v = sfb.value.trim();
+    if (v !== '' && !SFB_PATTERN.test(v)) { sfb.style.borderColor = '#d62728'; return; }
+    sfb.style.borderColor = '#444';
+    write('sfb', v === '' ? null : v);
+  });
+
   const fold = document.createElement('details');
   fold.className = 'layer-tags';
   fold.style.cssText = 'flex:1 1 100%;font-size:11px;color:#999;';
@@ -363,7 +372,7 @@ function _tagsFold(formEl, row) {
   note.style.cssText = 'color:#777;margin:2px 0;';
   note.textContent = 'A tag here overrides the material for this layer only.';
   fold.append(summary, _tagRow('Outline', outline), pick('Package', 'package', PACKAGES), _tagRow('Barrier', barrier), pick('Fire', 'fire_role', FIRE_ROLES),
-    pick('Shearing', 'shearing_layer', SHEARING_LAYERS), _tagRow('Sequence', seq), note);
+    pick('Shearing', 'shearing_layer', SHEARING_LAYERS), _tagRow('SfB', sfb), _tagRow('Sequence', seq), note);
   return fold;
 }
 

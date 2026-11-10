@@ -24,7 +24,8 @@
       "classification": {
         "package": "timber-frame",
         "sequence": 4,
-        "shearing_layer": "structure"
+        "shearing_layer": "structure",
+        "sfb": "(28)"
       },
       "carbonbench_id": "clt-global-fsc-pefc-istructe",
       "carbon_match": "exact",
@@ -52,7 +53,8 @@
       "classification": {
         "package": "timber-frame",
         "sequence": 4,
-        "shearing_layer": "structure"
+        "shearing_layer": "structure",
+        "sfb": "(28)"
       },
       "carbonbench_id": "glulam-global-fsc-pefc-istructe",
       "carbon_match": "exact",
@@ -82,7 +84,8 @@
         "package": "interiors",
         "fire_role": "fire-rated",
         "sequence": 9,
-        "shearing_layer": "space-plan"
+        "shearing_layer": "space-plan",
+        "sfb": "(42)"
       },
       "carbonbench_id": "plasterboard-fire",
       "carbon_match": "proxy",
@@ -108,7 +111,8 @@
       "classification": {
         "package": "interiors",
         "sequence": 12,
-        "shearing_layer": "space-plan"
+        "shearing_layer": "space-plan",
+        "sfb": "(42)"
       },
       "carbonbench_id": "plaster",
       "carbon_match": "exact",
@@ -129,7 +133,8 @@
       "classification": {
         "package": "interiors",
         "sequence": 9,
-        "shearing_layer": "space-plan"
+        "shearing_layer": "space-plan",
+        "sfb": "(42)"
       }
     },
     {
@@ -147,7 +152,8 @@
       "classification": {
         "package": "timber-frame",
         "sequence": 6,
-        "shearing_layer": "structure"
+        "shearing_layer": "structure",
+        "sfb": "(21)"
       }
     },
     {
@@ -172,7 +178,8 @@
       "classification": {
         "package": "cladding",
         "sequence": 7,
-        "shearing_layer": "skin"
+        "shearing_layer": "skin",
+        "sfb": "(21)"
       },
       "carbonbench_id": "mineral-wool-rockwool-rainscreen-duoslab-rockwool-rainscreen-duoslab",
       "carbon_match": "proxy",
@@ -203,7 +210,8 @@
           "breathable"
         ],
         "sequence": 7,
-        "shearing_layer": "skin"
+        "shearing_layer": "skin",
+        "sfb": "(21)"
       },
       "carbonbench_id": "breathable-membrane",
       "carbon_match": "exact",
@@ -235,7 +243,8 @@
           "vapour"
         ],
         "sequence": 6,
-        "shearing_layer": "skin"
+        "shearing_layer": "skin",
+        "sfb": "(21)"
       },
       "carbonbench_id": "vapour-barrier",
       "carbon_match": "exact",
@@ -262,7 +271,8 @@
       "classification": {
         "package": "timber-frame",
         "sequence": 6,
-        "shearing_layer": "skin"
+        "shearing_layer": "skin",
+        "sfb": "(21)"
       },
       "carbonbench_id": "sheathing-board-gyproc-125mm-glasroc-x-plasterboard",
       "carbon_match": "proxy",
@@ -289,7 +299,8 @@
       "classification": {
         "package": "cladding",
         "sequence": 7,
-        "shearing_layer": "skin"
+        "shearing_layer": "skin",
+        "sfb": "(21)"
       },
       "carbonbench_id": "air-cavity-ventilated",
       "carbon_match": "proxy",
@@ -310,7 +321,8 @@
       "classification": {
         "package": "cladding",
         "sequence": 8,
-        "shearing_layer": "skin"
+        "shearing_layer": "skin",
+        "sfb": "(41)"
       }
     },
     {
@@ -325,7 +337,8 @@
       "classification": {
         "package": "interiors",
         "sequence": 12,
-        "shearing_layer": "space-plan"
+        "shearing_layer": "space-plan",
+        "sfb": "(43)"
       }
     },
     {
@@ -349,7 +362,8 @@
       "classification": {
         "package": "interiors",
         "sequence": 11,
-        "shearing_layer": "space-plan"
+        "shearing_layer": "space-plan",
+        "sfb": "(43)"
       },
       "carbonbench_id": "screed-board-knauf-screed-fibreboard",
       "carbon_match": "exact",
@@ -376,7 +390,8 @@
       "classification": {
         "package": "interiors",
         "sequence": 10,
-        "shearing_layer": "services"
+        "shearing_layer": "services",
+        "sfb": "(43)"
       },
       "carbonbench_id": "pir-pur",
       "carbon_match": "proxy",
@@ -396,7 +411,8 @@
       "classification": {
         "package": "interiors",
         "sequence": 9,
-        "shearing_layer": "space-plan"
+        "shearing_layer": "space-plan",
+        "sfb": "(43)"
       }
     },
     {
@@ -420,7 +436,8 @@
       "classification": {
         "package": "interiors",
         "sequence": 11,
-        "shearing_layer": "space-plan"
+        "shearing_layer": "space-plan",
+        "sfb": "(43)"
       },
       "carbonbench_id": "mortar-screed-14-cement-sand-istructe",
       "carbon_match": "exact",
@@ -448,7 +465,8 @@
       "classification": {
         "package": "concrete",
         "sequence": 2,
-        "shearing_layer": "structure"
+        "shearing_layer": "structure",
+        "sfb": "(16)"
       },
       "carbonbench_id": "concrete-rebar-90kgm3-25-ggbs",
       "carbon_match": "proxy",
@@ -475,7 +493,8 @@
       "classification": {
         "package": "groundworks",
         "sequence": 1,
-        "shearing_layer": "structure"
+        "shearing_layer": "structure",
+        "sfb": "(16)"
       },
       "carbonbench_id": "ground-insulation-xps",
       "carbon_match": "exact",
@@ -500,7 +519,8 @@
         ],
         "fire_role": "fire-rated",
         "sequence": 7,
-        "shearing_layer": "skin"
+        "shearing_layer": "skin",
+        "sfb": "(47)"
       }
     },
     {
@@ -526,7 +546,8 @@
       "classification": {
         "package": "timber-frame",
         "sequence": 4,
-        "shearing_layer": "structure"
+        "shearing_layer": "structure",
+        "sfb": "(21)"
       },
       "carbonbench_id": "steel-structural",
       "carbon_match": "proxy",
@@ -550,7 +571,8 @@
         "package": "interiors",
         "fire_role": "firestop",
         "sequence": 9,
-        "shearing_layer": "space-plan"
+        "shearing_layer": "space-plan",
+        "sfb": "(21)"
       }
     },
     {
@@ -578,7 +600,8 @@
         "package": "cladding",
         "fire_role": "cavity-barrier",
         "sequence": 6,
-        "shearing_layer": "skin"
+        "shearing_layer": "skin",
+        "sfb": "(21)"
       },
       "carbonbench_id": "cement-board",
       "carbon_match": "proxy",
@@ -600,7 +623,8 @@
         "package": "mep",
         "fire_role": "firestop",
         "sequence": 5,
-        "shearing_layer": "services"
+        "shearing_layer": "services",
+        "sfb": "(5)"
       }
     },
     {
@@ -619,7 +643,8 @@
         "package": "mep",
         "fire_role": "firestop",
         "sequence": 5,
-        "shearing_layer": "services"
+        "shearing_layer": "services",
+        "sfb": "(5)"
       }
     },
     {
@@ -638,7 +663,8 @@
         "package": "mep",
         "fire_role": "fire-rated",
         "sequence": 5,
-        "shearing_layer": "services"
+        "shearing_layer": "services",
+        "sfb": "(6)"
       }
     },
     {
@@ -657,7 +683,8 @@
         "package": "interiors",
         "fire_role": "fire-rated",
         "sequence": 9,
-        "shearing_layer": "space-plan"
+        "shearing_layer": "space-plan",
+        "sfb": "(22)"
       }
     },
     {
@@ -685,7 +712,8 @@
         "package": "interiors",
         "fire_role": "fire-rated",
         "sequence": 9,
-        "shearing_layer": "space-plan"
+        "shearing_layer": "space-plan",
+        "sfb": "(22)"
       },
       "carbonbench_id": "plasterboard-fire",
       "carbon_match": "proxy",
@@ -715,7 +743,8 @@
         "package": "cladding",
         "fire_role": "fire-rated",
         "sequence": 6,
-        "shearing_layer": "skin"
+        "shearing_layer": "skin",
+        "sfb": "(21)"
       },
       "carbonbench_id": "mineral-wool-rockwool-rockwool",
       "carbon_match": "exact",
@@ -744,7 +773,8 @@
         "package": "other",
         "fire_role": "fire-rated",
         "sequence": 4,
-        "shearing_layer": "structure"
+        "shearing_layer": "structure",
+        "sfb": "(29)"
       },
       "carbonbench_id": "steel-structural",
       "carbon_match": "proxy",
@@ -772,7 +802,8 @@
       "classification": {
         "package": "groundworks",
         "sequence": 2,
-        "shearing_layer": "skin"
+        "shearing_layer": "skin",
+        "sfb": "(16)"
       },
       "carbonbench_id": "ground-insulation-xps",
       "carbon_match": "proxy",
@@ -795,7 +826,8 @@
         "package": "timber-frame",
         "fire_role": "firestop",
         "sequence": 5,
-        "shearing_layer": "skin"
+        "shearing_layer": "skin",
+        "sfb": "(21)"
       }
     },
     {
@@ -815,7 +847,8 @@
         "package": "cladding",
         "fire_role": "cavity-barrier",
         "sequence": 6,
-        "shearing_layer": "skin"
+        "shearing_layer": "skin",
+        "sfb": "(21)"
       }
     },
     {
@@ -835,7 +868,8 @@
         "package": "cladding",
         "fire_role": "cavity-barrier",
         "sequence": 6,
-        "shearing_layer": "skin"
+        "shearing_layer": "skin",
+        "sfb": "(21)"
       }
     },
     {
@@ -854,7 +888,8 @@
         "package": "cladding",
         "fire_role": "cavity-barrier",
         "sequence": 6,
-        "shearing_layer": "skin"
+        "shearing_layer": "skin",
+        "sfb": "(21)"
       }
     },
     {
@@ -880,7 +915,8 @@
         "package": "cladding",
         "fire_role": "firestop",
         "sequence": 6,
-        "shearing_layer": "skin"
+        "shearing_layer": "skin",
+        "sfb": "(21)"
       },
       "carbonbench_id": "mineral-wool",
       "carbon_match": "proxy",
@@ -910,7 +946,8 @@
         "package": "cladding",
         "fire_role": "fire-rated",
         "sequence": 9,
-        "shearing_layer": "skin"
+        "shearing_layer": "skin",
+        "sfb": "(21)"
       },
       "carbonbench_id": "cement-board",
       "carbon_match": "proxy",
@@ -938,7 +975,8 @@
       "classification": {
         "package": "timber-frame",
         "sequence": 4,
-        "shearing_layer": "structure"
+        "shearing_layer": "structure",
+        "sfb": "(27)"
       },
       "carbonbench_id": "timber-softwood",
       "carbon_match": "proxy",
@@ -967,7 +1005,8 @@
         "package": "timber-frame",
         "fire_role": "fire-rated",
         "sequence": 6,
-        "shearing_layer": "skin"
+        "shearing_layer": "skin",
+        "sfb": "(27)"
       },
       "carbonbench_id": "cement-board",
       "carbon_match": "proxy",
@@ -997,7 +1036,8 @@
           "water"
         ],
         "sequence": 9,
-        "shearing_layer": "space-plan"
+        "shearing_layer": "space-plan",
+        "sfb": "(43)"
       },
       "carbonbench_id": "waterproofing-self-adhesive-membrane-riw-tilesafe",
       "carbon_match": "proxy",
@@ -1026,7 +1066,8 @@
           "water"
         ],
         "sequence": 9,
-        "shearing_layer": "space-plan"
+        "shearing_layer": "space-plan",
+        "sfb": "(43)"
       },
       "carbonbench_id": "waterproofing-self-adhesive-membrane-riw-tilesafe",
       "carbon_match": "exact",
@@ -1052,7 +1093,8 @@
       "classification": {
         "package": "interiors",
         "sequence": 12,
-        "shearing_layer": "space-plan"
+        "shearing_layer": "space-plan",
+        "sfb": "(42)"
       },
       "carbonbench_id": "ceramic-tiles",
       "carbon_match": "exact",
@@ -1079,7 +1121,8 @@
       "classification": {
         "package": "mep",
         "sequence": 5,
-        "shearing_layer": "services"
+        "shearing_layer": "services",
+        "sfb": "(5)"
       },
       "carbonbench_id": "air-cavity",
       "carbon_match": "exact",
@@ -1109,7 +1152,8 @@
           "water"
         ],
         "sequence": 3,
-        "shearing_layer": "skin"
+        "shearing_layer": "skin",
+        "sfb": "(21)"
       },
       "carbonbench_id": "dpc-edpm-pp",
       "carbon_match": "exact",
@@ -1138,7 +1182,8 @@
           "water"
         ],
         "sequence": 2,
-        "shearing_layer": "structure"
+        "shearing_layer": "structure",
+        "sfb": "(16)"
       },
       "carbonbench_id": "dpm",
       "carbon_match": "exact",
@@ -1156,7 +1201,8 @@
       "classification": {
         "package": "interiors",
         "sequence": 5,
-        "shearing_layer": "space-plan"
+        "shearing_layer": "space-plan",
+        "sfb": "(23)"
       }
     },
     {
@@ -1180,7 +1226,8 @@
       "classification": {
         "package": "groundworks",
         "sequence": 3,
-        "shearing_layer": "structure"
+        "shearing_layer": "structure",
+        "sfb": "(21)"
       },
       "carbonbench_id": "clay-brick-general",
       "carbon_match": "proxy",
@@ -1202,7 +1249,8 @@
         ],
         "fire_role": "fire-rated",
         "sequence": 7,
-        "shearing_layer": "skin"
+        "shearing_layer": "skin",
+        "sfb": "(21)"
       }
     },
     {
@@ -1228,7 +1276,8 @@
           "water"
         ],
         "sequence": 7,
-        "shearing_layer": "skin"
+        "shearing_layer": "skin",
+        "sfb": "(47)"
       },
       "carbonbench_id": "epdm-membrane",
       "carbon_match": "exact",
@@ -1246,7 +1295,8 @@
       "classification": {
         "package": "other",
         "sequence": 8,
-        "shearing_layer": "skin"
+        "shearing_layer": "skin",
+        "sfb": "(31)"
       }
     },
     {
@@ -1261,7 +1311,8 @@
       "classification": {
         "package": "cladding",
         "sequence": 8,
-        "shearing_layer": "skin"
+        "shearing_layer": "skin",
+        "sfb": "(47)"
       }
     },
     {
@@ -1284,7 +1335,8 @@
       "classification": {
         "package": "cladding",
         "sequence": 8,
-        "shearing_layer": "skin"
+        "shearing_layer": "skin",
+        "sfb": "(47)"
       },
       "carbonbench_id": "gravel",
       "carbon_match": "exact",
@@ -1302,7 +1354,8 @@
       "classification": {
         "package": "cladding",
         "sequence": 8,
-        "shearing_layer": "skin"
+        "shearing_layer": "skin",
+        "sfb": "(27)"
       }
     },
     {
@@ -1326,7 +1379,8 @@
         "package": "other",
         "fire_role": "fire-rated",
         "sequence": 4,
-        "shearing_layer": "structure"
+        "shearing_layer": "structure",
+        "sfb": "(29)"
       },
       "carbonbench_id": "steel-structural",
       "carbon_match": "proxy",
@@ -1344,7 +1398,8 @@
       "classification": {
         "package": "other",
         "sequence": 5,
-        "shearing_layer": "skin"
+        "shearing_layer": "skin",
+        "sfb": "(21)"
       }
     },
     {
@@ -1368,7 +1423,8 @@
       "classification": {
         "package": "mep",
         "sequence": 5,
-        "shearing_layer": "services"
+        "shearing_layer": "services",
+        "sfb": "(5)"
       },
       "carbonbench_id": "plastic",
       "carbon_match": "proxy",
@@ -1388,7 +1444,8 @@
       "classification": {
         "package": "timber-frame",
         "sequence": 5,
-        "shearing_layer": "skin"
+        "shearing_layer": "skin",
+        "sfb": "(28)"
       }
     },
     {
@@ -1414,7 +1471,8 @@
         "package": "other",
         "fire_role": "fire-rated",
         "sequence": 4,
-        "shearing_layer": "structure"
+        "shearing_layer": "structure",
+        "sfb": "(29)"
       },
       "carbonbench_id": "steel-structural",
       "carbon_match": "proxy",
@@ -1440,7 +1498,8 @@
       "classification": {
         "package": "groundworks",
         "sequence": 1,
-        "shearing_layer": "site"
+        "shearing_layer": "site",
+        "sfb": "(11)"
       },
       "carbonbench_id": "granular-fill-uk-istructe",
       "carbon_match": "exact",

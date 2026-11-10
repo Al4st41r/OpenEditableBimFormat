@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { PACKAGES, BARRIERS, FIRE_ROLES, SHEARING_LAYERS, checkClassification } from './classification.js';
+import { PACKAGES, BARRIERS, FIRE_ROLES, SHEARING_LAYERS, SFB_PATTERN, checkClassification } from './classification.js';
 import { OVERLAYS, tagsOf, valueFor, applyOverlay, overlayById, carbonValues, sequenceColour, CARBON_BINS, NO_DATA } from './overlays.js';
 
 const schema = (f) => JSON.parse(readFileSync(new URL(`../../../spec/schema/${f}.schema.json`, import.meta.url), 'utf8'));
@@ -292,5 +292,52 @@ describe('shearing layers on the NMB example', () => {
     expect(layer('pipe')).toBe('services');
     expect(layer('skim')).toBe('space-plan');
     expect(layer('sub-base')).toBe('site');
+  });
+});
+
+
+describe('SfB overlay (#119)', () => {
+  const mats = new Map([
+    ['wall', { classification: { sfb: '(21)' } }], ['wall2', { classification: { sfb: '(22)' } }], ['roof', { classification: { sfb: '(27)' } }],
+    ['floor', { classification: { sfb: '(43)' } }], ['bare', { classification: { package: 'other' } }],
+  ]);
+  const prism = (id, materialId) => ({ id, kind: 'member', materialId, profileId: 'p', layer: 0 });
+
+  it('colours by the first digit of the code, so (21), (22) and (27) share a group', () => {
+    const r = applyOverlay('sfb', { prisms: ['wall', 'wall2', 'roof', 'floor'].map((m, i) => prism(`i${i}`, m)) }, { materials: mats });
+    const colour = (id) => r.colours.get(id);
+    expect(colour('i0')).toBe(colour('i1'));
+    expect(colour('i0')).toBe(colour('i2'));
+    expect(colour('i0')).not.toBe(colour('i3'));
+    expect(r.legend.map((e) => e.label)).toEqual(['(2-) Structure, primary elements', '(4-) Finishes']);
+  });
+
+  it('a solid with no code is no data, whether or not it has other tags', () => {
+    const r = applyOverlay('sfb', { prisms: [prism('a', 'bare'), prism('b', 'missing')] }, { materials: mats });
+    expect(r.noData).toBe(2);
+  });
+
+  it('a region tag overrides the material code', () => {
+    const detail = { geometry: { regions: [{ tags: { sfb: '(43)' } }] } };
+    const reg = { id: 'r', kind: 'region', materialId: 'wall', regionIndex: 0 };
+    const a = applyOverlay('sfb', { prisms: [reg] }, { materials: mats, detail });
+    const b = applyOverlay('sfb', { prisms: [reg] }, { materials: mats });
+    expect(a.colours.get('r')).not.toBe(b.colours.get('r'));
+  });
+
+  it('checks the code format and agrees with the schemas', () => {
+    expect(checkClassification({ sfb: '(21)' })).toEqual([]);
+    expect(checkClassification({ sfb: '21' })[0].code).toBe('sfb');
+    expect(checkClassification({ sfb: '(123)' })[0].code).toBe('sfb');
+    const find = (node) => (node && typeof node === 'object'
+      ? (node.sfb ?? Object.values(node).map(find).find(Boolean))
+      : undefined);
+    for (const name of ['materials', 'profile', 'detail']) {
+      const def = find(schema(name));
+      expect(def, `${name} schema has sfb`).toBeTruthy();
+      const re = new RegExp(def.pattern);
+      expect(re.test('(21)') && re.test('(5)')).toBe(true);
+      expect(re.test('21') || re.test('(123)')).toBe(false);
+    }
   });
 });

@@ -288,7 +288,8 @@
         "barrier":   { "type": "array", "uniqueItems": true, "items": { "type": "string", "enum": ["air", "water", "vapour", "breathable"] }, "description": "Which barrier functions the item performs. A layer may perform more than one." },
         "fire_role": { "type": "string", "enum": ["firestop", "cavity-barrier", "fire-rated"], "description": "Fire strategy role. Reaction class and rating stay in properties.fire." },
         "sequence":  { "type": "integer", "minimum": 1, "maximum": 99, "description": "Construction sequence: 1 is installed first. On a material it is a default step; on a layer or region `tags` it sets the step for that use. Only the order matters, not the size of the gaps." },
-        "shearing_layer": { "type": "string", "enum": ["site", "structure", "skin", "services", "space-plan", "stuff"], "description": "Brand's shearing layer: how fast the item changes over a building's life. Site, structure, skin, services, space plan (interior finishes and partitions) or stuff (furniture and fittings)." }
+        "shearing_layer": { "type": "string", "enum": ["site", "structure", "skin", "services", "space-plan", "stuff"], "description": "Brand's shearing layer: how fast the item changes over a building's life. Site, structure, skin, services, space plan (interior finishes and partitions) or stuff (furniture and fittings)." },
+        "sfb": { "type": "string", "pattern": "^\\([0-9]{1,2}\\)$", "description": "CI/SfB element code in brackets, for example (21) external walls, (27) roofs, (43) floor finishes. The SfB overlay groups by the first digit: (1) ground and substructure, (2) structure and primary elements, (3) secondary elements, (4) finishes, (5) and (6) services, (7) fittings, (9) external elements." }
       }
     },
     "coordinate": {
