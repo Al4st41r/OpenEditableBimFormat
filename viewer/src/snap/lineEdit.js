@@ -26,7 +26,8 @@ export function setSegmentLength(a, b, length, anchor = 'start') {
   const current = segmentLength(a, b);
   if (current < 1e-9) throw new Error('The segment has no direction (zero length), so its length cannot be set');
   const u = { x: (b.x - a.x) / current, y: (b.y - a.y) / current };
-  const withZ = (p, x, y) => (p.z === undefined ? { x, y } : { x, y, z: p.z });
+  const tidy = (n) => Math.round(n * 1e9) / 1e9 + 0;   // no 0.5999999999999996 in the saved path
+  const withZ = (p, x, y) => (p.z === undefined ? { x: tidy(x), y: tidy(y) } : { x: tidy(x), y: tidy(y), z: p.z });
 
   if (anchor === 'start') return { a: withZ(a, a.x, a.y), b: withZ(b, a.x + u.x * length, a.y + u.y * length) };
   if (anchor === 'end') return { a: withZ(a, b.x - u.x * length, b.y - u.y * length), b: withZ(b, b.x, b.y) };

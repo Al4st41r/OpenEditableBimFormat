@@ -1524,7 +1524,7 @@ async function _syncJunctionMarkers() {
   try {
     _bundleCtx.positionCtx.elementPaths = new Map([..._elementRegistry].map(([id, reg]) => [id, parsePath(reg.pathData).points]));
     for (const j of _bundleCtx.junctions ?? []) {
-      const p = junctionPoint(j, _bundleCtx.positionCtx);
+      const p = junctionPoint(j, { ..._bundleCtx.positionCtx, followElements: true });
       const live = junctionEditor._junctions.find((x) => x.id === j.id);
       if (p && live) junctionEditor.setDetail(j.id, live.detailId, p);
     }
@@ -1877,7 +1877,7 @@ async function _onJunctionUpdated(update) {
   try {
     const live = _bundleCtx.junctions.find((j) => j.id === update.junctionId);
     const { detailId, detailIds } = await applyJunctionUpdate(adapter, update, live);
-    if (live) junctionEditor?.setDetail(live.id, detailId, junctionPoint(live, _bundleCtx.positionCtx) ?? undefined);
+    if (live) junctionEditor?.setDetail(live.id, detailId, junctionPoint(live, { ..._bundleCtx.positionCtx, followElements: true }) ?? undefined);
     await _refreshDetailScene(detailIds);
     statusBar.textContent = `Junction ${update.junctionId} updated${detailId ? ` (${detailId})` : ' (no detail)'}.`;
   } catch (err) {
@@ -1904,6 +1904,7 @@ window.__editor = {
   junctionMarkers2: () => (junctionEditor?._junctions ?? []).map((j) => ({ id: j.id, x: j.point.x, y: j.point.y })),
   registry: () => [..._elementRegistry].map(([id, r]) => [id, r.pathData?.id, r.pathData?.segments?.map((g) => [g.start.x, g.start.y, g.end.x, g.end.y])]),
   selectedId: () => _selectedElementId,
+  setLength: (elementId, segIndex, text) => _applySegmentLength(elementId, segIndex, { value: text }, ''),   // for headless checks
   openJunctionDialog: _openJunctionDialog,
   openings: () => [..._openings.values()].map((o) => ({ ...o.entity, drawn: !!o.object })),
   worldToScreen: (x, y, z = 0) => {

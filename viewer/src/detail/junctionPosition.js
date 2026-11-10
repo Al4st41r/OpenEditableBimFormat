@@ -26,17 +26,27 @@ function inferFromElements(junction, elementPaths) {
       if (!best || d < best.d) best = { d, p, q };
     }
   }
-  return { x: (best.p.x + best.q.x) / 2, y: (best.p.y + best.q.y) / 2, z: ((best.p.z ?? 0) + (best.q.z ?? 0)) / 2 };
+  return { x: (best.p.x + best.q.x) / 2, y: (best.p.y + best.q.y) / 2, z: ((best.p.z ?? 0) + (best.q.z ?? 0)) / 2, gap: best.d };
 }
+
+/** Walls whose ends are closer than this are taken to meet at the junction. */
+export const MEET_TOLERANCE_M = 0.05;
 
 /**
  * @param {object} junction
- * @param {{ model?: object, grids?: object[], elementPaths?: Map<string, Array<{x, y, z?}>> }} ctx
+ * @param {{ model?: object, grids?: object[], elementPaths?: Map<string, Array<{x, y, z?}>>, followElements?: boolean }} ctx
+ *   followElements: use the point where the elements meet, ahead of the grid location, when they do meet
  * @returns {{ x: number, y: number, z: number }|null}
  */
 export function junctionPoint(junction, ctx = {}) {
+  // After the walls have been edited the grid location can be out of date: where the elements still meet wins
+  if (ctx.followElements) {
+    const met = inferFromElements(junction, ctx.elementPaths);
+    if (met && met.gap <= MEET_TOLERANCE_M) return { x: met.x, y: met.y, z: met.z };
+  }
   if (junction.location && ctx.model && ctx.grids) {
     try { return resolveLocation(junction.location, ctx); } catch { /* fall back to the elements */ }
   }
-  return inferFromElements(junction, ctx.elementPaths);
+  const p = inferFromElements(junction, ctx.elementPaths);
+  return p ? { x: p.x, y: p.y, z: p.z } : null;
 }

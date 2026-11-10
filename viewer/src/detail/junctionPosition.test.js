@@ -74,3 +74,30 @@ describe('junctionPoint: inferred from the elements', () => {
     expect(junctionPoint({ id: 'j', elements: ['a', 'b'] }, { elementPaths: paths }).z).toBe(0);
   });
 });
+
+describe('junctionPoint: followElements', () => {
+  const sw = () => rj('junctions/junction-sw-corner.json');
+  const moved = (dx) => {
+    const m = new Map(elementPaths);
+    const shift = (id, which) => m.set(id, m.get(id).map((p, i, a) => (i === (which === 'start' ? 0 : a.length - 1) ? { ...p, x: p.x + dx } : p)));
+    shift('element-wall-south-gf', 'end'); shift('element-wall-west-gf', 'start');   // both ends at the corner move together
+    return m;
+  };
+
+  test('by default the grid location wins, even after the walls moved', () => {
+    const p = junctionPoint(sw(), { ...ctx, elementPaths: moved(-0.6) });
+    close(p.x, 0);
+  });
+
+  test('with followElements the marker goes where the walls now meet', () => {
+    const p = junctionPoint(sw(), { ...ctx, elementPaths: moved(-0.6), followElements: true });
+    close(p.x, -0.6); close(p.y, 0);
+  });
+
+  test('walls that do not meet leave the marker at its grid location', () => {
+    const apart = new Map(elementPaths);
+    apart.set('element-wall-west-gf', apart.get('element-wall-west-gf').map((p) => ({ ...p, x: p.x - 2 })));
+    const p = junctionPoint(sw(), { ...ctx, elementPaths: apart, followElements: true });
+    close(p.x, 0);
+  });
+});

@@ -116,3 +116,8 @@ describe('findConnectedEnds', () => {
     expect(findConnectedEnds([{ id: 'x' }], P(0, 0), 0.01)).toEqual([]);
   });
 });
+
+test('a typed length leaves clean coordinates, with no floating point tail', () => {
+  const { b } = setSegmentLength({ x: 5.4, y: 0 }, { x: 0, y: 0 }, 6, 'start');
+  expect(b.x).toBe(-0.6);
+});
