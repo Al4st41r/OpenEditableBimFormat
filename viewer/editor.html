@@ -15,6 +15,13 @@
       padding: 6px 12px; background: #222; border-bottom: 1px solid #333;
       flex-shrink: 0;
     }
+    #snap-dialog { margin: auto; background: #222; color: #ddd; border: 1px solid #555; border-radius: 4px; padding: 16px; width: 320px; font-size: 12px; }
+    #snap-dialog::backdrop { background: rgba(0,0,0,0.5); }
+    #snap-dialog h3 { margin: 0 0 10px; font-size: 13px; }
+    #snap-dialog label { display: flex; gap: 8px; align-items: center; margin: 4px 0; }
+    #snap-dialog .field { justify-content: space-between; }
+    #snap-dialog input[type=number], #snap-dialog select { width: 90px; background: #333; color: #ddd; border: 1px solid #555; border-radius: 3px; padding: 3px 6px; }
+    #snap-dialog .actions { margin-top: 12px; text-align: right; }
     #material-dialog { margin: auto; background: #222; color: #ddd; border: 1px solid #555; border-radius: 4px; padding: 16px; width: 340px; }
     #material-dialog h3 { margin: 0 0 10px; font-size: 13px; }
     #material-dialog label { display: block; font-size: 11px; color: #aaa; margin: 8px 0 3px; }
@@ -190,6 +197,7 @@
     <button id="tool-grid" disabled aria-label="Add grid axis"><img src="/oebf/icons/grid.svg" width="16" height="16" alt=""> Grid</button>
     <button id="tool-guide" disabled aria-label="Add guide"><img src="/oebf/icons/align.svg" width="16" height="16" alt=""> Guide</button>
     <button id="snap-toggle" class="active" title="Smart cursor: snap to endpoints, midpoints, intersections, grid and alignments. Hold Alt to suspend." aria-label="Toggle snapping"><img src="/oebf/icons/align.svg" width="16" height="16" alt=""> Snap</button>
+    <button id="snap-settings-btn" title="Snap settings: which snaps are on, grid spacing, angle step" aria-label="Snap settings">Snap&hellip;</button>
     <div class="toolbar-sep"></div>
     <button id="view-3d" class="active" aria-label="3D view"><img src="/oebf/icons/plane-vertical.svg" width="16" height="16" alt=""> 3D</button>
     <button id="view-plan" aria-label="Plan view"><img src="/oebf/icons/plane-horizontal.svg" width="16" height="16" alt=""> Plan</button>
@@ -324,5 +332,6 @@
       <div class="mat-buttons"><button type="button" id="material-cancel">Cancel</button><button type="submit" id="material-ok" value="ok">Add</button></div>
     </form>
   </dialog>
+  <dialog id="snap-dialog"></dialog>
 </body>
 </html>

@@ -55,7 +55,8 @@ import { createNewBundle } from './newBundle.js';
 import { openLibraryBrowser, setAdapter as setLibraryAdapter } from './libraryBrowser.js';
 import { setUnit, getUnit, toDisplay, fromDisplay, unitLabel } from './units.js';
 import { updateNodeAxis } from './nodeUtils.js';
-import { snapPoint, SNAP_KINDS } from '../snap/snapEngine.js';
+import { snapPoint } from '../snap/snapEngine.js';
+import { loadSettings, saveSettings, enabledKinds, TOGGLE_KINDS, KIND_LABELS, ANGLE_STEPS } from '../snap/snapSettings.js';
 import { buildPlanSnapScene, setPathSegmentLength } from './planSnap.js';
 import { parseDimension } from '../snap/dimension.js';
 import { findSimilar, normaliseColour, buildMaterial, withUnsetMaterial } from './materialForm.js';
@@ -1738,9 +1739,33 @@ function _planSnap(point, { lastPoint = null, suspend = false, tolerance = 0.1, 
     guides: guideManager.getGuides(),
     lastPoint,
     excludePathId,
+    step: _snapSettings.step_m,
   });
-  return snapPoint(point, scene, { tolerance, kinds: SNAP_KINDS, angleStep: 45, suspend });
+  return snapPoint(point, scene, { tolerance, kinds: enabledKinds(_snapSettings), angleStep: _snapSettings.angleStep, suspend });
 }
+
+// ── snap settings (#82): which snaps are on, the grid spacing and the angle step ──────────────
+let _snapSettings = loadSettings(localStorage);
+const _snapDialog = document.getElementById('snap-dialog');
+document.getElementById('snap-settings-btn').addEventListener('click', () => {
+  const u = unitLabel();
+  _snapDialog.innerHTML = `<h3>Snap settings</h3>
+    ${TOGGLE_KINDS.map((k) => `<label><input type="checkbox" data-kind="${k}" ${_snapSettings.kinds.includes(k) ? 'checked' : ''}> ${KIND_LABELS[k] ?? k}</label>`).join('')}
+    <label class="field">Grid spacing (${u}, 0 = off)<input type="number" id="snap-step" min="0" step="any" value="${toDisplay(_snapSettings.step_m)}"></label>
+    <label class="field">Angle step<select id="snap-angle">${ANGLE_STEPS.map((a) => `<option value="${a}" ${a === _snapSettings.angleStep ? 'selected' : ''}>${a ? a + '°' : 'off'}</option>`).join('')}</select></label>
+    <div class="actions"><button id="snap-done">Done</button></div>`;
+  _snapDialog.showModal();
+  _snapDialog.querySelector('#snap-done').addEventListener('click', () => _snapDialog.close());
+});
+_snapDialog.addEventListener('change', () => {
+  const step = parseFloat(_snapDialog.querySelector('#snap-step').value);
+  _snapSettings = {
+    kinds: TOGGLE_KINDS.filter((k) => _snapDialog.querySelector(`[data-kind="${k}"]`).checked),
+    step_m: Number.isFinite(step) && step > 0 ? fromDisplay(step) : 0,
+    angleStep: parseInt(_snapDialog.querySelector('#snap-angle').value, 10),
+  };
+  saveSettings(localStorage, _snapSettings);
+});
 
 function _collectSnapTargets() {
   const targets = [];
