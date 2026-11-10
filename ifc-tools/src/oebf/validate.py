@@ -153,6 +153,20 @@ def validate_bundle(bundle_dir) -> list:
     except json.JSONDecodeError as exc:
         add("json-invalid", "materials/library.json", str(exc))
 
+    # ── ifc/mapping.json (optional) ──
+    try:
+        mapping = _load(bundle / "ifc" / "mapping.json")
+    except FileNotFoundError:
+        mapping = None
+    except json.JSONDecodeError as exc:
+        add("json-invalid", "ifc/mapping.json", str(exc))
+        mapping = None
+    if isinstance(mapping, dict):
+        check_schema("ifc/mapping.json", mapping, "oebf://schema/0.1/ifc-mapping")
+        for mid in sorted(mapping.get("materials", {})):
+            if materials and mid not in materials:
+                add("material-missing", "ifc/mapping.json", f'mapped material "{mid}" is not in the materials library')
+
     # ── model.json registration ──
     for folder, key in ENTITY_FOLDERS.items():
         if key is None:
@@ -193,6 +207,20 @@ def validate_bundle(bundle_dir) -> list:
             add("path-missing", f"arrays/{aid}.json", f'path "{a.get("path_id")}" does not exist')
         if a.get("source_id") not in {*entities["symbols"], *elements, *entities["objects"]}:
             add("source-missing", f"arrays/{aid}.json", f'source "{a.get("source_id")}" does not exist')
+    for oid, o in entities["objects"].items():
+        rel = f"objects/{oid}.json"
+        if o.get("symbol_id") not in entities["symbols"]:
+            add("symbol-missing", rel, f'symbol "{o.get("symbol_id")}" does not exist')
+        if o.get("host_element_id") not in elements:
+            add("element-missing", rel, f'host element "{o.get("host_element_id")}" does not exist')
+        if o.get("path_id") not in paths:
+            add("path-missing", rel, f'path "{o.get("path_id")}" does not exist')
+        if o.get("opening_id") and o["opening_id"] not in entities["openings"]:
+            add("opening-missing", rel, f'opening "{o["opening_id"]}" does not exist')
+    for gid, g in entities["groups"].items():
+        for child in g.get("children", []):
+            if child not in {*elements, *entities["slabs"], *entities["objects"], *entities["groups"]}:
+                add("child-missing", f"groups/{gid}.json", f'child "{child}" does not exist')
     for oid, o in entities["openings"].items():
         if o.get("host_element_id") not in elements:
             add("element-missing", f"openings/{oid}.json", f'host element "{o.get("host_element_id")}" does not exist')

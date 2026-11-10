@@ -390,3 +390,29 @@ def test_carbonbench_link_fields_are_accepted_and_checked(nmb_bundle):
     assert validate_bundle(nmb_bundle) == []
     edit(lib, lambda d: d["materials"][0].__setitem__("carbon_match", "guess"))
     assert validate_bundle(nmb_bundle) != []
+
+
+def test_a_malformed_ifc_mapping_is_reported(bundle):
+    edit(bundle / "ifc" / "mapping.json", lambda d: d["property_sets"].update({"fire_rating": {"pset": "Pset_WallCommon"}}))
+    assert "schema" in codes(bundle)
+
+
+def test_an_ifc_mapping_naming_an_unknown_material_is_reported(bundle):
+    edit(bundle / "ifc" / "mapping.json", lambda d: d["materials"].update({"mat-does-not-exist": "Mystery"}))
+    assert "material-missing" in codes(bundle)
+
+
+def test_a_bundle_without_an_ifc_mapping_is_fine(bundle):
+    (bundle / "ifc" / "mapping.json").unlink()
+    assert validate_bundle(bundle) == []
+
+
+def test_an_object_with_a_missing_symbol_or_host_is_reported(bundle):
+    edit(bundle / "objects" / "object-door-south-gf.json", lambda d: d.update(symbol_id="symbol-nope", host_element_id="element-nope"))
+    found = codes(bundle)
+    assert "symbol-missing" in found and "element-missing" in found
+
+
+def test_a_group_naming_a_missing_child_is_reported(bundle):
+    edit(bundle / "groups" / "group-external-doors.json", lambda d: d["children"].append("object-nope"))
+    assert "child-missing" in codes(bundle)

@@ -43,5 +43,28 @@ def validate(oebf_dir):
     raise SystemExit(1)
 
 
+@cli.command()
+@click.argument("oebf_dir", type=click.Path(exists=True, file_okay=False))
+@click.argument("commands_file", type=click.Path(exists=True, dir_okay=False))
+@click.option("--dry-run", is_flag=True, help="Check the commands and report, without writing anything")
+def apply(oebf_dir, commands_file, dry_run):
+    """Run a file of commands (see spec/commands.json) on a bundle. Nothing is written if it would leave a new problem."""
+    import json
+    from .commands import apply_commands, CommandError
+    try:
+        result = apply_commands(Path(oebf_dir), json.loads(Path(commands_file).read_text()), dry_run=dry_run)
+    except (CommandError, json.JSONDecodeError) as exc:
+        click.echo(f"Not applied: {exc}")
+        raise SystemExit(1)
+    for line in result.applied:
+        click.echo(line)
+    if result.problems:
+        for p in result.problems:
+            click.echo(str(p))
+        click.echo(f"Not applied: the commands would leave {len(result.problems)} new problem(s) in {oebf_dir}")
+        raise SystemExit(1)
+    click.echo("Checked, nothing written (dry run)" if dry_run else f"Applied {len(result.applied)} command(s) to {oebf_dir}")
+
+
 if __name__ == "__main__":
     cli()

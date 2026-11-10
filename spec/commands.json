@@ -1,0 +1,44 @@
+{
+  "$schema": "oebf://schema/0.1/commands",
+  "description": "The command language for changing a bundle without editing its files by hand. Write a file {\"commands\": [ ... ]} and run: oebf apply <bundle> <file>. The bundle is validated before and after. If a command would leave it with a new problem, nothing is written.",
+  "commands": {
+    "add_path": {
+      "description": "Add a path made of straight segments through the given points. Closed joins the last point back to the first.",
+      "parameters": {
+        "id":          { "type": "slug",    "required": true,  "description": "New path id, for example path-wall-garden" },
+        "points":      { "type": "points",  "required": true,  "description": "At least two [x, y] or [x, y, z] points in metres" },
+        "closed":      { "type": "boolean", "required": false, "description": "Default false" },
+        "description": { "type": "string",  "required": false }
+      },
+      "example": { "command": "add_path", "id": "path-wall-garden", "description": "Garden wall centreline", "points": [[0, 8.5], [5.4, 8.5]] }
+    },
+    "add_element": {
+      "description": "Add an element that sweeps a profile along a path, and list it in the model.",
+      "parameters": {
+        "id":              { "type": "slug",   "required": true,  "description": "New element id" },
+        "path_id":         { "type": "slug",   "required": true,  "description": "An existing path" },
+        "profile_id":      { "type": "slug",   "required": true,  "description": "An existing profile" },
+        "description":     { "type": "string", "required": true },
+        "ifc_type":        { "type": "string", "required": false, "description": "Default IfcWall" },
+        "parent_group_id": { "type": "slug",   "required": false, "description": "The storey or group to put it in. Default: the first storey" },
+        "properties":      { "type": "object", "required": false }
+      },
+      "example": { "command": "add_element", "id": "element-wall-garden", "path_id": "path-wall-garden", "profile_id": "profile-cavity-250", "description": "Garden wall" }
+    },
+    "set_element_profile": {
+      "description": "Change the profile an element is swept with.",
+      "parameters": {
+        "element_id": { "type": "slug", "required": true },
+        "profile_id": { "type": "slug", "required": true, "description": "An existing profile" }
+      },
+      "example": { "command": "set_element_profile", "element_id": "element-wall-south-gf", "profile_id": "profile-cavity-250" }
+    },
+    "remove_element": {
+      "description": "Delete an element and take it out of the model. Its path and profile stay.",
+      "parameters": {
+        "element_id": { "type": "slug", "required": true }
+      },
+      "example": { "command": "remove_element", "element_id": "element-wall-garden" }
+    }
+  }
+}

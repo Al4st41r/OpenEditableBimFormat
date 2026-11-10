@@ -156,7 +156,7 @@ def test_elements_reference_existing_paths_profiles_and_storeys():
 
 
 def test_storey_children_are_real_elements():
-    elements = entity_ids("elements")
+    elements = entity_ids("elements") | entity_ids("objects")   # the guide lists a door object under its storey
 
     def walk(n):
         for c in n.get("children", []):
@@ -331,17 +331,14 @@ def test_default_profiles_have_what_the_import_converter_needs(f):
 
 # ── 5. Spec promises not yet delivered ───────────────────────────────────────
 
-@pytest.mark.xfail(strict=True, reason="GAP: design §2.10 item 10 — commands.json not implemented.")
 def test_commands_json_exists():
     assert (BUNDLE / "commands.json").exists() or (REPO / "spec" / "commands.json").exists()
 
 
-@pytest.mark.xfail(strict=True, reason="GAP: design §2.9 — ifc/mapping.json not in bundle.")
 def test_ifc_mapping_present_in_bundle():
     assert (BUNDLE / "ifc" / "mapping.json").exists()
 
 
-@pytest.mark.xfail(strict=True, reason="GAP: design §2.8 — no Object or Group entity instances in the example.")
 def test_example_exercises_objects():
     assert entity_ids("objects")
 

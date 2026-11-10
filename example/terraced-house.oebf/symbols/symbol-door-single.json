@@ -1,0 +1,14 @@
+{
+  "$schema": "oebf://schema/0.1/symbol",
+  "id": "symbol-door-single",
+  "type": "Symbol",
+  "description": "Single external door leaf and frame — 900 mm wide, 2.1 m high",
+  "ifc_type": "IfcDoor",
+  "ifc_predefined_type": "DOOR",
+  "parameters": {
+    "width_m":  0.9,
+    "depth_m":  0.045,
+    "height_m": 2.1
+  },
+  "geometry_definition": "box"
+}

@@ -12,6 +12,7 @@ import ifcopenshell.api.spatial
 import ifcopenshell.api.aggregate
 import ifcopenshell.api.geometry
 import ifcopenshell.api.material
+from . import ifc_mapping
 import ifcopenshell.api.pset
 
 # Default wall height when the profile has no explicit height field
@@ -23,6 +24,7 @@ def export_ifc(oebf_dir: Path, ifc_path: Path) -> None:
     model_data = json.loads((oebf_dir / "model.json").read_text())
     materials_lib = json.loads((oebf_dir / "materials" / "library.json").read_text())
     mat_by_id = {m["id"]: m for m in materials_lib.get("materials", [])}
+    mapping = ifc_mapping.load_mapping(oebf_dir)
 
     ifc = ifcopenshell.api.project.create_file(version="IFC4")
     project = ifcopenshell.api.root.create_entity(
@@ -45,12 +47,12 @@ def export_ifc(oebf_dir: Path, ifc_path: Path) -> None:
 
     exported = {}   # OEBF id -> IFC entity, for the property sets that refer back to elements
     for element_id in model_data.get("elements", []):
-        entity = _export_element(ifc, oebf_dir, element_id, storey, body_context, mat_by_id)
+        entity = _export_element(ifc, oebf_dir, element_id, storey, body_context, mat_by_id, mapping)
         if entity is not None:
             exported[element_id] = entity
 
     for slab_id in model_data.get("slabs", []):
-        entity = _export_slab(ifc, oebf_dir, slab_id, storey, body_context, mat_by_id)
+        entity = _export_slab(ifc, oebf_dir, slab_id, storey, body_context, mat_by_id, mapping)
         if entity is not None:
             exported[slab_id] = entity
 
@@ -60,7 +62,7 @@ def export_ifc(oebf_dir: Path, ifc_path: Path) -> None:
     ifc.write(str(ifc_path))
 
 
-def _export_element(ifc, oebf_dir, element_id, storey, body_context, mat_by_id):
+def _export_element(ifc, oebf_dir, element_id, storey, body_context, mat_by_id, mapping):
     try:
         elem = json.loads((oebf_dir / "elements" / f"{element_id}.json").read_text())
         path_data = json.loads((oebf_dir / "paths" / f"{elem['path_id']}.json").read_text())
@@ -77,7 +79,7 @@ def _export_element(ifc, oebf_dir, element_id, storey, body_context, mat_by_id):
         return None
 
     entity = ifcopenshell.api.root.create_entity(
-        ifc, ifc_class=elem["ifc_type"], name=elem["description"]
+        ifc, ifc_class=ifc_mapping.ifc_class(mapping, elem["ifc_type"]), name=elem["description"]
     )
     _set_pset(ifc, entity, "OEBF_Element", {"OebfId": element_id})
 
@@ -88,8 +90,8 @@ def _export_element(ifc, oebf_dir, element_id, storey, body_context, mat_by_id):
 
     _assign_body_geometry(ifc, entity, body_context,
                           start, tangent, path_length, total_width, origin_x, height)
-    _assign_material_layers(ifc, entity, profile_data["assembly"], mat_by_id)
-    _assign_property_set(ifc, entity, elem.get("properties", {}))
+    _assign_material_layers(ifc, entity, profile_data["assembly"], mat_by_id, mapping)
+    _assign_property_set(ifc, entity, elem.get("properties", {}), mapping)
 
     ifcopenshell.api.spatial.assign_container(ifc, relating_structure=storey, products=[entity])
     return entity
@@ -179,12 +181,12 @@ def _assign_body_geometry(ifc, entity, context,
     )
 
 
-def _assign_material_layers(ifc, entity, assembly, mat_by_id):
+def _assign_material_layers(ifc, entity, assembly, mat_by_id, mapping):
     """Create an IfcMaterialLayerSet from the profile assembly and assign it."""
     ifc_layers = []
     for layer in assembly:
         mat_info = mat_by_id.get(layer["material_id"], {})
-        ifc_mat = ifc.create_entity("IfcMaterial", Name=mat_info.get("name", layer["material_id"]))
+        ifc_mat = ifc.create_entity("IfcMaterial", Name=ifc_mapping.material_name(mapping, layer["material_id"], mat_info.get("name")))
         ifc_layer = ifc.create_entity(
             "IfcMaterialLayer",
             Material=ifc_mat,
@@ -209,7 +211,7 @@ def _assign_material_layers(ifc, entity, assembly, mat_by_id):
     )
 
 
-def _export_slab(ifc, oebf_dir, slab_id, storey, body_context, mat_by_id):
+def _export_slab(ifc, oebf_dir, slab_id, storey, body_context, mat_by_id, mapping):
     """Export one OEBF Slab as IfcSlab with IfcArbitraryClosedProfileDef geometry."""
     try:
         slab = json.loads((oebf_dir / "slabs" / f"{slab_id}.json").read_text())
@@ -221,7 +223,7 @@ def _export_slab(ifc, oebf_dir, slab_id, storey, body_context, mat_by_id):
         return None
 
     entity = ifcopenshell.api.root.create_entity(
-        ifc, ifc_class=slab["ifc_type"], name=slab["description"]
+        ifc, ifc_class=ifc_mapping.ifc_class(mapping, slab["ifc_type"]), name=slab["description"]
     )
     _set_pset(ifc, entity, "OEBF_Element", {"OebfId": slab_id})
 
@@ -274,7 +276,7 @@ def _export_slab(ifc, oebf_dir, slab_id, storey, body_context, mat_by_id):
 
     mat_info = mat_by_id.get(slab.get("material_id", ""), {})
     if mat_info:
-        ifc_mat = ifc.create_entity("IfcMaterial", Name=mat_info.get("name", slab["material_id"]))
+        ifc_mat = ifc.create_entity("IfcMaterial", Name=ifc_mapping.material_name(mapping, slab["material_id"], mat_info.get("name")))
         ifc.create_entity(
             "IfcRelAssociatesMaterial",
             GlobalId=ifcopenshell.guid.new(),
@@ -282,27 +284,27 @@ def _export_slab(ifc, oebf_dir, slab_id, storey, body_context, mat_by_id):
             RelatingMaterial=ifc_mat,
         )
 
-    _assign_property_set(ifc, entity, slab.get("properties", {}))
+    _assign_property_set(ifc, entity, slab.get("properties", {}), mapping)
     ifcopenshell.api.spatial.assign_container(ifc, relating_structure=storey, products=[entity])
     return entity
 
 
-def _assign_property_set(ifc, entity, properties: dict):
-    """Write a single IfcPropertySet named OEBF_Properties from the element properties dict."""
+def _ifc_value(val):
+    """A property value as IFC takes it: booleans and numbers as they are, anything else as text."""
+    return val if isinstance(val, (bool, int, float)) else str(val)
+
+
+def _assign_property_set(ifc, entity, properties: dict, mapping=None):
+    """Properties the mapping names go into their own property set; the rest go into OEBF_Properties."""
     if not properties:
         return
-    pset = ifcopenshell.api.pset.add_pset(ifc, product=entity, name="OEBF_Properties")
-    props = {}
-    for key, val in properties.items():
-        if isinstance(val, bool):
-            props[key] = val
-        elif isinstance(val, int):
-            props[key] = val
-        elif isinstance(val, float):
-            props[key] = val
-        else:
-            props[key] = str(val)
-    ifcopenshell.api.pset.edit_pset(ifc, pset=pset, properties=props)
+    mapped, rest = ifc_mapping.split_properties(mapping or ifc_mapping.EMPTY, properties)
+    for pset_name, props in mapped.items():
+        pset = ifcopenshell.api.pset.add_pset(ifc, product=entity, name=pset_name)
+        ifcopenshell.api.pset.edit_pset(ifc, pset=pset, properties={k: _ifc_value(v) for k, v in props.items()})
+    if rest:
+        pset = ifcopenshell.api.pset.add_pset(ifc, product=entity, name="OEBF_Properties")
+        ifcopenshell.api.pset.edit_pset(ifc, pset=pset, properties={k: _ifc_value(v) for k, v in rest.items()})
 
 
 # ── OEBF extension property sets ──────────────────────────────────────────────

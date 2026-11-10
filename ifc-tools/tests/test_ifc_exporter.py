@@ -192,3 +192,57 @@ def test_export_skips_an_element_with_a_vertical_path_instead_of_failing(minimal
     model = ifcopenshell.open(str(out))
     assert len(model.by_type("IfcWall")) == 0
     assert "vertical" in capsys.readouterr().out
+
+
+# ── ifc/mapping.json (design section 2.9) ──────────────────────────────────────
+
+import pathlib
+EXAMPLE_BUNDLE_FOR_MAPPING = pathlib.Path(__file__).parent.parent.parent / "example" / "terraced-house.oebf"
+
+def _psets(entity):
+    import ifcopenshell.util.element
+    return ifcopenshell.util.element.get_psets(entity)
+
+
+def _export(tmp_path, mapping="keep"):
+    import shutil
+    import ifcopenshell
+    bundle = tmp_path / "b.oebf"
+    shutil.copytree(EXAMPLE_BUNDLE_FOR_MAPPING, bundle)
+    mp = bundle / "ifc" / "mapping.json"
+    if mapping is None:
+        mp.unlink(missing_ok=True)
+    elif mapping != "keep":
+        mp.parent.mkdir(exist_ok=True)
+        mp.write_text(__import__("json").dumps(mapping))
+    out = tmp_path / "out.ifc"
+    export_ifc(bundle, out)
+    return ifcopenshell.open(str(out))
+
+
+def test_properties_go_where_the_mapping_says(tmp_path):
+    ifc = _export(tmp_path)   # the example bundle's own mapping
+    wall = next(w for w in ifc.by_type("IfcWall") if "South external" in (w.Name or ""))
+    psets = _psets(wall)
+    assert psets["Pset_WallCommon"]["FireRating"] == "REI 60"
+    assert psets["Pset_WallCommon"]["LoadBearing"] is True
+    assert "fire_rating" not in psets.get("OEBF_Properties", {})
+
+
+def test_without_a_mapping_everything_stays_in_oebf_properties(tmp_path):
+    ifc = _export(tmp_path, mapping=None)
+    wall = next(w for w in ifc.by_type("IfcWall") if "South external" in (w.Name or ""))
+    psets = _psets(wall)
+    assert psets["OEBF_Properties"]["fire_rating"] == "REI 60"
+    assert "Pset_WallCommon" not in psets
+
+
+def test_the_mapping_can_change_the_class_and_a_material_name(tmp_path):
+    ifc = _export(tmp_path, mapping={
+        "$schema": "oebf://schema/0.1/ifc-mapping", "type": "IfcMapping",
+        "classes": {"IfcWall": "IfcWallStandardCase"},
+        "materials": {"mat-brick-common": "Facing brick"},
+    })
+    assert ifc.by_type("IfcWallStandardCase")
+    names = {m.Name for m in ifc.by_type("IfcMaterial")}
+    assert "Facing brick" in names

@@ -109,7 +109,7 @@ def test_the_project_carries_details_grids_and_levels_as_json(bundle, tmp_path):
 def test_levels_also_come_from_storey_groups(bundle, tmp_path):
     m = load(bundle / "model.json"); m.pop("hierarchy"); m["storeys"] = ["storey-gf"]
     (bundle / "model.json").write_text(json.dumps(m))
-    (bundle / "groups").mkdir()
+    (bundle / "groups").mkdir(exist_ok=True)
     (bundle / "groups" / "storey-gf.json").write_text(json.dumps({"$schema": "oebf://schema/0.1/group", "id": "storey-gf", "type": "Group", "ifc_type": "IfcBuildingStorey", "description": "Ground", "name": "Ground", "z_m": 0}))
     p = psets(export(bundle, tmp_path).by_type("IfcProject")[0])["OEBF_Bundle"]
     assert json.loads(p["Levels"]) == [{"id": "storey-gf", "elevation": 0, "name": "Ground"}]

@@ -14,7 +14,7 @@
           "id": "storey-gf",
           "description": "Ground Floor",
           "elevation": 0.0,
-          "children": ["element-wall-south-gf", "element-wall-north-gf", "element-wall-east-gf", "element-wall-west-gf"]
+          "children": ["element-wall-south-gf", "element-wall-north-gf", "element-wall-east-gf", "element-wall-west-gf", "object-door-south-gf"]
         }]
       }]
     }]
@@ -26,7 +26,7 @@
     "element-wall-west-gf"
   ],
   "slabs": ["slab-gf"],
-  "objects": [],
+  "objects": ["object-door-south-gf"],
   "arrays": ["array-front-fence-posts"],
   "junctions": [
     "junction-sw-corner",

@@ -13,8 +13,8 @@ Read this before editing any file in this bundle. Every 3D element sweeps a
 | Path | `paths/path-{id}.json` | `id` `type:"Path"` `closed` `segments[]` |
 | Profile | `profiles/profile-{id}.json` | `id` `type:"Profile"` `svg_file` `origin` `alignment` `assembly[]` |
 | Element | `elements/element-{id}.json` | `id` `type:"Element"` `ifc_type` `path_id` `profile_id` `sweep_mode` `cap_start` `cap_end` `parent_group_id` |
-| Object | `elements/object-{id}.json` | `id` `type:"Object"` `symbol_id` `host_element_id` `path_id` `path_position` `parent_group_id` |
-| Opening | `elements/opening-{id}.json` | `id` `type:"Opening"` `host_element_id` `path_id` `path_position` `width_m` `height_m` |
+| Object | `objects/object-{id}.json` | `id` `type:"Object"` `symbol_id` `host_element_id` `path_id` `path_position` `parent_group_id` |
+| Opening | `openings/opening-{id}.json` | `id` `type:"Opening"` `host_element_id` `path_id` `path_position` `width_m` `height_m` |
 | Junction | `junctions/junction-{id}.json` | `id` `type:"Junction"` `elements[]` `rule` `priority[]` (optional: `detail_id` `location` `detail_overrides` `detail_mirrored`) |
 | Array | `arrays/array-{id}.json` | `id` `type:"Array"` `source_id` `path_id` `mode` `alignment` `axes[]` |
 | Symbol | `symbols/symbol-{id}.json` | `id` `type:"Symbol"` `ifc_type` `parameters{}` |
@@ -42,7 +42,9 @@ project.oebf/
 ├── OEBF-GUIDE.md           — this file
 ├── paths/                  — one JSON per path
 ├── profiles/               — one JSON + one SVG per profile
-├── elements/               — elements, objects, and openings
+├── elements/               — one JSON per element
+├── objects/                — symbol instances (doors, posts)
+├── openings/               — one JSON per opening
 ├── junctions/              — one JSON per junction
 ├── arrays/                 — one JSON per array
 ├── symbols/                — symbol type definitions
@@ -200,7 +202,7 @@ Prerequisite: the host element (`element-wall-internal-01`) and its path
 (`path-wall-internal-01`) already exist. `path_position` is metres from the
 start of the path.
 
-**Step 1.** Create `elements/opening-d02.json`:
+**Step 1.** Create `openings/opening-d02.json`:
 
 ```json
 {
@@ -218,7 +220,7 @@ start of the path.
 }
 ```
 
-**Step 2.** Create `elements/object-door-d02.json`:
+**Step 2.** Create `objects/object-door-d02.json`:
 
 ```json
 {
@@ -767,6 +769,49 @@ IFC from other tools has no such record: its elements get a placeholder profile 
 material and the first level (or `storey-imported`) as `parent_group_id`, and a slab
 with a polyline outline becomes a `Slab` with a closed boundary path. Geometry edited
 in another tool is not read back when the OEBF record is present.
+
+### Mapping to IFC classes and property sets (`ifc/mapping.json`)
+
+`ifc/mapping.json` is optional. It says how this bundle's entities are written to IFC. Without it every entity is written with its own `ifc_type`, materials keep their library names, and all properties go into one property set called `OEBF_Properties`.
+
+```json
+{
+  "$schema": "oebf://schema/0.1/ifc-mapping",
+  "type": "IfcMapping",
+  "description": "Wall properties go to Pset_WallCommon",
+  "classes": { "IfcWall": "IfcWallStandardCase" },
+  "property_sets": {
+    "fire_rating": { "pset": "Pset_WallCommon", "name": "FireRating" }
+  },
+  "materials": { "mat-brick-common": "Facing brick" }
+}
+```
+
+- `classes` changes the IFC class written for an `ifc_type`.
+- `property_sets` moves a property (by its OEBF name) into the named IFC property set and property. A property that is not listed stays in `OEBF_Properties`.
+- `materials` sets the IFC material name for a material id. Each id must be in the materials library, which `oebf validate` checks.
+
+---
+
+## Commands
+
+Instead of writing files by hand, write a list of commands and let the tool apply them. The commands are catalogued in `spec/commands.json` (each with its parameters and an example): `add_path`, `add_element`, `set_element_profile` and `remove_element`.
+
+```json
+{
+  "commands": [
+    { "command": "add_path", "id": "path-wall-garden", "description": "Garden wall centreline", "points": [[0, 8.5], [5.4, 8.5]] },
+    { "command": "add_element", "id": "element-wall-garden", "path_id": "path-wall-garden", "profile_id": "profile-cavity-250", "description": "Garden wall" }
+  ]
+}
+```
+
+```bash
+oebf apply path/to/project.oebf commands.json            # apply
+oebf apply path/to/project.oebf commands.json --dry-run  # check only
+```
+
+The commands run on a copy of the bundle. The copy is validated, and only if it has no problem the bundle did not already have are the changes written back. If any command fails, or the result would be invalid, the bundle is left exactly as it was and the tool says why.
 
 ---
 

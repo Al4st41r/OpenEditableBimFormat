@@ -11,6 +11,7 @@
       "element",
       "grid",
       "group",
+      "ifc-mapping",
       "junction-geometry",
       "junction",
       "manifest",
