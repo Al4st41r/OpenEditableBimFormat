@@ -21,6 +21,7 @@ import { applyJunctionClipping, buildCustomJunctionMesh, buildJunctionDetailMesh
 import { ensureDetailMaterials } from './detail/detailMaterials.js';
 import { applyCsgJunctions } from './junction-csg.js';
 import { buildObjectGroup, colourLookup } from './loader/loadObject.js';
+import { cutOpenings } from './geometry/openingCut.js';
 import { buildArrayGroup }       from './array/arrayRenderer.js';
 import { buildSymbolGeometries } from './loader/loadSymbol.js';
 import { buildGridLineSegments } from './loader/loadGrid.js';
@@ -169,6 +170,9 @@ function _buildScene(meshes, manifest, junctions, arrays, grids, openings = [], 
     lines.userData.openingId = openingId;
     currentGroup.add(lines);
   }
+
+  // doors and windows are holes in their walls
+  cutOpenings(currentGroup, openings.filter((o) => o.opening).map(({ opening, pathData }) => ({ opening, pathData })));
 
   const objectColour = colourLookup(materials);
   for (const { object, placement, parts } of objects) currentGroup.add(buildObjectGroup(placement, object.id, parts, objectColour));

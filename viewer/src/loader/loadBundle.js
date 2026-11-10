@@ -124,7 +124,7 @@ export async function loadBundle(dirHandle) {
     try {
       const opening  = await _readJson(dirHandle, `openings/${openingId}.json`);
       const pathData = await _readJson(dirHandle, `paths/${opening.path_id}.json`);
-      openings.push(buildOpeningOutline(opening, pathData));
+      openings.push({ ...buildOpeningOutline(opening, pathData), opening, pathData });
     } catch (err) {
       console.warn(`[OEBF] Skipping opening ${openingId}: ${err.message}`);
     }

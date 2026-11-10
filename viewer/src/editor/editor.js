@@ -47,6 +47,7 @@ import { mergeStoreyGroups, syncHierarchyStoreys } from '../detail/levelResolver
 import { buildOpeningOutline } from '../loader/loadOpening.js';
 import { objectPlacement, buildObjectGroup, colourLookup } from '../loader/loadObject.js';
 import { symbolParts } from '../loader/symbolParts.js';
+import { cutOpenings } from '../geometry/openingCut.js';
 import { nextObjectId, newObject, normaliseArray, placementProblems, instanceCount, withObjectRegistered, withObjectUnregistered } from './objectModel.js';
 import {
   openingFieldSpecs, nextOpeningId, newOpening, openingProblems, openingsOf, overlappingOpenings,
@@ -781,6 +782,7 @@ async function _loadAndRenderBundle(adapter) {
   }
 
   await _loadOpenings(model);
+  _cutOpenings();
   await _loadObjects(model);
   _populateJunctionList();
 
@@ -1429,6 +1431,7 @@ async function _reRenderElement(elementId, updatedPathData) {
         }));
       }
     }
+    if (reg.kind === 'element') _cutOpenings([elementId]);
     editorScene.setRenderMode(editorScene.getRenderMode());
   } catch (err) {
     console.warn(`[OEBF] _reRenderElement ${elementId}:`, err.message);
@@ -2138,6 +2141,21 @@ function _clearOpenings() {
   _openings.clear();
 }
 
+/** Cut the openings of the given walls (all of them when none are named) through their meshes. The meshes must be freshly built: a cut mesh cannot be cut again. */
+function _cutOpenings(hostIds) {
+  const cuts = [..._openings.values()]
+    .filter(({ entity }) => !hostIds || hostIds.includes(entity.host_element_id))
+    .map(({ entity }) => ({ opening: entity, pathData: _elementRegistry.get(entity.host_element_id)?.pathData }))
+    .filter((c) => c.pathData);
+  cutOpenings(editorScene.modelGroup, cuts);
+}
+
+/** Rebuild a wall's meshes without its holes, then cut them again: after an opening is added, moved, resized or removed. */
+async function _recutWall(hostId) {
+  const reg = _elementRegistry.get(hostId);
+  if (reg?.pathData) await _reRenderElement(hostId, reg.pathData);   // re-cuts as its last step
+}
+
 /** (Re)draw one opening's outline on its host wall. An opening whose wall is missing is kept, undrawn. */
 function _drawOpening(entity) {
   _removeOpeningObject(entity.id);
@@ -2220,6 +2238,8 @@ async function _addOpening(hostId, ifcType) {
   await writeEntity(adapter, `openings/${id}.json`, entity);
   await _setOpeningRegistered(id, true);
   _drawOpening(entity);
+  await _recutWall(hostId);
+  await _reloadObjects();
   statusBar.textContent = `Added ${id}. Set its position and size in the panel.`;
   await _showElementProps(hostId);
 }
@@ -2230,6 +2250,8 @@ async function _removeOpening(id, hostId) {
   await _setOpeningRegistered(id, false);
   _removeOpeningObject(id);
   _openings.delete(id);
+  await _recutWall(hostId);
+  await _reloadObjects();
   statusBar.textContent = `Removed ${id}`;
   await _showElementProps(hostId);
 }
@@ -2239,6 +2261,8 @@ async function _commitOpeningField(id, key, value) {
     const entity = applyFieldValue(await readEntity(adapter, `openings/${id}.json`), key, value);
     await writeEntity(adapter, `openings/${id}.json`, entity);
     _drawOpening(entity);
+    await _recutWall(entity.host_element_id);
+    await _reloadObjects();
     const reg = _elementRegistry.get(entity.host_element_id);
     const problems = openingProblems(entity, reg?.pathData ? pathSummary(reg.pathData).length : undefined);
     statusBar.textContent = problems.length ? `${id}: ${problems[0]}` : `${key.replace(/_/g, ' ')} set to ${value}`;

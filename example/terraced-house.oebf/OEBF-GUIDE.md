@@ -134,7 +134,7 @@ After writing a new entity file, add its ID to `model.json`:
 
 Paths, Profiles, Symbols, Groups, and Materials are **not registered** in
 `model.json` — they are found by ID reference from the entities that use them.
-An Object's `opening_id` names its Opening. The viewer draws a door or window Object as a box over its wall, and the IFC export writes it as an `IfcDoor` or `IfcWindow` filling an `IfcOpeningElement` that cuts the wall. Both read the Opening from `openings[]`.
+An Object's `opening_id` names its Opening. The viewer cuts each Opening through its host wall's layers and draws the door or window Object in the hole (an Object with no opening is drawn as a box over the wall), and the IFC export writes it as an `IfcDoor` or `IfcWindow` filling an `IfcOpeningElement` that cuts the wall. Both read the Opening from `openings[]`.
 
 ---
 

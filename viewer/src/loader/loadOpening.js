@@ -1,8 +1,8 @@
 /**
  * loadOpening.js — Build a 3D outline for an OEBF Opening entity.
  *
- * v0.1: renders as a rectangular line loop at the opening face.
- * Boolean cut into the host mesh is deferred to v0.2 (#18).
+ * Renders as a rectangular line loop at the opening face. The hole itself is cut through the host's meshes by
+ * geometry/openingCut.js (three-bvh-csg).
  *
  * An Opening is positioned along its host element's path using path_position
  * (distance in metres from path start), width_m (along path), height_m

@@ -161,7 +161,7 @@ export async function loadBundleZstd(file) {
     try {
       const opening  = readJson(`openings/${openingId}.json`);
       const pathData = readJson(`paths/${opening.path_id}.json`);
-      openings.push(buildOpeningOutline(opening, pathData));
+      openings.push({ ...buildOpeningOutline(opening, pathData), opening, pathData });
     } catch (err) {
       console.warn(`[OEBF] Skipping opening ${openingId}: ${err.message}`);
     }

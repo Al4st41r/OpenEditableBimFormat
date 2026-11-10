@@ -42,11 +42,11 @@ export function objectPlacement(object, symbolDef, pathData, openingDef = null) 
       instances.push({ x: point[0], y: point[1], z: point[2] + base + j * (grid.spacing_up_m ?? 0), angle });
     }
   }
-  return { ...instances[0], width, depth: extent.y, height: extent.z, instances };
+  return { ...instances[0], width, depth: extent.y, height: extent.z, instances, inOpening: !!openingDef };
 }
 
 /** The point and wall direction at an arc length along a polyline; clamps to its ends. */
-function frameAlong(points, distance) {
+export function frameAlong(points, distance) {
   let remaining = Math.max(0, distance);
   let angle = 0;
   for (let i = 0; i < points.length - 1; i++) {
@@ -96,7 +96,9 @@ export function buildObjectGroup(placement, id, parts, colourOf = () => undefine
   for (const part of parts) {
     const geometry = partGeometry(part);
     const material = new THREE.MeshLambertMaterial({
-      color: colourOf(part.material_id) ?? DEFAULT_COLOUR, transparent: true, opacity: 0.85, depthTest: false, side: THREE.DoubleSide,
+      // in an opening the wall is cut, so the object is seen through the hole like anything else; otherwise it is
+      // drawn over the wall (a tie inside the wall would be hidden by it)
+      color: colourOf(part.material_id) ?? DEFAULT_COLOUR, transparent: !placement.inOpening, opacity: placement.inOpening ? 1 : 0.85, depthTest: !!placement.inOpening, side: THREE.DoubleSide,
     });
     const mesh = new THREE.InstancedMesh(geometry, material, instances.length);
     instances.forEach((inst, i) => {
@@ -108,7 +110,7 @@ export function buildObjectGroup(placement, id, parts, colourOf = () => undefine
     mesh.frustumCulled = false;   // the bounding sphere of an instanced mesh is its first instance's
     group.add(mesh);
     if (instances.length === 1) {
-      const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geometry), new THREE.LineBasicMaterial({ color: 0x3a2a18, depthTest: false }));
+      const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geometry), new THREE.LineBasicMaterial({ color: 0x3a2a18, depthTest: !!placement.inOpening }));
       edges.position.set(instances[0].x, instances[0].y, instances[0].z);
       edges.rotation.z = instances[0].angle;
       edges.renderOrder = 4;
