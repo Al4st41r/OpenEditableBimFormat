@@ -18,6 +18,7 @@ import { initForm, setLayers, getLayers, highlightRow, addBlankLayer } from './p
 import { buildJson, buildSvg, isStackedProfile } from './profileSerializer.js';
 import { addGuide, getGuides, clearGuides, renderGuidelines, setupGuideDrag } from './profileGuidelines.js';
 import { activateRectTool, activatePolygonTool, deactivateTool } from './canvasDrawTools.js';
+import { findUses, renameRefs, matchesSearch } from './profileRefs.js';
 import { setUnit, getUnit, toDisplay, fromDisplay, unitLabel } from '../editor/units.js';
 
 // ── DOM refs ─────────────────────────────────────────────────────────────────
@@ -310,6 +311,112 @@ document.getElementById('dup-btn').addEventListener('click', () => {
   profileSelect.value = id;
   _renderCanvas();
   _setStatus(`Copy as ${id}: unsaved`);
+});
+
+// ── Search, rename and delete ────────────────────────────────────────────────
+const searchInput = document.getElementById('profile-search');
+/** Hide the profiles that do not match the search box; the one on screen always stays. */
+function _applySearch() {
+  for (const o of profileSelect.options) {
+    if (!o.value) continue;
+    o.hidden = !(o.value === currentId || matchesSearch(o.value, searchInput.value));
+  }
+}
+searchInput.addEventListener('input', _applySearch);
+
+/** Parsed elements and details of the open bundle, by path (folder mode only). */
+async function _readReferencingDocs() {
+  const docs = {};
+  for (const folder of ['elements', 'details']) {
+    let dir;
+    try { dir = await dirHandle.getDirectoryHandle(folder); } catch { continue; }
+    for await (const [name] of dir) {
+      if (name.endsWith('.json')) docs[`${folder}/${name}`] = await _readJson(`${folder}/${name}`);
+    }
+  }
+  return docs;
+}
+async function _removeFile(path) {
+  const parts = path.split('/');
+  let handle = dirHandle;
+  for (let i = 0; i < parts.length - 1; i++) handle = await handle.getDirectoryHandle(parts[i]);
+  try { await handle.removeEntry(parts.at(-1)); } catch (e) { if (e.name !== 'NotFoundError') throw e; }
+}
+async function _onDisk(id) {
+  try { await (await dirHandle.getDirectoryHandle('profiles')).getFileHandle(`${id}.json`); return true; }
+  catch { return false; }
+}
+function _dropOption(id) {
+  [...profileSelect.options].find(o => o.value === id)?.remove();
+}
+function _clearEditor() {
+  currentId = null; layers = []; selectedLayerIndex = null;
+  setLayers(layerList, []);
+  profileSelect.value = '';
+  saveBtn.disabled = true;
+  _renderCanvas();
+}
+
+document.getElementById('delete-btn').addEventListener('click', async () => {
+  if (!currentId) return;
+  const id = currentId;
+  try {
+    if (dirHandle && !memoryMode && await _onDisk(id)) {
+      const uses = findUses(await _readReferencingDocs(), id);
+      if (uses.length) {
+        const list = uses.slice(0, 8).map(u => `${u.path} (${u.count})`).join('\n');
+        alert(`"${id}" is still used by:\n${list}${uses.length > 8 ? `\n…and ${uses.length - 8} more` : ''}\n\nChange those to another profile first.`);
+        return;
+      }
+      if (!confirm(`Delete profile "${id}"? Its .json and .svg files are removed from the bundle.`)) return;
+      await _removeFile(`profiles/${id}.json`);
+      await _removeFile(`profiles/${id}.svg`);
+    } else if (memoryMode && _memoryProfiles[id]) {
+      alert(`This session cannot change the bundle's files. To delete "${id}", remove profiles/${id}.json and profiles/${id}.svg from the bundle, after checking that no element or detail uses it.`);
+      return;
+    } else if (!confirm(`Discard the unsaved profile "${id}"?`)) return;
+    _dropOption(id);
+    _clearEditor();
+    _setStatus(`Deleted ${id}`);
+  } catch (e) { _setStatus(`Delete failed: ${e.message}`); }
+});
+
+document.getElementById('rename-btn').addEventListener('click', async () => {
+  if (!currentId) return;
+  const oldId = currentId;
+  const raw = window.prompt('New id:', oldId);
+  if (raw === null || raw.trim().toLowerCase() === oldId) return;
+  const id = _validNewId(raw);
+  if (!id) return;
+  try {
+    if (dirHandle && !memoryMode && await _onDisk(oldId)) {
+      layers = getLayers(layerList);
+      const docs = await _readReferencingDocs();
+      const uses = findUses(docs, oldId);
+      if (!confirm(`Rename "${oldId}" to "${id}"? ${uses.length} file${uses.length === 1 ? '' : 's'} that use it will be updated.`)) return;
+      currentId = id;
+      const json = buildJson({ layers, originX, id, description: currentDesc, profileType, alignment, planWidth, ffl_m, height_limit_m, detail });
+      const svg  = buildSvg({ layers, originX, matMap, profileType, alignment, planWidth });
+      await _writeFile(`profiles/${id}.json`, JSON.stringify(json, null, 2));
+      await _writeFile(`profiles/${id}.svg`, svg);
+      for (const u of uses) await _writeFile(u.path, JSON.stringify(renameRefs(docs[u.path], oldId, id), null, 2));
+      await _removeFile(`profiles/${oldId}.json`);
+      await _removeFile(`profiles/${oldId}.svg`);
+      _setStatus(`Renamed to ${id}; ${uses.length} file${uses.length === 1 ? '' : 's'} updated`);
+    } else if (memoryMode && _memoryProfiles[oldId]) {
+      alert('This session cannot change the bundle\'s files, so a saved profile cannot be renamed here. Use Duplicate to save a copy under the new id, then switch the elements and details to it.');
+      return;
+    } else {
+      currentId = id;
+      _setStatus(`Renamed to ${id}: unsaved`);
+    }
+    _dropOption(oldId);
+    const opt = document.createElement('option');
+    opt.value = id; opt.textContent = id;
+    profileSelect.appendChild(opt);
+    profileSelect.value = id;
+    _applySearch();
+  } catch (e) { _setStatus(`Rename failed: ${e.message}`); }
 });
 
 newBtn.addEventListener('click', () => {
