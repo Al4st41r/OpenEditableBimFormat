@@ -12,6 +12,28 @@
 
 import * as THREE from 'three';
 
+const DEPTH_RANKS = 16;
+const _ranks = new Map();   // element id -> order of first appearance
+
+/**
+ * The depth bias of an element, in polygon-offset units: 1 for the first element seen, 2 for the next, and so on round
+ * to 16. Overlapping elements (a masonry upstand against the wall above it, two walls at a corner) have faces on the
+ * same plane. With one bias for all of them the depth test cannot choose between the faces, and they swap from pixel
+ * to pixel as a checkerboard. Each element therefore gets its own bias, kept for the session so a redraw does not
+ * change which one wins; two elements only share a bias when they are 16 apart in order. The largest difference is
+ * 15 units, a few millimetres at room scale.
+ *
+ * @param {string|undefined} elementId
+ */
+export function depthBiasUnits(elementId) {
+  if (elementId === undefined) return 1;
+  if (!_ranks.has(elementId)) _ranks.set(elementId, _ranks.size);
+  return 1 + (_ranks.get(elementId) % DEPTH_RANKS);
+}
+
+/** Forget the ranks (for tests, and when a different bundle is opened). */
+export function resetDepthBias() { _ranks.clear(); }
+
 /**
  * Convert swept mesh data into a THREE.Mesh.
  *
@@ -35,7 +57,7 @@ export function buildThreeMesh(meshData) {
     side:                THREE.DoubleSide,
     polygonOffset:       true,
     polygonOffsetFactor: 1,
-    polygonOffsetUnits:  1,
+    polygonOffsetUnits:  depthBiasUnits(meshData.elementId),
   });
 
   const mesh = new THREE.Mesh(geometry, material);

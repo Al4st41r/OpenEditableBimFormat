@@ -12,7 +12,7 @@
 import { buildMaterialTreeItem } from './materialTreeItem.js';
 import { initEditorScene } from './editorScene.js';
 import { loadBundle }         from '../loader/loadBundle.js';
-import { buildThreeMesh }     from '../scene/buildMesh.js';
+import { buildThreeMesh, resetDepthBias } from '../scene/buildMesh.js';
 import { applyJunctionClipping, buildCustomJunctionMesh, buildJunctionDetailMeshes } from '../junction-renderer.js';
 import { sweepOptionsFromElement } from '../geometry/sweep.js';
 import {
@@ -608,6 +608,7 @@ async function _loadAndRenderBundle(adapter) {
   _elementRegistry.clear();
   _clearOpenings();
   _clearObjects();
+  resetDepthBias();   // ranks by order of appearance in this bundle, the same on every load
   _modelState.elements.length  = 0;
   _modelState.slabs.length     = 0;
   _modelState.junctions.length = 0;

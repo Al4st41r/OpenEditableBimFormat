@@ -16,7 +16,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { loadBundle }           from './loader/loadBundle.js';
 import { loadBundleZstd }       from './loader/loadBundleZstd.js';
-import { buildThreeMesh }        from './scene/buildMesh.js';
+import { buildThreeMesh, resetDepthBias } from './scene/buildMesh.js';
 import { applyJunctionClipping, buildCustomJunctionMesh, buildJunctionDetailMeshes } from './junction-renderer.js';
 import { ensureDetailMaterials } from './detail/detailMaterials.js';
 import { applyCsgJunctions } from './junction-csg.js';
@@ -103,6 +103,7 @@ function _buildScene(meshes, manifest, junctions, arrays, grids, openings = [], 
 
   currentGroup = new THREE.Group();
   currentGroup.name = manifest.project_name;
+  resetDepthBias();
   for (const meshData of meshes) currentGroup.add(buildThreeMesh(meshData));
   applyJunctionClipping(currentGroup, junctions);
   applyCsgJunctions(currentGroup, junctions);
