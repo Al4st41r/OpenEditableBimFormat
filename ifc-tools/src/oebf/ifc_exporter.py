@@ -13,6 +13,7 @@ import ifcopenshell.api.aggregate
 import ifcopenshell.api.geometry
 import ifcopenshell.api.material
 from . import ifc_mapping
+from . import ifc_openings
 import ifcopenshell.api.pset
 
 # Default wall height when the profile has no explicit height field
@@ -57,6 +58,7 @@ def export_ifc(oebf_dir: Path, ifc_path: Path) -> None:
         if entity is not None:
             exported[slab_id] = entity
 
+    ifc_openings.export_openings_and_objects(ifc, oebf_dir, model_data, storey, body_context, exported, mapping)
     _export_junctions(ifc, oebf_dir, model_data, exported)
     _export_bundle_extensions(ifc, project, oebf_dir, model_data, exported)
 

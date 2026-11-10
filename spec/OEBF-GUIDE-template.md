@@ -126,6 +126,7 @@ After writing a new entity file, add its ID to `model.json`:
 |-------------|-----------|
 | Element | `elements[]` **and** relevant storey `children[]` |
 | Object | `objects[]` **and** relevant storey `children[]` |
+| Opening | `openings[]` |
 | Junction | `junctions[]` |
 | Array | `arrays[]` |
 | Grid | `grids[]` |
@@ -133,7 +134,7 @@ After writing a new entity file, add its ID to `model.json`:
 
 Paths, Profiles, Symbols, Groups, and Materials are **not registered** in
 `model.json` — they are found by ID reference from the entities that use them.
-Openings are found via their Object's `opening_id` — no separate registration.
+An Object's `opening_id` names its Opening. The viewer draws a door or window Object as a box over its wall, and the IFC export writes it as an `IfcDoor` or `IfcWindow` filling an `IfcOpeningElement` that cuts the wall. Both read the Opening from `openings[]`.
 
 ---
 

@@ -44,6 +44,7 @@ import { PathEditTool } from './pathEditTool.js';
 import { FsaAdapter, MemoryAdapter } from './storageAdapter.js';
 import { mergeStoreyGroups, syncHierarchyStoreys } from '../detail/levelResolver.js';
 import { buildOpeningOutline } from '../loader/loadOpening.js';
+import { objectPlacement, buildObjectGroup } from '../loader/loadObject.js';
 import {
   openingFieldSpecs, nextOpeningId, newOpening, openingProblems, openingsOf, overlappingOpenings,
   withOpeningRegistered, withOpeningUnregistered,
@@ -597,6 +598,7 @@ async function _loadAndRenderBundle(adapter) {
   _selectedElementId = null;
   _elementRegistry.clear();
   _clearOpenings();
+  _clearObjects();
   _modelState.elements.length  = 0;
   _modelState.slabs.length     = 0;
   _modelState.junctions.length = 0;
@@ -769,6 +771,7 @@ async function _loadAndRenderBundle(adapter) {
   }
 
   await _loadOpenings(model);
+  await _loadObjects(model);
   _populateJunctionList();
 
   // Create wall tool bound to this bundle
@@ -2132,6 +2135,32 @@ function _drawOpening(entity) {
 
 function _redrawOpeningsOf(hostId) {
   for (const { entity } of [..._openings.values()]) if (entity.host_element_id === hostId) _drawOpening(entity);
+}
+
+// Objects (doors, windows) are drawn read-only: there is no tool to place them yet
+const _objectGroup = new THREE.Group();
+_objectGroup.name = 'objects';
+editorScene.overlayGroup.add(_objectGroup);
+
+function _clearObjects() {
+  for (const o of [..._objectGroup.children]) {
+    _objectGroup.remove(o);
+    o.traverse((c) => { c.geometry?.dispose(); c.material?.dispose(); });
+  }
+}
+
+async function _loadObjects(model) {
+  for (const id of model.objects ?? []) {
+    try {
+      const object = await readEntity(adapter, `objects/${id}.json`);
+      const symbolDef = await readEntity(adapter, `symbols/${object.symbol_id}.json`);
+      const pathData = await readEntity(adapter, `paths/${object.path_id}.json`);
+      const openingDef = object.opening_id ? await readEntity(adapter, `openings/${object.opening_id}.json`) : null;
+      _objectGroup.add(buildObjectGroup(objectPlacement(object, symbolDef, pathData, openingDef), object.id));
+    } catch (err) {
+      console.warn(`[OEBF] object ${id} not drawn:`, err.message);
+    }
+  }
 }
 
 async function _loadOpenings(model) {

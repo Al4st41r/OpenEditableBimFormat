@@ -16,6 +16,7 @@ import { buildProfileShape }   from './loadProfile.js';
 import { sweepProfile, sweepOptionsFromElement } from '../geometry/sweep.js';
 import { buildSlabMeshData }   from './loadSlab.js';
 import { buildOpeningOutline } from './loadOpening.js';
+import { loadObjectPlacement } from './loadObject.js';
 
 // ── Tar extraction ──────────────────────────────────────────────────────────
 
@@ -166,7 +167,17 @@ export async function loadBundleZstd(file) {
     }
   }
 
+  const objects = [];
+  for (const objectId of (model.objects ?? [])) {
+    try {
+      const object = readJson(`objects/${objectId}.json`);
+      objects.push({ object, placement: loadObjectPlacement(object, readJson) });
+    } catch (err) {
+      console.warn(`[OEBF] Skipping object ${objectId}: ${err.message}`);
+    }
+  }
+
   const details = await loadDetails({ readJson, model, junctions, grids });
 
-  return { meshes, manifest, junctions, arrays, grids, openings, details, materials: materials.materials };
+  return { meshes, manifest, junctions, arrays, grids, openings, objects, details, materials: materials.materials };
 }

@@ -22,13 +22,14 @@ import { buildProfileShape }   from './loadProfile.js';
 import { sweepProfile, sweepOptionsFromElement } from '../geometry/sweep.js';
 import { buildSlabMeshData }   from './loadSlab.js';
 import { buildOpeningOutline } from './loadOpening.js';
+import { loadObjectPlacement } from './loadObject.js';
 import { loadDetails }         from '../detail/loadDetails.js';
 
 /**
  * Load an OEBF bundle from a File System Access API directory handle.
  *
  * @param {FileSystemDirectoryHandle} dirHandle
- * @returns {Promise<{ meshes: Array, manifest: object, junctions: Array, arrays: Array, grids: Array, openings: Array, details: Array, materials: Array }>}
+ * @returns {Promise<{ meshes: Array, manifest: object, junctions: Array, arrays: Array, grids: Array, openings: Array, objects: Array, details: Array, materials: Array }>}
  */
 export async function loadBundle(dirHandle) {
   const manifest  = await _readJson(dirHandle, 'manifest.json');
@@ -129,12 +130,27 @@ export async function loadBundle(dirHandle) {
     }
   }
 
+  // Objects (doors, windows) are drawn from their symbol, host path and opening; read those up front
+  const objects = [];
+  for (const objectId of (model.objects ?? [])) {
+    try {
+      const object = await _readJson(dirHandle, `objects/${objectId}.json`);
+      const files = {};
+      for (const rel of [`symbols/${object.symbol_id}.json`, `paths/${object.path_id}.json`, ...(object.opening_id ? [`openings/${object.opening_id}.json`] : [])]) {
+        files[rel] = await _readJson(dirHandle, rel);
+      }
+      objects.push({ object, placement: loadObjectPlacement(object, (rel) => files[rel]) });
+    } catch (err) {
+      console.warn(`[OEBF] Skipping object ${objectId}: ${err.message}`);
+    }
+  }
+
   const details = await loadDetails({
     readJson: (rel) => _readJson(dirHandle, rel),
     model, junctions, grids,
   });
 
-  return { meshes, manifest, junctions, arrays, grids, openings, details, materials: materials.materials };
+  return { meshes, manifest, junctions, arrays, grids, openings, objects, details, materials: materials.materials };
 }
 
 /**

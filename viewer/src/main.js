@@ -20,6 +20,7 @@ import { buildThreeMesh }        from './scene/buildMesh.js';
 import { applyJunctionClipping, buildCustomJunctionMesh, buildJunctionDetailMeshes } from './junction-renderer.js';
 import { ensureDetailMaterials } from './detail/detailMaterials.js';
 import { applyCsgJunctions } from './junction-csg.js';
+import { buildObjectGroup } from './loader/loadObject.js';
 import { buildArrayGroup }       from './array/arrayRenderer.js';
 import { buildSymbolGeometries } from './loader/loadSymbol.js';
 import { buildGridLineSegments } from './loader/loadGrid.js';
@@ -97,7 +98,7 @@ function _clearScene() {
   currentGroup = null;
 }
 
-function _buildScene(meshes, manifest, junctions, arrays, grids, openings = [], materials = []) {
+function _buildScene(meshes, manifest, junctions, arrays, grids, openings = [], materials = [], objects = []) {
   _clearScene();
 
   currentGroup = new THREE.Group();
@@ -168,6 +169,8 @@ function _buildScene(meshes, manifest, junctions, arrays, grids, openings = [], 
     currentGroup.add(lines);
   }
 
+  for (const { object, placement } of objects) currentGroup.add(buildObjectGroup(placement, object.id));
+
   scene.add(currentGroup);
 
   // Fit camera to loaded geometry
@@ -193,8 +196,8 @@ document.getElementById('open-dir-btn').addEventListener('click', async () => {
     currentDirHandle = dirHandle;
     document.getElementById('edit-profiles-btn').disabled = false;
     statusEl.textContent = 'Loading…';
-    const { meshes, manifest, junctions, arrays, grids, openings, materials } = await loadBundle(dirHandle);
-    _buildScene(meshes, manifest, junctions, arrays, grids, openings, materials);
+    const { meshes, manifest, junctions, arrays, grids, openings, objects, materials } = await loadBundle(dirHandle);
+    _buildScene(meshes, manifest, junctions, arrays, grids, openings, materials, objects);
   } catch (err) {
     if (err.name !== 'AbortError') {
       statusEl.textContent = `Error: ${err.message}`;
@@ -213,7 +216,7 @@ document.getElementById('load-demo-btn').addEventListener('click', async () => {
     const blob = await resp.blob();
     const file = new File([blob], 'terraced-house.oebfz');
     const result = await loadBundleZstd(file);
-    _buildScene(result.meshes, result.manifest, result.junctions, result.arrays, result.grids, result.openings, result.materials);
+    _buildScene(result.meshes, result.manifest, result.junctions, result.arrays, result.grids, result.openings, result.materials, result.objects);
   } catch (err) {
     statusEl.textContent = `Error: ${err.message}`;
     console.error(err);
@@ -230,7 +233,7 @@ document.getElementById('open-file-btn').addEventListener('click', () => {
     statusEl.textContent = 'Loading…';
     try {
       const result = await loadBundleZstd(file);
-      _buildScene(result.meshes, result.manifest, result.junctions, result.arrays, result.grids, result.openings, result.materials);
+      _buildScene(result.meshes, result.manifest, result.junctions, result.arrays, result.grids, result.openings, result.materials, result.objects);
       currentDirHandle = null;
       document.getElementById('edit-profiles-btn').disabled = true;
     } catch (err) {

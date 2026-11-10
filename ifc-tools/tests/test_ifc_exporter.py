@@ -257,3 +257,19 @@ def test_the_ifc_file_is_in_metres_so_a_5_4_m_wall_is_5_4_m_long(tmp_path):
     solid = wall.Representation.Representations[0].Items[0]
     assert solid.Depth == 5.4
     assert wall.ObjectPlacement.RelativePlacement.Location.Coordinates[0] == 5.4
+
+
+def test_a_door_object_fills_its_opening_in_the_wall(tmp_path):
+    import ifcopenshell.util.placement as placement
+    ifc = _export(tmp_path)
+    door = ifc.by_type("IfcDoor")[0]
+    opening = ifc.by_type("IfcOpeningElement")[0]
+    wall = next(w for w in ifc.by_type("IfcWall") if "South external" in (w.Name or ""))
+    assert [r.RelatingBuildingElement for r in ifc.by_type("IfcRelVoidsElement")] == [wall]
+    assert [(r.RelatingOpeningElement, r.RelatedBuildingElement) for r in ifc.by_type("IfcRelFillsElement")] == [(opening, door)]
+    # the wall runs from x = 5.4 to 0; the opening starts 2.25 m along and is 0.9 m wide, so it is centred at x = 2.7
+    assert abs(placement.get_local_placement(door.ObjectPlacement)[0][3] - 2.7) < 1e-9
+    box = door.Representation.Representations[0].Items[0]
+    assert (box.SweptArea.XDim, box.SweptArea.YDim, box.Depth) == (0.9, 0.045, 2.1)
+    assert door.PredefinedType == "DOOR"
+    assert _psets(door)["OEBF_Element"]["OebfId"] == "object-door-south-gf"
