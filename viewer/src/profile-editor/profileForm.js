@@ -12,6 +12,7 @@ import { FUNCTIONS, FUNCTION_META } from './profileConstants.js';
 import { openMaterialPicker } from './materialPicker.js';
 import { PACKAGES, BARRIERS, FIRE_ROLES, SHEARING_LAYERS } from '../detail-review/classification.js';
 import { withTag, tagsToSave } from './layerTags.js';
+import { PEN_SERIES } from '../lineweights.js';
 import { toDisplay, fromDisplay, unitLabel } from '../editor/units.js';
 
 const ICON_BASE = import.meta.env.BASE_URL + 'icons/';
@@ -88,6 +89,7 @@ export function getLayers(formEl) {
     }
     const tags = tagsToSave(JSON.parse(row.dataset.tags || '{}'));
     if (tags) base.tags = tags;
+    if (row.dataset.outline) base.outline_mm = Number(row.dataset.outline);
     return base;
   });
 }
@@ -118,6 +120,7 @@ function _appendRow(formEl, layer, index) {
   row.dataset.layerType = isRegion ? 'region' : 'band';
   if (isRegion) row.dataset.vertices = JSON.stringify(layer.vertices ?? []);
   row.dataset.tags = JSON.stringify(layer.tags ?? {});
+  row.dataset.outline = layer.outline_mm === undefined ? '' : String(layer.outline_mm);
   const fnColour = FUNCTION_META[layer.function]?.colour ?? '#555';
   row.style.cssText = `display:flex;flex-wrap:wrap;gap:4px 6px;align-items:center;padding:4px 0;border-bottom:1px solid #333;border-left:3px solid ${fnColour};padding-left:6px;`;
 
@@ -340,20 +343,26 @@ function _tagsFold(formEl, row) {
   seq.style.cssText = css + 'width:90px;';
   seq.addEventListener('change', () => write('sequence', seq.value === '' ? null : parseInt(seq.value, 10)));
 
+  const outline = document.createElement('select');
+  outline.style.cssText = css;
+  outline.append(Object.assign(document.createElement('option'), { value: '', textContent: 'from layer function' }),
+    ...PEN_SERIES.map(w => Object.assign(document.createElement('option'), { value: String(w), textContent: `${w} mm`, selected: row.dataset.outline === String(w) })));
+  outline.addEventListener('change', () => { row.dataset.outline = outline.value; _emit(formEl); });
+
   const fold = document.createElement('details');
   fold.className = 'layer-tags';
   fold.style.cssText = 'flex:1 1 100%;font-size:11px;color:#999;';
-  fold.open = Object.keys(read()).length > 0;
+  fold.open = Object.keys(read()).length > 0 || row.dataset.outline !== '';
   const summary = document.createElement('summary');
   summary.style.cursor = 'pointer';
-  summary.append('Tags');
+  summary.append('Tags and outline');
   const count = document.createElement('span');
   count.textContent = Object.keys(read()).length ? ` (${Object.keys(read()).length})` : '';
   summary.appendChild(count);
   const note = document.createElement('div');
   note.style.cssText = 'color:#777;margin:2px 0;';
   note.textContent = 'A tag here overrides the material for this layer only.';
-  fold.append(summary, pick('Package', 'package', PACKAGES), _tagRow('Barrier', barrier), pick('Fire', 'fire_role', FIRE_ROLES),
+  fold.append(summary, _tagRow('Outline', outline), pick('Package', 'package', PACKAGES), _tagRow('Barrier', barrier), pick('Fire', 'fire_role', FIRE_ROLES),
     pick('Shearing', 'shearing_layer', SHEARING_LAYERS), _tagRow('Sequence', seq), note);
   return fold;
 }

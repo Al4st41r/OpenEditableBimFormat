@@ -81,6 +81,14 @@
     </div>
     <div id="pane-resizer"></div>
     <div id="form-panel">
+      <div id="lineweights-bar" style="padding:6px 12px;border-bottom:1px solid #333;display:flex;gap:10px;align-items:center;flex-wrap:wrap;flex-shrink:0;font-size:11px;">
+        <span style="opacity:0.6;" title="Pen weights in millimetres at print scale. Blank uses the default (a layer's outline follows its function).">Line weights</span>
+        <label>Cut <select id="lw-cut"></select></label>
+        <label>Seen <select id="lw-seen"></select></label>
+        <label>Hatch <select id="lw-hatch"></select></label>
+        <label>Notes <select id="lw-annotation"></select></label>
+        <label style="margin-left:auto;" title="Draw every line as a hairline"><input type="checkbox" id="lw-thin"> Thin</label>
+      </div>
       <div id="profile-meta" style="padding:8px 12px;border-bottom:1px solid #333;display:flex;gap:12px;align-items:center;flex-shrink:0;">
         <label style="display:flex;align-items:center;gap:6px;font-size:12px;">
           Type

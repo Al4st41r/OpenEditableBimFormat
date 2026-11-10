@@ -267,3 +267,23 @@ it('buildJson keeps a layer\'s tags and leaves out empty ones', () => {
   expect(json.assembly[0].tags).toEqual({ package: 'cladding', barrier: ['water'] });
   expect(json.assembly[1]).not.toHaveProperty('tags');
 });
+
+describe('line weights survive a save (#115)', () => {
+  const layers = [
+    { name: 'Brick', material_id: 'm', thickness: 0.1, function: 'finish', outline_mm: 0.5 },
+    { name: 'Insulation', material_id: 'm', thickness: 0.1, function: 'insulation' },
+  ];
+  const base = { layers, originX: 0.1, id: 'p', description: 'd' };
+
+  it('writes the profile lineweights and a layer outline_mm', () => {
+    const json = buildJson({ ...base, lineweights: { cut: 0.5, hatch: 0.13 } });
+    expect(json.lineweights).toEqual({ cut: 0.5, hatch: 0.13 });
+    expect(json.assembly[0].outline_mm).toBe(0.5);
+    expect(json.assembly[1]).not.toHaveProperty('outline_mm');
+  });
+
+  it('leaves them out when there are none, so the JSON stays free of empty objects', () => {
+    const json = buildJson({ ...base, layers: [layers[1]], lineweights: {} });
+    expect(json).not.toHaveProperty('lineweights');
+  });
+});

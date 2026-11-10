@@ -62,6 +62,17 @@ export function initCanvas(svgEl) {
 }
 
 /**
+ * Outline width of layer `i`. With opts.strokePx (a function of the layer index giving screen pixels) the line keeps
+ * that width at any zoom, so a pen weight reads the same as the view is zoomed; without it the old width in profile
+ * units is used.
+ */
+function _stroke(el, opts, i, fallback) {
+  const px = opts?.strokePx?.(i);
+  if (px) { el.setAttribute('stroke-width', String(px)); el.setAttribute('vector-effect', 'non-scaling-stroke'); }
+  else el.setAttribute('stroke-width', fallback);
+}
+
+/**
  * Render layers and origin marker into svgEl.
  *
  * @param {SVGElement} svgEl
@@ -90,7 +101,7 @@ export function renderCanvas(svgEl, layers, originX, matMap, selectedIndex = nul
       poly.setAttribute('points', layer.vertices.map(v => `${v.x},${v.y}`).join(' '));
       poly.setAttribute('fill', colour);
       poly.setAttribute('stroke', i === selectedIndex ? '#0080ff' : '#333');
-      poly.setAttribute('stroke-width', '0.003');
+      _stroke(poly, opts, i, '0.003');
       poly.style.cursor = 'pointer';
       poly.addEventListener('click', () => {
         svgEl.dispatchEvent(new CustomEvent('layer-selected', { detail: { index: i } }));
@@ -107,7 +118,7 @@ export function renderCanvas(svgEl, layers, originX, matMap, selectedIndex = nul
     rect.setAttribute('height', String(WALL_HEIGHT));
     rect.setAttribute('fill',   colour);
     rect.setAttribute('stroke', i === selectedIndex ? '#0080ff' : '#333');
-    rect.setAttribute('stroke-width', '0.003');
+    _stroke(rect, opts, i, '0.003');
     rect.style.cursor = 'pointer';
     rect.addEventListener('click', () => {
       svgEl.dispatchEvent(new CustomEvent('layer-selected', { detail: { index: i } }));
@@ -192,7 +203,7 @@ function _renderStacked(svgEl, layers, originX, matMap, selectedIndex, opts) {
     rect.setAttribute('width', String(W)); rect.setAttribute('height', String(t));
     rect.setAttribute('fill', matMap[layer.material_id]?.colour_hex ?? '#888888');
     rect.setAttribute('stroke', index === selectedIndex ? '#0080ff' : '#333');
-    rect.setAttribute('stroke-width', String(Math.max(total, 0.1) * 0.01));
+    _stroke(rect, opts, index, String(Math.max(total, 0.1) * 0.01));
     rect.style.cursor = 'pointer';
     rect.addEventListener('click', () => {
       svgEl.dispatchEvent(new CustomEvent('layer-selected', { detail: { index } }));

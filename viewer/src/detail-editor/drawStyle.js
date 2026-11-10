@@ -8,7 +8,7 @@
 
 import { hatchKindFor, hatchDefs, patternId } from '../detail-review/hatches.js';
 import { tint } from '../detail-review/detailSvg.js';
-import { resolveLineweight, functionForCategory } from '../lineweights.js';
+import { resolveLineweight, functionForCategory, HAIRLINE_MM } from '../lineweights.js';
 
 export const PX_PER_MM = 4;
 
@@ -16,26 +16,35 @@ const get = (src, id) => (src instanceof Map ? src.get(id) : src?.[id]);
 
 /**
  * @param {{ id: string, kind: string, materialId?: string }} prim - a canvas model primitive
- * @param {{ doc: object, materials: object|Map, profiles: object|Map }} ctx
+ * @param {{ doc: object, materials: object|Map, profiles: object|Map, thin?: boolean }} ctx   thin: every line a hairline
  * @returns {{ fill: string, hatchKind: string, hatch: number, cutPx: number }}
  */
-export function primitiveStyle(prim, { doc, materials, profiles }) {
+export function primitiveStyle(prim, { doc, materials, profiles, thin = false }) {
   const material = get(materials, prim.materialId);
-  let profile; let layer;
-  const m = /^member:(.+):layer:(\d+)$/.exec(prim.id);
-  if (m) {
-    const member = doc?.members?.find((x) => x.role === m[1]);
-    profile = member ? get(profiles, member.profile_id) : undefined;
-    layer = profile?.assembly?.[Number(m[2])];
-  }
-  const fn = functionForCategory(material?.category);
-  const cut = resolveLineweight('cut', { profile, layer, function: fn });
+  const { profile, layer } = profileLayerOf(prim, doc, profiles);
+  const cut = thin ? HAIRLINE_MM : cutWeightMm(prim, { doc, materials, profiles });
   return {
     fill: material?.colour_hex ? tint(material.colour_hex, 0.3) : prim.fill,
     hatchKind: hatchKindFor(material?.category),
-    hatch: resolveLineweight('hatch', { profile, layer }),
+    hatch: thin ? HAIRLINE_MM : resolveLineweight('hatch', { profile, layer }),
     cutPx: Math.max(1, cut * PX_PER_MM),
   };
+}
+
+/** The profile and profile layer a canvas primitive was drawn from (both undefined for a region). */
+function profileLayerOf(prim, doc, profiles) {
+  const m = /^member:(.+):layer:(\d+)$/.exec(prim.id);
+  if (!m) return {};
+  const member = doc?.members?.find((x) => x.role === m[1]);
+  const profile = member ? get(profiles, member.profile_id) : undefined;
+  return { profile, layer: profile?.assembly?.[Number(m[2])] };
+}
+
+/** The cut line weight of a canvas primitive in sheet millimetres: layer outline, profile, then its function's default. */
+export function cutWeightMm(prim, { doc, materials, profiles }) {
+  const { profile, layer } = profileLayerOf(prim, doc, profiles);
+  const fn = functionForCategory(get(materials, prim.materialId)?.category);
+  return resolveLineweight('cut', { profile, layer, function: fn });
 }
 
 /** `<pattern>` markup for the styles in use, scaled to screen pixels. */

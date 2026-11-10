@@ -116,9 +116,14 @@ function visibleSnap() {
 }
 
 // ── painting ─────────────────────────────────────────────────────────────────
+let thin = localStorage.getItem('oebf-thin') === '1';   // every line a hairline (shared with the profile editor)
+function syncThin() { $('thin-btn').classList.toggle('active', thin); }
+$('thin-btn').addEventListener('click', () => { thin = !thin; localStorage.setItem('oebf-thin', thin ? '1' : '0'); syncThin(); paint(); });
+syncThin();
+
 function paint() {
   if (!st) { svg.replaceChildren(); return; }
-  renderCanvas(svg, canvasModelFor(currentDoc(), st.selection), view, size, { draft, hint, styleOf: (p) => primitiveStyle(p, { doc: currentDoc(), materials: bundle.ctx.materials, profiles: bundle.ctx.profiles }) });
+  renderCanvas(svg, canvasModelFor(currentDoc(), st.selection), view, size, { draft, hint, styleOf: (p) => primitiveStyle(p, { doc: currentDoc(), materials: bundle.ctx.materials, profiles: bundle.ctx.profiles, thin }) });
   paintTip();
 }
 

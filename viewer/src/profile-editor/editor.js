@@ -19,6 +19,8 @@ import { buildJson, buildSvg, isStackedProfile } from './profileSerializer.js';
 import { addGuide, getGuides, clearGuides, renderGuidelines, setupGuideDrag } from './profileGuidelines.js';
 import { activateRectTool, activatePolygonTool, deactivateTool } from './canvasDrawTools.js';
 import { findUses, renameRefs, matchesSearch } from './profileRefs.js';
+import { PEN_SERIES, HAIRLINE_MM, resolveLineweight } from '../lineweights.js';
+import { PX_PER_MM } from '../detail-editor/drawStyle.js';
 import { setUnit, getUnit, toDisplay, fromDisplay, unitLabel } from '../editor/units.js';
 
 // ── DOM refs ─────────────────────────────────────────────────────────────────
@@ -86,6 +88,8 @@ let planWidth      = 1;          // nominal plan width of a stacked slab profile
 let ffl_m          = 0.0;
 let height_limit_m = 2.4;
 let detail = false;
+let lineweights = {};   // the profile's own pens (cut, seen, hatch, annotation); blank ones use the defaults
+let thin = localStorage.getItem('oebf-thin') === '1';
 let selectedLayerIndex = null;
 let memoryMode      = false;
 let _memoryProfiles = {};  // profileId → parsed profile object (memory mode only)
@@ -160,6 +164,31 @@ function _fit() {
   _renderCanvas();
 }
 document.getElementById('fit-btn').addEventListener('click', _fit);
+
+// ── Line weights: the profile's pens and the Thin toggle ─────────────────────
+const LW_ROLES = ['cut', 'seen', 'hatch', 'annotation'];
+function _syncLineweightControls() {
+  for (const role of LW_ROLES) {
+    const sel = document.getElementById(`lw-${role}`);
+    sel.replaceChildren(
+      Object.assign(document.createElement('option'), { value: '', textContent: `default ${resolveLineweight(role, {})}` }),
+      ...PEN_SERIES.map(w => Object.assign(document.createElement('option'), { value: String(w), textContent: `${w} mm` })));
+    sel.value = lineweights[role] === undefined ? '' : String(lineweights[role]);
+  }
+  document.getElementById('lw-thin').checked = thin;
+}
+for (const role of LW_ROLES) {
+  document.getElementById(`lw-${role}`).addEventListener('change', e => {
+    if (e.target.value === '') delete lineweights[role]; else lineweights[role] = Number(e.target.value);
+    _renderCanvas();
+  });
+}
+document.getElementById('lw-thin').addEventListener('change', e => {
+  thin = e.target.checked;
+  localStorage.setItem('oebf-thin', thin ? '1' : '0');
+  _renderCanvas();
+});
+_syncLineweightControls();
 
 /** Total thickness of the band layers: the profile's width across a wall. */
 function _bandWidth() {
@@ -258,6 +287,7 @@ profileSelect.addEventListener('change', async () => {
     thickness:   l.thickness,
     function:    l.function,
     ...(l.tags && { tags: l.tags }),
+    ...(l.outline_mm !== undefined && { outline_mm: l.outline_mm }),
     ...(l.type === 'region' ? {
       type:     'region',
       vertices: l.vertices ?? [],
@@ -272,6 +302,8 @@ profileSelect.addEventListener('change', async () => {
   ffl_m          = data.ffl_m           ?? 0.0;
   height_limit_m = data.height_limit_m  ?? 2.4;
   detail         = data.detail === true;
+  lineweights    = { ...(data.lineweights ?? {}) };
+  _syncLineweightControls();
   profileTypeSelect.value   = profileType;
   alignment = data.alignment ?? 'center';
   planWidth = data.width > 0 ? data.width : 1;
@@ -395,7 +427,7 @@ document.getElementById('rename-btn').addEventListener('click', async () => {
       const uses = findUses(docs, oldId);
       if (!confirm(`Rename "${oldId}" to "${id}"? ${uses.length} file${uses.length === 1 ? '' : 's'} that use it will be updated.`)) return;
       currentId = id;
-      const json = buildJson({ layers, originX, id, description: currentDesc, profileType, alignment, planWidth, ffl_m, height_limit_m, detail });
+      const json = buildJson({ layers, originX, id, description: currentDesc, profileType, alignment, planWidth, ffl_m, height_limit_m, detail, lineweights });
       const svg  = buildSvg({ layers, originX, matMap, profileType, alignment, planWidth });
       await _writeFile(`profiles/${id}.json`, JSON.stringify(json, null, 2));
       await _writeFile(`profiles/${id}.svg`, svg);
@@ -428,7 +460,7 @@ newBtn.addEventListener('click', () => {
   currentId   = id;
   currentDesc = '';
   originX     = 0.1;
-  profileType = 'wall'; ffl_m = 0.0; height_limit_m = 2.4; detail = false;
+  profileType = 'wall'; ffl_m = 0.0; height_limit_m = 2.4; detail = false; lineweights = {}; _syncLineweightControls();
   alignment = 'center'; planWidth = 1; alignmentSelect.value = 'center';
   profileTypeSelect.value = 'wall'; _syncAlignmentControl(); fflInput.value = toDisplay(0.0); heightLimitInput.value = toDisplay(2.4);
   layers      = [{ name: '', material_id: matIds[0] ?? '', thickness: 0.1, function: 'structure' }];
@@ -478,7 +510,7 @@ saveBtn.addEventListener('click', async () => {
   layers = getLayers(layerList);
   try {
     const json = buildJson({ layers, originX, id: currentId, description: currentDesc,
-                             profileType, alignment, planWidth, ffl_m, height_limit_m, detail });
+                             profileType, alignment, planWidth, ffl_m, height_limit_m, detail, lineweights });
     const svg  = buildSvg({ layers, originX, matMap, profileType, alignment, planWidth });
 
     if (memoryMode) {
@@ -518,8 +550,14 @@ function _refreshUnitLabels() {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function _renderCanvas() {
-  renderCanvas(profileSvg, getLayers(layerList), originX, matMap, selectedLayerIndex,
-               { ffl_m, height_limit_m, stacked: isStackedProfile(profileType, alignment), alignment, planWidth });
+  const current = getLayers(layerList);
+  // each layer's outline at its pen weight, in screen pixels, so it reads the same at any zoom
+  const strokePx = (i) => {
+    const mm = thin ? HAIRLINE_MM : resolveLineweight('cut', { profile: { lineweights }, layer: current[i], function: current[i]?.function });
+    return Math.max(1, mm * PX_PER_MM);
+  };
+  renderCanvas(profileSvg, current, originX, matMap, selectedLayerIndex,
+               { ffl_m, height_limit_m, stacked: isStackedProfile(profileType, alignment), alignment, planWidth, strokePx });
   renderGuidelines(profileSvg, getGuides());
 }
 

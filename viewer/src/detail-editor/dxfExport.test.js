@@ -68,3 +68,38 @@ describe('detailToDxf', () => {
     expect(p.find(([c, v]) => c === 40 && v === '500')).toBeTruthy();      // the arc radius
   });
 });
+
+import { penColour } from './dxfExport.js';
+
+describe('line weights in the DXF (#115)', () => {
+  const colours = (text, layerPrefix) => {
+    const p = pairs(text); const out = [];
+    for (let i = 0; i < p.length; i++) if (p[i][0] === 8 && p[i][1].startsWith(layerPrefix) && p[i + 1]?.[0] === 62) out.push(Number(p[i + 1][1]));
+    return out;
+  };
+
+  test('maps each pen in the series to a colour, finest first', () => {
+    expect([0.09, 0.13, 0.18, 0.25, 0.35, 0.5, 0.7].map(penColour)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+    expect(penColour(0.42)).toBe(1);   // not in the series: the finest, never an invalid colour
+  });
+
+  test('says in a comment what the colours mean', () => {
+    expect(detailToDxf(exampleDetail(), { profiles: profiles() }).startsWith('999\nOEBF line weights as colour')).toBe(true);
+  });
+
+  test('members carry their cut weight as a colour; a layer outline_mm overrides it', () => {
+    const base = profiles();
+    const plain = colours(detailToDxf(exampleDetail(), { profiles: base }), 'OEBF-MEMBER-THROUGH-WALL');
+    expect(plain.length).toBeGreaterThan(0);
+    expect(plain.every((c) => c >= 1 && c <= 7)).toBe(true);
+    const heavy = structuredClone(base);
+    for (const layer of heavy['profile-cavity-250'].assembly) layer.outline_mm = 0.7;
+    const colour = colours(detailToDxf(exampleDetail(), { profiles: heavy }), 'OEBF-MEMBER-THROUGH-WALL');
+    expect(new Set(colour)).toEqual(new Set([7]));
+  });
+
+  test('a dimension is drawn with the annotation pen', () => {
+    const doc = addAnnotation(exampleDetail(), { type: 'dimension', from: { x: 0, y: 0 }, to: { x: 0.2, y: 0 }, offset_m: 0.05 });
+    expect(new Set(colours(detailToDxf(doc, { profiles: profiles() }), 'OEBF-MARKS'))).toEqual(new Set([1]));
+  });
+});

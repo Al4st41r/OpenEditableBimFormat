@@ -19,10 +19,10 @@ export function isStackedProfile(profileType, alignment) {
 /**
  * Build a profile JSON object from editor state.
  *
- * @param {{ layers: Array, originX: number, id: string, description: string, profileType?: string, alignment?: string, planWidth?: number, ffl_m?: number, height_limit_m?: number, detail?: boolean }} opts
+ * @param {{ layers: Array, originX: number, id: string, description: string, profileType?: string, alignment?: string, planWidth?: number, ffl_m?: number, height_limit_m?: number, detail?: boolean, lineweights?: {cut?: number, seen?: number, hatch?: number, annotation?: number} }} opts
  * @returns {object} OEBF profile JSON
  */
-export function buildJson({ layers, originX, id, description, profileType, alignment, planWidth, ffl_m, height_limit_m, detail }) {
+export function buildJson({ layers, originX, id, description, profileType, alignment, planWidth, ffl_m, height_limit_m, detail, lineweights }) {
   const stacked = isStackedProfile(profileType, alignment);
   const width = stacked ? (planWidth > 0 ? planWidth : 1) : layers.reduce((sum, l) => sum + (l.thickness ?? 0), 0);
   return {
@@ -39,6 +39,7 @@ export function buildJson({ layers, originX, id, description, profileType, align
     ...(ffl_m          !== undefined && { ffl_m }),
     ...(height_limit_m !== undefined && { height_limit_m }),
     ...(detail === true && { detail: true }),
+    ...(lineweights && Object.keys(lineweights).length && { lineweights }),
     assembly: layers.map((l, i) => {
       const item = {
         layer:       i + 1,
@@ -58,6 +59,7 @@ export function buildJson({ layers, originX, id, description, profileType, align
         item.thickness = Math.round((l.thickness ?? 0) * 1e6) / 1e6;
       }
       if (l.tags && Object.keys(l.tags).length) item.tags = l.tags;
+      if (l.outline_mm !== undefined) item.outline_mm = l.outline_mm;
       return item;
     }),
   };
