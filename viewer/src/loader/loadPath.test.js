@@ -1,4 +1,4 @@
-import { describe, test, expect } from 'vitest';
+import { describe, test, it, expect } from 'vitest';
 import { parsePath } from './loadPath.js';
 
 describe('parsePath — line segments', () => {
@@ -171,5 +171,57 @@ describe('parsePath — very short path', () => {
     const { points } = parsePath(data);
     expect(points.length).toBeGreaterThanOrEqual(2);
     expect(points.every(p => isFinite(p.x) && isFinite(p.y) && isFinite(p.z))).toBe(true);
+  });
+});
+
+import { sampleBezier, sampleSpline } from './loadPath.js';
+import { vi } from 'vitest';
+
+describe('bezier and spline segments (#97)', () => {
+  const P = (x, y, z = 0) => ({ x, y, z });
+
+  it('a bezier starts and ends on its end points and bulges towards its control points', () => {
+    const pts = sampleBezier({ start: P(0, 0), cp1: P(1, 2), cp2: P(3, 2), end: P(4, 0) }, 32);
+    expect(pts[0]).toEqual(P(0, 0));
+    expect(pts.at(-1).x).toBeCloseTo(4); expect(pts.at(-1).y).toBeCloseTo(0);
+    expect(Math.max(...pts.map((p) => p.y))).toBeCloseTo(1.5, 1);   // the curve peaks at 0.75 of the control height
+  });
+
+  it('a straight bezier has the length of its chord', () => {
+    const r = parsePath({ segments: [{ type: 'bezier', start: P(0, 0), cp1: P(1, 0), cp2: P(2, 0), end: P(3, 0) }] });
+    expect(r.length).toBeCloseTo(3, 6);
+  });
+
+  it('a spline passes through every one of its points', () => {
+    const through = [P(0, 0), P(1, 1), P(2, 0), P(3, 1)];
+    const pts = sampleSpline(through, 8);
+    for (const want of through) expect(pts.some((p) => Math.hypot(p.x - want.x, p.y - want.y) < 1e-9)).toBe(true);
+    expect(pts[0]).toEqual(P(0, 0));
+    expect(pts.at(-1).x).toBeCloseTo(3);
+  });
+
+  it('a spline also reads points written as arrays, and carries height', () => {
+    const pts = sampleSpline([[0, 0, 0], [2, 0, 1]], 4);
+    expect(pts.at(-1)).toMatchObject({ x: 2, z: 1 });
+  });
+
+  it('segments join: a line, a bezier and a line make one continuous path', () => {
+    const r = parsePath({ segments: [
+      { type: 'line', start: P(0, 0), end: P(1, 0) },
+      { type: 'bezier', start: P(1, 0), cp1: P(2, 0), cp2: P(3, 1), end: P(3, 2) },
+      { type: 'line', start: P(3, 2), end: P(3, 3) },
+    ] });
+    expect(r.points[0]).toEqual(P(0, 0));
+    expect(r.points.at(-1)).toEqual(P(3, 3));
+    expect(r.length).toBeGreaterThan(1 + 1 + 2 + 1 - 1);
+  });
+
+  it('a segment of an unknown type is skipped with a warning, once', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    parsePath({ id: 'p', segments: [{ type: 'helix', start: P(0, 0), end: P(1, 0) }] });
+    parsePath({ id: 'p', segments: [{ type: 'helix', start: P(0, 0), end: P(1, 0) }] });
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0][0]).toMatch(/helix/);
+    warn.mockRestore();
   });
 });

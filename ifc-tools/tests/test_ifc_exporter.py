@@ -273,3 +273,18 @@ def test_a_door_object_fills_its_opening_in_the_wall(tmp_path):
     assert (box.SweptArea.XDim, box.SweptArea.YDim, box.Depth) == (0.9, 0.045, 2.1)
     assert door.PredefinedType == "DOOR"
     assert _psets(door)["OEBF_Element"]["OebfId"] == "object-door-south-gf"
+
+
+def test_a_wall_on_a_spline_path_is_exported_as_its_chord_not_a_crash(tmp_path):
+    import shutil, pathlib
+    src = pathlib.Path(__file__).resolve().parents[2] / "example" / "terraced-house.oebf"
+    bundle = tmp_path / "b.oebf"
+    shutil.copytree(src, bundle)
+    path_file = bundle / "paths" / "path-wall-south-gf.json"
+    path = json.loads(path_file.read_text())
+    path["segments"] = [{"type": "spline", "points": [{"x": 5.4, "y": 0, "z": 0}, {"x": 2.7, "y": 0.4, "z": 0}, {"x": 0, "y": 0, "z": 0}]}]
+    path_file.write_text(json.dumps(path))
+    out = tmp_path / "o.ifc"
+    export_ifc(bundle, out)
+    wall = next(w for w in ifcopenshell.open(str(out)).by_type("IfcWall") if "South external" in (w.Name or ""))
+    assert wall.Representation.Representations[0].Items[0].Depth == 5.4

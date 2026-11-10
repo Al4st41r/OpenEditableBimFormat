@@ -86,7 +86,8 @@ def _export_element(ifc, oebf_dir, element_id, storey, body_context, mat_by_id, 
     )
     _set_pset(ifc, entity, "OEBF_Element", {"OebfId": element_id})
 
-    start = path_data["segments"][0]["start"]
+    first = path_data["segments"][0]
+    start = first.get("start") or first["points"][0]
     total_width = sum(layer["thickness"] for layer in profile_data["assembly"])
     origin_x = profile_data.get("origin", {}).get("x", total_width / 2)
     height = WALL_HEIGHT
@@ -103,7 +104,8 @@ def _export_element(ifc, oebf_dir, element_id, storey, body_context, mat_by_id, 
 def _path_length_and_tangent(path_data):
     """Return (length, normalised tangent dict) from the first segment of the path."""
     seg = path_data["segments"][0]
-    s, e = seg["start"], seg["end"]
+    # a spline has no start and end of its own: they are its first and last points
+    s, e = seg.get("start") or seg["points"][0], seg.get("end") or seg["points"][-1]
     dx = e["x"] - s["x"]
     dy = e["y"] - s["y"]
     dz = e.get("z", 0.0) - s.get("z", 0.0)

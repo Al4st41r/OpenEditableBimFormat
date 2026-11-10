@@ -112,8 +112,11 @@ export function pathSummary(pathData) {
   } catch { /* unreadable segment types give length 0 */ }
 
   const node = (p, segIdx, role) => ({ x: p.x, y: p.y, z: p.z ?? 0, segIdx, role });
-  const nodes = segs.map((s, i) => node(s.start, i, 'start'));
-  if (!pathData.closed) nodes.push(node(segs.at(-1).end, segs.length - 1, 'end'));
+  // a spline has no start and end of its own: they are its first and last points
+  const startOf = (s) => s.start ?? s.points?.[0];
+  const endOf = (s) => s.end ?? s.points?.at(-1);
+  const nodes = segs.map((s, i) => node(startOf(s), i, 'start'));
+  if (!pathData.closed) nodes.push(node(endOf(segs.at(-1)), segs.length - 1, 'end'));
   return { length, nodes };
 }
 

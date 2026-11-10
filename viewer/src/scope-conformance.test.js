@@ -149,15 +149,14 @@ describe('path curve types', () => {
     expect(samplePathAtDistance(pts, 5).position.x).toBeCloseTo(5, 6);
   });
 
-  // GAP: design §2.3 lists bezier and spline; loadPath.js skips them silently.
-  test.fails('bezier segments produce geometry (GAP: silently skipped)', () => {
+  test('bezier segments produce geometry', () => {
     const r = parsePath({
-      segments: [{ type: 'bezier', start: P(0, 0), c1: P(1, 2), c2: P(3, 2), end: P(4, 0) }],
+      segments: [{ type: 'bezier', start: P(0, 0), cp1: P(1, 2), cp2: P(3, 2), end: P(4, 0) }],
     });
     expect(r.length).toBeGreaterThan(4);
   });
 
-  test.fails('spline segments produce geometry (GAP: silently skipped)', () => {
+  test('spline segments produce geometry', () => {
     const r = parsePath({
       segments: [{ type: 'spline', points: [P(0, 0), P(1, 1), P(2, 0), P(3, 1)] }],
     });

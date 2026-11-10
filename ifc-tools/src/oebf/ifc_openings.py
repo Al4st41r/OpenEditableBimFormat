@@ -32,7 +32,8 @@ def point_along(path_data: dict, distance: float):
     remaining = distance
     last = None
     for seg in path_data.get("segments", []):
-        s, e = seg["start"], seg["end"]
+        # the wall is exported as the chord of each segment; a spline has no start and end of its own
+        s, e = seg.get("start") or seg["points"][0], seg.get("end") or seg["points"][-1]
         dx, dy, dz = e["x"] - s["x"], e["y"] - s["y"], e.get("z", 0.0) - s.get("z", 0.0)
         length = math.sqrt(dx * dx + dy * dy + dz * dz)
         if length < 1e-9:
