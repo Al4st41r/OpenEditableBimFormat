@@ -3,6 +3,8 @@
  * State is module-level. Not persisted.
  */
 
+import { contentSize } from './profileCanvas.js';
+
 const SVG_NS = 'http://www.w3.org/2000/svg';
 let _guides = [];
 let _counter = 0;
@@ -23,9 +25,7 @@ export function clearGuides() { _guides = []; }
 
 export function renderGuidelines(svgEl, guides) {
   [...svgEl.querySelectorAll('[data-guide-id]')].forEach(el => el.remove());
-  const vb = svgEl.viewBox.baseVal;
-  const width  = vb.width  || 0.3;
-  const height = vb.height || 2.7;
+  const { w: width, h: height } = contentSize(svgEl);
 
   for (const g of guides) {
     const line = document.createElementNS(SVG_NS, 'line');
@@ -82,16 +82,16 @@ export function setupGuideDrag(svgEl, onUpdate, onRemove, snap = null) {
     const pt = svgEl.createSVGPoint();
     pt.x = e.clientX; pt.y = e.clientY;
     const svgPt = pt.matrixTransform(ctm.inverse());
-    const vb = svgEl.viewBox.baseVal;
+    const { w: cw, h: ch } = contentSize(svgEl);
     let newValue, offEdge;
     const tol = ctm.a > 0 ? 8 / ctm.a : 0;
     if (draggingAxis === 'h') {
       newValue = Math.round(svgPt.y * 1e4) / 1e4;
-      offEdge  = svgPt.y < 0 || svgPt.y > vb.height;
+      offEdge  = svgPt.y < 0 || svgPt.y > ch;
       if (snap && !e.altKey) newValue = snap('h', newValue, tol);
     } else {
       newValue = Math.round(svgPt.x * 1e4) / 1e4;
-      offEdge  = svgPt.x < 0 || svgPt.x > vb.width;
+      offEdge  = svgPt.x < 0 || svgPt.x > cw;
       if (snap && !e.altKey) newValue = snap('v', newValue, tol);
     }
     if (offEdge) {

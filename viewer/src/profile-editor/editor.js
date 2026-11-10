@@ -10,7 +10,7 @@
  *   - Handle "New profile" creation
  */
 
-import { initCanvas, renderCanvas, setOriginSnap } from './profileCanvas.js';
+import { initCanvas, renderCanvas, setOriginSnap, setView, fitBox, contentSize } from './profileCanvas.js';
 import { snapTargets, snapToTargets } from './profileSnap.js';
 import { initForm, setLayers, getLayers, highlightRow, addBlankLayer } from './profileForm.js';
 import { buildJson, buildSvg, isStackedProfile } from './profileSerializer.js';
@@ -101,13 +101,13 @@ setupGuideDrag(profileSvg, () => _renderCanvas(), () => _renderCanvas(), (axis, 
 setOriginSnap((value, tol) => _snapTo('x', value, tol));
 
 document.getElementById('add-h-guide-btn').addEventListener('click', () => {
-  const vb = profileSvg.viewBox.baseVal;
-  addGuide('h', Math.round((vb.height / 2) * 1e4) / 1e4);
+  const vb = profileSvg.viewBox.baseVal;   // the visible window, so the guide lands where you are looking
+  addGuide('h', Math.round((vb.y + vb.height / 2) * 1e4) / 1e4);
   _renderCanvas();
 });
 document.getElementById('add-v-guide-btn').addEventListener('click', () => {
   const vb = profileSvg.viewBox.baseVal;
-  addGuide('v', Math.round((vb.width / 2) * 1e4) / 1e4);
+  addGuide('v', Math.round((vb.x + vb.width / 2) * 1e4) / 1e4);
   _renderCanvas();
 });
 
@@ -142,7 +142,29 @@ profileSvg.addEventListener('origin-moved', e => {
   _renderCanvas();
 });
 
+// Zoom and pan (wheel, middle-drag, Shift-drag) redraw with the new window; Fit frames the detail
+profileSvg.addEventListener('view-changed', () => _renderCanvas());
+function _fit() {
+  setView(fitBox(getLayers(layerList), contentSize(profileSvg)));
+  _renderCanvas();
+}
+document.getElementById('fit-btn').addEventListener('click', _fit);
+
+/** Total thickness of the band layers: the profile's width across a wall. */
+function _bandWidth() {
+  return Math.round(getLayers(layerList).filter(l => l.type !== 'region')
+    .reduce((s, l) => s + (l.thickness ?? 0), 0) * 1e6) / 1e6;
+}
+let _lastWidth = null;   // the width the origin was last placed against
+
 layerList.addEventListener('layers-changed', () => {
+  // an origin at the centre stays at the centre when the wall gets thicker or thinner
+  const w = _bandWidth();
+  if (_lastWidth !== null && w > 0 && !isStackedProfile(profileType, alignment) &&
+      Math.abs(originX - _lastWidth / 2) < 1e-4) {
+    originX = Math.round((w / 2) * 1e4) / 1e4;
+  }
+  _lastWidth = w;
   _renderCanvas();
 });
 
@@ -246,7 +268,9 @@ profileSelect.addEventListener('change', async () => {
   fflInput.value            = toDisplay(ffl_m);
   heightLimitInput.value    = toDisplay(height_limit_m);
   selectedLayerIndex = null;
+  setView(null);            // a different profile: show all of it
   setLayers(layerList, layers);
+  _lastWidth = _bandWidth();
   saveBtn.disabled = false;
   _renderCanvas();
   _setStatus('');
@@ -270,7 +294,9 @@ newBtn.addEventListener('click', () => {
   profileTypeSelect.value = 'wall'; _syncAlignmentControl(); fflInput.value = toDisplay(0.0); heightLimitInput.value = toDisplay(2.4);
   layers      = [{ name: '', material_id: matIds[0] ?? '', thickness: 0.1, function: 'structure' }];
   selectedLayerIndex = null;
+  setView(null);            // a different profile: show all of it
   setLayers(layerList, layers);
+  _lastWidth = _bandWidth();
   saveBtn.disabled = false;
   _renderCanvas();
   _setStatus('Unsaved new profile');

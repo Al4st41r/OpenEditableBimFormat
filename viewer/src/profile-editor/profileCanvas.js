@@ -17,12 +17,48 @@ const WALL_HEIGHT = 2.7; // metres — fixed for v0.1
  *
  * @param {SVGElement} svgEl
  */
+let _view = null;   // the user's zoom/pan as { x, y, w, h }; null shows the whole profile
+
+/** Set the visible window (profile units), or null to show the whole profile. Takes effect on the next render. */
+export function setView(box) { _view = box; }
+export function getView() { return _view; }
+
+/** The size of the profile itself, whatever the zoom: set by the last render. */
+export function contentSize(svgEl) {
+  return { w: parseFloat(svgEl.dataset.contentW) || 0.3, h: parseFloat(svgEl.dataset.contentH) || WALL_HEIGHT };
+}
+
+/**
+ * The window that frames the drawn detail: the region layers when there are any (they are the detail), otherwise the
+ * whole profile. A margin of 8% is added.
+ *
+ * @returns {{x:number,y:number,w:number,h:number}}
+ */
+export function fitBox(layers, content) {
+  let x0 = 0, y0 = 0, x1 = content.w, y1 = content.h;
+  const pts = layers.filter(l => l.type === 'region' && Array.isArray(l.vertices)).flatMap(l => l.vertices);
+  if (pts.length) {
+    x0 = Math.min(...pts.map(v => v.x)); x1 = Math.max(...pts.map(v => v.x));
+    y0 = Math.min(...pts.map(v => v.y)); y1 = Math.max(...pts.map(v => v.y));
+  }
+  const m = Math.max(x1 - x0, y1 - y0, 0.01) * 0.08;
+  return { x: x0 - m, y: y0 - m, w: (x1 - x0) + 2 * m, h: (y1 - y0) + 2 * m };
+}
+
+function _applyView(svgEl, w, h) {
+  svgEl.dataset.contentW = String(w);
+  svgEl.dataset.contentH = String(h);
+  const v = _view;
+  svgEl.setAttribute('viewBox', v ? `${v.x} ${v.y} ${v.w} ${v.h}` : `0 0 ${w} ${h}`);
+}
+
 export function initCanvas(svgEl) {
   svgEl.setAttribute('xmlns', SVG_NS);
   svgEl.setAttribute('overflow', 'visible');
   svgEl.style.width  = '100%';
   svgEl.style.height = '100%';
   _setupOriginDrag(svgEl);
+  _setupZoomPan(svgEl);
 }
 
 /**
@@ -43,7 +79,7 @@ export function renderCanvas(svgEl, layers, originX, matMap, selectedIndex = nul
   const totalWidth = layers
     .filter(l => l.type !== 'region')
     .reduce((s, l) => s + (l.thickness ?? 0), 0) || 0.1;
-  svgEl.setAttribute('viewBox', `0 0 ${totalWidth} ${WALL_HEIGHT}`);
+  _applyView(svgEl, totalWidth, WALL_HEIGHT);
 
   let cursor = 0;
   layers.forEach((layer, i) => {
@@ -146,7 +182,7 @@ function _renderStacked(svgEl, layers, originX, matMap, selectedIndex, opts) {
   const W = opts.planWidth > 0 ? opts.planWidth : 1;
   const bands = layers.map((layer, index) => ({ layer, index })).filter(({ layer }) => layer.type !== 'region');
   const total = Math.round(bands.reduce((s, { layer }) => s + (layer.thickness ?? 0), 0) * 1e6) / 1e6 || 0.1;
-  svgEl.setAttribute('viewBox', `0 0 ${W} ${total}`);
+  _applyView(svgEl, W, total);
   let cursor = 0;
   for (const { layer, index } of bands) {
     const t = Math.round((layer.thickness ?? 0) * 1e6) / 1e6;
@@ -197,9 +233,8 @@ function _setupOriginDrag(svgEl) {
     pt.x = e.clientX;
     pt.y = e.clientY;
     const svgPt = pt.matrixTransform(svgEl.getScreenCTM().inverse());
-    const vb = svgEl.viewBox.baseVal;
     const ctm = svgEl.getScreenCTM();
-    let newX = Math.max(0, Math.min(svgPt.x, vb.width));
+    let newX = Math.max(0, Math.min(svgPt.x, contentSize(svgEl).w));
     if (_originSnap && !e.altKey && ctm && ctm.a > 0) newX = _originSnap(newX, 8 / ctm.a);
     svgEl.dispatchEvent(new CustomEvent('origin-moved', {
       detail: { originX: Math.round(newX * 1e4) / 1e4 },
@@ -207,4 +242,41 @@ function _setupOriginDrag(svgEl) {
   });
 
   window.addEventListener('mouseup', () => { dragging = false; });
+}
+
+/** Wheel zooms about the pointer; middle-drag or Shift-drag pans. Both fire 'view-changed' on the svg. */
+function _setupZoomPan(svgEl) {
+  const current = () => {
+    const b = svgEl.viewBox.baseVal;
+    return { x: b.x, y: b.y, w: b.width, h: b.height };
+  };
+  const toSvg = (cx, cy) => {
+    const pt = svgEl.createSVGPoint(); pt.x = cx; pt.y = cy;
+    return pt.matrixTransform(svgEl.getScreenCTM().inverse());
+  };
+  const changed = () => svgEl.dispatchEvent(new CustomEvent('view-changed'));
+
+  svgEl.addEventListener('wheel', e => {
+    if (!svgEl.getScreenCTM()) return;
+    e.preventDefault();
+    const v = current();
+    const k = e.deltaY < 0 ? 0.8 : 1.25;
+    const p = toSvg(e.clientX, e.clientY);
+    _view = { x: p.x - (p.x - v.x) * k, y: p.y - (p.y - v.y) * k, w: v.w * k, h: v.h * k };
+    changed();
+  }, { passive: false });
+
+  let pan = null;
+  svgEl.addEventListener('mousedown', e => {
+    if (e.button !== 1 && !(e.button === 0 && e.shiftKey)) return;
+    e.preventDefault();
+    pan = { cx: e.clientX, cy: e.clientY, v: current(), ctm: svgEl.getScreenCTM() };
+  });
+  window.addEventListener('mousemove', e => {
+    if (!pan || !pan.ctm) return;
+    const dx = (e.clientX - pan.cx) / pan.ctm.a, dy = (e.clientY - pan.cy) / pan.ctm.d;
+    _view = { ...pan.v, x: pan.v.x - dx, y: pan.v.y - dy };
+    changed();
+  });
+  window.addEventListener('mouseup', () => { pan = null; });
 }

@@ -126,6 +126,7 @@ export class AxoViewer {
    * Keeps the selection highlight.
    */
   setOverlay(colours, selectedId = null) {
+    this.overlayColours = colours;
     if (!this.group) return;
     this.overlayCache ??= new Map();
     const made = (key, make) => { if (!this.overlayCache.has(key)) this.overlayCache.set(key, make()); return this.overlayCache.get(key); };
@@ -147,6 +148,7 @@ export class AxoViewer {
 
   /** Highlight one item (by prism id), or none. */
   setSelected(id) {
+    this.selectedId = id;
     if (!this.group) return;
     this.highlight ??= new THREE.MeshStandardMaterial({ color: '#e0523d', emissive: '#a02010', emissiveIntensity: 0.6, roughness: 0.6, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
     for (const o of this.group.children) {
@@ -185,7 +187,10 @@ export class AxoViewer {
   setShow(patch) {
     const reclip = 'clip' in patch && patch.clip !== this.show.clip && this.model;
     Object.assign(this.show, patch);
-    if (reclip) this.setModel(this.model, this.colourOf, true);   // the cut is in the geometry
+    if (reclip) {
+      this.setModel(this.model, this.colourOf, true);   // the cut is in the geometry
+      this.setOverlay(this.overlayColours ?? null, this.selectedId ?? null);   // the new meshes lost the overlay and highlight
+    }
     this.applyVisibility();
   }
 
