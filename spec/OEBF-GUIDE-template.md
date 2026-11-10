@@ -200,8 +200,9 @@ How the optional sweep fields behave:
 ## Worked example: add a door opening
 
 Prerequisite: the host element (`element-wall-internal-01`) and its path
-(`path-wall-internal-01`) already exist. `path_position` is metres from the
-start of the path.
+(`path-wall-internal-01`) already exist. An Opening's `path_position` is metres from the
+start of the path to the opening's start edge. An Object that names an opening is centred on
+it; one with no `opening_id` has its centre at its own `path_position`.
 
 **Step 1.** Create `openings/opening-d02.json`:
 
@@ -767,8 +768,10 @@ level data they refer to. The bundle is restored complete: the element, slab and
 path files, the profiles (with their SVG) and the materials come back as they were,
 and the schemas are copied in, so `oebf validate` passes on the imported bundle.
 IFC from other tools has no such record, so the import rebuilds what the IFC holds:
-a wall's centreline comes from its swept solid (a footprint extruded up, or a section
-extruded along the wall), converted from the file's length unit to metres; its build-up
+a wall's centreline comes from its "Axis" representation when it has one (a polyline gives
+one segment per leg, a trimmed circle gives an arc), else from its swept solid (a footprint
+extruded up, rectangular or a four-corner polyline, or a section extruded along the wall),
+converted from the file's length unit to metres; its build-up
 comes from the `IfcMaterialLayerSet` as a profile (layer names, materials and
 thicknesses, with each layer's function guessed from its name); and its property sets
 become element properties, with an `ifc/mapping.json` that sends them back to the same
@@ -776,7 +779,10 @@ sets on export. An element with no layer set but one material gets a one-layer p
 of its thickness. Anything the IFC does not hold falls back to a placeholder profile
 and material. Elements take the first level (or `storey-imported`) as `parent_group_id`,
 and a slab with a polyline outline becomes a `Slab` with a closed boundary path.
-Geometry edited in another tool is not read back when the OEBF record is present; the
+An `IfcOpeningElement` that voids an imported wall becomes an `Opening` (position, width, height and
+sill read from its box), and the `IfcDoor` or `IfcWindow` that fills it becomes an `Object` with a box
+`Symbol` of its size. Shapes the import cannot read (other profiles, boolean-clipped or BREP bodies,
+`IfcMaterialConstituentSet`) fall back to the placeholders. Geometry edited in another tool is not read back when the OEBF record is present; the
 import says when an element was moved there.
 
 ### Mapping to IFC classes and property sets (`ifc/mapping.json`)

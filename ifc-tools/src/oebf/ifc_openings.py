@@ -103,6 +103,7 @@ def export_openings_and_objects(ifc, oebf_dir: Path, model_data: dict, storey, b
                                                      name=op.get("description", opening_id))
         _box(ifc, entity, body_context, (centre[0], centre[1], centre[2] + op.get("sill_height_m", 0.0)),
              (centre[3], centre[4]), op["width_m"], thickness, op["height_m"], across)
+        _set_pset(ifc, entity, "OEBF_Element", {"OebfId": opening_id})
         ifcopenshell.api.feature.add_feature(ifc, feature=entity, element=host)
         openings[opening_id] = entity
         exported[opening_id] = entity
@@ -120,11 +121,11 @@ def export_openings_and_objects(ifc, oebf_dir: Path, model_data: dict, storey, b
         opening = _read(oebf_dir / "openings" / f"{obj.get('opening_id')}.json") if obj.get("opening_id") else None
         host_element = _read(oebf_dir / "elements" / f"{obj.get('host_element_id')}.json")
         across = _wall_across(oebf_dir, host_element)[1] if host_element else 0.0
-        start = opening["path_position"] if opening else obj["path_position"]
         sill = opening.get("sill_height_m", 0.0) if opening else 0.0
         if opening:
             width = min(width, opening["width_m"])
-        centre = point_along(path, start + (opening["width_m"] if opening else width) / 2)
+        # an object in an opening is centred on it; otherwise path_position is its centre along the wall
+        centre = point_along(path, opening["path_position"] + opening["width_m"] / 2 if opening else obj["path_position"])
         entity = ifcopenshell.api.root.create_entity(
             ifc, ifc_class=ifc_mapping.ifc_class(mapping, obj.get("ifc_type") or symbol.get("ifc_type", "IfcBuildingElementProxy")),
             name=obj.get("description", object_id))

@@ -58,6 +58,25 @@ def _axis2_matrix(axis, scale=1.0):
     return m
 
 
+def _rect_of(profile, scale):
+    """(centre x, centre y, x size, y size) of a rectangle profile, or of a polyline profile that is an
+    axis-aligned rectangle (four corners); None for any other shape. Metres."""
+    if profile.is_a("IfcRectangleProfileDef"):
+        return 0.0, 0.0, float(profile.XDim) * scale, float(profile.YDim) * scale
+    curve = getattr(profile, "OuterCurve", None)
+    if curve is None or not curve.is_a("IfcPolyline"):
+        return None
+    pts = [(float(p.Coordinates[0]) * scale, float(p.Coordinates[1]) * scale) for p in curve.Points]
+    if len(pts) > 1 and pts[0] == pts[-1]:
+        pts = pts[:-1]
+    if len(pts) != 4:
+        return None
+    xs, ys = sorted({round(x, 6) for x, _ in pts}), sorted({round(y, 6) for _, y in pts})
+    if len(xs) != 2 or len(ys) != 2:
+        return None
+    return (xs[0] + xs[1]) / 2, (ys[0] + ys[1]) / 2, xs[1] - xs[0], ys[1] - ys[0]
+
+
 def wall_axis(entity):
     """{start, end, thickness, height} in world metres for a wall swept from a rectangle, else None.
 
@@ -75,20 +94,20 @@ def wall_axis(entity):
                 depth = float(item.Depth) * scale
                 direction = solid[:3, :3] @ np.array([float(v) for v in item.ExtrudedDirection.DirectionRatios])
                 profile = item.SweptArea
-                rect = profile if profile.is_a("IfcRectangleProfileDef") else None
+                rect = _rect_of(profile, scale)   # (centre x, centre y, x size, y size) in the profile's plane, metres
                 at = solid @ _axis2_matrix(getattr(profile, "Position", None), scale)
                 if abs(direction[2]) / max(np.linalg.norm(direction), 1e-12) >= VERTICAL:
                     if rect is None:
                         continue
-                    half = float(rect.XDim) * scale / 2
-                    a, b = at @ np.array([-half, 0, 0, 1]), at @ np.array([half, 0, 0, 1])
+                    cx, cy, xdim, ydim = rect
+                    a, b = at @ np.array([cx - xdim / 2, cy, 0, 1]), at @ np.array([cx + xdim / 2, cy, 0, 1])
                     return {"start": tuple(float(v) for v in a[:3]), "end": tuple(float(v) for v in b[:3]),
-                            "thickness": float(rect.YDim) * scale, "height": depth}
+                            "thickness": ydim, "height": depth}
                 a = solid @ np.array([0, 0, 0, 1])
                 end = a[:3] + direction * depth
                 return {"start": tuple(float(v) for v in a[:3]), "end": tuple(float(v) for v in end),
-                        "thickness": float(rect.XDim) * scale if rect is not None else None,
-                        "height": float(rect.YDim) * scale if rect is not None else None}
+                        "thickness": rect[2] if rect is not None else None,
+                        "height": rect[3] if rect is not None else None}
     except Exception:
         pass
     return None
@@ -174,3 +193,129 @@ def properties(entity):
             values[key] = value
             mapping[key] = {"pset": pset, "name": name}
     return values, mapping
+
+
+# ── curved and multi-segment axes (#125) ─────────────────────────────────────
+
+def _angle_scale(entity) -> float:
+    """Radians per file plane-angle unit (a file in degrees gives 0.01745...)."""
+    try:
+        return float(ifcopenshell.util.unit.calculate_unit_scale(entity.file, "PLANEANGLEUNIT"))
+    except Exception:
+        return 1.0
+
+
+def _world_point(local, matrix, scale):
+    p = np.array([float(local[0]) * scale, float(local[1]) * scale, (float(local[2]) if len(local) > 2 else 0.0) * scale, 1.0])
+    return tuple(float(v) for v in (matrix @ p)[:3])
+
+
+def _arc_segment(curve, matrix, scale, angle_unit):
+    """An IfcTrimmedCurve on an IfcCircle as an OEBF arc {start, mid, end}, or None."""
+    circle = curve.BasisCurve
+    if not circle.is_a("IfcCircle"):
+        return None
+    place = _axis2_matrix(circle.Position)   # unscaled: the circle's own frame, in file units
+    radius = float(circle.Radius)
+
+    def angle_of(trim):
+        for t in trim:
+            if t.is_a("IfcParameterValue"):
+                return float(t.wrappedValue) * angle_unit
+            if t.is_a("IfcCartesianPoint"):
+                local = np.linalg.inv(place) @ np.array([float(t.Coordinates[0]), float(t.Coordinates[1]), float(t.Coordinates[2]) if len(t.Coordinates) > 2 else 0.0, 1.0])
+                return float(np.arctan2(local[1], local[0]))
+        return None
+
+    a1, a2 = angle_of(curve.Trim1), angle_of(curve.Trim2)
+    if a1 is None or a2 is None:
+        return None
+    two_pi = 2 * np.pi
+    sweep = (a2 - a1) % two_pi if curve.SenseAgreement else -((a1 - a2) % two_pi)
+    at = lambda a: _world_point(place @ np.array([radius * np.cos(a), radius * np.sin(a), 0.0, 1.0]), matrix, scale)
+    return {"type": "arc", "start": at(a1), "mid": at(a1 + sweep / 2), "end": at(a1 + sweep)}
+
+
+def axis_path(entity):
+    """The wall's axis as OEBF segments in world metres: [{type, start, end}] lines, or an arc, from the
+    entity's "Axis" representation (an IfcPolyline or an IfcTrimmedCurve on a circle). None when it has none."""
+    try:
+        scale = unit_scale(entity)
+        matrix = _matrix(entity.ObjectPlacement, scale)
+        angle_unit = _angle_scale(entity)
+        for rep in entity.Representation.Representations:
+            if rep.RepresentationIdentifier != "Axis":
+                continue
+            for item in rep.Items:
+                if item.is_a("IfcPolyline") and len(item.Points) >= 2:
+                    pts = [_world_point(p.Coordinates, matrix, scale) for p in item.Points]
+                    return [{"type": "line", "start": a, "end": b} for a, b in zip(pts, pts[1:]) if a != b] or None
+                if item.is_a("IfcTrimmedCurve"):
+                    arc = _arc_segment(item, matrix, scale, angle_unit)
+                    if arc:
+                        return [arc]
+    except Exception:
+        pass
+    return None
+
+
+# ── openings, doors and windows (#125) ───────────────────────────────────────
+
+def solid_points(entity):
+    """World-metre corner points (n x 3) of the entity's first extruded solid: the profile at both ends of the
+    extrusion. A rectangle gives its four corners, a polyline profile its vertices. None when there is none."""
+    try:
+        scale = unit_scale(entity)
+        world = _matrix(entity.ObjectPlacement, scale)
+        for rep in entity.Representation.Representations:
+            for item in rep.Items:
+                if not item.is_a("IfcExtrudedAreaSolid"):
+                    continue
+                solid = world @ _axis2_matrix(item.Position, scale)
+                profile = item.SweptArea
+                if profile.is_a("IfcRectangleProfileDef"):
+                    hx, hy = float(profile.XDim) * scale / 2, float(profile.YDim) * scale / 2
+                    local = [(-hx, -hy), (hx, -hy), (hx, hy), (-hx, hy)]
+                elif getattr(profile, "OuterCurve", None) is not None and profile.OuterCurve.is_a("IfcPolyline"):
+                    local = [(float(p.Coordinates[0]) * scale, float(p.Coordinates[1]) * scale) for p in profile.OuterCurve.Points]
+                else:
+                    continue
+                at = solid @ _axis2_matrix(getattr(profile, "Position", None), scale)
+                base = np.array([(at @ np.array([x, y, 0, 1]))[:3] for x, y in local])
+                direction = solid[:3, :3] @ np.array([float(v) for v in item.ExtrudedDirection.DirectionRatios])
+                top = base + direction / max(np.linalg.norm(direction), 1e-12) * float(item.Depth) * scale
+                return np.vstack([base, top])
+    except Exception:
+        pass
+    return None
+
+
+def place_on_path(points, path_segments):
+    """Where a box of world points sits against a wall's path: {position, width, depth, sill, height} or None.
+
+    `position` is the arc length at the box's start, `width` its extent along the wall, `depth` across it,
+    `sill` its lowest point above the path's height, `height` its vertical extent. Uses the path segment nearest the centre."""
+    lines = [(np.array([s["start"]["x"], s["start"]["y"], s["start"].get("z", 0.0)]), np.array([s["end"]["x"], s["end"]["y"], s["end"].get("z", 0.0)]))
+             for s in path_segments if s.get("type") == "line"]
+    if not lines:
+        return None
+    centre = points.mean(axis=0)
+    best, offset, run = None, 0.0, 0.0
+    for a, b in lines:
+        d = b - a
+        length = float(np.linalg.norm(d[:2]))
+        if length < 1e-9:
+            continue
+        t = d[:2] / length
+        along = float((centre[:2] - a[:2]) @ t)
+        across = abs(float((centre[:2] - a[:2]) @ np.array([-t[1], t[0]])))
+        gap = max(0.0, -along, along - length)
+        score = across + gap
+        if best is None or score < best[0]:
+            best = (score, a, t, run)
+        run += length
+    _, a, t, run = best
+    lo = (points[:, :2] - a[:2]) @ t
+    nrm = (points[:, :2] - a[:2]) @ np.array([-t[1], t[0]])
+    return {"position": float(run + lo.min()), "width": float(lo.max() - lo.min()), "depth": float(nrm.max() - nrm.min()),
+            "sill": float(points[:, 2].min() - a[2]), "height": float(points[:, 2].max() - points[:, 2].min())}
