@@ -14,11 +14,12 @@ export const BUNDLE_NAME = /^[A-Za-z0-9_-][A-Za-z0-9._-]*\.oebf$/;
 
 export class HttpAdapter extends MemoryAdapter {
   /** @param {string} base - URL of the bundle folder, ending in "/" */
-  constructor(base, name, profileNames = []) {
+  constructor(base, name, profileNames = [], symbolNames = []) {
     super(new Map(), name);
     this.type = 'http';
     this.base = base;
     this._profileNames = profileNames;
+    this._symbolNames = symbolNames;
   }
 
   /**
@@ -30,14 +31,17 @@ export class HttpAdapter extends MemoryAdapter {
     const a = new HttpAdapter(base, name);
     const model = await a.readJson('model.json');
     const read = (dir, id) => a.readJson(`${dir}/${id}.json`).catch(() => null);
-    const [details, elements] = await Promise.all([
+    const [details, elements, objects] = await Promise.all([
       Promise.all((model.details ?? []).map((id) => read('details', id))),
       Promise.all((model.elements ?? []).map((id) => read('elements', id))),
+      Promise.all((model.objects ?? []).map((id) => read('objects', id))),
     ]);
     const ids = new Set();
     for (const d of details) for (const m of d?.members ?? []) if (m.profile_id) ids.add(m.profile_id);
     for (const e of elements) if (e?.profile_id) ids.add(e.profile_id);
     a._profileNames = [...ids].map((id) => `${id}.json`);
+    // symbols the objects use (a web server cannot list the folder)
+    a._symbolNames = [...new Set(objects.map((o) => o?.symbol_id).filter(Boolean))].map((id) => `${id}.json`);
     return a;
   }
 
@@ -52,6 +56,8 @@ export class HttpAdapter extends MemoryAdapter {
 
   async listDir(path) {
     const own = await super.listDir(path);
-    return path.replace(/\/$/, '') === 'profiles' ? [...new Set([...own, ...this._profileNames])] : own;
+    const dir = path.replace(/\/$/, '');
+    return dir === 'profiles' ? [...new Set([...own, ...this._profileNames])]
+      : dir === 'symbols' ? [...new Set([...own, ...this._symbolNames])] : own;
   }
 }

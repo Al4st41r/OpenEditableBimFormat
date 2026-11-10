@@ -56,6 +56,15 @@ export async function loadDetailContext(adapter) {
     for (const m of (await adapter.readJson('materials/library.json')).materials ?? []) materials[m.id] = m;
   } catch (err) { warnings.push(`Materials library could not be read: ${err.message}`); }
 
+  // Symbols are found by listing the folder: they are not registered in model.json
+  const symbols = {};
+  try {
+    for (const name of (await adapter.listDir('symbols')).filter((n) => n.endsWith('.json'))) {
+      try { symbols[name.replace(/\.json$/, '')] = await adapter.readJson(`symbols/${name}`); }
+      catch (err) { warnings.push(`Symbol "${name}" could not be read: ${err.message}`); }
+    }
+  } catch { /* no symbols folder */ }
+
   const junctions = await readAll(adapter, model.junctions ?? [], (id) => `junctions/${id}.json`, 'Junction', warnings);
   const elements = Object.fromEntries(
     (await readAll(adapter, model.elements ?? [], (id) => `elements/${id}.json`, 'Element', warnings)).map((e) => [e.id, e]));
@@ -71,7 +80,7 @@ export async function loadDetailContext(adapter) {
   return {
     mode: 'adapter', projectName, details, detailIds: details.map((d) => d.id),
     profiles, profileIds: Object.keys(profiles), materials, materialIds: Object.keys(materials),
-    junctions, elements, grids, elementPaths, warnings,
+    junctions, elements, grids, elementPaths, symbols, warnings,
     levels: listLevels(withStoreyGroups(model, await loadStoreyGroups((p) => adapter.readJson(p), model))),
   };
 }

@@ -22,6 +22,7 @@ import { defaultLayers, setLayer, applyLayers, blocked, keepSelection, layerOfSe
 import { validateDetail } from './detailValidate.js';
 import { createDetail, toJsonText } from './detailSerializer.js';
 import { findCounterpart, counterpartDraft, otherPlane } from './counterpart.js';
+import { openObjectMaker } from './objectMakerDialog.js';
 import { loadDetailContext, saveDetail } from './detailStore.js';
 import { snapshotToContext } from './bundleSnapshot.js';
 import { readyMessage, parseIncoming, savedMessage, focusMessage } from './messages.js';
@@ -599,6 +600,7 @@ function openContext(ctx, adapter, source, activeId = null) {
   $('project-name').textContent = ctx.projectName;
   $('detail-select').disabled = false;
   $('new-btn').disabled = false;
+  $('objects-btn').disabled = false;
   $('zip-btn').hidden = source !== 'memory';
 
   const mat = $('material-select');
@@ -668,6 +670,13 @@ $('open-file-btn').addEventListener('click', () => $('oebfz-input').click());
 $('oebfz-input').addEventListener('change', (e) => { const f = e.target.files[0]; if (f) openMemory(f); e.target.value = ''; });
 $('demo-btn').addEventListener('click', openDemo);
 $('zip-btn').addEventListener('click', () => bundle?.adapter?.downloadZip?.());
+
+// ── object maker: multi-part symbols (screws, ties, trays) kept in the bundle ─
+$('objects-btn').addEventListener('click', () => {
+  if (!bundle) return;
+  bundle.ctx.symbols ??= {};
+  openObjectMaker({ dialog: $('object-dialog'), adapter: bundle.adapter, symbols: bundle.ctx.symbols, materials: bundle.ctx.materials, status });
+});
 
 // ── new detail ───────────────────────────────────────────────────────────────
 $('new-btn').addEventListener('click', () => {

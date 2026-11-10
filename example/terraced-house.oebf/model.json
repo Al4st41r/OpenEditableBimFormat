@@ -3,21 +3,34 @@
     "type": "Project",
     "id": "project-root",
     "description": "Terraced House",
-    "children": [{
-      "type": "Site",
-      "id": "site-main",
-      "children": [{
-        "type": "Building",
-        "id": "building-main",
-        "children": [{
-          "type": "Storey",
-          "id": "storey-gf",
-          "description": "Ground Floor",
-          "elevation": 0.0,
-          "children": ["element-wall-south-gf", "element-wall-north-gf", "element-wall-east-gf", "element-wall-west-gf", "object-door-south-gf"]
-        }]
-      }]
-    }]
+    "children": [
+      {
+        "type": "Site",
+        "id": "site-main",
+        "children": [
+          {
+            "type": "Building",
+            "id": "building-main",
+            "children": [
+              {
+                "type": "Storey",
+                "id": "storey-gf",
+                "description": "Ground Floor",
+                "elevation": 0.0,
+                "children": [
+                  "element-wall-south-gf",
+                  "element-wall-north-gf",
+                  "element-wall-east-gf",
+                  "element-wall-west-gf",
+                  "object-door-south-gf",
+                  "object-wall-ties-south-gf"
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
   },
   "elements": [
     "element-wall-south-gf",
@@ -25,9 +38,16 @@
     "element-wall-east-gf",
     "element-wall-west-gf"
   ],
-  "slabs": ["slab-gf"],
-  "objects": ["object-door-south-gf"],
-  "arrays": ["array-front-fence-posts"],
+  "slabs": [
+    "slab-gf"
+  ],
+  "objects": [
+    "object-door-south-gf",
+    "object-wall-ties-south-gf"
+  ],
+  "arrays": [
+    "array-front-fence-posts"
+  ],
   "junctions": [
     "junction-sw-corner",
     "junction-se-corner",
@@ -35,7 +55,13 @@
     "junction-ne-corner",
     "junction-ne-padstone"
   ],
-  "grids": ["grid-structural"],
-  "details": ["detail-corner-cavity-butt"],
-  "openings": ["opening-door-south-gf"]
+  "grids": [
+    "grid-structural"
+  ],
+  "details": [
+    "detail-corner-cavity-butt"
+  ],
+  "openings": [
+    "opening-door-south-gf"
+  ]
 }

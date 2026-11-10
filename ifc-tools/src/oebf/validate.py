@@ -207,8 +207,21 @@ def validate_bundle(bundle_dir) -> list:
             add("path-missing", f"arrays/{aid}.json", f'path "{a.get("path_id")}" does not exist')
         if a.get("source_id") not in {*entities["symbols"], *elements, *entities["objects"]}:
             add("source-missing", f"arrays/{aid}.json", f'source "{a.get("source_id")}" does not exist')
+    for sid, sym in entities["symbols"].items():
+        for i, part in enumerate(sym.get("parts", [])):
+            if materials and part.get("material_id") and part["material_id"] not in materials:
+                add("material-missing", f"symbols/{sid}.json", f'part {i + 1} uses material "{part["material_id"]}", which is not in the materials library')
+            if part.get("shape") == "box" and "size_m" not in part:
+                add("part-incomplete", f"symbols/{sid}.json", f"part {i + 1} is a box with no size_m")
+            if part.get("shape") == "cylinder" and not (part.get("radius_m") and part.get("length_m")):
+                add("part-incomplete", f"symbols/{sid}.json", f"part {i + 1} is a cylinder and needs radius_m and length_m")
+        if sym.get("geometry_definition") == "parts" and not sym.get("parts"):
+            add("part-incomplete", f"symbols/{sid}.json", 'geometry_definition is "parts" but there is no parts list')
     for oid, o in entities["objects"].items():
         rel = f"objects/{oid}.json"
+        arr = o.get("array") or {}
+        if arr.get("count_along", 1) * arr.get("count_up", 1) > 500:
+            add("array-too-large", rel, "an array of more than 500 instances; use a smaller grid or an Array along a path")
         if o.get("symbol_id") not in entities["symbols"]:
             add("symbol-missing", rel, f'symbol "{o.get("symbol_id")}" does not exist')
         if o.get("host_element_id") not in elements:

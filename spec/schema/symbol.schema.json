@@ -3,16 +3,118 @@
   "$id": "oebf://schema/0.1/symbol",
   "title": "OEBF Symbol (Type Definition)",
   "type": "object",
-  "required": ["$schema", "id", "type", "ifc_type", "parameters"],
+  "required": [
+    "$schema",
+    "id",
+    "type",
+    "ifc_type",
+    "parameters"
+  ],
   "additionalProperties": false,
   "properties": {
-    "$schema":              { "type": "string" },
-    "id":                   { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
-    "type":                 { "type": "string", "const": "Symbol" },
-    "description":          { "type": "string" },
-    "ifc_type":             { "type": "string" },
-    "parameters":           { "type": "object" },
-    "geometry_definition":  { "type": "string" },
-    "ifc_predefined_type":  { "type": "string" }
+    "$schema": {
+      "type": "string"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*$"
+    },
+    "type": {
+      "type": "string",
+      "const": "Symbol"
+    },
+    "description": {
+      "type": "string"
+    },
+    "ifc_type": {
+      "type": "string"
+    },
+    "parameters": {
+      "type": "object"
+    },
+    "geometry_definition": {
+      "type": "string",
+      "description": "'box' draws one box from parameters width_m, depth_m, height_m. 'parts' draws the parts list (a screw, a brick tie, a cavity tray: several shapes, each with its own material)."
+    },
+    "ifc_predefined_type": {
+      "type": "string"
+    },
+    "parts": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "description": "The shapes a multi-part symbol is made of. The symbol's frame: x along the wall, y across it, z up, origin at the centre of the bottom face. offset_m is the centre of the part.",
+      "items": {
+        "type": "object",
+        "required": [
+          "shape"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "shape": {
+            "type": "string",
+            "enum": [
+              "box",
+              "cylinder"
+            ]
+          },
+          "material_id": {
+            "type": "string"
+          },
+          "offset_m": {
+            "$ref": "#/definitions/vec3"
+          },
+          "size_m": {
+            "$ref": "#/definitions/vec3",
+            "description": "box: extent along x, y and z"
+          },
+          "radius_m": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "description": "cylinder"
+          },
+          "length_m": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "description": "cylinder"
+          },
+          "axis": {
+            "type": "string",
+            "enum": [
+              "x",
+              "y",
+              "z"
+            ],
+            "default": "z",
+            "description": "cylinder: the direction of its length"
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "vec3": {
+      "type": "object",
+      "required": [
+        "x",
+        "y",
+        "z"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "z": {
+          "type": "number"
+        }
+      }
+    }
   }
 }

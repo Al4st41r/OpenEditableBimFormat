@@ -39,6 +39,16 @@ describe('HttpAdapter', () => {
     expect((await a.listDir('profiles')).sort()).toEqual(['p-a.json', 'p-b.json']);
     expect(await a.listDir('details')).toContain('d1.json');   // files already read show up as listed
   });
+  test('open() lists the symbols that objects use, and a symbol written later too', async () => {
+    files['model.json'] = { ...files['model.json'], objects: ['o1'] };
+    files['objects/o1.json'] = { id: 'o1', symbol_id: 's-tie' };
+    vi.stubGlobal('fetch', stub());
+    const a = await HttpAdapter.open('http://x/b.oebf/', 'b');
+    expect(await a.listDir('symbols')).toEqual(['s-tie.json']);
+    await a.writeJson('symbols/s-new.json', { id: 's-new' });
+    expect((await a.listDir('symbols')).sort()).toEqual(['s-new.json', 's-tie.json']);
+    delete files['model.json'].objects; delete files['objects/o1.json'];
+  });
   test('writes stay in memory and are read back; the server is not written to', async () => {
     const f = stub(); vi.stubGlobal('fetch', f);
     const a = new HttpAdapter('http://x/b.oebf/', 'b');

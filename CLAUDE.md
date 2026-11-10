@@ -54,7 +54,7 @@ The open issue list is the plan: `gh issue list --state open`. At the time of wr
 | #114 | NMB example: placed-detail floor regions can flicker (fixed from the cause; awaiting a check on a real GPU) |
 | #133 | IFC import: other profiles, boolean-clipped and BREP bodies, constituent sets |
 | #120, #119, #115, #116 | Detail editor CAD tools, linked review panes, line weights |
-| #126, #127 | Object maker; membranes and tapes |
+| #127 | Membranes and tapes |
 
 ### Backlog / future phases
 

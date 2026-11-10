@@ -45,7 +45,9 @@ import { PathEditTool } from './pathEditTool.js';
 import { FsaAdapter, MemoryAdapter } from './storageAdapter.js';
 import { mergeStoreyGroups, syncHierarchyStoreys } from '../detail/levelResolver.js';
 import { buildOpeningOutline } from '../loader/loadOpening.js';
-import { objectPlacement, buildObjectGroup } from '../loader/loadObject.js';
+import { objectPlacement, buildObjectGroup, colourLookup } from '../loader/loadObject.js';
+import { symbolParts } from '../loader/symbolParts.js';
+import { nextObjectId, newObject, normaliseArray, placementProblems, instanceCount, withObjectRegistered, withObjectUnregistered } from './objectModel.js';
 import {
   openingFieldSpecs, nextOpeningId, newOpening, openingProblems, openingsOf, overlappingOpenings,
   withOpeningRegistered, withOpeningUnregistered,
@@ -1485,7 +1487,7 @@ async function _showElementProps(id) {
   // Segment lengths: type a new length, 2400, 2.4m or 1200+300 (issue #105)
   _addLengthRows(panel, id, reg);
   _addPathRows(panel, id, reg);
-  if (reg.kind === 'element') _addOpeningRows(panel, id, reg);
+  if (reg.kind === 'element') { _addOpeningRows(panel, id, reg); _addObjectRows(panel, id, reg); }
 
   // Edit profile button
   if (adapter && reg.profileId) {
@@ -2172,14 +2174,25 @@ function _clearObjects() {
   }
 }
 
+const _objects = new Map();   // object id -> entity, for the wall panel
+
+async function _reloadObjects() {
+  _clearObjects();
+  await _loadObjects(await readEntity(adapter, 'model.json'));
+}
+
 async function _loadObjects(model) {
+  _objects.clear();
+  let colourOf = colourLookup([]);
+  try { colourOf = colourLookup((await readEntity(adapter, 'materials/library.json')).materials ?? []); } catch { /* no library: default colour */ }
   for (const id of model.objects ?? []) {
     try {
       const object = await readEntity(adapter, `objects/${id}.json`);
+      _objects.set(id, object);
       const symbolDef = await readEntity(adapter, `symbols/${object.symbol_id}.json`);
       const pathData = await readEntity(adapter, `paths/${object.path_id}.json`);
       const openingDef = object.opening_id ? await readEntity(adapter, `openings/${object.opening_id}.json`) : null;
-      _objectGroup.add(buildObjectGroup(objectPlacement(object, symbolDef, pathData, openingDef), object.id));
+      _objectGroup.add(buildObjectGroup(objectPlacement(object, symbolDef, pathData, openingDef), object.id, symbolParts(symbolDef, object.parameter_overrides ?? {}), colourOf));
     } catch (err) {
       console.warn(`[OEBF] object ${id} not drawn:`, err.message);
     }
@@ -2280,6 +2293,129 @@ function _addOpeningRows(panel, hostId, reg) {
     row.appendChild(b);
   }
   panel.appendChild(row);
+}
+
+// ─── Objects on a wall: place a symbol, alone or in a grid, and remove it ────
+
+async function _symbolsOfBundle() {
+  const out = {};
+  try {
+    for (const name of (await adapter.listDir('symbols')).filter((n) => n.endsWith('.json'))) {
+      try { out[name.replace(/\.json$/, '')] = await readEntity(adapter, `symbols/${name}`); } catch { /* unreadable symbol: not offered */ }
+    }
+  } catch { /* no symbols folder */ }
+  return out;
+}
+
+/** The wall's objects, each with Remove, plus Add object (a symbol with spacing for a grid of them). */
+function _addObjectRows(panel, hostId, reg) {
+  const h = document.createElement('h3');
+  h.textContent = 'Objects';
+  panel.appendChild(h);
+  const mine = [..._objects.values()].filter((o) => o.host_element_id === hostId);
+  for (const o of mine) {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;gap:6px;align-items:center;margin:4px 0;font-size:12px';
+    const n = instanceCount(o.array);
+    const text = document.createElement('span');
+    text.style.cssText = 'flex:1;word-break:break-all';
+    text.textContent = `${o.id}${n > 1 ? ` (${n})` : ''}`;
+    const del = document.createElement('button');
+    del.textContent = 'Remove';
+    del.style.cssText = 'padding:3px 8px;cursor:pointer;background:#4a2a2a;color:#f88;border:1px solid #555;border-radius:3px;font-size:11px';
+    del.addEventListener('click', () => _removeObject(o.id, hostId));
+    row.append(text, del);
+    panel.appendChild(row);
+  }
+  if (!mine.length) {
+    const none = document.createElement('div');
+    none.style.cssText = 'opacity:0.55;font-size:12px;margin:2px 0 6px';
+    none.textContent = 'None on this wall.';
+    panel.appendChild(none);
+  }
+  const b = document.createElement('button');
+  b.textContent = 'Add object…';
+  b.id = 'add-object-btn';
+  b.style.cssText = 'width:100%;margin-top:6px;padding:5px 10px;cursor:pointer;background:#2a3a4a;color:#9cf;border:1px solid #555;border-radius:3px;font-size:12px';
+  b.addEventListener('click', () => _openPlaceObject(hostId));
+  panel.appendChild(b);
+}
+
+async function _removeObject(id, hostId) {
+  if (!window.confirm(`Remove object ${id}?`)) return;
+  await adapter.deleteFile(`objects/${id}.json`);
+  await writeEntity(adapter, 'model.json', withObjectUnregistered(await readEntity(adapter, 'model.json'), id));
+  await _reloadObjects();
+  statusBar.textContent = `Removed ${id}`;
+  await _showElementProps(hostId);
+}
+
+async function _openPlaceObject(hostId) {
+  const reg = _elementRegistry.get(hostId);
+  if (!adapter || !reg?.pathData) return;
+  const symbols = await _symbolsOfBundle();
+  const ids = Object.keys(symbols);
+  if (!ids.length) { statusBar.textContent = 'This bundle has no symbols. Make one with Objects in the detail editor.'; return; }
+  const host = await readEntity(adapter, `elements/${hostId}.json`);
+  const pathLength = pathSummary(reg.pathData).length;
+  const dlg = document.getElementById('object-dialog');
+  const unit = getUnit();
+  const mk = (tag, props = {}, ...kids) => { const e = Object.assign(document.createElement(tag), props); e.append(...kids); return e; };
+  const row = (label, ...c) => mk('div', { className: 'row' }, mk('label', { textContent: label }), ...c);
+  const symbol = mk('select', {}, ...ids.map((s) => mk('option', { value: s, textContent: s })));
+  const len = (v) => mk('input', { type: 'text', value: String(toDisplay(v)) });
+  const count = (v) => mk('input', { type: 'text', value: String(v) });
+  const position = len(Math.min(0.45, pathLength / 2)), height = len(0);
+  const nAlong = count(1), stepAlong = len(0.9), nUp = count(1), stepUp = len(0.45);
+  const problems = mk('div', { className: 'problems' });
+  const place = mk('button', { textContent: 'Place', className: 'primary', type: 'button' });
+  const cancel = mk('button', { textContent: 'Cancel', type: 'button' });
+
+  const read = () => {
+    const m = (el) => parseDimension(el.value, { unit });
+    const n = (el) => parseInt(el.value, 10);
+    const grid = { count_along: n(nAlong), spacing_along_m: m(stepAlong), count_up: n(nUp), spacing_up_m: m(stepUp) };
+    return { position: m(position), baseHeight: m(height), grid };
+  };
+  const check = () => {
+    const { position: pos, baseHeight, grid } = read();
+    const bad = [];
+    if (pos === null || baseHeight === null) bad.push('Position and height must be numbers.');
+    if (![grid.count_along, grid.count_up].every((c) => Number.isInteger(c) && c >= 1)) bad.push('Counts must be whole numbers, 1 or more.');
+    if (grid.spacing_along_m === null || grid.spacing_up_m === null) bad.push('Spacings must be numbers.');
+    if (!bad.length) bad.push(...placementProblems({ position: pos, array: normaliseArray(grid), pathLength }));
+    problems.replaceChildren(...bad.map((t) => mk('div', { textContent: t })));
+    place.disabled = bad.length > 0;
+    return bad.length === 0;
+  };
+  for (const el of [position, height, nAlong, stepAlong, nUp, stepUp]) el.addEventListener('input', check);
+
+  place.addEventListener('click', async () => {
+    if (!check()) return;
+    const { position: pos, baseHeight, grid } = read();
+    const model = await readEntity(adapter, 'model.json');
+    const id = nextObjectId([..._objects.keys(), ...(model.objects ?? [])], hostId, symbol.value);
+    const entity = newObject({ id, symbolId: symbol.value, symbol: symbols[symbol.value], hostId, pathId: reg.pathData.id, parentGroupId: host.parent_group_id, position: pos, baseHeight, array: grid });
+    await writeEntity(adapter, `objects/${id}.json`, entity);
+    await writeEntity(adapter, 'model.json', withObjectRegistered(model, id, host.parent_group_id));
+    dlg.close();
+    await _reloadObjects();
+    statusBar.textContent = `Placed ${id}${instanceCount(entity.array) > 1 ? ` (${instanceCount(entity.array)} instances)` : ''}.`;
+    await _showElementProps(hostId);
+  });
+  cancel.addEventListener('click', () => dlg.close());
+
+  dlg.replaceChildren(
+    mk('h3', { textContent: `Add object to ${hostId}` }),
+    row('Symbol', symbol),
+    row(`Position along wall (${unitLabel()})`, position),
+    row(`Base height (${unitLabel()})`, height),
+    mk('div', { className: 'note', textContent: 'Repeat in a grid (leave at 1 for a single object). The first one is at the position and height above; the rest go along the wall and up.' }),
+    row('Number along the wall', nAlong), row(`Spacing along (${unitLabel()})`, stepAlong),
+    row('Number of rows up', nUp), row(`Spacing up (${unitLabel()})`, stepUp),
+    problems, mk('div', { className: 'actions' }, place, cancel));
+  check();
+  dlg.showModal();
 }
 
 // ─── Properties panel: generic fields, path nodes, storeys (#83) ─────────────

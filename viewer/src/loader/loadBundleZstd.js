@@ -171,7 +171,7 @@ export async function loadBundleZstd(file) {
   for (const objectId of (model.objects ?? [])) {
     try {
       const object = readJson(`objects/${objectId}.json`);
-      objects.push({ object, placement: loadObjectPlacement(object, readJson) });
+      objects.push({ object, ...loadObjectPlacement(object, readJson) });
     } catch (err) {
       console.warn(`[OEBF] Skipping object ${objectId}: ${err.message}`);
     }

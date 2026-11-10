@@ -45,6 +45,21 @@
     #publish-dialog { background: #222; color: #ddd; border: 1px solid #555; border-radius: 6px; padding: 14px 18px; max-width: 700px; max-height: 80vh; overflow-y: auto; font-size: 12px; }
     #publish-dialog::backdrop { background: rgba(0,0,0,0.5); }
     #publish-dialog code { display: block; background: #151515; padding: 4px 8px; margin: 3px 0; user-select: all; }
+    #object-dialog { max-width: 820px; max-height: 88vh; overflow-y: auto; font-size: 12px; }
+    #object-dialog::backdrop { background: rgba(0,0,0,0.5); }
+    #object-dialog h3 { margin: 0 0 8px; }
+    #object-dialog .row { display: flex; gap: 8px; align-items: center; margin: 4px 0; }
+    #object-dialog .row > label { width: 90px; opacity: 0.7; }
+    #object-dialog input, #object-dialog select { background: #333; color: #ddd; border: 1px solid #555; border-radius: 3px; padding: 3px 5px; font-size: 12px; }
+    #object-dialog input[type=number] { width: 64px; }
+    #object-dialog .part { border: 1px solid #444; border-radius: 4px; padding: 6px 8px; margin: 6px 0; display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }
+    #object-dialog .part label { opacity: 0.7; }
+    #object-dialog .previews { display: flex; gap: 12px; margin: 8px 0; }
+    #object-dialog .previews div { flex: 1; background: #151515; border: 1px solid #333; border-radius: 4px; height: 150px; padding: 4px; }
+    #object-dialog .previews svg { width: 100%; height: 100%; }
+    #object-dialog .previews small { display: block; opacity: 0.5; text-align: center; }
+    #object-dialog .problems { color: #f08080; margin: 6px 0; }
+    #object-dialog .actions { display: flex; gap: 6px; margin-top: 10px; }
     #help-dialog::backdrop { background: rgba(0,0,0,0.5); }
     #help-dialog dl { display: grid; grid-template-columns: 150px 1fr; gap: 3px 12px; margin: 0 0 6px; font-size: 12px; }
     #help-dialog dt { color: #fff; font-family: monospace; }
@@ -130,6 +145,7 @@
     <span id="project-name">No bundle open</span>
     <select id="detail-select" disabled><option value="">— select detail —</option></select>
     <button id="new-btn" disabled>New</button>
+    <button id="objects-btn" disabled title="Make a small multi-part object (a screw, a brick tie, a cavity tray) and keep it in the bundle for reuse">Objects</button>
     <button id="view-switch-btn" disabled title="Switch to the same junction in the other view: plan or section">Plan / Section</button>
     <span class="sep"></span>
     <button id="open-btn" title="Open a bundle folder">Folder</button>
@@ -180,6 +196,7 @@
   <dialog id="publish-dialog"></dialog>
   <dialog id="sheet-dialog"></dialog>
   <dialog id="new-dialog"></dialog>
+  <dialog id="object-dialog"></dialog>
   <dialog id="loc-dialog"></dialog>
   <input id="dxf-input" type="file" accept=".dxf" hidden>
   <input id="oebfz-input" type="file" accept=".oebfz" hidden>

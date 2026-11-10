@@ -20,7 +20,7 @@ import { buildThreeMesh }        from './scene/buildMesh.js';
 import { applyJunctionClipping, buildCustomJunctionMesh, buildJunctionDetailMeshes } from './junction-renderer.js';
 import { ensureDetailMaterials } from './detail/detailMaterials.js';
 import { applyCsgJunctions } from './junction-csg.js';
-import { buildObjectGroup } from './loader/loadObject.js';
+import { buildObjectGroup, colourLookup } from './loader/loadObject.js';
 import { buildArrayGroup }       from './array/arrayRenderer.js';
 import { buildSymbolGeometries } from './loader/loadSymbol.js';
 import { buildGridLineSegments } from './loader/loadGrid.js';
@@ -169,7 +169,8 @@ function _buildScene(meshes, manifest, junctions, arrays, grids, openings = [], 
     currentGroup.add(lines);
   }
 
-  for (const { object, placement } of objects) currentGroup.add(buildObjectGroup(placement, object.id));
+  const objectColour = colourLookup(materials);
+  for (const { object, placement, parts } of objects) currentGroup.add(buildObjectGroup(placement, object.id, parts, objectColour));
 
   scene.add(currentGroup);
 

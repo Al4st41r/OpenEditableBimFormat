@@ -288,3 +288,23 @@ def test_a_wall_on_a_spline_path_is_exported_as_its_chord_not_a_crash(tmp_path):
     export_ifc(bundle, out)
     wall = next(w for w in ifcopenshell.open(str(out)).by_type("IfcWall") if "South external" in (w.Name or ""))
     assert wall.Representation.Representations[0].Items[0].Depth == 5.4
+
+
+def test_an_object_array_exports_one_fastener_per_instance_with_the_parts_and_materials(tmp_path):
+    import ifcopenshell.util.placement as placement
+    ifc = _export(tmp_path)
+    ties = ifc.by_type("IfcMechanicalFastener")
+    assert len(ties) == 24                                  # 6 along x 4 up
+    xs = sorted({round(float(placement.get_local_placement(t.ObjectPlacement)[0][3]), 6) for t in ties})
+    zs = sorted({round(float(placement.get_local_placement(t.ObjectPlacement)[2][3]), 6) for t in ties})
+    assert xs == [0.45, 1.35, 2.25, 3.15, 4.05, 4.95]       # the wall runs west from x = 5.4, ties every 0.9 m from 0.45 m
+    assert zs == [0.3, 0.75, 1.2, 1.65]
+    items = ties[0].Representation.Representations[0].Items
+    assert [type(i.SweptArea).__name__ if False else i.SweptArea.is_a() for i in items] == ["IfcCircleProfileDef", "IfcRectangleProfileDef", "IfcCircleProfileDef"]
+    import ifcopenshell.util.element as el
+    material = el.get_material(ties[0])
+    assert material.is_a("IfcMaterialConstituentSet")
+    assert {c.Name for c in material.MaterialConstituents} == {"Bar", "Drip", "Disc"}
+    assert all(c.Material.Name == "Stainless steel" for c in material.MaterialConstituents)
+    assert el.get_material(ties[5]) == material             # shared, not one set per instance
+    assert _psets(ties[7])["OEBF_Element"]["Instance"] == 8

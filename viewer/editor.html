@@ -140,6 +140,19 @@
       border: 1px solid rgba(255,255,255,0.15);
     }
 
+    #object-dialog { background: #222; color: #ddd; border: 1px solid #555; border-radius: 6px; padding: 16px 20px; margin: auto; min-width: 380px; font-size: 12px; }
+    #object-dialog::backdrop { background: rgba(0,0,0,0.5); }
+    #object-dialog h3 { margin-bottom: 10px; font-size: 14px; }
+    #object-dialog .row { display: flex; gap: 8px; align-items: center; margin: 5px 0; }
+    #object-dialog .row > label { width: 150px; opacity: 0.7; }
+    #object-dialog input, #object-dialog select { background: #333; color: #ddd; border: 1px solid #555; border-radius: 3px; padding: 4px 6px; font-size: 12px; }
+    #object-dialog input[type=text] { width: 90px; }
+    #object-dialog .note { opacity: 0.6; margin: 8px 0 2px; }
+    #object-dialog .problems { color: #f0b060; margin: 8px 0; }
+    #object-dialog .actions { display: flex; gap: 6px; margin-top: 12px; }
+    #object-dialog button { padding: 5px 14px; cursor: pointer; background: #333; color: #ddd; border: 1px solid #555; border-radius: 3px; }
+    #object-dialog button.primary { background: #2a4a6a; border-color: #4a8aaa; }
+    #object-dialog button:disabled { opacity: 0.4; cursor: default; }
     #welcome-overlay {
       position: fixed; inset: 0; z-index: 200;
       background: rgba(0,0,0,0.7);
@@ -191,6 +204,7 @@
       </div>
     </div>
   </div>
+  <dialog id="object-dialog"></dialog>
   <div id="toolbar">
     <button id="new-btn" aria-label="New bundle">New</button>
     <button id="open-btn" aria-label="Open bundle">

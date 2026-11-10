@@ -139,7 +139,7 @@ export async function loadBundle(dirHandle) {
       for (const rel of [`symbols/${object.symbol_id}.json`, `paths/${object.path_id}.json`, ...(object.opening_id ? [`openings/${object.opening_id}.json`] : [])]) {
         files[rel] = await _readJson(dirHandle, rel);
       }
-      objects.push({ object, placement: loadObjectPlacement(object, (rel) => files[rel]) });
+      objects.push({ object, ...loadObjectPlacement(object, (rel) => files[rel]) });
     } catch (err) {
       console.warn(`[OEBF] Skipping object ${objectId}: ${err.message}`);
     }

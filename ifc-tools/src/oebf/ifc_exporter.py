@@ -58,7 +58,7 @@ def export_ifc(oebf_dir: Path, ifc_path: Path) -> None:
         if entity is not None:
             exported[slab_id] = entity
 
-    ifc_openings.export_openings_and_objects(ifc, oebf_dir, model_data, storey, body_context, exported, mapping)
+    ifc_openings.export_openings_and_objects(ifc, oebf_dir, model_data, storey, body_context, exported, mapping, mat_by_id)
     _export_junctions(ifc, oebf_dir, model_data, exported)
     _export_bundle_extensions(ifc, project, oebf_dir, model_data, exported)
 

@@ -416,3 +416,20 @@ def test_an_object_with_a_missing_symbol_or_host_is_reported(bundle):
 def test_a_group_naming_a_missing_child_is_reported(bundle):
     edit(bundle / "groups" / "group-external-doors.json", lambda d: d["children"].append("object-nope"))
     assert "child-missing" in codes(bundle)
+
+
+def test_a_part_with_an_unknown_material_a_part_with_no_size_and_a_huge_array_are_reported(tmp_path):
+    import shutil, json
+    bundle = tmp_path / "b.oebf"
+    shutil.copytree(EXAMPLE_BUNDLE if "EXAMPLE_BUNDLE" in globals() else __import__("pathlib").Path(__file__).resolve().parents[2] / "example" / "terraced-house.oebf", bundle)
+    sym = bundle / "symbols" / "symbol-wall-tie.json"
+    doc = json.loads(sym.read_text())
+    doc["parts"][0]["material_id"] = "mat-nope"
+    doc["parts"].append({"shape": "box"})
+    sym.write_text(json.dumps(doc))
+    obj = bundle / "objects" / "object-wall-ties-south-gf.json"
+    o = json.loads(obj.read_text())
+    o["array"] = {"count_along": 300, "spacing_along_m": 0.01, "count_up": 300, "spacing_up_m": 0.01}
+    obj.write_text(json.dumps(o))
+    found = codes(bundle)
+    assert {"material-missing", "part-incomplete", "array-too-large"} <= set(found)

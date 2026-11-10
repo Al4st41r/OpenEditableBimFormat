@@ -243,7 +243,66 @@ it; one with no `opening_id` has its centre at its own `path_position`.
 ```
 
 **Step 3.** Register in `model.json`: add `"object-door-d02"` to `objects[]`
-and `storey-gf > children[]`. The opening does **not** need a separate entry.
+and `storey-gf > children[]`, and add `"opening-d02"` to `openings[]`.
+
+---
+
+## Worked example: add wall ties (a multi-part symbol in a grid)
+
+A Symbol can be one box (`geometry_definition: "box"`, sized by `parameters`) or several shapes
+(`geometry_definition: "parts"`). Each part is a `box` or a `cylinder` with its own material.
+The symbol's frame has **x along the wall, y across it, z up**, with the origin at the centre of
+the bottom face; a part's `offset_m` is the centre of that part. The detail editor's **Objects**
+button builds a symbol from a form with a front and side preview.
+
+**Step 1.** Create `symbols/symbol-wall-tie.json` (a 4 mm bar across the wall with a drip):
+
+```json
+{
+  "$schema": "oebf://schema/0.1/symbol",
+  "id": "symbol-wall-tie",
+  "type": "Symbol",
+  "description": "Stainless steel cavity wall tie",
+  "ifc_type": "IfcMechanicalFastener",
+  "geometry_definition": "parts",
+  "parameters": {},
+  "parts": [
+    { "name": "Bar", "shape": "cylinder", "axis": "y", "radius_m": 0.002, "length_m": 0.2,
+      "material_id": "mat-stainless-steel", "offset_m": { "x": 0, "y": 0, "z": 0 } },
+    { "name": "Drip", "shape": "box", "size_m": { "x": 0.004, "y": 0.03, "z": 0.025 },
+      "material_id": "mat-stainless-steel", "offset_m": { "x": 0, "y": 0, "z": -0.0125 } }
+  ]
+}
+```
+
+**Step 2.** Place it with an Object. `path_position` is the centre of the first instance along the
+wall, `base_height_m` its height above the wall path, and `array` repeats it in a grid: here
+6 along the wall at 900 mm and 4 rows up at 450 mm (24 ties). Symbols are found by `symbol_id`;
+they are not listed in `model.json`.
+
+```json
+{
+  "$schema": "oebf://schema/0.1/object",
+  "id": "object-wall-ties-south-gf",
+  "type": "Object",
+  "description": "Cavity wall ties, south wall",
+  "ifc_type": "IfcMechanicalFastener",
+  "symbol_id": "symbol-wall-tie",
+  "host_element_id": "element-wall-south-gf",
+  "path_id": "path-wall-south-gf",
+  "path_position": 0.45,
+  "base_height_m": 0.3,
+  "array": { "count_along": 6, "spacing_along_m": 0.9, "count_up": 4, "spacing_up_m": 0.45 },
+  "parameter_overrides": {},
+  "parent_group_id": "storey-gf",
+  "properties": {}
+}
+```
+
+**Step 3.** Register as for any object: add the id to `objects[]` and to `storey-gf > children[]`.
+An array is limited to 500 instances. The IFC export writes one element per instance, sharing one
+material set whose constituents are the parts. An Object in an opening ignores `base_height_m` and
+rests on the sill.
 
 ---
 
