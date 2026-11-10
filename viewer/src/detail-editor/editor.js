@@ -21,6 +21,7 @@ import { copySelection, parsePayload, pasteInto } from './clipboard.js';
 import { defaultLayers, setLayer, applyLayers, blocked, keepSelection, layerOfSelection, editable, LAYER_LABELS } from './layers.js';
 import { validateDetail } from './detailValidate.js';
 import { createDetail, toJsonText } from './detailSerializer.js';
+import { findCounterpart, counterpartDraft, otherPlane } from './counterpart.js';
 import { loadDetailContext, saveDetail } from './detailStore.js';
 import { snapshotToContext } from './bundleSnapshot.js';
 import { readyMessage, parseIncoming, savedMessage, focusMessage } from './messages.js';
@@ -120,11 +121,37 @@ function paint() {
   paintTip();
 }
 
+/** The Plan / Section button says where it goes: to the paired detail, or to a new one to draw. */
+function updateViewSwitch() {
+  const btn = $('view-switch-btn');
+  if (!st || !bundle) { btn.disabled = true; btn.textContent = 'Plan / Section'; return; }
+  const want = otherPlane(st.doc.plane);
+  const pair = findCounterpart(st.doc, bundle.ctx.details);
+  btn.disabled = false;
+  btn.textContent = pair ? `Show ${want}` : `Add ${want} view`;
+  btn.title = pair ? `Open ${pair.id}, the same junction in ${want}` : `Make a new, empty ${want} detail with the same members and condition`;
+}
+
+$('view-switch-btn').addEventListener('click', () => {
+  if (!st || !bundle) return;
+  if (isDirty(st) && !window.confirm('Discard unsaved changes to this detail?')) return;
+  const pair = findCounterpart(st.doc, bundle.ctx.details);
+  if (pair) { openDetail(pair.id); updateDetailSelect(); return; }
+  try {
+    const doc = counterpartDraft(st.doc, bundle.ctx.detailIds);
+    st = { ...createState(doc), saved: null };   // new, so dirty until first save
+    display = null; draft = null; controller = createController('select');
+    updateDetailSelect(); refresh(); fit();
+    status(`New ${doc.plane} view ${doc.id}. Draw it, then Save.`);
+  } catch (err) { status(err.message, true); }
+});
+
 function refresh() {
   if (!bundle) return;
   const has = !!st;
   $('empty').hidden = has;
   $('save-btn').disabled = true;
+  updateViewSwitch();
   if (has) {
     const validation = validateDetail(st.doc, validationContext());
     const pm = buildPanelModel({
