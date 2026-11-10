@@ -10,6 +10,8 @@
 
 import { FUNCTIONS, FUNCTION_META } from './profileConstants.js';
 import { openMaterialPicker } from './materialPicker.js';
+import { PACKAGES, BARRIERS, FIRE_ROLES, SHEARING_LAYERS } from '../detail-review/classification.js';
+import { withTag, tagsToSave } from './layerTags.js';
 import { toDisplay, fromDisplay, unitLabel } from '../editor/units.js';
 
 const ICON_BASE = import.meta.env.BASE_URL + 'icons/';
@@ -84,6 +86,8 @@ export function getLayers(formEl) {
     } else {
       base.thickness = fromDisplay(parseFloat(row.querySelector('.layer-thick').value) || 0);
     }
+    const tags = tagsToSave(JSON.parse(row.dataset.tags || '{}'));
+    if (tags) base.tags = tags;
     return base;
   });
 }
@@ -113,6 +117,7 @@ function _appendRow(formEl, layer, index) {
   const isRegion = layer.type === 'region';
   row.dataset.layerType = isRegion ? 'region' : 'band';
   if (isRegion) row.dataset.vertices = JSON.stringify(layer.vertices ?? []);
+  row.dataset.tags = JSON.stringify(layer.tags ?? {});
   const fnColour = FUNCTION_META[layer.function]?.colour ?? '#555';
   row.style.cssText = `display:flex;flex-wrap:wrap;gap:4px 6px;align-items:center;padding:4px 0;border-bottom:1px solid #333;border-left:3px solid ${fnColour};padding-left:6px;`;
 
@@ -209,7 +214,7 @@ function _appendRow(formEl, layer, index) {
     el.addEventListener('change', () => _emit(formEl));
   });
 
-  row.append(nameInput, thickInput, swatchBtn, matSelect, fnIcon, fnSelect, upBtn, downBtn, insBtn, delBtn);
+  row.append(nameInput, thickInput, swatchBtn, matSelect, fnIcon, fnSelect, upBtn, downBtn, insBtn, delBtn, _tagsFold(formEl, row));
   formEl.appendChild(row);
 
   if (isRegion) {
@@ -295,4 +300,70 @@ function _emit(formEl) {
     detail: { layers: getLayers(formEl) },
     bubbles: true,
   }));
+}
+
+/**
+ * The Tags fold on a layer row: the classification the detail review overlays read. A tag set here overrides the
+ * material's default for this layer only. The tags live on the row (data-tags) so getLayers reads them with the rest.
+ */
+function _tagsFold(formEl, row) {
+  const read = () => JSON.parse(row.dataset.tags || '{}');
+  const write = (key, value) => {
+    row.dataset.tags = JSON.stringify(withTag(read(), key, value));
+    count.textContent = Object.keys(read()).length ? ` (${Object.keys(read()).length})` : '';
+    _emit(formEl);
+  };
+  const css = 'background:#2a2a2a;color:#ddd;border:1px solid #444;border-radius:2px;padding:2px 4px;font-size:11px;';
+  const pick = (label, key, values) => {
+    const sel = document.createElement('select');
+    sel.style.cssText = css;
+    sel.append(Object.assign(document.createElement('option'), { value: '', textContent: 'from material' }),
+      ...values.map(v => Object.assign(document.createElement('option'), { value: v, textContent: v, selected: read()[key] === v })));
+    sel.addEventListener('change', () => write(key, sel.value));
+    return _tagRow(label, sel);
+  };
+  const barrier = document.createElement('div');
+  barrier.style.cssText = 'display:flex;flex-wrap:wrap;gap:2px 8px;';
+  for (const b of BARRIERS) {
+    const box = Object.assign(document.createElement('input'), { type: 'checkbox', checked: (read().barrier ?? []).includes(b) });
+    box.addEventListener('change', () => {
+      const set = new Set(read().barrier ?? []);
+      if (box.checked) set.add(b); else set.delete(b);
+      write('barrier', [...set]);
+    });
+    const lbl = document.createElement('label');
+    lbl.style.cssText = 'font-size:11px;color:#bbb;';
+    lbl.append(box, ` ${b}`);
+    barrier.appendChild(lbl);
+  }
+  const seq = Object.assign(document.createElement('input'), { type: 'number', min: 1, max: 99, step: 1, placeholder: 'from material', value: read().sequence ?? '' });
+  seq.style.cssText = css + 'width:90px;';
+  seq.addEventListener('change', () => write('sequence', seq.value === '' ? null : parseInt(seq.value, 10)));
+
+  const fold = document.createElement('details');
+  fold.className = 'layer-tags';
+  fold.style.cssText = 'flex:1 1 100%;font-size:11px;color:#999;';
+  fold.open = Object.keys(read()).length > 0;
+  const summary = document.createElement('summary');
+  summary.style.cursor = 'pointer';
+  summary.append('Tags');
+  const count = document.createElement('span');
+  count.textContent = Object.keys(read()).length ? ` (${Object.keys(read()).length})` : '';
+  summary.appendChild(count);
+  const note = document.createElement('div');
+  note.style.cssText = 'color:#777;margin:2px 0;';
+  note.textContent = 'A tag here overrides the material for this layer only.';
+  fold.append(summary, pick('Package', 'package', PACKAGES), _tagRow('Barrier', barrier), pick('Fire', 'fire_role', FIRE_ROLES),
+    pick('Shearing', 'shearing_layer', SHEARING_LAYERS), _tagRow('Sequence', seq), note);
+  return fold;
+}
+
+function _tagRow(label, control) {
+  const r = document.createElement('div');
+  r.style.cssText = 'display:flex;gap:8px;align-items:center;margin:2px 0;';
+  const l = document.createElement('span');
+  l.style.cssText = 'width:60px;color:#999;';
+  l.textContent = label;
+  r.append(l, control);
+  return r;
 }

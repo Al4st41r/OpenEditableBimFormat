@@ -257,3 +257,13 @@ describe('buildJson detail flag', () => {
     expect('detail' in buildJson({ layers, originX: 0.05, id: 'profile-d', description: 'd' })).toBe(false);
   });
 });
+
+it('buildJson keeps a layer\'s tags and leaves out empty ones', () => {
+  const json = buildJson({
+    layers: [{ name: 'Brick', material_id: 'm', thickness: 0.1, function: 'finish', tags: { package: 'cladding', barrier: ['water'] } },
+             { name: 'Block', material_id: 'm', thickness: 0.1, function: 'structure', tags: {} }],
+    originX: 0.1, id: 'p', description: '',
+  });
+  expect(json.assembly[0].tags).toEqual({ package: 'cladding', barrier: ['water'] });
+  expect(json.assembly[1]).not.toHaveProperty('tags');
+});

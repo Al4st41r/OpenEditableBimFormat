@@ -256,6 +256,7 @@ profileSelect.addEventListener('change', async () => {
     material_id: l.material_id,
     thickness:   l.thickness,
     function:    l.function,
+    ...(l.tags && { tags: l.tags }),
     ...(l.type === 'region' ? {
       type:     'region',
       vertices: l.vertices ?? [],

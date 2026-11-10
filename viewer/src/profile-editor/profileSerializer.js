@@ -57,6 +57,7 @@ export function buildJson({ layers, originX, id, description, profileType, align
       } else {
         item.thickness = Math.round((l.thickness ?? 0) * 1e6) / 1e6;
       }
+      if (l.tags && Object.keys(l.tags).length) item.tags = l.tags;
       return item;
     }),
   };
