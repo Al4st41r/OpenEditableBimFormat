@@ -1,5 +1,8 @@
 import { describe, test, expect, vi } from 'vitest';
 
+// the dashed line is drawn by fatLine.js, which needs real three.js; these tests are about guide data
+vi.mock('./fatLine.js', () => ({ fatSegments: () => ({ isFatLineStub: true, renderOrder: 0 }) }));
+
 vi.mock('three', () => {
   class Vector3 {
     constructor(x=0,y=0,z=0) { this.x=x; this.y=y; this.z=z; }

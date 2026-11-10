@@ -7,12 +7,14 @@
 
 import * as THREE from 'three';
 import { writeEntity } from './bundleWriter.js';
+import { fatSegments } from './fatLine.js';
 import { toDisplay, unitLabel, fromDisplay } from './units.js';
 import { wireRow, makeRemoveButton } from './treeMenu.js';
 
 const GUIDE_COLOUR       = 0x7090e8;
 const GUIDE_OPACITY      = 0.12;
 const GUIDE_HEIGHT       = 10;
+const GUIDE_LINE_PX      = 1.5;  // width of the dashed guide line, screen pixels
 const GUIDE_PLANE_SIZE   = 50; // metres — horizontal Z-guide plane extent
 
 export class GuideManager {
@@ -215,15 +217,8 @@ function _buildGuideObject(segments) {
   }
 
   if (pts3.length >= 2) {
-    // Dashed line in plan view
-    const lineGeo = new THREE.BufferGeometry().setFromPoints(pts3);
-    const lineMat = new THREE.LineDashedMaterial({
-      color: GUIDE_COLOUR, dashSize: 0.4, gapSize: 0.2, depthTest: false,
-    });
-    const line = new THREE.LineSegments(lineGeo, lineMat);
-    line.renderOrder = 1;
-    line.computeLineDistances();
-    group.add(line);
+    // Dashed line in plan view, a fixed number of pixels wide at any zoom
+    group.add(fatSegments(pts3.flatMap((p) => [p.x, p.y, p.z]), { color: GUIDE_COLOUR, widthPx: GUIDE_LINE_PX, dash: 0.4, gap: 0.2 }));
 
     // Translucent blue plane spanning guide extent (3D view)
     const xs = pts3.map(p => p.x);

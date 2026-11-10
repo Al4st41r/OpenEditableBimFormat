@@ -2,7 +2,7 @@
 
 **Date:** 2026-11-06
 **Branch:** main
-**Tests:** 1994 JS (Vitest, 120 test files) + 420 Python (pytest)
+**Tests:** 1998 JS (Vitest, 121 test files) + 420 Python (pytest)
 
 ---
 
@@ -112,7 +112,6 @@ See `docs/roadmap.md` for the full version-by-version plan.
 | #106 | IFC importer: imported bundles do not pass oebf validate | v0.3 | Schemas, profiles, materials, parent_group_id, slabs |
 | #101 | commands.json, ifc/mapping.json, migrations | Pre-v0.5 | Spec items not delivered |
 
-| #116 | Fat lines for guides and grid axes | v0.4 | Proposal: `docs/plans/2026-11-06-branch3d-review-proposal.md` |
 | #117 | Quantities and embodied carbon panel | Future | Same proposal |
 | #118 | Starter models on the editor home page | Future | Same proposal |
 

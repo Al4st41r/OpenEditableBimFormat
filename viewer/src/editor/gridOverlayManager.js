@@ -2,7 +2,7 @@
  * gridOverlayManager.js — Reference grid axis creation and 3D rendering.
  *
  * Each grid axis is rendered as:
- *   - Plan view: LineDashedMaterial pink line
+ *   - Plan view: dashed pink fat line (fatLine.js)
  *   - 3D view:   translucent pink PlaneGeometry
  */
 
@@ -10,6 +10,7 @@ import * as THREE from 'three';
 import { writeEntity } from './bundleWriter.js';
 import { toDisplay, unitLabel, fromDisplay } from './units.js';
 import { wireRow, makeRemoveButton } from './treeMenu.js';
+import { fatSegments } from './fatLine.js';
 import { axisEndpoints, axisPlaneGeometry, axisPlaneExtent, axisLabel } from '../grid/gridAxis.js';
 import {
   loadGridSet, flattenAxes, activeGrid, setActiveGrid, addGrid as addGridTo, addAxis as addAxisTo,
@@ -18,6 +19,7 @@ import {
 
 const GRID_COLOUR   = 0xe87070;
 const GRID_OPACITY  = 0.05;   // faint: a dozen planes add up
+const GRID_LINE_PX  = 1.5;    // width of the dashed axis line, screen pixels
 const GRID_HEIGHT   = 8;      // metres tall in 3D
 
 /**
@@ -215,17 +217,9 @@ export class GridOverlayManager {
     plane.visible = this._planes;
     group.add(plane);
 
-    // Dashed line at Z=0 (plan view)
+    // Dashed line at Z=0 (plan view), a fixed number of pixels wide at any zoom
     const { a, b } = axisEndpoints(direction, offset_m, -50, 50);
-    const points = [new THREE.Vector3(a.x, a.y, 0), new THREE.Vector3(b.x, b.y, 0)];
-    const lineGeo = new THREE.BufferGeometry().setFromPoints(points);
-    const lineMat = new THREE.LineDashedMaterial({
-      color: GRID_COLOUR, dashSize: 0.5, gapSize: 0.25, depthTest: false,
-    });
-    const line = new THREE.Line(lineGeo, lineMat);
-    line.renderOrder = 1;
-    line.computeLineDistances();
-    group.add(line);
+    group.add(fatSegments([a.x, a.y, 0, b.x, b.y, 0], { color: GRID_COLOUR, widthPx: GRID_LINE_PX, dash: 0.5, gap: 0.25 }));
 
     return group;
   }
