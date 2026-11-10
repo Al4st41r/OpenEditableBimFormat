@@ -287,15 +287,36 @@ profileSelect.addEventListener('change', async () => {
 });
 
 // ── New profile ───────────────────────────────────────────────────────────────
+/** A usable id for a new profile, or null (with a message) when it is malformed or already taken. */
+function _validNewId(raw) {
+  const id = raw.trim().toLowerCase();
+  if (!/^[a-z0-9][a-z0-9-]*$/.test(id)) { alert('Id must match ^[a-z0-9][a-z0-9-]*$'); return null; }
+  if ([...profileSelect.options].some(o => o.value === id)) { alert(`A profile called "${id}" already exists. Pick another id.`); return null; }
+  return id;
+}
+
+// ── Duplicate: a copy of the profile on screen under a new id, to adapt ──────────────────────
+document.getElementById('dup-btn').addEventListener('click', () => {
+  if (!currentId) return;
+  const id = _validNewId(window.prompt('Id for the copy:', `${currentId}-copy`) ?? '');
+  if (!id) return;
+  layers = getLayers(layerList);
+  currentId = id;
+  selectedLayerIndex = null;
+  const opt = document.createElement('option');
+  opt.value = id; opt.textContent = id;
+  profileSelect.appendChild(opt);
+  profileSelect.value = id;
+  _renderCanvas();
+  _setStatus(`Copy as ${id}: unsaved`);
+});
+
 newBtn.addEventListener('click', () => {
   const raw = window.prompt('Profile id (e.g. profile-brick-200):');
   if (!raw) return;
   clearGuides();
-  const id = raw.trim().toLowerCase();
-  if (!/^[a-z0-9][a-z0-9-]*$/.test(id)) {
-    alert('Id must match ^[a-z0-9][a-z0-9-]*$');
-    return;
-  }
+  const id = _validNewId(raw);
+  if (!id) return;
   currentId   = id;
   currentDesc = '';
   originX     = 0.1;
