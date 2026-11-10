@@ -53,3 +53,17 @@ describe('axisLabel', () => {
     expect(axisLabel('x', 8.5)).toEqual({ coord: 'Y', value: 8.5 });
   });
 });
+
+import { axisPlaneExtent } from './gridAxis.js';
+describe('axisPlaneExtent', () => {
+  const axes = [{ direction: 'y', offset_m: 0 }, { direction: 'y', offset_m: 9 }, { direction: 'x', offset_m: 0 }, { direction: 'x', offset_m: 6 }];
+  test('a north-south plane runs across the east-west axes, plus a margin', () => {
+    expect(axisPlaneExtent('y', axes)).toEqual({ min: -1.5, max: 7.5 });
+  });
+  test('an east-west plane runs across the north-south axes', () => {
+    expect(axisPlaneExtent('x', axes, 1)).toEqual({ min: -1, max: 10 });
+  });
+  test('with nothing crossing it falls back to a default length', () => {
+    expect(axisPlaneExtent('y', [{ direction: 'y', offset_m: 3 }])).toEqual({ min: -10, max: 10 });
+  });
+});

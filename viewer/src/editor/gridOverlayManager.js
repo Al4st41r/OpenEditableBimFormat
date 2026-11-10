@@ -10,15 +10,15 @@ import * as THREE from 'three';
 import { writeEntity } from './bundleWriter.js';
 import { toDisplay, unitLabel, fromDisplay } from './units.js';
 import { wireRow, makeRemoveButton } from './treeMenu.js';
-import { axisEndpoints, axisPlaneGeometry, axisLabel } from '../grid/gridAxis.js';
+import { axisEndpoints, axisPlaneGeometry, axisPlaneExtent, axisLabel } from '../grid/gridAxis.js';
 import {
   loadGridSet, flattenAxes, activeGrid, setActiveGrid, addGrid as addGridTo, addAxis as addAxisTo,
   updateAxis as updateAxisIn, removeAxis as removeAxisFrom, serialiseGrid, commitGrid,
 } from '../grid/gridSet.js';
 
 const GRID_COLOUR   = 0xe87070;
-const GRID_OPACITY  = 0.12;
-const GRID_HEIGHT   = 10; // metres tall in 3D
+const GRID_OPACITY  = 0.05;   // faint: a dozen planes add up
+const GRID_HEIGHT   = 8;      // metres tall in 3D
 
 /**
  * @typedef {object} GridAxis
@@ -43,6 +43,26 @@ export class GridOverlayManager {
     this._set = loadGridSet([]);
     /** (gridId, axisId) => boolean, set by the editor: junction locations that name the axis. */
     this.isAxisUsed = null;
+    this._planes = localStorage.getItem('oebf-grid-planes') !== 'off';
+  }
+
+  /** Show or hide the translucent 3D planes (the lines stay). */
+  setPlanesVisible(on) {
+    this._planes = on;
+    localStorage.setItem('oebf-grid-planes', on ? 'on' : 'off');
+    for (const a of this._axes) a.object3d.traverse((o) => { if (o.userData.gridPlane) o.visible = on; });
+  }
+
+  get planesVisible() { return this._planes; }
+
+  /** Redraw every axis: a plane's length depends on the other axes, so any change to the set can change it. */
+  _rebuildAll() {
+    for (const a of this._axes) {
+      this._overlayGroup.remove(a.object3d);
+      a.object3d = this._buildAxisObject(a.direction, a.offset_m);
+      a.object3d.visible = a.visible;
+      this._overlayGroup.add(a.object3d);
+    }
   }
 
   setAdapter(a) { this._adapter = a; }
@@ -59,6 +79,7 @@ export class GridOverlayManager {
     for (const a of flattenAxes(this._set)) {
       this._drawAxis(a.gridId, a.id, a.label, a.direction, a.offset_m, true);
     }
+    this._rebuildAll();
     this._renderList();
   }
 
@@ -132,9 +153,7 @@ export class GridOverlayManager {
     const direction = dir.toLowerCase();
     updateAxisIn(this._set, a.gridId, a.id, { id: label, label, direction, offset_m: offset });
     Object.assign(a, { id: label, key: `${a.gridId}/${label}`, label, direction, offset_m: offset });
-    a.object3d = this._buildAxisObject(a.direction, a.offset_m);
-    a.object3d.visible = a.visible;
-    this._overlayGroup.add(a.object3d);
+    this._rebuildAll();
     this._renderList();
     await this._saveGrid(a.gridId);
   }
@@ -148,6 +167,7 @@ export class GridOverlayManager {
     this._overlayGroup.remove(a.object3d);
     this._axes.splice(i, 1);
     removeAxisFrom(this._set, a.gridId, a.id);
+    this._rebuildAll();
     this._renderList();
     await this._saveGrid(a.gridId);
   }
@@ -163,6 +183,7 @@ export class GridOverlayManager {
       return;
     }
     this._drawAxis(grid.id, label, label, direction, offset_m, true);
+    this._rebuildAll();
     this._renderList();
     await this._saveGrid(grid.id);
   }
@@ -181,8 +202,17 @@ export class GridOverlayManager {
     const mat = new THREE.MeshBasicMaterial({
       color: GRID_COLOUR, transparent: true,
       opacity: GRID_OPACITY, side: THREE.DoubleSide, depthWrite: false,
+      // Axes sit on wall faces and slab edges. Pushed behind the model (whose bias is +1) so that coplanar
+      // faces always show the model, instead of fighting the plane and flickering as the camera moves.
+      polygonOffset: true, polygonOffsetFactor: 3, polygonOffsetUnits: 3,
     });
-    const plane = new THREE.Mesh(axisPlaneGeometry(direction, offset_m, 100, GRID_HEIGHT), mat);
+    const { min, max } = axisPlaneExtent(direction, this._axes);
+    const geometry = axisPlaneGeometry(direction, offset_m, max - min, GRID_HEIGHT);
+    geometry.translate(direction === 'x' ? (min + max) / 2 : 0, direction === 'y' ? (min + max) / 2 : 0, 0);
+    const plane = new THREE.Mesh(geometry, mat);
+    plane.renderOrder = -1;   // drawn before the model, so transparent sorting cannot make the planes and the model swap as the camera moves
+    plane.userData.gridPlane = true;
+    plane.visible = this._planes;
     group.add(plane);
 
     // Dashed line at Z=0 (plan view)

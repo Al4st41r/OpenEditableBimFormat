@@ -139,6 +139,12 @@ const gridManager = new GridOverlayManager(
 );
 
 document.getElementById('add-gridset-btn').addEventListener('click', () => gridManager.addGrid());
+{
+  const planesBtn = document.getElementById('grid-planes-btn');
+  const showPlanesState = () => { planesBtn.style.opacity = gridManager.planesVisible ? '1' : '0.4'; };
+  planesBtn.addEventListener('click', (e) => { e.stopPropagation(); gridManager.setPlanesVisible(!gridManager.planesVisible); showPlanesState(); });
+  showPlanesState();
+}
 
 // A junction places its detail at grid axes; renaming or removing one of them would break that.
 gridManager.isAxisUsed = (gridId, axisId) =>

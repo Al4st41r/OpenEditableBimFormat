@@ -55,6 +55,21 @@ export function axisPlaneGeometry(direction, offset, length, height) {
   return g;
 }
 
+/**
+ * How far a vertical grid plane should run: across the axes that cross it, plus a margin, so the planes
+ * outline the grid instead of filling the scene.
+ *
+ * @param {'x'|'y'} direction - the axis being drawn
+ * @param {Array<{direction: 'x'|'y', offset_m: number}>} axes - every axis of every grid
+ * @returns {{min: number, max: number}} along the axis, in metres
+ */
+export function axisPlaneExtent(direction, axes, margin = 1.5, fallback = 10) {
+  assertDirection(direction);
+  const crossing = axes.filter((a) => a.direction !== direction).map((a) => a.offset_m);
+  if (!crossing.length) return { min: -fallback, max: fallback };
+  return { min: Math.min(...crossing) - margin, max: Math.max(...crossing) + margin };
+}
+
 /** Which coordinate an axis fixes, for list labels: { coord: 'X'|'Y', value }. */
 export function axisLabel(direction, offset) {
   assertDirection(direction);
