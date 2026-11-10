@@ -55,6 +55,14 @@ export class FsaAdapter {
     await writer.close();
   }
 
+  /** Read a text file as it is (eg a profile's SVG). */
+  async readRaw(path) {
+    const parts = path.split('/');
+    let handle = this.dirHandle;
+    for (let i = 0; i < parts.length - 1; i++) handle = await handle.getDirectoryHandle(parts[i]);
+    return (await (await handle.getFileHandle(parts.at(-1))).getFile()).text();
+  }
+
   async deleteFile(path) {
     const parts = path.split('/');
     let handle = this.dirHandle;
@@ -118,6 +126,11 @@ export class MemoryAdapter {
 
   async writeRaw(path, text) {
     this._map.set(path, text);
+  }
+
+  async readRaw(path) {
+    if (!this._map.has(path)) throw new Error(`Missing file in bundle: ${path}`);
+    return this._map.get(path);
   }
 
   async deleteFile(path) {

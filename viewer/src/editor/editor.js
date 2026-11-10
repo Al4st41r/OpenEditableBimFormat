@@ -35,6 +35,8 @@ import { buildGridLineSegments } from '../loader/loadGrid.js';
 import { StoreyManager } from './storeyManager.js';
 import { GridOverlayManager } from './gridOverlayManager.js';
 import { STARTERS, starterFor } from './starters.js';
+import { createJournal, journalled } from './editJournal.js';
+import { elementLabel, SHORTCUTS, shortcutFor } from './editorUi.js';
 import { GuideManager } from './guideManager.js';
 import { readEntity, writeEntity } from './bundleWriter.js';
 import { WallTool } from './wallTool.js';
@@ -94,9 +96,10 @@ treeVersion.textContent = `v${__APP_VERSION__}`;
 
 function _setBundleOpen(name, memoryMode = false) {
   treeFilename.textContent = name;
-  statusBar.textContent = memoryMode
-    ? `${name} (memory mode — Save to download zip)`
-    : name;
+  statusBar.textContent = `Opened ${name}`;
+  document.getElementById('status-mode').textContent = memoryMode
+    ? 'In memory: Save downloads the bundle as a zip'
+    : 'Folder open: changes are written to it as you make them';
 }
 
 // ── Scene ────────────────────────────────────────────────────────────────────
@@ -173,6 +176,14 @@ const guideManager = new GuideManager(
 
 // ── State ────────────────────────────────────────────────────────────────────
 let adapter = null;
+
+// ── Undo and redo: a journal of file writes, one step per user gesture (editJournal.js) ──
+const journal = createJournal();
+let _loading = false;       // a bundle is being read: its bookkeeping writes are not edits
+let _restoring = false;     // an undo or redo is in progress
+for (const type of ['pointerdown', 'keydown', 'change']) document.addEventListener(type, () => journal.begin(), true);
+/** Use a storage adapter for the bundle, with its writes journalled. */
+function _useAdapter(inner) { adapter = journalled(inner, journal); return adapter; }
 let activeProfileMap = {}; // materialId → material data
 let wallTool = null;
 let floorTool = null;
@@ -204,7 +215,7 @@ _fileInput.addEventListener('change', async () => {
   if (!file) return;
   statusBar.textContent = 'Loading…';
   try {
-    adapter = await MemoryAdapter.fromFile(file);
+    _useAdapter(await MemoryAdapter.fromFile(file));
     await _loadAndRenderBundle(adapter);
     _enableEditorTools();
     _setBundleOpen(adapter.name, true);
@@ -357,6 +368,7 @@ viewPlanBtn.addEventListener('click', () => {
 // ── Render mode buttons ───────────────────────────────────────────────────────
 function _setRenderMode(mode) {
   editorScene.setRenderMode(mode);
+  if (_selectedElementId) _setElementEdgeHighlight(_selectedElementId, true);
   renderSolidBtn     .classList.toggle('active', mode === 'solid');
   renderLinesBtn     .classList.toggle('active', mode === 'lines');
   renderSolidEdgesBtn.classList.toggle('active', mode === 'solid+edges');
@@ -399,7 +411,7 @@ openBtn.addEventListener('click', async () => {
 
 document.getElementById('new-btn').addEventListener('click', async () => {
   const name = window.prompt('Project name:', 'New Project')?.trim() || 'New Project';
-  adapter = createNewBundle(name);
+  _useAdapter(createNewBundle(name));
   await _loadAndRenderBundle(adapter);
   _enableEditorTools();
   saveBtn.disabled = false;
@@ -409,7 +421,7 @@ document.getElementById('new-btn').addEventListener('click', async () => {
 document.getElementById('welcome-new').addEventListener('click', async () => {
   _dismissWelcome();
   const name = window.prompt('Project name:', 'New Project')?.trim() || 'New Project';
-  adapter = createNewBundle(name);
+  _useAdapter(createNewBundle(name));
   await _loadAndRenderBundle(adapter);
   _enableEditorTools();
   saveBtn.disabled = false;
@@ -456,7 +468,7 @@ function _showOpenMenu() {
   menu.appendChild(_menuItem('Open .oebf folder (Chrome/Edge)', async () => {
     try {
       const handle = await window.showDirectoryPicker({ mode: 'readwrite' });
-      adapter = new FsaAdapter(handle);
+      _useAdapter(new FsaAdapter(handle));
       statusBar.textContent = 'Loading…';
       await _loadAndRenderBundle(adapter);
       _enableEditorTools();
@@ -487,7 +499,7 @@ function _showOpenMenu() {
 function _setActiveTool(tool, buttonEl) {
   if (activeTool && activeTool !== tool) activeTool.deactivate?.();
   activeTool = tool;
-  document.querySelectorAll('#toolbar button').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('#toolbar button[id^="tool-"]').forEach(b => b.classList.remove('active'));   // tools only: the view and render buttons show their own state
   if (buttonEl) buttonEl.classList.add('active');
   document.getElementById('snap-toggle')?.classList.toggle('active', _snapOn);   // a setting, not a tool
 
@@ -593,7 +605,19 @@ document.getElementById('tool-floor').addEventListener('click', async () => {
 });
 
 // ── Load and render bundle ────────────────────────────────────────────────────
-async function _loadAndRenderBundle(adapter) {
+async function _loadAndRenderBundle(adapter, { keepView = false } = {}) {
+  _loading = true;
+  journal.setSuspended(true);         // what loading writes (registrations, defaults) is bookkeeping, not an edit
+  try { await _loadAndRenderBundleInner(adapter, keepView); }
+  finally {
+    if (!keepView) journal.clear();   // a newly opened bundle starts with nothing to undo
+    journal.setSuspended(false);
+    _loading = false;
+    _syncJournalUi();
+  }
+}
+
+async function _loadAndRenderBundleInner(adapter, keepView) {
   _dismissWelcome();
   // Clear existing model group
   editorScene.modelGroup.traverse(child => {
@@ -876,9 +900,9 @@ async function _loadAndRenderBundle(adapter) {
   junctionEditor.onOpenDetail = (detailId) => _openDetailEditor(detailId);
   junctionEditor.onFocusJunction = (id) => _focusJunction(id);
 
-  // Fit camera to loaded geometry
+  // Fit camera to loaded geometry (not after an undo: the view stays where the user left it)
   const box = new THREE.Box3().setFromObject(editorScene.modelGroup);
-  if (!box.isEmpty()) {
+  if (!keepView && !box.isEmpty()) {
     const centre = box.getCenter(new THREE.Vector3());
     const size   = box.getSize(new THREE.Vector3());
     const maxDim = Math.max(size.x, size.y, size.z);
@@ -1262,13 +1286,15 @@ canvas.addEventListener('click', (e) => {
 
 // ── Element tree and properties ───────────────────────────────────────────────
 
+/** A row in the Elements list: the element's description when it has one, else its kind and id. The id is the tooltip. */
 function _addElementToTree(id, label) {
   const el = document.createElement('div');
   el.className = 'tree-item';
   el.dataset.elementId = id;
+  el.title = id;
   const span = document.createElement('span');
   span.className = 'tree-item-name';
-  span.textContent = `${label} (${id.slice(-6)})`;
+  span.textContent = elementLabel(id, label, _elementRegistry.get(id)?.description);
   el.appendChild(span);
   el.addEventListener('click', () => _selectElement(id));
   document.getElementById('elements-list').appendChild(el);
@@ -1298,7 +1324,7 @@ function _selectElement(id) {
   _setElementEdgeHighlight(id, true);
   _showElementProps(id);
   // Keep toolbar showing the select button as active
-  document.querySelectorAll('#toolbar button').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('#toolbar button[id^="tool-"]').forEach(b => b.classList.remove('active'));   // tools only: the view and render buttons show their own state
   document.getElementById('tool-select')?.classList.add('active');
 }
 
@@ -1307,9 +1333,12 @@ function _selectElement(id) {
  * using a highlight colour when selected.
  */
 function _setElementEdgeHighlight(elementId, selected) {
+  if (!selected) editorScene.setRenderMode(editorScene.getRenderMode());   // edge colour and visibility back to the mode's
   editorScene.modelGroup.traverse(child => {
     if (!child.isMesh || child.userData?.elementId !== elementId) return;
-    child.material.emissive.set(selected ? 0x1e3a5a : 0x000000);
+    child.material.emissive.set(selected ? 0x245a8f : 0x000000);
+    const edges = child.getObjectByName('edges');
+    if (selected && edges) { edges.visible = true; edges.material.color.setHex(0x6fc0ff); }
   });
 }
 
@@ -1433,6 +1462,7 @@ async function _reRenderElement(elementId, updatedPathData) {
     }
     if (reg.kind === 'element') _cutOpenings([elementId]);
     editorScene.setRenderMode(editorScene.getRenderMode());
+    if (elementId === _selectedElementId) _setElementEdgeHighlight(elementId, true);
   } catch (err) {
     console.warn(`[OEBF] _reRenderElement ${elementId}:`, err.message);
   }
@@ -1718,6 +1748,7 @@ saveBtn.addEventListener('click', async () => {
       adapter.downloadZip();
     }
 
+    journal.markSaved();
     const now = new Date();
     statusBar.textContent = adapter.type === 'memory'
       ? `Downloaded ${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`
@@ -1727,6 +1758,110 @@ saveBtn.addEventListener('click', async () => {
   } finally {
     saveBtn.disabled = false;
   }
+});
+
+// ── Undo, redo and unsaved work ───────────────────────────────────────────────
+const undoBtn = document.getElementById('undo-btn');
+const redoBtn = document.getElementById('redo-btn');
+
+async function _undoRedo(kind) {
+  if (!adapter || _restoring || _loading) return;
+  const ops = kind === 'undo' ? journal.undo() : journal.redo();
+  if (!ops) { statusBar.textContent = kind === 'undo' ? 'Nothing to undo' : 'Nothing to redo'; return; }
+  _restoring = true;
+  const view = {
+    position: editorScene.perspCamera.position.clone(), target: editorScene.controls.target.clone(),
+    orthoPosition: editorScene.orthoCamera.position.clone(), orthoZoom: editorScene.orthoCamera.zoom,
+  };
+  const selected = _selectedElementId;
+  try {
+    await adapter.restore(ops);
+    await _loadAndRenderBundle(adapter, { keepView: true });
+    editorScene.perspCamera.position.copy(view.position);
+    editorScene.controls.target.copy(view.target);
+    editorScene.controls.update();
+    editorScene.orthoCamera.position.copy(view.orthoPosition);
+    editorScene.orthoCamera.zoom = view.orthoZoom;
+    editorScene.orthoCamera.updateProjectionMatrix();
+    if (selected && _elementRegistry.has(selected)) _selectElement(selected);
+    else document.getElementById('props-content').innerHTML = '<p id="props-empty">Select an element to see properties.</p>';
+    statusBar.textContent = `${kind === 'undo' ? 'Undone' : 'Redone'} (${ops.length} file${ops.length === 1 ? '' : 's'})`;
+  } catch (e) {
+    statusBar.textContent = `${kind === 'undo' ? 'Undo' : 'Redo'} failed: ${e.message}`;
+  } finally {
+    _restoring = false;
+    _syncJournalUi();
+  }
+}
+undoBtn.addEventListener('click', () => _undoRedo('undo'));
+redoBtn.addEventListener('click', () => _undoRedo('redo'));
+
+function _syncJournalUi() {
+  undoBtn.disabled = !adapter || !journal.canUndo();
+  redoBtn.disabled = !adapter || !journal.canRedo();
+  // in memory the work exists only in this tab until Save downloads it
+  saveBtn.classList.toggle('unsaved', !!adapter && adapter.type === 'memory' && journal.isDirty());
+}
+
+// The model index (model.json) follows every edit, so the files always agree with each other and an undo step holds
+// the whole change. It runs as a microtask of the write that changed something, inside the same step.
+let _syncingModel = false;
+journal.onChange(() => {
+  _syncJournalUi();
+  if (_loading || _restoring || _syncingModel || !adapter) return;
+  _syncingModel = true;
+  queueMicrotask(async () => {
+    try { await _writeModelJson(); } catch { /* reported on Save */ } finally { _syncingModel = false; }
+  });
+});
+_syncJournalUi();
+
+window.addEventListener('beforeunload', (e) => {
+  if (adapter?.type === 'memory' && journal.isDirty()) { e.preventDefault(); e.returnValue = ''; }
+});
+
+// ── Keyboard shortcuts and help ───────────────────────────────────────────────
+const SHORTCUT_ACTIONS = {
+  save: () => saveBtn.click(),
+  undo: () => _undoRedo('undo'),
+  redo: () => _undoRedo('redo'),
+  select: () => document.getElementById('tool-select').click(),
+  edit: () => document.getElementById('tool-path-edit').click(),
+  wall: () => document.getElementById('tool-wall').click(),
+  floor: () => document.getElementById('tool-floor').click(),
+  snap: () => _snapBtn.click(),
+  view3d: () => view3dBtn.click(),
+  plan: () => viewPlanBtn.click(),
+  help: () => _showHelp(),
+};
+
+function _showHelp() {
+  const dlg = document.getElementById('help-dialog');
+  const mk = (tag, text, cls) => { const e = document.createElement(tag); if (text) e.textContent = text; if (cls) e.className = cls; return e; };
+  const close = mk('button', 'Close');
+  close.addEventListener('click', () => dlg.close());
+  dlg.replaceChildren(mk('h3', 'Shortcuts'), ...SHORTCUTS.flatMap(([title, rows]) => {
+    const dl = mk('dl');
+    for (const [keys, what] of rows) dl.append(mk('dt', keys), mk('dd', what));
+    return [mk('h4', title), dl];
+  }), close);
+  dlg.showModal();
+}
+document.getElementById('help-btn').addEventListener('click', _showHelp);
+
+document.addEventListener('keydown', (e) => {
+  if (!document.getElementById('welcome-overlay').classList.contains('hidden')) return;
+  if (document.querySelector('dialog[open]')) return;
+  const typing = ['INPUT', 'SELECT', 'TEXTAREA'].includes(e.target.tagName);
+  // a drawing tool reads typed coordinates, so plain letters belong to it while it is active
+  const drawing = activeTool && activeTool !== 'path-edit';
+  const action = shortcutFor(e, { typing, drawing });
+  if (!action) return;
+  const btn = { edit: 'tool-path-edit', wall: 'tool-wall', floor: 'tool-floor' }[action];
+  if (btn && document.getElementById(btn).disabled) return;
+  if (!adapter && action !== 'help') return;
+  e.preventDefault();
+  SHORTCUT_ACTIONS[action]();
 });
 
 /**
@@ -1937,7 +2072,7 @@ async function _openStarter(starter) {
     statusBar.textContent = `Opening ${starter.title}…`;
     const resp = await fetch(import.meta.env.BASE_URL + starter.file);
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    adapter = await MemoryAdapter.fromFile(new File([await resp.blob()], starter.file));
+    _useAdapter(await MemoryAdapter.fromFile(new File([await resp.blob()], starter.file)));
     await _loadAndRenderBundle(adapter);
     _enableEditorTools();
     _setBundleOpen(adapter.name, true);
@@ -2115,7 +2250,7 @@ async function _createJunction(id, spec) {
   const m = await readEntity(adapter, 'model.json');
   await writeEntity(adapter, 'model.json', withJunctionRegistered(m, id));
   await _writeModelJson();            // elements, grids and storeys added this session are in the files before the reload
-  await _loadAndRenderBundle(adapter);
+  await _loadAndRenderBundle(adapter, { keepView: true });
   _focusJunction(id);
   statusBar.textContent = `Junction ${id} made${entity.detail_id ? ` with ${entity.detail_id}` : ''}.`;
 }

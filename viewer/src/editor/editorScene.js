@@ -159,8 +159,18 @@ export function initEditorScene(canvas) {
   handleResize(); // ensure correct size on first frame
 
   // ── Render loop ───────────────────────────────────────────────────────────
-  function animate() {
+  // Draw every frame while the user is doing something, and a few times a second otherwise: an idle editor should
+  // not keep the GPU and the fan busy. Anything that changes the scene without input shows within IDLE_FRAME_MS.
+  const ACTIVE_FOR_MS = 1500, IDLE_FRAME_MS = 250;
+  let lastActivity = performance.now(), lastFrame = 0;
+  const touch = () => { lastActivity = performance.now(); };
+  for (const type of ['pointerdown', 'pointermove', 'pointerup', 'wheel', 'keydown', 'keyup', 'resize', 'focus']) {
+    window.addEventListener(type, touch, { passive: true, capture: true });
+  }
+  function animate(now = performance.now()) {
     requestAnimationFrame(animate);
+    if (now - lastActivity > ACTIVE_FOR_MS && now - lastFrame < IDLE_FRAME_MS) return;
+    lastFrame = now;
     controls.update();
     orthoControls.update();
     renderer.render(scene, getActiveCamera());
