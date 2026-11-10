@@ -1902,6 +1902,7 @@ window.__editor = {
   cameraTarget: () => ({ x: editorScene.controls.target.x, y: editorScene.controls.target.y, z: editorScene.controls.target.z }),
   showJunction: (id) => { const j = junctionEditor?._junctions.find((x) => x.id === id); if (j) junctionEditor._showProps(j.id, j.elementIds, j.rule); return !!j; },
   status: () => statusBar.textContent,
+  lookAt: (eye, target) => { editorScene.perspCamera.position.set(...eye); editorScene.controls.target.set(...target); editorScene.controls.update(); },   // for headless checks
   registryPaths: () => [..._elementRegistry.values()].map((r) => r.pathData).filter(Boolean),
   planSnap: _planSnap,
   junctionMarkers2: () => (junctionEditor?._junctions ?? []).map((j) => ({ id: j.id, x: j.point.x, y: j.point.y })),
@@ -1917,12 +1918,15 @@ window.__editor = {
   },
 };
 
-if (new URLSearchParams(window.location.search).has('demo')) {
+// ?demo opens the terraced house; ?demo=nmb-two-storey opens the larger example
+const _demoParams = new URLSearchParams(window.location.search);
+if (_demoParams.has('demo')) {
   (async () => {
     try {
-      const resp = await fetch(import.meta.env.BASE_URL + 'terraced-house.oebfz');
+      const demo = ['terraced-house', 'nmb-two-storey'].includes(_demoParams.get('demo')) ? _demoParams.get('demo') : 'terraced-house';
+      const resp = await fetch(`${import.meta.env.BASE_URL}${demo}.oebfz`);
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      adapter = await MemoryAdapter.fromFile(new File([await resp.blob()], 'terraced-house.oebfz'));
+      adapter = await MemoryAdapter.fromFile(new File([await resp.blob()], `${demo}.oebfz`));
       await _loadAndRenderBundle(adapter);
       _enableEditorTools();
       _setBundleOpen(adapter.name, true);

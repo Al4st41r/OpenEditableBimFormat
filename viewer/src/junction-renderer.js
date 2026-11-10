@@ -180,7 +180,25 @@ export function buildJunctionDetailMeshes(junctions, materialMap) {
     if (!junction.detailGeometry) continue;
     const group = buildCustomJunctionMesh(junction.detailGeometry, materialMap);
     group.userData.detailId = junction.detail_id;
+    stackDepthBias(group, groups.length);
     groups.push(group);
   }
   return groups;
+}
+
+/**
+ * Details at neighbouring junctions repeat the same floor and wall regions, so their faces coincide.
+ * With one depth bias for all of them the depth test cannot choose and the faces flicker as the camera moves.
+ * Each group therefore gets its own bias, a step further forward than the group before it (the first keeps
+ * the shared material), so the same group wins from every angle. Materials without a depth bias are left alone.
+ */
+function stackDepthBias(group, index) {
+  if (index === 0) return;
+  group.traverse((obj) => {
+    if (!obj.isMesh || !obj.material?.polygonOffset) return;
+    const m = obj.material.clone();
+    m.polygonOffsetFactor -= index;
+    m.polygonOffsetUnits -= index;
+    obj.material = m;
+  });
 }

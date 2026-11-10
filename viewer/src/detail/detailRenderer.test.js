@@ -30,6 +30,16 @@ describe('buildJunctionDetailMeshes', () => {
     expect(g.children[0].material).toBe(matMap.get('mat-a'));
   });
 
+  test('coincident details get distinct depth biases so they cannot flicker', () => {
+    const biased = new Map([['mat-a', new THREE.MeshBasicMaterial({ polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })]]);
+    const [a, b, c] = buildJunctionDetailMeshes([withGeometry('j1'), withGeometry('j2'), withGeometry('j3')], biased);
+    const units = [a, b, c].map((g) => g.children[0].material.polygonOffsetUnits);
+    expect(new Set(units).size).toBe(3);
+    expect(units).toEqual([...units].sort((x, y) => y - x));   // each one further forward than the last
+    expect(a.children[0].material).toBe(biased.get('mat-a'));   // the shared material is untouched
+    expect(biased.get('mat-a').polygonOffsetUnits).toBe(-2);
+  });
+
   test('mesh geometry has positions matching the detail volume', () => {
     const [g] = buildJunctionDetailMeshes([withGeometry('j1')], matMap);
     const box = new THREE.Box3().setFromObject(g);
