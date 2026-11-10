@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest';
-import { buildPlanSnapScene, setPathSegmentLength } from './planSnap.js';
+import { buildPlanSnapScene, setPathSegmentLength, setPathNodeWithFollowers } from './planSnap.js';
 
 const line = (x1, y1, x2, y2, z = 0) => ({ type: 'line', start: { x: x1, y: y1, z }, end: { x: x2, y: y2, z } });
 const path = (id, ...segments) => ({ id, segments });
@@ -153,5 +153,57 @@ describe('buildPlanSnapScene guides', () => {
     const seg = [{ type: 'line', start: { x: 0, y: 0 }, end: { x: 1, y: 1 } }];
     const scene = buildPlanSnapScene({ guides: [{ visible: false, segments: seg }, { isZGuide: true, segments: seg }] });
     expect(scene.segments).toHaveLength(0);
+  });
+});
+
+describe('setPathNodeWithFollowers', () => {
+  const line = (id, a, b) => ({ id, segments: [{ type: 'line', start: { ...a }, end: { ...b } }] });
+  // a corner: the south wall ends where the east wall starts; the first-floor east wall sits above it
+  const make = () => [
+    line('south', { x: 0, y: 0, z: 0 }, { x: 5, y: 0, z: 0 }),
+    line('east', { x: 5, y: 0, z: 0 }, { x: 5, y: 4, z: 0 }),
+    line('east-ff', { x: 5, y: 0, z: 3 }, { x: 5, y: 4, z: 3 }),
+    line('far', { x: 9, y: 9, z: 0 }, { x: 9, y: 12, z: 0 }),
+  ];
+  const end = { segIdx: 0, role: 'end' };
+
+  test('a typed x moves the ends of the paths that met there, at the same height', () => {
+    const paths = make();
+    const { changedPathIds } = setPathNodeWithFollowers(paths, 'south', end, 'x', 6);
+    expect(paths[0].segments[0].end.x).toBe(6);
+    expect(paths[1].segments[0].start.x).toBe(6);
+    expect(paths[1].segments[0].end.x).toBe(5);        // only the shared end
+    expect(paths[2].segments[0].start.x).toBe(5);      // the wall above is a different wall
+    expect(paths[3].segments[0].start.x).toBe(9);
+    expect(changedPathIds.sort()).toEqual(['east', 'south']);
+  });
+
+  test('y works the same way', () => {
+    const paths = make();
+    setPathNodeWithFollowers(paths, 'east', { segIdx: 0, role: 'start' }, 'y', 0.5);
+    expect(paths[0].segments[0].end.y).toBe(0.5);
+  });
+
+  test('a typed height moves only that node', () => {
+    const paths = make();
+    const { changedPathIds } = setPathNodeWithFollowers(paths, 'south', end, 'z', 0.2);
+    expect(paths[0].segments[0].end.z).toBe(0.2);
+    expect(paths[1].segments[0].start.z).toBe(0);
+    expect(changedPathIds).toEqual(['south']);
+  });
+
+  test('the neighbouring segment of a followed path stays joined', () => {
+    const paths = make();
+    paths[1].segments.unshift({ type: 'line', start: { x: 5, y: -2, z: 0 }, end: { x: 5, y: 0, z: 0 } });   // east now starts with a leg that ends at the corner
+    setPathNodeWithFollowers(paths, 'south', end, 'x', 6);
+    expect(paths[1].segments[0].end.x).toBe(6);
+    expect(paths[1].segments[1].start.x).toBe(6);
+  });
+
+  test('an unknown node is an error and changes nothing', () => {
+    const paths = make();
+    expect(() => setPathNodeWithFollowers(paths, 'south', { segIdx: 3, role: 'end' }, 'x', 6)).toThrow();
+    expect(() => setPathNodeWithFollowers(paths, 'nope', end, 'x', 6)).toThrow();
+    expect(paths[0].segments[0].end.x).toBe(5);
   });
 });

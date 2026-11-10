@@ -5,6 +5,7 @@
  */
 
 import { setSegmentLength, findConnectedEnds } from '../snap/lineEdit.js';
+import { setPathNodeAxis } from './entityFields.js';
 
 const flat = (p) => ({ x: p.x, y: p.y });
 
@@ -86,6 +87,31 @@ export function setPathSegmentLength(paths, pathId, segIndex, length, anchor = '
       target.x = to.x; target.y = to.y;
       changed.add(h.pathId);
     }
+  }
+  return { changedPathIds: [...changed] };
+}
+
+/**
+ * Set one coordinate of a path node. The neighbouring segment of the same path stays joined, and so do the
+ * ends of other paths that met it (within 1 mm in plan, and at the same height: a wall on the floor above
+ * is a different wall). Changing a height moves only the node itself. Mutates `paths`.
+ *
+ * @param {{segIdx: number, role: 'start'|'end'}} node - as listed by pathSummary
+ * @returns {{ changedPathIds: string[] }}
+ */
+export function setPathNodeWithFollowers(paths, pathId, node, axis, metres) {
+  const path = paths.find((p) => p.id === pathId);
+  const end = path?.segments?.[node.segIdx]?.[node.role];
+  if (!end) throw new Error(`Path "${pathId}" has no ${node.role} of segment ${node.segIdx}`);
+  const z = end.z ?? 0;
+  const followers = axis === 'z' ? [] : findConnectedEnds(paths, end, 0.001, pathId)
+    .filter((h) => Math.abs((paths.find((p) => p.id === h.pathId).segments[h.segIndex][h.role].z ?? 0) - z) <= 0.001);   // found before any change
+
+  setPathNodeAxis(path, node, axis, metres);
+  const changed = new Set([pathId]);
+  for (const h of followers) {
+    setPathNodeAxis(paths.find((p) => p.id === h.pathId), { segIdx: h.segIndex, role: h.role }, axis, metres);
+    changed.add(h.pathId);
   }
   return { changedPathIds: [...changed] };
 }

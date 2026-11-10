@@ -47,22 +47,23 @@ After completing any feature, bug fix, or review session:
 
 ### Current phase (Phase 8 — editor polish and spec conformance)
 
-Open issues, in rough priority order:
+The open issue list is the plan: `gh issue list --state open`. At the time of writing:
 
 | # | Title |
 |---|---|
-| #96 | Problems with profile manager and detail tagging |
+| #114 | NMB example: placed-detail floor regions can flicker (fixed from the cause; awaiting a check on a real GPU) |
 | #97 | Feature: bezier and spline path segments |
-
-Phase 8 issues #69–#77 and #70/#66 are closed.
+| #125 | IFC import: openings, curved axes, non-rectangular sections |
+| #120, #119, #115, #116 | Detail editor CAD tools, linked review panes, line weights |
+| #126, #127 | Object maker; membranes and tapes |
 
 ### Backlog / future phases
 
 | # | Title |
 |---|---|
-| #107 | Smart cursor: use the snap engine in 3D path node editing |
-| #104 | Feature: parametric grid frame generator (sliders place columns, floors, roof, beams) — future scope |
-| #81 | Junction detail system — reusable details by level and grid (plan: docs/plans/2026-10-08-junction-detail-system.md) |
+| #104 | Parametric grid frame generator (future scope) |
+| #117, #118 | Quantities and carbon panel; starter models |
+| #128, #129, #130, #131, #132 | IFC comparison; junction-based IFC workflow; plan/section switch; detail game; Archicad |
 | #10 | Desktop wrapper: Tauri v2 and file watching |
 
 ### Review checklist

@@ -17,7 +17,7 @@ import { applyJunctionClipping, buildCustomJunctionMesh, buildJunctionDetailMesh
 import { sweepOptionsFromElement } from '../geometry/sweep.js';
 import {
   elementFieldSpecs, slabFieldSpecs, storeyFieldSpecs, parseFieldValue, applyFieldValue,
-  pathSummary, setPathNodeAxis, storeyHeights, IFC_ELEMENT_TYPES,
+  pathSummary, storeyHeights, IFC_ELEMENT_TYPES,
 } from './entityFields.js';
 import { ensureDetailMaterials } from '../detail/detailMaterials.js';
 import { loadDetails } from '../detail/loadDetails.js';
@@ -58,7 +58,7 @@ import { setUnit, getUnit, toDisplay, fromDisplay, unitLabel } from './units.js'
 import { updateNodeAxis } from './nodeUtils.js';
 import { snapPoint } from '../snap/snapEngine.js';
 import { loadSettings, saveSettings, enabledKinds, TOGGLE_KINDS, KIND_LABELS, ANGLE_STEPS } from '../snap/snapSettings.js';
-import { buildPlanSnapScene, setPathSegmentLength } from './planSnap.js';
+import { buildPlanSnapScene, setPathSegmentLength, setPathNodeWithFollowers } from './planSnap.js';
 import { parseDimension } from '../snap/dimension.js';
 import { findSimilar, normaliseColour, buildMaterial, withUnsetMaterial } from './materialForm.js';
 import { importIfcText } from '../ifc/ifcImporter.js';
@@ -2372,11 +2372,16 @@ async function _applyNodeAxis(elementId, node, axis, inp, previous, unit) {
     return;
   }
   try {
-    setPathNodeAxis(reg.pathData, node, axis, metres);
-    await writeEntity(adapter, `paths/${reg.pathData.id}.json`, reg.pathData);
-    for (const [elId, r] of _elementRegistry) if (r.pathData?.id === reg.pathData.id) await _reRenderElement(elId, reg.pathData);
+    const paths = [...new Map([..._elementRegistry.values()].map((r) => r.pathData).filter(Boolean).map((p) => [p.id, p])).values()];
+    const { changedPathIds } = setPathNodeWithFollowers(paths, reg.pathData.id, node, axis, metres);
+    for (const pathId of changedPathIds) {
+      const data = paths.find((p) => p.id === pathId);
+      await writeEntity(adapter, `paths/${pathId}.json`, data);
+      for (const [elId, r] of _elementRegistry) if (r.pathData?.id === pathId) await _reRenderElement(elId, data);
+    }
     await _syncJunctionMarkers();
-    statusBar.textContent = `Node ${axis.toUpperCase()} set to ${inp.value}`;
+    const followed = changedPathIds.length - 1;
+    statusBar.textContent = `Node ${axis.toUpperCase()} set to ${inp.value}${followed ? ` (${followed} attached path${followed > 1 ? 's' : ''} followed)` : ''}`;
     await _showElementProps(elementId);
   } catch (e) {
     statusBar.textContent = `Node not changed: ${e.message}`;
