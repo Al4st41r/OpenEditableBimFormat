@@ -218,6 +218,22 @@
           </ul>
         </a>
 
+        <a href="detail-editor.html" class="card">
+          <div class="card-header">
+            <img src="icons/folder.svg" alt="">
+            <span class="card-title">Detail editor</span>
+          </div>
+          <p class="card-desc">
+            Draw and edit junction details: regions, members from profiles, repeating units,
+            annotations, plan and section views, and small multi-part objects such as wall ties.
+          </p>
+          <ul class="card-steps">
+            <li>Click <strong>Demo</strong> to open the terraced house, or open a bundle folder</li>
+            <li>Use <strong>Plan / Section</strong> to move between the two views of a junction</li>
+            <li>Export a DXF or a printable sheet</li>
+          </ul>
+        </a>
+
       </div>
     </div>
 
@@ -253,6 +269,59 @@
       </div>
     </div>
 
+    <!-- OEBF and IFC, measured -->
+    <div class="how">
+      <h2>OEBF and IFC, measured</h2>
+      <p class="future-intro" style="margin-bottom: 16px;">
+        One small model, the example terraced house (four walls, a slab, a door, 24 wall ties, five junctions and a
+        corner detail), written both ways. Token counts use the <code>cl100k_base</code> tokeniser as a stand-in for a
+        language model's; other models count differently.
+      </p>
+      <div class="steps">
+        <div class="step">
+          <span class="step-num">Size</span>
+          <span class="step-title">8,300 tokens against 18,600</span>
+          <p class="step-body">
+            The OEBF bundle's data is 33 files and about 8,300 tokens. The same model as plain IFC, with no OEBF records,
+            is 911 lines and about 18,600 tokens, 2.2 times as many. OEBF's own IFC export, which also carries the
+            records needed to round-trip, is about 30,500.
+          </p>
+        </div>
+        <div class="step">
+          <span class="step-num">Finding things</span>
+          <span class="step-title">One file per entity, named by id</span>
+          <p class="step-body">
+            A wall is two small files, the element and its path: 350 tokens. In IFC the same wall's placement and shape
+            are 19 linked entities reached by following numeric references, before its materials and properties.
+          </p>
+        </div>
+        <div class="step">
+          <span class="step-num">Editing</span>
+          <span class="step-title">Lengthen a wall: one number, one file</span>
+          <p class="step-body">
+            In OEBF, the wall's length is two points in its path file, so lengthening a wall changes one line. In IFC the
+            length is held twice, as the start point and as the extrusion depth, in different entities.
+          </p>
+        </div>
+        <div class="step">
+          <span class="step-num">Checking</span>
+          <span class="step-title">A checker the model can run</span>
+          <p class="step-body">
+            Every entity has a JSON Schema and <code>oebf validate</code> reports broken references and missing files by
+            name. <code>oebf apply</code> runs a file of commands on a copy and writes back only if the result validates.
+          </p>
+        </div>
+      </div>
+      <p class="future-note" style="margin-top: 14px;">
+        What this does not show. It is one small model and one edit, and it measures tokens, not how fast or how
+        accurately a language model makes changes: that has not been tested. The OEBF count leaves out the guide a model
+        should read first (about 9,800 tokens, read once) and the schemas. The formats also do not hold the same things:
+        OEBF stores paths, profiles and the relations between them, and derives the geometry; IFC stores far more
+        semantics than OEBF reads. The comparison is of equal content, not equal capability. Method and issue:
+        <a href="https://github.com/Al4st41r/OpenEditableBimFormat/issues/128" target="_blank" rel="noopener" style="color: #6a8aaa; opacity: 1;">#128</a>.
+      </p>
+    </div>
+
     <!-- IFC Converter Tools -->
     <div class="future">
       <div class="future-header">
@@ -260,17 +329,19 @@
         <span class="future-badge">CLI Available</span>
       </div>
       <p class="future-intro">
-        A Python CLI converts between IFC 4x3 and OEBF bundles. Walls, slabs,
-        storeys, spaces, and material layer sets are mapped to OEBF entities and
-        back. The full round-trip enables LLM-assisted editing of existing IFC models.
+        A Python CLI converts between IFC4 and OEBF bundles. Walls, slabs, openings, doors,
+        windows, storeys and material layer sets are mapped to OEBF entities and back, and an
+        OEBF export imports again with every file restored. IFC from other tools is read for
+        wall axes (including curved and multi-segment), build-ups and property sets. Some shapes
+        are not read yet: see the issue list.
       </p>
       <div class="pipeline">
         <div class="pipeline-step">
           <span class="pipeline-step-num">Step 1</span>
           <span class="pipeline-step-title">Import IFC</span>
           <p class="pipeline-step-body">
-            Convert an IFC 4x3 file to an OEBF bundle. Walls, slabs, storeys,
-            and material layer sets are mapped to OEBF entities.
+            Convert an IFC4 file to an OEBF bundle. Walls, slabs, openings, doors,
+            windows, storeys and material layer sets are mapped to OEBF entities.
           </p>
         </div>
         <div class="pipeline-step">
