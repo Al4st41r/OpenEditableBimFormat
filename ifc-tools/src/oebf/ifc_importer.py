@@ -9,6 +9,8 @@ import ifcopenshell.geom
 import ifcopenshell.util.element as ifc_element
 import ifcopenshell.util.placement
 
+from . import ifc_reconstruct as rebuild
+
 
 IFC_TO_OEBF = {
     "IfcWall": "IfcWall",
@@ -40,18 +42,18 @@ def import_ifc(ifc_path: Path, out_dir: Path) -> None:
     groups = {}     # group id -> ids of the entities it holds
     imported = {}   # element id -> entity, for restoring junctions
     placeholder_used = False
+    rebuilt = Rebuilt()   # profiles and property mappings rebuilt from IFC made by other tools
     for ifc_type, oebf_type in IFC_TO_OEBF.items():
         for entity in model.by_type(ifc_type):
             element_id = _oebf_id(entity) or _slugify(entity.GlobalId or str(uuid.uuid4()))
             restored = _restore_entity(bundle, element_id, out_dir)
             if restored:
                 kind, parent = restored
-            elif oebf_type == "IfcSlab" and _process_slab(entity, element_id, group_id, out_dir):
+                _warn_if_moved(entity, element_id, out_dir, kind)
+            elif oebf_type == "IfcSlab" and _process_slab(entity, element_id, group_id, out_dir, rebuilt):
                 kind, parent = "slab", group_id
-                placeholder_used = True
-            elif _process_element(entity, element_id, oebf_type, group_id, out_dir):
+            elif _process_element(entity, element_id, oebf_type, group_id, out_dir, rebuilt):
                 kind, parent = "element", group_id
-                placeholder_used = True
             else:
                 continue
             (slabs if kind == "slab" else elements).append(element_id)
@@ -63,9 +65,11 @@ def import_ifc(ifc_path: Path, out_dir: Path) -> None:
     _write_manifest(out_dir, project_name)
     _write_model(out_dir, elements, junctions, details, grids, levels, slabs=slabs, groups=groups)
     _write_profiles(bundle, out_dir)
+    placeholder_used = rebuilt.placeholder_used
     _write_materials(out_dir, model, bundle, placeholder_used)
     if placeholder_used:
         _write_placeholder_profile(out_dir)
+    rebuilt.write(out_dir)
 
 
 _SLUG = re.compile(r"^[a-z0-9][a-z0-9-]*$")
@@ -212,12 +216,122 @@ def _restore_bundle_extensions(bundle: dict, out_dir: Path):
     )
 
 
-def _process_element(entity, element_id, oebf_type, group_id, out_dir):
+
+class Rebuilt:
+    """What is rebuilt from IFC written by other tools: profiles from layer sets, and the property mapping."""
+
+    def __init__(self):
+        self.placeholder_used = False
+        self.profiles = {}        # profile id -> (json, svg)
+        self._by_signature = {}   # build-up signature -> profile id
+        self.mapping = {}         # property key -> {pset, name}
+
+    def properties(self, entity) -> dict:
+        """The entity's property sets as OEBF properties. A key already mapped to another set gets its set in front."""
+        values, mapping = rebuild.properties(entity)
+        out = {}
+        for key, value in values.items():
+            target = mapping[key]
+            if key in self.mapping and self.mapping[key] != target:
+                key = f"{rebuild._key(target['pset'])}_{key}"
+            self.mapping[key] = target
+            out[key] = value
+        return out
+
+    def profile_for(self, entity, thickness=None) -> str:
+        """The id of a profile for this entity: its layer set, else one layer of its material, else the placeholder."""
+        lp = rebuild.layer_profile(entity)
+        if lp is None and thickness:
+            name = _single_material_name(entity)
+            if name:
+                lp = {"name": name, "layers": [{"name": name, "material_name": name, "thickness": round(float(thickness), 6)}], "offset": None}
+        if lp is None:
+            self.placeholder_used = True
+            return PLACEHOLDER_PROFILE
+        sig = rebuild.profile_signature(lp)
+        if sig not in self._by_signature:
+            base = f"profile-imported-{rebuild.slugify(lp['name']) or rebuild.slugify(lp['layers'][0]['material_name']) or 'layers'}"
+            pid, n = base, 1
+            while pid in self.profiles:
+                n += 1
+                pid = f"{base}-{n}"
+            self._by_signature[sig] = pid
+            self.profiles[pid] = _profile_files(pid, lp)
+        return self._by_signature[sig]
+
+    def write(self, out_dir: Path) -> None:
+        for pid, (doc, svg) in self.profiles.items():
+            (out_dir / "profiles" / f"{pid}.json").write_text(json.dumps(doc, indent=2))
+            (out_dir / "profiles" / f"{pid}.svg").write_text(svg)
+        if self.mapping:
+            (out_dir / "ifc").mkdir(exist_ok=True)
+            (out_dir / "ifc" / "mapping.json").write_text(json.dumps({
+                "$schema": "oebf://schema/0.1/ifc-mapping", "type": "IfcMapping",
+                "description": "Property sets read from the imported IFC, so they are written back to the same sets on export",
+                "classes": {}, "property_sets": self.mapping, "materials": {},
+            }, indent=2))
+
+
+def _single_material_name(entity):
+    try:
+        material = ifc_element.get_material(entity)
+    except Exception:
+        return None
+    return material.Name if material is not None and material.is_a("IfcMaterial") and material.Name else None
+
+
+_GREYS = ("#8a8a8a", "#b4b4b4", "#6e6e6e", "#c8c8c8")
+
+
+def _profile_files(pid: str, lp: dict):
+    """The profile JSON and a plain SVG for a rebuilt build-up."""
+    width = round(sum(layer["thickness"] for layer in lp["layers"]), 6)
+    assembly = [{
+        "layer": i, "name": layer["name"], "material_id": rebuild.material_id(layer["material_name"]),
+        "thickness": layer["thickness"], "function": rebuild.layer_function(f'{layer["name"]} {layer["material_name"]}'),
+    } for i, layer in enumerate(lp["layers"], 1)]
+    doc = {
+        "$schema": "oebf://schema/0.1/profile", "id": pid, "type": "Profile",
+        "description": f"Rebuilt from the IFC material layer set{' ' + repr(lp['name']) if lp['name'] else ''}",
+        "svg_file": f"profiles/{pid}.svg", "width": width,
+        "origin": {"x": rebuild.profile_origin_x(lp), "y": 0.0}, "alignment": "center", "assembly": assembly,
+    }
+    rects, x = [], 0.0
+    for i, layer in enumerate(lp["layers"]):
+        rects.append(f'<rect x="{round(x, 6)}" y="0" width="{layer["thickness"]}" height="2.7" fill="{_GREYS[i % len(_GREYS)]}" stroke="#333" stroke-width="0.003"/>')
+        x += layer["thickness"]
+    svg = f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} 2.7">\n  ' + "\n  ".join(rects) + "\n</svg>\n"
+    return doc, svg
+
+
+def _warn_if_moved(entity, element_id, out_dir, kind):
+    """The OEBF record wins over the IFC geometry. Say so when the other tool moved the element."""
+    axis = rebuild.wall_axis(entity)
+    if not axis:
+        return
+    folder, key = ("slabs", "boundary_path_id") if kind == "slab" else ("elements", "path_id")
+    try:
+        doc = json.loads((out_dir / folder / f"{element_id}.json").read_text())
+        segs = json.loads((out_dir / "paths" / f"{doc[key]}.json").read_text())["segments"]
+        a, b = segs[0]["start"], segs[-1]["end"]
+    except (FileNotFoundError, KeyError, IndexError, json.JSONDecodeError):
+        return
+    if kind == "element" and max(abs(axis["start"][0] - a["x"]), abs(axis["start"][1] - a["y"]),
+                                 abs(axis["end"][0] - b["x"]), abs(axis["end"][1] - b["y"])) > 0.001:
+        print(f"  Warning: {element_id} was moved or reshaped in the other tool; its position in the OEBF record was kept")
+
+def _process_element(entity, element_id, oebf_type, group_id, out_dir, rebuilt):
     """Write path + element JSON for one IFC entity. Returns element_id on success."""
     try:
         # Try to extract swept geometry; fall back to a unit-length placeholder path.
         path_id = f"path-{element_id}"
-        segment = _extract_path_segment(entity)
+        axis = rebuild.wall_axis(entity)
+        segment = (
+            {"type": "line",
+             "start": {"x": round(axis["start"][0], 4), "y": round(axis["start"][1], 4), "z": round(axis["start"][2], 4)},
+             "end": {"x": round(axis["end"][0], 4), "y": round(axis["end"][1], 4), "z": round(axis["end"][2], 4)}}
+            if axis else _extract_path_segment(entity)
+        )
         path_data = {
             "$schema": "oebf://schema/0.1/path",
             "id": path_id,
@@ -236,14 +350,14 @@ def _process_element(entity, element_id, oebf_type, group_id, out_dir):
             "description": getattr(entity, "Name", None) or entity.is_a(),
             "ifc_type": oebf_type,
             "path_id": path_id,
-            "profile_id": PLACEHOLDER_PROFILE,
+            "profile_id": rebuilt.profile_for(entity, (axis or {}).get("thickness")),
             "sweep_mode": "perpendicular",
             "cap_start": "flat",
             "cap_end": "flat",
             "start_offset": 0.0,
             "end_offset": 0.0,
             "parent_group_id": group_id,
-            "properties": {"imported_from_ifc": True},
+            "properties": {"imported_from_ifc": True, **rebuilt.properties(entity)},
         }
         (out_dir / "elements" / f"{element_id}.json").write_text(json.dumps(elem_data, indent=2))
         return element_id
@@ -252,7 +366,7 @@ def _process_element(entity, element_id, oebf_type, group_id, out_dir):
         return None
 
 
-def _process_slab(entity, slab_id, group_id, out_dir) -> bool:
+def _process_slab(entity, slab_id, group_id, out_dir, rebuilt) -> bool:
     """A foreign IfcSlab with a polyline outline becomes a Slab with a closed boundary path."""
     outline = _slab_outline(entity)
     if outline is None:
@@ -281,15 +395,25 @@ def _process_slab(entity, slab_id, group_id, out_dir) -> bool:
         "ifc_type": "IfcSlab",
         "boundary_path_id": path_id,
         "thickness_m": round(thickness, 4),
-        "material_id": PLACEHOLDER_MATERIAL,
+        "material_id": _slab_material(entity, rebuilt),
         "elevation_m": round(elevation, 4),
         "parent_group_id": group_id,
-        "properties": {"imported_from_ifc": True},
+        "properties": {"imported_from_ifc": True, **rebuilt.properties(entity)},
     }
     (out_dir / "slabs").mkdir(exist_ok=True)
     (out_dir / "paths" / f"{path_id}.json").write_text(json.dumps(path_data, indent=2))
     (out_dir / "slabs" / f"{slab_id}.json").write_text(json.dumps(slab, indent=2))
     return True
+
+
+def _slab_material(entity, rebuilt) -> str:
+    """A slab has one material: that of its thickest layer, else its single material, else the placeholder."""
+    lp = rebuild.layer_profile(entity)
+    name = max(lp["layers"], key=lambda l: l["thickness"])["material_name"] if lp else _single_material_name(entity)
+    if name and rebuild.slugify(name):
+        return rebuild.material_id(name)
+    rebuilt.placeholder_used = True
+    return PLACEHOLDER_MATERIAL
 
 
 def _slab_outline(entity):
@@ -302,13 +426,14 @@ def _slab_outline(entity):
                 curve = getattr(item.SweptArea, "OuterCurve", None)
                 if curve is None or not curve.is_a("IfcPolyline"):
                     continue
-                pts = [(float(p.Coordinates[0]), float(p.Coordinates[1])) for p in curve.Points]
+                scale = rebuild.unit_scale(entity)
+                pts = [(float(p.Coordinates[0]) * scale, float(p.Coordinates[1]) * scale) for p in curve.Points]
                 if len(pts) > 1 and pts[0] == pts[-1]:
                     pts = pts[:-1]
                 if len(pts) < 3:
                     continue
-                elevation = float(ifcopenshell.util.placement.get_local_placement(entity.ObjectPlacement)[2][3]) if entity.ObjectPlacement else 0.0
-                return pts, float(item.Depth), elevation
+                elevation = float(ifcopenshell.util.placement.get_local_placement(entity.ObjectPlacement)[2][3]) * scale if entity.ObjectPlacement else 0.0
+                return pts, float(item.Depth) * scale, elevation
     except Exception:
         pass
     return None

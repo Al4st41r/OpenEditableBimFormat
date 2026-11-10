@@ -308,8 +308,8 @@ def test_a_foreign_slab_becomes_a_slab_from_its_outline(foreign):
 def test_the_foreign_fixture_really_has_no_oebf_record(foreign):
     """Guards the three tests above: they must exercise the fallback, not the restored sidecar."""
     for p in (foreign / "elements").glob("*.json"):
-        assert load(p)["profile_id"] == "profile-imported-placeholder"
-    assert load(next((foreign / "slabs").glob("*.json")))["material_id"] == "mat-imported"
+        assert load(p)["properties"]["imported_from_ifc"] is True
+    assert load(next((foreign / "slabs").glob("*.json")))["properties"]["imported_from_ifc"] is True
 
 
 def test_a_restored_path_cannot_name_a_file_outside_the_bundle(tmp_path):
@@ -324,3 +324,89 @@ def test_a_restored_path_cannot_name_a_file_outside_the_bundle(tmp_path):
     assert _restore_entity(bundle, "wall-a", out) is None
     assert not (tmp_path / "escape.json").exists()
     assert not (out / "elements" / "wall-a.json").exists()
+
+
+# ── IFC from other tools: rebuilt from what the IFC holds (issue #108) ───────────────────────
+
+def test_a_foreign_wall_gets_its_build_up_from_the_material_layer_set(foreign):
+    elements = [load(p) for p in (foreign / "elements").glob("*.json")]
+    ids = {e["profile_id"] for e in elements}
+    assert "profile-imported-placeholder" not in ids and len(ids) == 1
+    profile = load(foreign / "profiles" / f"{ids.pop()}.json")
+    original = load(EXAMPLE / "profiles" / "profile-cavity-250.json")["assembly"]
+    assert [(l["name"], l["thickness"]) for l in profile["assembly"]] == [(l["name"], l["thickness"]) for l in original]
+    # each layer points at a material the imported library has
+    library = {m["id"] for m in load(foreign / "materials" / "library.json")["materials"]}
+    assert {l["material_id"] for l in profile["assembly"]} <= library
+    assert (foreign / "profiles" / f"{profile['id']}.svg").exists()
+
+
+def test_layer_functions_are_guessed_from_their_names(foreign):
+    profile = next(load(p) for p in (foreign / "profiles").glob("profile-imported-*.json") if "placeholder" not in p.name)
+    by_name = {l["name"]: l["function"] for l in profile["assembly"]}
+    assert by_name["External Brick Leaf"] == "finish"
+    assert by_name["Cavity + PIR"] == "insulation"
+
+
+def test_a_foreign_wall_keeps_its_axis_from_the_geometry(foreign):
+    south = next(load(p) for p in (foreign / "elements").glob("*.json") if "South" in load(p)["description"])
+    seg = load(foreign / "paths" / f"{south['path_id']}.json")["segments"][0]
+    assert (seg["start"]["x"], seg["start"]["y"], seg["end"]["x"], seg["end"]["y"]) == (5.4, 0.0, 0.0, 0.0)
+
+
+def test_property_sets_come_back_as_element_properties(foreign):
+    south = next(load(p) for p in (foreign / "elements").glob("*.json") if "South" in load(p)["description"])
+    props = south["properties"]
+    assert props["fire_rating"] == "REI 60" and props["load_bearing"] is True and props["thermal_transmittance"] == 0.18
+
+
+def test_the_imported_mapping_sends_properties_back_to_their_sets(foreign, tmp_path):
+    mapping = load(foreign / "ifc" / "mapping.json")
+    assert mapping["property_sets"]["fire_rating"] == {"pset": "Pset_WallCommon", "name": "FireRating"}
+    assert validate_bundle(foreign) == []
+    again = tmp_path / "again.ifc"
+    export_ifc(foreign, again)
+    wall = next(w for w in ifcopenshell.open(str(again)).by_type("IfcWall") if "South" in (w.Name or ""))
+    assert ifc_element.get_psets(wall)["Pset_WallCommon"]["FireRating"] == "REI 60"
+
+
+@pytest.mark.parametrize("raw, per_metre", [("METERS", 1), ("MILLIMETERS", 1000)])
+def test_a_vertical_footprint_wall_from_another_tool_gives_axis_thickness_and_height(tmp_path, raw, per_metre):
+    """The common way other tools write a wall: a rectangle footprint, extruded up, placed anywhere, in any length unit."""
+    import ifcopenshell.api.context, ifcopenshell.api.geometry, ifcopenshell.api.project, ifcopenshell.api.root, ifcopenshell.api.unit
+    f = ifcopenshell.api.project.create_file(version="IFC4")
+    ifcopenshell.api.root.create_entity(f, ifc_class="IfcProject", name="P")
+    ifcopenshell.api.unit.assign_unit(f, length={"is_metric": True, "raw": raw})
+    ctx = ifcopenshell.api.context.add_context(f, context_type="Model", context_identifier="Body", target_view="MODEL_VIEW")
+    wall = ifcopenshell.api.root.create_entity(f, ifc_class="IfcWall", name="Turned wall")
+    # placed at (10, 4) m, turned 90 degrees, so its length runs along +Y (the API takes the matrix in metres)
+    ifcopenshell.api.geometry.edit_object_placement(f, product=wall, matrix=[[0, -1, 0, 10], [1, 0, 0, 4], [0, 0, 1, 0]])
+    rect = f.create_entity("IfcRectangleProfileDef", ProfileType="AREA", XDim=3.0 * per_metre, YDim=0.2 * per_metre,
+                           Position=f.create_entity("IfcAxis2Placement2D", Location=f.create_entity("IfcCartesianPoint", Coordinates=[1.5 * per_metre, 0.0])))
+    solid = f.create_entity("IfcExtrudedAreaSolid", SweptArea=rect, Depth=2.6 * per_metre,
+                            Position=f.create_entity("IfcAxis2Placement3D", Location=f.create_entity("IfcCartesianPoint", Coordinates=[0.0, 0.0, 0.0])),
+                            ExtrudedDirection=f.create_entity("IfcDirection", DirectionRatios=[0.0, 0.0, 1.0]))
+    wall.Representation = f.create_entity("IfcProductDefinitionShape", Representations=[f.create_entity(
+        "IfcShapeRepresentation", ContextOfItems=ctx, RepresentationIdentifier="Body", RepresentationType="SweptSolid", Items=[solid])])
+    ifc = tmp_path / "turned.ifc"
+    f.write(str(ifc))
+    out = tmp_path / "turned.oebf"
+    import_ifc(ifc, out)
+    el = next(load(p) for p in (out / "elements").glob("*.json"))
+    seg = load(out / "paths" / f"{el['path_id']}.json")["segments"][0]
+    assert (round(seg["start"]["x"], 3), round(seg["start"]["y"], 3)) == (10.0, 4.0)
+    assert (round(seg["end"]["x"], 3), round(seg["end"]["y"], 3)) == (10.0, 7.0)
+
+
+def test_a_wall_moved_in_the_other_tool_is_reported_but_the_record_wins(bundle, tmp_path, capsys):
+    ifc = tmp_path / "moved.ifc"
+    export_ifc(bundle, ifc)
+    model = ifcopenshell.open(str(ifc))
+    wall = next(w for w in model.by_type("IfcWall") if "South" in (w.Name or ""))
+    from ifcopenshell.api import geometry as ifc_geometry
+    ifc_geometry.edit_object_placement(model, product=wall, matrix=[[-1, 0, 0, 9.0], [0, -1, 0, 9.0], [0, 0, 1, 0]])
+    model.write(str(ifc))
+    out = tmp_path / "moved.oebf"
+    import_ifc(ifc, out)
+    assert "element-wall-south-gf was moved" in capsys.readouterr().out
+    assert load(out / "paths" / "path-wall-south-gf.json") == load(EXAMPLE / "paths" / "path-wall-south-gf.json")

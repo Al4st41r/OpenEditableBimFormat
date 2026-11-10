@@ -765,10 +765,18 @@ Importing an IFC file written by OEBF restores element ids, junctions with their
 level data they refer to. The bundle is restored complete: the element, slab and
 path files, the profiles (with their SVG) and the materials come back as they were,
 and the schemas are copied in, so `oebf validate` passes on the imported bundle.
-IFC from other tools has no such record: its elements get a placeholder profile and
-material and the first level (or `storey-imported`) as `parent_group_id`, and a slab
-with a polyline outline becomes a `Slab` with a closed boundary path. Geometry edited
-in another tool is not read back when the OEBF record is present.
+IFC from other tools has no such record, so the import rebuilds what the IFC holds:
+a wall's centreline comes from its swept solid (a footprint extruded up, or a section
+extruded along the wall), converted from the file's length unit to metres; its build-up
+comes from the `IfcMaterialLayerSet` as a profile (layer names, materials and
+thicknesses, with each layer's function guessed from its name); and its property sets
+become element properties, with an `ifc/mapping.json` that sends them back to the same
+sets on export. An element with no layer set but one material gets a one-layer profile
+of its thickness. Anything the IFC does not hold falls back to a placeholder profile
+and material. Elements take the first level (or `storey-imported`) as `parent_group_id`,
+and a slab with a polyline outline becomes a `Slab` with a closed boundary path.
+Geometry edited in another tool is not read back when the OEBF record is present; the
+import says when an element was moved there.
 
 ### Mapping to IFC classes and property sets (`ifc/mapping.json`)
 

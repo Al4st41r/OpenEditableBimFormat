@@ -30,7 +30,8 @@ def export_ifc(oebf_dir: Path, ifc_path: Path) -> None:
     project = ifcopenshell.api.root.create_entity(
         ifc, ifc_class="IfcProject", name=manifest["project_name"]
     )
-    ifcopenshell.api.unit.assign_unit(ifc)
+    # the geometry below is written in metres, so say so (the default unit is millimetres)
+    ifcopenshell.api.unit.assign_unit(ifc, length={"is_metric": True, "raw": "METERS"})
     body_context = ifcopenshell.api.context.add_context(
         ifc, context_type="Model", context_identifier="Body",
         target_view="MODEL_VIEW",

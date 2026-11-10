@@ -246,3 +246,14 @@ def test_the_mapping_can_change_the_class_and_a_material_name(tmp_path):
     assert ifc.by_type("IfcWallStandardCase")
     names = {m.Name for m in ifc.by_type("IfcMaterial")}
     assert "Facing brick" in names
+
+
+def test_the_ifc_file_is_in_metres_so_a_5_4_m_wall_is_5_4_m_long(tmp_path):
+    """The geometry is written in metres; the file must say so (the default unit is millimetres)."""
+    import ifcopenshell.util.unit
+    ifc = _export(tmp_path)
+    assert ifcopenshell.util.unit.calculate_unit_scale(ifc) == 1
+    wall = next(w for w in ifc.by_type("IfcWall") if "South external" in (w.Name or ""))
+    solid = wall.Representation.Representations[0].Items[0]
+    assert solid.Depth == 5.4
+    assert wall.ObjectPlacement.RelativePlacement.Location.Coordinates[0] == 5.4
