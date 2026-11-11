@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { createJournal, journalled } from './editJournal.js';
+import { describe, it, test, expect } from 'vitest';
+import { createJournal, journalled, describeStep, pathOnlyRefresh } from './editJournal.js';
 import { MemoryAdapter } from './storageAdapter.js';
 
 const bundle = () => new MemoryAdapter(new Map([['paths/p.json', JSON.stringify({ x: 1 }, null, 2)], ['model.json', JSON.stringify({ elements: [] }, null, 2)]]), 'b');
@@ -102,5 +102,71 @@ describe('journalled adapter', () => {
     expect(await a.listDir('profiles')).toEqual([]);
     expect(a.type).toBe('memory');
     expect(a.name).toBe('b');
+  });
+});
+
+
+describe('describeStep', () => {
+  const step = (entries) => new Map(entries);
+
+  test('one changed file is named by its entity', () => {
+    expect(describeStep(step([['paths/path-wall-a.json', { before: '{}', after: '{"x":1}' }]]))).toBe('edit path-wall-a');
+  });
+
+  test('a new file is an add and a deleted one a remove', () => {
+    expect(describeStep(step([['openings/opening-d1.json', { before: null, after: '{}' }]]))).toBe('add opening-d1');
+    expect(describeStep(step([['objects/object-w.json', { before: '{}', after: null }]]))).toBe('remove object-w');
+  });
+
+  test('model.json and a profile svg do not count as separate files', () => {
+    expect(describeStep(step([
+      ['profiles/profile-a.json', { before: null, after: '{}' }],
+      ['profiles/profile-a.svg', { before: null, after: '<svg/>' }],
+      ['model.json', { before: '{}', after: '{"a":1}' }],
+    ]))).toBe('add profile-a');
+  });
+
+  test('several files are named by the first one added and a count', () => {
+    expect(describeStep(step([
+      ['paths/path-w3.json', { before: null, after: '{}' }],
+      ['elements/element-w3.json', { before: null, after: '{}' }],
+    ]))).toBe('add path-w3 and 1 more');
+  });
+
+  test('a step that only touched model.json says so', () => {
+    expect(describeStep(step([['model.json', { before: '{}', after: '{"a":1}' }]]))).toBe('edit the model index');
+  });
+});
+
+describe('journal labels', () => {
+  test('undoLabel and redoLabel name the next step each way', () => {
+    const j = createJournal();
+    expect(j.undoLabel()).toBeNull();
+    j.begin();
+    j.record({ path: 'paths/path-a.json', before: '{}', after: '{"x":1}' });
+    expect(j.undoLabel()).toBe('edit path-a');
+    j.undo();
+    expect(j.undoLabel()).toBeNull();
+    expect(j.redoLabel()).toBe('edit path-a');
+  });
+});
+
+describe('pathOnlyRefresh', () => {
+  const owners = new Set(['path-wall-a', 'path-slab-b']);
+
+  test('changed paths that elements in the scene use are redrawn along', () => {
+    const ops = [{ path: 'paths/path-wall-a.json', content: '{"id":"path-wall-a"}' }];
+    expect(pathOnlyRefresh(ops, owners)).toEqual([{ pathId: 'path-wall-a', pathData: { id: 'path-wall-a' } }]);
+  });
+
+  test('anything other than an owned, changed path needs a full reload', () => {
+    expect(pathOnlyRefresh([{ path: 'elements/element-wall-a.json', content: '{}' }], owners)).toBeNull();
+    expect(pathOnlyRefresh([{ path: 'paths/path-guide.json', content: '{}' }], owners)).toBeNull();
+    expect(pathOnlyRefresh([{ path: 'paths/path-wall-a.json', content: null }], owners)).toBeNull();
+    expect(pathOnlyRefresh([
+      { path: 'paths/path-wall-a.json', content: '{}' },
+      { path: 'model.json', content: '{}' },
+    ], owners)).toBeNull();
+    expect(pathOnlyRefresh([], owners)).toBeNull();
   });
 });

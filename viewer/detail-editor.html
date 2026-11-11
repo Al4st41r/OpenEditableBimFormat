@@ -10,7 +10,7 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { background: #1a1a1a; color: #ddd; font-family: 'Barlow', sans-serif; font-size: 13px; display: flex; flex-direction: column; height: 100vh; }
     button, select, input { font: inherit; }
-    #header { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; padding: 6px 10px; background: #222; border-bottom: 1px solid #333; flex-shrink: 0; }
+    #header { display: flex; align-items: center; flex-wrap: wrap; gap: 3px; padding: 6px 8px; background: #222; border-bottom: 1px solid #333; flex-shrink: 0; }
     #header select, #header input, .panel select, .panel input[type=text], .panel input[type=number] { background: #333; color: #ddd; border: 1px solid #555; padding: 3px 6px; border-radius: 3px; }
     button { padding: 4px 8px; cursor: pointer; background: #333; color: #ddd; border: 1px solid #555; border-radius: 3px; }
     button:hover:not(:disabled) { background: #444; }
@@ -19,11 +19,12 @@
     button.primary:hover:not(:disabled) { background: #3a5a3a; }
     button.active { background: #1e3a5a; border-color: #4a8aaa; color: #fff; }
     .sep { width: 1px; align-self: stretch; background: #333; margin: 0 4px; }
-    #project-name { opacity: 0.6; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #project-name { color: #aaa; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     #detail-select { max-width: 130px; }
     #material-select { max-width: 100px; }
-    #export-select { max-width: 96px; }
     #header .sep { margin: 0 1px; }
+    #header > button { padding: 4px 7px; }
+    #snap-menu summary { padding-left: 6px; padding-right: 6px; }
     #status { position: absolute; left: 10px; bottom: 10px; z-index: 5; max-width: 62%; padding: 5px 10px; border-radius: 4px; background: rgba(24,24,24,0.88); color: #ddd; font-size: 12px; pointer-events: none; }
     #status:empty { display: none; }
     #status.error { color: #f99; border: 1px solid #733; }
@@ -57,7 +58,7 @@
     #object-dialog .previews { display: flex; gap: 12px; margin: 8px 0; }
     #object-dialog .previews div { flex: 1; background: #151515; border: 1px solid #333; border-radius: 4px; height: 150px; padding: 4px; }
     #object-dialog .previews svg { width: 100%; height: 100%; }
-    #object-dialog .previews small { display: block; opacity: 0.5; text-align: center; }
+    #object-dialog .previews small { display: block; color: #aaa; text-align: center; }
     #object-dialog .problems { color: #f08080; margin: 6px 0; }
     #object-dialog .actions { display: flex; gap: 6px; margin-top: 10px; }
     #help-dialog::backdrop { background: rgba(0,0,0,0.5); }
@@ -69,7 +70,15 @@
     #cmd-input { width: 260px; background: #333; color: #fff; border: 1px solid #777; padding: 4px 8px; border-radius: 3px; }
     #cmd-hint { color: #aaa; font-size: 12px; white-space: nowrap; }
     #tip .t { font-weight: 700; }
-    #tip .c { opacity: 0.6; }
+    #tip .c { color: #aaa; }
+    .menu { position: relative; }
+    .menu summary { cursor: pointer; padding: 4px 10px; background: #333; border: 1px solid #555; border-radius: 3px; list-style: none; white-space: nowrap; }
+    .menu summary::-webkit-details-marker { display: none; }
+    .menu summary::after { content: ' ▾'; font-size: 10px; }
+    .menu-body { position: absolute; z-index: 30; top: 30px; left: 0; background: #262626; border: 1px solid #555; border-radius: 3px; padding: 6px; display: flex; flex-direction: column; gap: 3px; min-width: 200px; box-shadow: 0 4px 12px rgba(0,0,0,0.4); }
+    .menu-body button { text-align: left; border-color: transparent; background: transparent; }
+    .menu-body button:hover:not(:disabled) { background: #3a3a3a; }
+    .menu-body hr { border: 0; border-top: 1px solid #444; margin: 3px 0; }
     #marks-menu { position: relative; }
     #marks-menu summary { cursor: pointer; padding: 4px 10px; background: #333; border: 1px solid #555; border-radius: 3px; list-style: none; white-space: nowrap; }
     #marks-menu.active summary { background: #1e3a5a; border-color: #0a6cff; }
@@ -97,7 +106,7 @@
     .item { padding: 4px 8px; border-radius: 3px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
     .item:hover { background: #2a2a2a; }
     .item.selected { background: #1e3a5a; }
-    .item .meta { opacity: 0.55; font-size: 11px; margin-left: auto; }
+    .item .meta { color: #aaa; font-size: 12px; margin-left: auto; }
     .layer { display: flex; align-items: center; gap: 4px; padding: 2px 8px; }
     .layer button { font-size: 11px; padding: 1px 6px; min-width: 52px; opacity: 0.6; }
     .layer button.on { opacity: 1; }
@@ -105,7 +114,7 @@
     .item .swatch { width: 10px; height: 10px; border: 1px solid #555; flex-shrink: 0; }
     .warn { color: #fc6; }
     .err { color: #f88; }
-    .note { opacity: 0.55; font-size: 11px; margin: 4px 0; }
+    .note { color: #aaa; font-size: 12px; margin: 4px 0; }
     .msg { font-size: 12px; margin: 3px 0; }
     .box { border: 1px solid #333; border-radius: 3px; padding: 6px 8px; margin: 6px 0; }
     .param { margin: 6px 0; padding: 6px 8px; border: 1px solid #333; border-radius: 3px; }
@@ -143,16 +152,33 @@
 <body>
   <div id="header">
     <span id="project-name">No bundle open</span>
-    <select id="detail-select" disabled><option value="">— select detail —</option></select>
-    <button id="new-btn" disabled>New</button>
-    <button id="objects-btn" disabled title="Make a small multi-part object (a screw, a brick tie, a cavity tray) and keep it in the bundle for reuse">Objects</button>
-    <button id="view-switch-btn" disabled title="Switch to the same junction in the other view: plan or section">Plan / Section</button>
     <span class="sep"></span>
-    <button id="open-btn" title="Open a bundle folder">Folder</button>
-    <button id="open-file-btn" title="Open a .oebfz archive">File</button>
-    <button id="demo-btn">Demo</button>
-    <select id="export-select" title="Export this detail as a CAD drawing"><option value="">Export…</option><option value="json">Detail JSON</option><option value="sheet">Sheet (SVG or PDF)…</option><option value="dxf">DXF (mm)</option><option value="import-dxf">Import DXF…</option><option value="import-svg">Import SVG…</option></select>
-    <button id="zip-btn" hidden title="Download the whole bundle as a zip">Zip</button>
+    <details id="file-menu" class="menu"><summary title="Open, import, export and publish">File</summary><div id="file-menu-body" class="menu-body">
+      <button id="open-btn" title="Open a bundle folder">Open folder…</button>
+      <button id="open-file-btn" title="Open a .oebfz archive">Open .oebfz…</button>
+      <button id="demo-btn" title="Open the example bundle">Open demo</button>
+      <hr>
+      <button id="objects-btn" disabled title="Make a small multi-part object (a screw, a brick tie, a cavity tray) and keep it in the bundle for reuse">Objects…</button>
+      <hr>
+      <button data-export="import-dxf" title="Closed shapes become regions in the material chosen in the toolbar">Import DXF…</button>
+      <button data-export="import-svg" title="Closed shapes become regions in the material chosen in the toolbar">Import SVG…</button>
+      <hr>
+      <button data-export="json" title="Download this detail as JSON">Export detail JSON</button>
+      <button data-export="sheet" title="A scaled sheet as SVG or PDF">Export sheet (SVG or PDF)…</button>
+      <button data-export="dxf" title="A DXF in millimetres">Export DXF</button>
+      <hr>
+      <button id="zip-btn" hidden title="Download the whole bundle as a zip">Download bundle (zip)</button>
+      <button id="publish-btn" title="Download the edited files and show how to put them on the site">Publish…</button>
+    </div></details>
+    <button id="save-btn" class="primary" disabled title="Save (Ctrl+S)">Save</button>
+    <button id="undo-btn" disabled title="Undo (Ctrl+Z)">Undo</button>
+    <button id="redo-btn" disabled title="Redo (Ctrl+Y)">Redo</button>
+    <span id="dirty" hidden title="Unsaved changes" aria-label="Unsaved changes">●</span>
+    <span class="sep"></span>
+    <select id="detail-select" disabled aria-label="Detail"><option value="">— select detail —</option></select>
+    <button id="new-btn" disabled title="New detail">New</button>
+    <button id="view-switch-btn" disabled title="Switch to the same junction in the other view: plan or section">Plan / Section</button>
+    <button id="profile-btn" title="Edit the profile of the selected member (opens the profile editor); changes come back here when you save there">Profile</button>
     <span class="sep"></span>
     <button id="tool-select" class="active" title="Select and move (V)">Select</button>
     <button id="tool-rect" title="Rectangle region (R)">Rect</button>
@@ -165,22 +191,15 @@
       <button id="tool-dim" title="Dimension between two points (D)">Dim</button>
       <button id="tool-note" title="Note with a leader line (N)">Note</button>
     </div></details>
-    <select id="material-select" title="Material for new regions" disabled></select>
-    <button id="thin-btn" title="Draw every line as a hairline, so the drawing reads as a sketch. Pen weights are kept in the data.">Thin</button>
+    <select id="material-select" title="Material for new regions" aria-label="Material for new regions" disabled></select>
     <button id="snap-btn" class="active" title="Snapping on or off (S). Hold Alt to suspend it while you move.">Snap</button>
-    <details id="snap-menu"><summary title="Which snaps are active">Snaps</summary><div id="snap-menu-body"></div></details>
+    <details id="snap-menu"><summary title="Which snaps are active" aria-label="Snap settings">▾</summary><div id="snap-menu-body"></div></details>
     <span class="sep"></span>
-    <button id="undo-btn" disabled title="Undo (Ctrl+Z)">Undo</button>
-    <button id="redo-btn" disabled title="Redo (Ctrl+Y)">Redo</button>
     <button id="fit-btn" title="Fit to view (F)">Fit</button>
-    <select id="units-select" title="Display units"><option value="mm" selected>mm</option><option value="m">m</option></select>
-    <span class="sep"></span>
-    <span id="dirty" hidden title="Unsaved changes">●</span>
-    <button id="publish-btn" title="Download the edited files and show how to put them on the site">Publish</button>
-    <button id="profile-btn" title="Edit the profile of the selected member (opens the profile editor); changes come back here when you save there">Profile</button>
+    <button id="thin-btn" title="Draw every line as a hairline, so the drawing reads as a sketch. Pen weights are kept in the data.">Thin</button>
+    <select id="units-select" title="Display units" aria-label="Units"><option value="mm" selected>mm</option><option value="m">m</option></select>
     <button id="view3d-btn" title="See this detail in 3D, including unsaved changes (opens the review page)">3D</button>
-    <button id="help-btn" title="Keyboard and mouse shortcuts (?)">?</button>
-    <button id="save-btn" class="primary" disabled title="Save (Ctrl+S)">Save</button>
+    <button id="help-btn" title="Keyboard and mouse shortcuts (?)" aria-label="Help">?</button>
   </div>
   <div id="main">
     <div id="left-panel" class="panel"></div>

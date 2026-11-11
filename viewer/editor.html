@@ -31,7 +31,7 @@
     #material-dialog input[type=color] { width: 40px; height: 28px; padding: 0; border: 1px solid #444; background: none; }
     #material-dialog .mat-warning { color: #e8b04a; font-size: 11px; margin-top: 6px; min-height: 14px; }
     #material-dialog .mat-existing { margin-top: 10px; max-height: 180px; overflow-y: auto; border-top: 1px solid #333; padding-top: 6px; }
-    #material-dialog .mat-existing-title { font-size: 11px; color: #888; margin-bottom: 4px; }
+    #material-dialog .mat-existing-title { font-size: 12px; color: #aaa; margin-bottom: 4px; }
     #material-dialog .mat-row { display: flex; align-items: center; gap: 8px; font-size: 12px; padding: 2px 0; }
     #material-dialog .mat-row.similar { color: #e8b04a; }
     #material-dialog .mat-row .mat-swatch { width: 12px; height: 12px; border: 1px solid #555; display: inline-block; }
@@ -46,7 +46,7 @@
     #toolbar button:disabled { opacity: 0.4; cursor: default; }
     .toolbar-sep { width: 1px; background: #444; height: 22px; margin: 0 4px; }
     #toolbar select { background: #333; color: #ddd; border: 1px solid #555; padding: 3px 6px; border-radius: 3px; font-size: 12px; }
-    #toolbar label { font-size: 11px; opacity: 0.6; }
+    #toolbar label { font-size: 12px; color: #aaa; }
     #toolbar { flex-wrap: wrap; row-gap: 6px; }
     .toolbar-group { display: flex; }
     #toolbar .toolbar-group button { border-radius: 0; }
@@ -62,11 +62,11 @@
       padding: 4px 12px; background: #222; border-top: 1px solid #333; font-size: 12px; min-height: 26px;
     }
     #status-bar { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #cfcfcf; }
-    #status-mode { flex-shrink: 0; opacity: 0.5; font-size: 11px; white-space: nowrap; }
+    #status-mode { flex-shrink: 0; color: #aaa; font-size: 12px; white-space: nowrap; }
     #help-dialog { margin: auto; background: #222; color: #ddd; border: 1px solid #555; border-radius: 6px; padding: 16px 20px; max-width: 560px; max-height: 84vh; overflow-y: auto; font-size: 12px; }
     #help-dialog::backdrop { background: rgba(0,0,0,0.5); }
     #help-dialog h3 { font-size: 14px; margin-bottom: 8px; }
-    #help-dialog h4 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; opacity: 0.55; margin: 12px 0 4px; }
+    #help-dialog h4 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: #aaa; margin: 12px 0 4px; }
     #help-dialog dl { display: grid; grid-template-columns: 190px 1fr; gap: 3px 12px; }
     #help-dialog dt { color: #fff; font-family: ui-monospace, monospace; }
     #help-dialog dd { color: #bbb; }
@@ -87,7 +87,7 @@
     #scene-tree.collapsed > *:not(#scene-toggle) { display: none; }
     #scene-toggle {
       position: absolute; top: 6px; right: 4px;
-      background: none; border: none; color: #888; cursor: pointer;
+      background: none; border: none; color: #aaa; cursor: pointer;
       font-size: 14px; padding: 2px 4px; line-height: 1;
     }
     #scene-toggle:hover { color: #ddd; }
@@ -98,14 +98,14 @@
       border-top: 1px solid #2a2a2a;
     }
     #scene-tree-filename {
-      font-size: 11px; color: #aaa; overflow: hidden;
+      font-size: 12px; color: #aaa; overflow: hidden;
       text-overflow: ellipsis; white-space: nowrap; margin-bottom: 2px;
     }
-    #scene-tree-version { font-size: 10px; color: #555; }
+    #scene-tree-version { font-size: 11px; color: #999; }
     .tree-section-header {
       display: flex; align-items: center; justify-content: space-between;
       padding: 4px 10px; font-size: 11px; font-weight: 700;
-      text-transform: uppercase; opacity: 0.5; letter-spacing: 0.08em;
+      text-transform: uppercase; color: #aaa; letter-spacing: 0.08em;
       cursor: pointer; user-select: none;
     }
     .tree-section-header:hover { opacity: 0.8; }
@@ -121,7 +121,7 @@
     }
     .tree-item:hover { background: #2a2a2a; }
     .tree-item.active { background: #1e3a5a; border-left: 2px solid #4a8aaa; padding-left: 18px; }
-    .tree-item-eye { background: none; border: none; color: #888; cursor: pointer; font-size: 12px; margin-left: auto; padding: 0 2px; }
+    .tree-item-eye { background: none; border: none; color: #aaa; cursor: pointer; font-size: 12px; margin-left: auto; padding: 0 2px; }
     .tree-item-eye:hover { color: #ddd; }
     .tree-item-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
@@ -140,14 +140,14 @@
     #props-panel.collapsed > *:not(#props-toggle) { display: none; }
     #props-toggle {
       position: absolute; top: 6px; left: 4px;
-      background: none; border: none; color: #888; cursor: pointer;
+      background: none; border: none; color: #aaa; cursor: pointer;
       font-size: 14px; padding: 2px 4px; line-height: 1;
     }
     #props-toggle:hover { color: #ddd; }
     #props-panel:not(.collapsed) #props-toggle { left: unset; right: 4px; }
-    #props-panel h3 { font-size: 12px; font-weight: 700; text-transform: uppercase; opacity: 0.5; margin-bottom: 10px; margin-top: 18px; letter-spacing: 0.08em; }
+    #props-panel h3 { font-size: 12px; font-weight: 700; text-transform: uppercase; color: #aaa; margin-bottom: 10px; margin-top: 18px; letter-spacing: 0.08em; }
     .prop-row { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
-    .prop-row label { font-size: 11px; opacity: 0.6; }
+    .prop-row label { font-size: 12px; color: #aaa; }
     .prop-row input, .prop-row select {
       background: #2a2a2a; color: #ddd; border: 1px solid #444;
       padding: 4px 8px; border-radius: 3px; font-family: 'Barlow', sans-serif; font-size: 12px;
@@ -156,7 +156,7 @@
       padding: 5px 10px; cursor: pointer; background: #2a4a2a; color: #8f8;
       border: 1px solid #555; border-radius: 3px; font-size: 12px;
     }
-    #props-empty { opacity: 0.4; font-size: 12px; padding: 8px 0; }
+    #props-empty { color: #999; font-size: 12px; padding: 8px 0; }
 
     .mat-swatch {
       width: 12px; height: 12px; border-radius: 2px; flex-shrink: 0;
@@ -170,7 +170,7 @@
     #object-dialog .row > label { width: 150px; opacity: 0.7; }
     #object-dialog input, #object-dialog select { background: #333; color: #ddd; border: 1px solid #555; border-radius: 3px; padding: 4px 6px; font-size: 12px; }
     #object-dialog input[type=text] { width: 90px; }
-    #object-dialog .note { opacity: 0.6; margin: 8px 0 2px; }
+    #object-dialog .note { color: #aaa; margin: 8px 0 2px; }
     #object-dialog .problems { color: #f0b060; margin: 8px 0; }
     #object-dialog .actions { display: flex; gap: 6px; margin-top: 12px; }
     #object-dialog button { padding: 5px 14px; cursor: pointer; background: #333; color: #ddd; border: 1px solid #555; border-radius: 3px; }
@@ -187,7 +187,7 @@
       padding: 32px 40px; text-align: center; min-width: 320px;
     }
     #welcome-box h1 { font-size: 18px; font-weight: 700; margin-bottom: 6px; color: #ddd; }
-    #welcome-box p  { font-size: 12px; opacity: 0.5; margin-bottom: 28px; }
+    #welcome-box p  { font-size: 13px; color: #aaa; margin-bottom: 28px; }
     #welcome-box .welcome-btns { display: flex; gap: 12px; justify-content: center; }
     #welcome-box .welcome-btns button {
       padding: 8px 20px; font-size: 13px; cursor: pointer;
@@ -198,12 +198,12 @@
     #welcome-open { background: #333; color: #ddd; }
     #welcome-open:hover { background: #3a3a3a; }
     #welcome-starters-box { margin-top: 26px; padding-top: 18px; border-top: 1px solid #444; text-align: left; max-width: 420px; }
-    #welcome-starters-box h2 { font-size: 12px; font-weight: 700; opacity: 0.7; margin-bottom: 10px; text-align: center; }
+    #welcome-starters-box h2 { font-size: 12px; font-weight: 700; color: #bbb; margin-bottom: 10px; text-align: center; }
     #welcome-starters { display: flex; flex-direction: column; gap: 8px; }
     .welcome-starter { background: #2a2a2a; color: #ddd; border: 1px solid #555; border-radius: 3px; padding: 8px 12px; text-align: left; cursor: pointer; }
     .welcome-starter:hover { background: #333; border-color: #4a8aaa; }
     .welcome-starter strong { display: block; font-size: 13px; }
-    .welcome-starter span { display: block; font-size: 11px; opacity: 0.6; margin-top: 2px; }
+    .welcome-starter span { display: block; font-size: 12px; color: #aaa; margin-top: 2px; }
   </style>
   <script>
     // Keep uncaught errors where headless checks and bug reports can read them.
@@ -241,7 +241,7 @@
     <button id="ifc-btn" title="IFC import / export">IFC</button>
     <div class="toolbar-sep"></div>
     <button id="tool-select" class="active" aria-label="Select tool" title="Select an element (V)"><img src="/oebf/icons/select.svg" width="16" height="16" alt=""> Select</button>
-    <button id="tool-path-edit" disabled aria-label="Path edit tool" title="Edit the path of the selected element: drag a node, click a midpoint to add one (E)"><img src="/oebf/icons/select.svg" width="16" height="16" alt=""> Edit</button>
+    <button id="tool-path-edit" disabled aria-label="Path edit tool" title="Edit the path of the selected element: drag a node, click a midpoint to add one (E)"><img src="/oebf/icons/edit-nodes.svg" width="16" height="16" alt=""> Edit</button>
     <button id="tool-wall" disabled aria-label="Wall tool" title="Draw a wall (W)"><img src="/oebf/icons/draw-line.svg" width="16" height="16" alt=""> Wall</button>
     <button id="tool-floor" disabled aria-label="Floor tool" title="Draw a floor (F)"><img src="/oebf/icons/draw-rect.svg" width="16" height="16" alt=""> Floor</button>
     <button id="tool-grid" disabled aria-label="Add grid axis" title="Add a grid axis"><img src="/oebf/icons/grid.svg" width="16" height="16" alt=""> Grid</button>
@@ -262,7 +262,7 @@
     <div class="toolbar-sep"></div>
     <button id="lib-btn" title="Material library">Library</button>
     <div class="toolbar-sep"></div>
-    <label for="units-select" style="font-size:11px;opacity:0.6;">Units:</label>
+    <label for="units-select">Units</label>
     <select id="units-select" title="Display units">
       <option value="mm" selected>mm</option>
       <option value="m">m</option>

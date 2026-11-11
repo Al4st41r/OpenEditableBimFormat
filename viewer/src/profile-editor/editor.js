@@ -22,6 +22,10 @@ import { findUses, renameRefs, matchesSearch } from './profileRefs.js';
 import { PEN_SERIES, HAIRLINE_MM, resolveLineweight } from '../lineweights.js';
 import { PX_PER_MM } from '../detail-editor/drawStyle.js';
 import { setUnit, getUnit, toDisplay, fromDisplay, unitLabel } from '../editor/units.js';
+import { ask, confirmDialog, notify, idValidator } from '../ui/dialog.js';
+import { ProfileHistory } from './profileHistory.js';
+import { tidyToolbarSeparators } from '../ui/toolbar.js';
+import { showError } from '../ui/notice.js';
 
 // ── DOM refs ─────────────────────────────────────────────────────────────────
 const profileSvg    = document.getElementById('profile-svg');
@@ -34,6 +38,9 @@ const newBtn        = document.getElementById('new-btn');
 const addLayerBtn   = document.getElementById('add-layer-btn');
 const layerList     = document.getElementById('layer-list');
 const unitsSelect   = document.getElementById('units-select');
+const undoBtn       = document.getElementById('undo-btn');
+const redoBtn       = document.getElementById('redo-btn');
+const dirtyEl       = document.getElementById('dirty');
 
 // ── Units initialisation ──────────────────────────────────────────────────────
 {
@@ -94,6 +101,90 @@ let selectedLayerIndex = null;
 let memoryMode      = false;
 let _memoryProfiles = {};  // profileId → parsed profile object (memory mode only)
 
+// ── Undo, redo and unsaved changes ─────────────────────────────────────────────
+// Each edit records a snapshot of the profile's editable state, a moment after the last change so that typing a
+// thickness or dragging the origin is one step.
+const _history = new ProfileHistory();
+let _recordTimer = null;
+const _baseTitle = document.title;
+
+function _snapshot() {
+  return { layers: getLayers(layerList), originX, profileType, alignment, planWidth, ffl_m, height_limit_m, detail, lineweights: { ...lineweights } };
+}
+
+function _applySnapshot(snap) {
+  ({ originX, profileType, alignment, planWidth, ffl_m, height_limit_m, detail } = snap);
+  lineweights = { ...snap.lineweights };
+  layers = snap.layers;
+  profileTypeSelect.value = profileType;
+  alignmentSelect.value = alignment;
+  _syncAlignmentControl();
+  fflInput.value = toDisplay(ffl_m);
+  heightLimitInput.value = toDisplay(height_limit_m ?? 0);
+  _syncLineweightControls();
+  if (selectedLayerIndex !== null && selectedLayerIndex >= layers.length) selectedLayerIndex = null;
+  setLayers(layerList, layers);
+  _lastWidth = _bandWidth();
+  _renderCanvas();
+}
+
+function _flushRecord() {
+  if (_recordTimer === null) return;
+  clearTimeout(_recordTimer);
+  _recordTimer = null;
+  if (currentId) _history.record(_snapshot());
+  _syncHistoryUi();
+}
+
+/** Note an edit: recorded as one undo step once the changes pause. */
+function _noteChange() {
+  if (!currentId) return;
+  clearTimeout(_recordTimer);
+  _recordTimer = setTimeout(_flushRecord, 300);
+  dirtyEl.hidden = false;      // show the marker at once; the history confirms it when the step is recorded
+}
+
+function _syncHistoryUi() {
+  undoBtn.disabled = !_history.canUndo;
+  redoBtn.disabled = !_history.canRedo;
+  const dirty = _history.dirty;
+  dirtyEl.hidden = !dirty;
+  document.title = dirty ? `• ${_baseTitle}` : _baseTitle;
+}
+
+function _undo() {
+  _flushRecord();
+  const snap = _history.undo();
+  if (!snap) return;
+  _applySnapshot(snap);
+  _syncHistoryUi();
+  _setStatus('Undone');
+}
+
+function _redo() {
+  _flushRecord();
+  const snap = _history.redo();
+  if (!snap) return;
+  _applySnapshot(snap);
+  _syncHistoryUi();
+  _setStatus('Redone');
+}
+
+/** Whether the profile on screen has changes that are not saved. */
+function _isDirty() { _flushRecord(); return _history.dirty; }
+
+/** Ask before discarding unsaved changes; true when it is fine to go on. */
+async function _okToDiscard() {
+  if (!_isDirty()) return true;
+  return confirmDialog(`"${currentId}" has unsaved changes. Discard them?`, { ok: 'Discard', danger: true });
+}
+
+window.addEventListener('beforeunload', (e) => {
+  if (!_isDirty()) return;
+  e.preventDefault();
+  e.returnValue = '';
+});
+
 // ── Initialise canvas ─────────────────────────────────────────────────────────
 initCanvas(profileSvg);
 
@@ -136,12 +227,13 @@ profileTypeSelect.addEventListener('change', () => {
   if (profileType !== 'slab') { alignment = 'center'; alignmentSelect.value = 'center'; }
   _syncAlignmentControl();
   _renderCanvas();
+  _noteChange();
 });
-alignmentSelect.addEventListener('change', () => { alignment = alignmentSelect.value; _renderCanvas(); });
+alignmentSelect.addEventListener('change', () => { alignment = alignmentSelect.value; _renderCanvas(); _noteChange(); });
 /** The alignment choice only applies to slabs. */
 function _syncAlignmentControl() { alignmentSelect.disabled = profileType !== 'slab'; }
-fflInput.addEventListener('change',          () => { ffl_m          = fromDisplay(parseFloat(fflInput.value) || 0);                       _renderCanvas(); });
-heightLimitInput.addEventListener('change',  () => { const p = parseFloat(heightLimitInput.value); height_limit_m = isNaN(p) ? undefined : fromDisplay(p); _renderCanvas(); });
+fflInput.addEventListener('change',          () => { ffl_m          = fromDisplay(parseFloat(fflInput.value) || 0);                       _renderCanvas(); _noteChange(); });
+heightLimitInput.addEventListener('change',  () => { const p = parseFloat(heightLimitInput.value); height_limit_m = isNaN(p) ? undefined : fromDisplay(p); _renderCanvas(); _noteChange(); });
 
 // Apply initial unit labels (fflInput/heightLimitInput are now declared)
 _refreshUnitLabels();
@@ -155,6 +247,7 @@ profileSvg.addEventListener('layer-selected', e => {
 profileSvg.addEventListener('origin-moved', e => {
   originX = e.detail.originX;
   _renderCanvas();
+  _noteChange();
 });
 
 // Zoom and pan (wheel, middle-drag, Shift-drag) redraw with the new window; Fit frames the detail
@@ -181,6 +274,7 @@ for (const role of LW_ROLES) {
   document.getElementById(`lw-${role}`).addEventListener('change', e => {
     if (e.target.value === '') delete lineweights[role]; else lineweights[role] = Number(e.target.value);
     _renderCanvas();
+    _noteChange();
   });
 }
 document.getElementById('lw-thin').addEventListener('change', e => {
@@ -206,15 +300,17 @@ layerList.addEventListener('layers-changed', () => {
   }
   _lastWidth = w;
   _renderCanvas();
+  _noteChange();
 });
 
 // ── Bundle open ───────────────────────────────────────────────────────────────
 openBtn.addEventListener('click', async () => {
+  if (!await _okToDiscard()) return;
   try {
     dirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
     await _loadBundle(dirHandle);
   } catch (e) {
-    if (e.name !== 'AbortError') _setStatus(`Error: ${e.message}`);
+    if (e.name !== 'AbortError') _setError(`Error: ${e.message}`);
   }
 });
 
@@ -275,7 +371,8 @@ function _listProfilesFromMemory(profiles) {
 
 profileSelect.addEventListener('change', async () => {
   const id = profileSelect.value;
-  if (!id) return;
+  if (!id || id === currentId) return;
+  if (!await _okToDiscard()) { profileSelect.value = currentId ?? ''; return; }
   clearGuides();
   const data = await _readJson(`profiles/${id}.json`);
   currentId   = data.id;
@@ -317,23 +414,29 @@ profileSelect.addEventListener('change', async () => {
   _lastWidth = _bandWidth();
   saveBtn.disabled = false;
   _renderCanvas();
+  _history.reset(_snapshot());
+  _syncHistoryUi();
   _setStatus('');
 });
 
 // ── New profile ───────────────────────────────────────────────────────────────
-/** A usable id for a new profile, or null (with a message) when it is malformed or already taken. */
-function _validNewId(raw) {
-  const id = raw.trim().toLowerCase();
-  if (!/^[a-z0-9][a-z0-9-]*$/.test(id)) { alert('Id must match ^[a-z0-9][a-z0-9-]*$'); return null; }
-  if ([...profileSelect.options].some(o => o.value === id)) { alert(`A profile called "${id}" already exists. Pick another id.`); return null; }
-  return id;
+/** Ask for an id for a new or renamed profile: lowercase, hyphenated and not already in the bundle. */
+async function _askNewId(title, value, ok) {
+  const taken = (id) => [...profileSelect.options].some(o => o.value === id);
+  const raw = await ask('Profile id', value, {
+    title, ok, placeholder: 'profile-brick-200',
+    hint: 'Lowercase letters, numbers and hyphens.',
+    validate: (v) => idValidator(taken)(v.toLowerCase()),
+  });
+  return raw ? raw.toLowerCase() : null;
 }
 
 // ── Duplicate: a copy of the profile on screen under a new id, to adapt ──────────────────────
-document.getElementById('dup-btn').addEventListener('click', () => {
+document.getElementById('dup-btn').addEventListener('click', async () => {
   if (!currentId) return;
-  const id = _validNewId(window.prompt('Id for the copy:', `${currentId}-copy`) ?? '');
+  const id = await _askNewId(`Duplicate ${currentId}`, `${currentId}-copy`, 'Duplicate');
   if (!id) return;
+  _flushRecord();
   layers = getLayers(layerList);
   currentId = id;
   selectedLayerIndex = null;
@@ -342,6 +445,8 @@ document.getElementById('dup-btn').addEventListener('click', () => {
   profileSelect.appendChild(opt);
   profileSelect.value = id;
   _renderCanvas();
+  _history.reset(_snapshot(), { saved: false });
+  _syncHistoryUi();
   _setStatus(`Copy as ${id}: unsaved`);
 });
 
@@ -386,6 +491,9 @@ function _clearEditor() {
   setLayers(layerList, []);
   profileSelect.value = '';
   saveBtn.disabled = true;
+  clearTimeout(_recordTimer); _recordTimer = null;
+  _history.clear();
+  _syncHistoryUi();
   _renderCanvas();
 }
 
@@ -397,35 +505,38 @@ document.getElementById('delete-btn').addEventListener('click', async () => {
       const uses = findUses(await _readReferencingDocs(), id);
       if (uses.length) {
         const list = uses.slice(0, 8).map(u => `${u.path} (${u.count})`).join('\n');
-        alert(`"${id}" is still used by:\n${list}${uses.length > 8 ? `\n…and ${uses.length - 8} more` : ''}\n\nChange those to another profile first.`);
+        await notify(`"${id}" is still used by:\n${list}${uses.length > 8 ? `\n…and ${uses.length - 8} more` : ''}\n\nChange those to another profile first.`, { title: 'Profile in use' });
         return;
       }
-      if (!confirm(`Delete profile "${id}"? Its .json and .svg files are removed from the bundle.`)) return;
+      if (!await confirmDialog(`Delete profile "${id}"? Its .json and .svg files are removed from the bundle.`, { ok: 'Delete', danger: true })) return;
       await _removeFile(`profiles/${id}.json`);
       await _removeFile(`profiles/${id}.svg`);
     } else if (memoryMode && _memoryProfiles[id]) {
-      alert(`This session cannot change the bundle's files. To delete "${id}", remove profiles/${id}.json and profiles/${id}.svg from the bundle, after checking that no element or detail uses it.`);
+      await notify(`This session cannot change the bundle's files. To delete "${id}", remove profiles/${id}.json and profiles/${id}.svg from the bundle, after checking that no element or detail uses it.`, { title: 'Cannot delete here' });
       return;
-    } else if (!confirm(`Discard the unsaved profile "${id}"?`)) return;
+    } else if (!await confirmDialog(`Discard the unsaved profile "${id}"?`, { ok: 'Discard', danger: true })) return;
     _dropOption(id);
     _clearEditor();
     _setStatus(`Deleted ${id}`);
-  } catch (e) { _setStatus(`Delete failed: ${e.message}`); }
+  } catch (e) { _setError(`Delete failed: ${e.message}`); }
 });
 
 document.getElementById('rename-btn').addEventListener('click', async () => {
   if (!currentId) return;
   const oldId = currentId;
-  const raw = window.prompt('New id:', oldId);
-  if (raw === null || raw.trim().toLowerCase() === oldId) return;
-  const id = _validNewId(raw);
-  if (!id) return;
+  const taken = (v) => v !== oldId && [...profileSelect.options].some(o => o.value === v);
+  const raw = await ask('New id', oldId, {
+    title: `Rename ${oldId}`, ok: 'Rename', hint: 'Lowercase letters, numbers and hyphens.',
+    validate: (v) => idValidator(taken)(v.toLowerCase()),
+  });
+  if (!raw || raw.toLowerCase() === oldId) return;
+  const id = raw.toLowerCase();
   try {
     if (dirHandle && !memoryMode && await _onDisk(oldId)) {
       layers = getLayers(layerList);
       const docs = await _readReferencingDocs();
       const uses = findUses(docs, oldId);
-      if (!confirm(`Rename "${oldId}" to "${id}"? ${uses.length} file${uses.length === 1 ? '' : 's'} that use it will be updated.`)) return;
+      if (!await confirmDialog(`Rename "${oldId}" to "${id}"? ${uses.length} file${uses.length === 1 ? '' : 's'} that use it will be updated.`, { ok: 'Rename' })) return;
       currentId = id;
       const json = buildJson({ layers, originX, id, description: currentDesc, profileType, alignment, planWidth, ffl_m, height_limit_m, detail, lineweights });
       const svg  = buildSvg({ layers, originX, matMap, profileType, alignment, planWidth });
@@ -436,7 +547,7 @@ document.getElementById('rename-btn').addEventListener('click', async () => {
       await _removeFile(`profiles/${oldId}.svg`);
       _setStatus(`Renamed to ${id}; ${uses.length} file${uses.length === 1 ? '' : 's'} updated`);
     } else if (memoryMode && _memoryProfiles[oldId]) {
-      alert('This session cannot change the bundle\'s files, so a saved profile cannot be renamed here. Use Duplicate to save a copy under the new id, then switch the elements and details to it.');
+      await notify('This session cannot change the bundle\'s files, so a saved profile cannot be renamed here. Use Duplicate to save a copy under the new id, then switch the elements and details to it.', { title: 'Cannot rename here' });
       return;
     } else {
       currentId = id;
@@ -448,15 +559,14 @@ document.getElementById('rename-btn').addEventListener('click', async () => {
     profileSelect.appendChild(opt);
     profileSelect.value = id;
     _applySearch();
-  } catch (e) { _setStatus(`Rename failed: ${e.message}`); }
+  } catch (e) { _setError(`Rename failed: ${e.message}`); }
 });
 
-newBtn.addEventListener('click', () => {
-  const raw = window.prompt('Profile id (e.g. profile-brick-200):');
-  if (!raw) return;
-  clearGuides();
-  const id = _validNewId(raw);
+newBtn.addEventListener('click', async () => {
+  if (!await _okToDiscard()) return;
+  const id = await _askNewId('New profile', '', 'Create');
   if (!id) return;
+  clearGuides();
   currentId   = id;
   currentDesc = '';
   originX     = 0.1;
@@ -470,6 +580,8 @@ newBtn.addEventListener('click', () => {
   _lastWidth = _bandWidth();
   saveBtn.disabled = false;
   _renderCanvas();
+  _history.reset(_snapshot(), { saved: false });
+  _syncHistoryUi();
   _setStatus('Unsaved new profile');
 
   const opt = document.createElement('option');
@@ -492,6 +604,7 @@ document.getElementById('tool-rect-btn').addEventListener('click', () => {
     layers.push({ name: 'Region', material_id: matIds[0] ?? '', type: 'region', function: 'structure', vertices });
     setLayers(layerList, layers);
     _renderCanvas();
+    _noteChange();
   }, _snapPoint);
 });
 
@@ -501,12 +614,15 @@ document.getElementById('tool-poly-btn').addEventListener('click', () => {
     layers.push({ name: 'Region', material_id: matIds[0] ?? '', type: 'region', function: 'structure', vertices });
     setLayers(layerList, layers);
     _renderCanvas();
+    _noteChange();
   }, _snapPoint);
 });
 
 // ── Save ──────────────────────────────────────────────────────────────────────
-saveBtn.addEventListener('click', async () => {
-  if (!currentId) return;
+saveBtn.addEventListener('click', _save);
+async function _save() {
+  if (!currentId || saveBtn.disabled) return;
+  _flushRecord();
   layers = getLayers(layerList);
   try {
     const json = buildJson({ layers, originX, id: currentId, description: currentDesc,
@@ -519,6 +635,7 @@ saveBtn.addEventListener('click', async () => {
           { type: 'profile-saved', id: currentId, json, svg, newMaterials: Object.values(_newMaterials) },
           window.location.origin,
         );
+        _history.markSaved();
         _setStatus('Saved');
       } else {
         // opened on its own (?bundle=): hand the files over as downloads
@@ -526,16 +643,32 @@ saveBtn.addEventListener('click', async () => {
         _download(`${currentId}.svg`, svg, 'image/svg+xml');
         const lib = Object.values(_newMaterials);
         if (lib.length) _download('new-materials.json', JSON.stringify(lib, null, 2), 'application/json');
+        _history.markSaved();
         _setStatus('Downloaded. Put the files in the bundle\'s profiles/ folder (see Publish in the detail editor).');
       }
     } else {
       await _writeFile(`profiles/${currentId}.json`, JSON.stringify(json, null, 2));
       await _writeFile(`profiles/${currentId}.svg`,  svg);
+      _history.markSaved();
       _setStatus('Saved');
     }
   } catch (e) {
-    _setStatus(`Save failed: ${e.message}`);
+    _setError(`Save failed: ${e.message}`);
   }
+  _syncHistoryUi();
+}
+
+// ── Undo, redo and shortcuts ─────────────────────────────────────────────────
+undoBtn.addEventListener('click', _undo);
+redoBtn.addEventListener('click', _redo);
+document.addEventListener('keydown', (e) => {
+  if (!(e.ctrlKey || e.metaKey)) return;
+  const key = e.key.toLowerCase();
+  if (key === 's') { e.preventDefault(); _save(); return; }
+  const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName ?? '') || document.activeElement?.isContentEditable;
+  if (typing) return;            // Ctrl+Z in a field undoes the typing, as everywhere
+  if (key === 'z') { e.preventDefault(); (e.shiftKey ? _redo : _undo)(); }
+  else if (key === 'y') { e.preventDefault(); _redo(); }
 });
 
 // ── Unit helpers ──────────────────────────────────────────────────────────────
@@ -562,6 +695,8 @@ function _renderCanvas() {
 }
 
 function _setStatus(msg) { statusEl.textContent = msg; }
+/** An error: in the status line and in a banner that stays until dismissed. */
+function _setError(msg) { _setStatus(msg); showError(msg); }
 
 async function _readJson(path) {
   if (memoryMode) {
@@ -624,7 +759,7 @@ async function _openFromUrl(name, profileId) {
     const ctx = await loadDetailContext(adapter);
     _openMemoryBundle({ profiles: ctx.profiles, matMap: ctx.materials, activeProfileId: profileId, projectName: adapter.name ?? name });
     if (profileId && !ctx.profiles[profileId]) _setStatus(`Profile "${profileId}" is not in ${name}`);
-  } catch (err) { _setStatus(`Could not open ${name}: ${err.message}`); }
+  } catch (err) { _setError(`Could not open ${name}: ${err.message}`); }
 }
 const _query = new URLSearchParams(window.location.search);
 if (_query.has('bundle') && !window.opener) _openFromUrl(_query.get('bundle'), _query.get('profile'));
@@ -647,13 +782,15 @@ if (window.opener) {
       try {
         await _loadBundle(e.data.handle);
       } catch (err) {
-        _setStatus(`Error loading bundle: ${err.message}`);
+        _setError(`Error loading bundle: ${err.message}`);
       }
     }
 
     if (e.data?.type === 'memory-bundle') {
       try { _openMemoryBundle(e.data); }
-      catch (err) { _setStatus(`Error loading memory bundle: ${err.message}`); }
+      catch (err) { _setError(`Error loading memory bundle: ${err.message}`); }
     }
   });
 }
+
+tidyToolbarSeparators(document.getElementById('header'));

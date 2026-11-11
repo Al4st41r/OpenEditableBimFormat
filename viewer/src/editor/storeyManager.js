@@ -5,6 +5,7 @@
 import * as THREE from 'three';
 import { writeEntity } from './bundleWriter.js';
 import { toDisplay, unitLabel, fromDisplay } from './units.js';
+import { askForm } from '../ui/dialog.js';
 
 const STOREY_PLANE_SIZE    = 60;
 const STOREY_PLANE_OPACITY = 0.08;
@@ -60,12 +61,17 @@ export class StoreyManager {
 
   /** Create a new storey interactively. */
   async createStorey() {
-    const name = window.prompt('Storey name:', 'New Storey');
-    if (!name) return;
-    const zStr = window.prompt(`Floor level Z (${unitLabel()}):`, '0');
-    if (zStr === null) return;
-    const zParsed = parseFloat(zStr);
-    const z = Number.isNaN(zParsed) ? 0 : fromDisplay(zParsed);
+    const v = await askForm({
+      title: 'Add storey',
+      ok: 'Add',
+      fields: [
+        { name: 'name', label: 'Name', value: 'New storey', required: true },
+        { name: 'z', label: `Floor level (${unitLabel()})`, type: 'number', value: '0', required: true },
+      ],
+    });
+    if (!v) return;
+    const name = v.name;
+    const z = fromDisplay(Number(v.z));
     let id = `storey-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`;
     let counter = 2;
     while (this._storeys.some(x => x.id === id)) {

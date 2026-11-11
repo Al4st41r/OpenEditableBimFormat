@@ -55,7 +55,7 @@ The open issue list is the plan: `gh issue list --state open`. At the time of wr
 | #133 | IFC import: other profiles, boolean-clipped and BREP bodies, constituent sets |
 | #134, #135 | Detail review leftovers; detail editor trim/extend for lines |
 | #127 | Membranes and tapes |
-| #136 | UI consistency across the three editors, browser prompts, profile editor safety |
+| #137 | Seven Playwright specs fail on main (stale checks) |
 
 ### Backlog / future phases
 

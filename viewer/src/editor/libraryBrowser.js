@@ -7,6 +7,7 @@
  */
 
 import { writeEntity } from './bundleWriter.js';
+import { notify } from '../ui/dialog.js';
 import { libraryMaterialToBundle, bundleMaterialId } from '../loader/loadProfile.js';
 import { libraryProfileToBundle } from '../loader/loadProfile.js';
 
@@ -37,7 +38,7 @@ export async function openLibraryBrowser({ onMaterialImported } = {}) {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       _library   = await res.json();
     } catch (e) {
-      alert('Could not load material library: ' + e.message);
+      await notify(`Could not load the material library: ${e.message}`, { title: 'Library not loaded' });
       return;
     }
   }

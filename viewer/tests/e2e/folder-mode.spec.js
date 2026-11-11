@@ -12,6 +12,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { autoAnswerDialogs } from './dialogAnswers.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const SOURCE = path.join(ROOT, 'example/terraced-house.oebf');
@@ -29,11 +30,7 @@ function hasUv() {
 
 test('a bundle opened from a folder is edited, saved in place and still validates', async ({ page }) => {
   test.setTimeout(120_000);
-  const answers = [];
-  page.on('dialog', async (d) => {
-    if (d.type() === 'prompt') await d.accept(answers.length ? answers.shift() : d.defaultValue());
-    else await d.accept();
-  });
+  const answer = await autoAnswerDialogs(page);
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
 
@@ -67,14 +64,14 @@ test('a bundle opened from a folder is edited, saved in place and still validate
   expect(await page.evaluate(() => window.__editor.status())).not.toMatch(/error/i);
 
   // edits that write through the folder: a storey, a material, a grid axis
-  answers.push('First floor', '3000');
+  await answer({ name: 'First floor', z: '3000' });
   await page.locator('#add-storey-btn').click();
   await page.waitForTimeout(300);
   await page.locator('#add-material-btn').click();
   await page.locator('#material-name').fill('Folder test material');
   await page.locator('#material-properties').fill('nmb_item: 999');
   await page.locator('#material-ok').click();
-  answers.push('y', '4500', 'Z');
+  await answer({ direction: 'y', offset: '4500', label: 'Z' });
   await page.locator('#add-grid-btn').click();
   await page.waitForTimeout(500);
   await page.locator('#save-btn').click();

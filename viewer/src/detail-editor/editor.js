@@ -48,6 +48,8 @@ import { buildTooltip } from '../snap/tooltip.js';
 import { buildSnapScene } from './snapScene.js';
 import { setRegionEdgeLength, setRegionSize } from './dimensionOps.js';
 import { KINDS, PLANES, TOOLS, MARK_TOOLS, SHORTCUTS } from './detailConstants.js';
+import { confirmDialog } from '../ui/dialog.js';
+import { tidyToolbarSeparators } from '../ui/toolbar.js';
 
 const $ = (id) => document.getElementById(id);
 const svg = $('canvas');
@@ -135,13 +137,19 @@ function updateViewSwitch() {
   const want = otherPlane(st.doc.plane);
   const pair = findCounterpart(st.doc, bundle.ctx.details);
   btn.disabled = false;
-  btn.textContent = pair ? `Show ${want}` : `Add ${want} view`;
+  btn.textContent = pair ? `Show ${want}` : `New ${want}`;
   btn.title = pair ? `Open ${pair.id}, the same junction in ${want}` : `Make a new, empty ${want} detail with the same members and condition`;
 }
 
-$('view-switch-btn').addEventListener('click', () => {
+/** Ask before discarding unsaved changes to the detail on screen; true when it is fine to go on. */
+async function okToDiscard() {
+  if (!st || !isDirty(st)) return true;
+  return confirmDialog(`${st.doc.id} has unsaved changes. Discard them?`, { ok: 'Discard', danger: true });
+}
+
+$('view-switch-btn').addEventListener('click', async () => {
   if (!st || !bundle) return;
-  if (isDirty(st) && !window.confirm('Discard unsaved changes to this detail?')) return;
+  if (!await okToDiscard()) return;
   const pair = findCounterpart(st.doc, bundle.ctx.details);
   if (pair) { openDetail(pair.id); updateDetailSelect(); return; }
   try {
@@ -642,10 +650,10 @@ function openDetail(id) {
   fit();
 }
 
-$('detail-select').addEventListener('change', () => {
+$('detail-select').addEventListener('change', async () => {
   const id = $('detail-select').value;
   if (!id || (st && id === st.doc.id)) return;
-  if (st && isDirty(st) && !window.confirm('Discard unsaved changes to this detail?')) { updateDetailSelect(); return; }
+  if (!await okToDiscard()) { updateDetailSelect(); return; }
   openDetail(id);
 });
 
@@ -1016,10 +1024,18 @@ function openSheetDialog() {
 }
 
 // ── export ───────────────────────────────────────────────────────────────────
-$('export-select').addEventListener('change', (e) => {
-  const kind = e.target.value;
-  e.target.value = '';
-  if (!st) return;
+// The File menu: a click on any item closes it; a click elsewhere closes it too.
+$('file-menu-body').addEventListener('click', (e) => { if (e.target.closest('button')) $('file-menu').open = false; });
+document.addEventListener('click', (e) => {
+  for (const id of ['file-menu', 'marks-menu', 'snap-menu']) {
+    const m = $(id);
+    if (m?.open && !m.contains(e.target)) m.open = false;
+  }
+});
+for (const b of document.querySelectorAll('#file-menu-body [data-export]')) b.addEventListener('click', () => runExport(b.dataset.export));
+
+function runExport(kind) {
+  if (!st) { status('Open a detail first.', true); return; }
   if (kind === 'json') {
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([toJsonText(st.doc)], { type: 'application/json' }));
@@ -1040,7 +1056,7 @@ $('export-select').addEventListener('change', (e) => {
   a.click();
   URL.revokeObjectURL(a.href);
   status('Saved a DXF in millimetres.');
-});
+}
 
 // Import (DXF or SVG): closed shapes become regions in the material chosen in the toolbar, everything else becomes
 // marks. One undo step.
@@ -1112,3 +1128,5 @@ document.addEventListener('paste', (e) => {
   } catch (err) { status(err.message, true); }
 });
 window.addEventListener('keyup', (e) => { if (e.key === 'Alt') pointer.alt = false; });
+
+tidyToolbarSeparators(document.getElementById('header'));

@@ -35,7 +35,7 @@ import { buildGridLineSegments } from '../loader/loadGrid.js';
 import { StoreyManager } from './storeyManager.js';
 import { GridOverlayManager } from './gridOverlayManager.js';
 import { STARTERS, starterFor } from './starters.js';
-import { createJournal, journalled } from './editJournal.js';
+import { createJournal, journalled, pathOnlyRefresh } from './editJournal.js';
 import { elementLabel, SHORTCUTS, shortcutFor } from './editorUi.js';
 import { GuideManager } from './guideManager.js';
 import { readEntity, writeEntity } from './bundleWriter.js';
@@ -69,6 +69,10 @@ import { parseDimension } from '../snap/dimension.js';
 import { findSimilar, normaliseColour, buildMaterial, withUnsetMaterial } from './materialForm.js';
 import { importIfcText } from '../ifc/ifcImporter.js';
 import { exportBundleToIfc } from '../ifc/ifcExporter.js';
+import { ask, askForm, confirmDialog, notify, idValidator } from '../ui/dialog.js';
+import { tidyToolbarSeparators } from '../ui/toolbar.js';
+import { enableTreeKeyboard } from '../ui/treeKeys.js';
+import { showBusy, setBusy, hideBusy, showError } from '../ui/notice.js';
 import * as THREE from 'three';
 
 // ── DOM refs ─────────────────────────────────────────────────────────────────
@@ -221,7 +225,7 @@ _fileInput.addEventListener('change', async () => {
     _setBundleOpen(adapter.name, true);
     saveBtn.disabled = false;
   } catch (e) {
-    statusBar.textContent = `Error: ${e.message}`;
+    _reportError(`Error: ${e.message}`);
   }
   _fileInput.value = '';
 });
@@ -266,7 +270,7 @@ _ifcInput.addEventListener('change', async () => {
     await _loadAndRenderBundle(adapter);
     statusBar.textContent = `Imported ${elementIds.length} elements, ${slabIds.length} slabs from ${file.name}`;
   } catch (e) {
-    statusBar.textContent = `IFC import error: ${e.message}`;
+    _reportError(`IFC import error: ${e.message}`);
   }
   _ifcInput.value = '';
 });
@@ -336,7 +340,7 @@ function _showIfcMenu() {
       URL.revokeObjectURL(url);
       statusBar.textContent = `Exported ${filename}`;
     } catch (e) {
-      statusBar.textContent = `IFC export error: ${e.message}`;
+      _reportError(`IFC export error: ${e.message}`);
     }
   }));
 
@@ -409,8 +413,14 @@ openBtn.addEventListener('click', async () => {
   }
 });
 
+/** Ask for a project name; null if cancelled. */
+function _askProjectName() {
+  return ask('Project name', 'New project', { title: 'New project', ok: 'Create' });
+}
+
 document.getElementById('new-btn').addEventListener('click', async () => {
-  const name = window.prompt('Project name:', 'New Project')?.trim() || 'New Project';
+  const name = await _askProjectName();
+  if (!name) return;
   _useAdapter(createNewBundle(name));
   await _loadAndRenderBundle(adapter);
   _enableEditorTools();
@@ -419,8 +429,9 @@ document.getElementById('new-btn').addEventListener('click', async () => {
 });
 
 document.getElementById('welcome-new').addEventListener('click', async () => {
+  const name = await _askProjectName();
+  if (!name) return;
   _dismissWelcome();
-  const name = window.prompt('Project name:', 'New Project')?.trim() || 'New Project';
   _useAdapter(createNewBundle(name));
   await _loadAndRenderBundle(adapter);
   _enableEditorTools();
@@ -475,7 +486,7 @@ function _showOpenMenu() {
       _setBundleOpen(adapter.name, false);
       saveBtn.disabled = false;
     } catch (e) {
-      if (e.name !== 'AbortError') statusBar.textContent = `Error: ${e.message}`;
+      if (e.name !== 'AbortError') _reportError(`Error: ${e.message}`);
     }
   }));
 
@@ -517,9 +528,9 @@ function _setActiveTool(tool, buttonEl) {
 }
 
 // ── Guide and grid tool handlers ──────────────────────────────────────────────
-document.getElementById('add-guide-btn').addEventListener('click', () => {
+document.getElementById('add-guide-btn').addEventListener('click', async () => {
   if (!adapter) return;
-  const name = window.prompt('Guide name:', 'Guide');
+  const name = await ask('Guide name', 'Guide', { title: 'Add guide', ok: 'Place' });
   if (!name) return;
   _pendingGuideName = name;
   document.getElementById('tool-guide').click();
@@ -528,12 +539,17 @@ document.getElementById('add-guide-btn').addEventListener('click', () => {
 
 document.getElementById('add-height-guide-btn').addEventListener('click', async () => {
   if (!adapter) return;
-  const name = window.prompt('Height guide name:', 'Height Guide');
-  if (!name) return;
-  const zDisplay = window.prompt(`Z height (${unitLabel()}):`, '0');
-  if (zDisplay === null) return;
-  const z_m = fromDisplay(parseFloat(zDisplay));
-  if (!Number.isFinite(z_m)) { statusBar.textContent = 'Invalid height'; return; }
+  const v = await askForm({
+    title: 'Add height guide',
+    ok: 'Add',
+    fields: [
+      { name: 'name', label: 'Name', value: 'Height guide', required: true },
+      { name: 'z', label: `Height (${unitLabel()})`, type: 'number', value: '0', required: true },
+    ],
+  });
+  if (!v) return;
+  const name = v.name;
+  const z_m = fromDisplay(Number(v.z));
   const id = await guideManager.addZGuide(name, z_m);
   statusBar.textContent = `Height guide added: ${name}`;
 });
@@ -605,11 +621,22 @@ document.getElementById('tool-floor').addEventListener('click', async () => {
 });
 
 // ── Load and render bundle ────────────────────────────────────────────────────
+/** An error the user should see: in the status bar, and in a banner that stays until dismissed. */
+function _reportError(message) {
+  statusBar.textContent = message;
+  showError(message);
+}
+
 async function _loadAndRenderBundle(adapter, { keepView = false } = {}) {
   _loading = true;
   journal.setSuspended(true);         // what loading writes (registrations, defaults) is bookkeeping, not an edit
+  if (!keepView) {
+    showBusy(document.getElementById('viewport'), `Opening ${adapter.name ?? 'bundle'}…`);
+    await new Promise((r) => requestAnimationFrame(() => r()));   // let the veil paint before the heavy work
+  }
   try { await _loadAndRenderBundleInner(adapter, keepView); }
   finally {
+    hideBusy();
     if (!keepView) journal.clear();   // a newly opened bundle starts with nothing to undo
     journal.setSuspended(false);
     _loading = false;
@@ -650,6 +677,7 @@ async function _loadAndRenderBundleInner(adapter, keepView) {
     bundleData = await _loadBundleFromAdapter(adapter);
   }
   const { meshes, junctions, arrays, grids, details = [], materials: libraryMaterials } = bundleData;
+  setBusy(`Building ${meshes.length} meshes…`);
 
   for (const meshData of meshes) {
     editorScene.modelGroup.add(buildThreeMesh(meshData));
@@ -1105,7 +1133,7 @@ function _openDetailInProfileEditor(id) {
     // _sendMemoryBundleToTab is always registered before the profile editor
     // tab can send 'ready' (which requires the tab to fully load — a macrotask).
     _sendMemoryBundleToTab(tab, id).catch(err => {
-      statusBar.textContent = `Profile editor load failed: ${err.message}`;
+      _reportError(`Profile editor load failed: ${err.message}`);
     });
   }
 }
@@ -1138,20 +1166,17 @@ document.getElementById('add-detail-btn').addEventListener('click', () => _openD
 
 document.getElementById('add-subassembly-btn').addEventListener('click', async () => {
   if (!adapter) return;
-  const raw = window.prompt('Sub-assembly profile name (e.g. "eaves-standard"):');
-  if (!raw) return;
-  const id = raw.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-  if (!/^[a-z0-9][a-z0-9-]*$/.test(id)) {
-    alert('Id must use lowercase letters, numbers, and hyphens.');
-    return;
-  }
-
-  // Check for duplicate id
   const profileNames = await adapter.listDir('profiles');
-  if (profileNames.includes(`${id}.json`)) {
-    alert(`A profile named "${id}" already exists.`);
-    return;
-  }
+  const slug = (raw) => raw.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  const raw = await ask('Profile id', '', {
+    title: 'Add sub-assembly profile',
+    ok: 'Add',
+    placeholder: 'eaves-standard',
+    hint: 'Lowercase letters, numbers and hyphens; spaces become hyphens.',
+    validate: (v) => idValidator((id) => profileNames.includes(`${id}.json`))(slug(v)),
+  });
+  if (!raw) return;
+  const id = slug(raw);
 
   await _ensureUnsetMaterial();
   await writeEntity(adapter, `profiles/${id}.json`, {
@@ -1683,7 +1708,7 @@ async function _changeElementProfile(elementId, newProfileId) {
 
     statusBar.textContent = `Profile updated: ${newProfileId}`;
   } catch (e) {
-    statusBar.textContent = `Profile change failed: ${e.message}`;
+    _reportError(`Profile change failed: ${e.message}`);
     console.error('[OEBF] _changeElementProfile:', e);
   }
 }
@@ -1754,7 +1779,7 @@ saveBtn.addEventListener('click', async () => {
       ? `Downloaded ${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`
       : `Saved ${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`;
   } catch (e) {
-    statusBar.textContent = `Save failed: ${e.message}`;
+    _reportError(`Save failed: ${e.message}`);
   } finally {
     saveBtn.disabled = false;
   }
@@ -1766,9 +1791,31 @@ const redoBtn = document.getElementById('redo-btn');
 
 async function _undoRedo(kind) {
   if (!adapter || _restoring || _loading) return;
+  const label = kind === 'undo' ? journal.undoLabel() : journal.redoLabel();
   const ops = kind === 'undo' ? journal.undo() : journal.redo();
   if (!ops) { statusBar.textContent = kind === 'undo' ? 'Nothing to undo' : 'Nothing to redo'; return; }
+  const done = `${kind === 'undo' ? 'Undone' : 'Redone'}: ${label}`;
   _restoring = true;
+  // A path edit (the commonest step) redraws only the elements swept along that path; anything else reloads the
+  // bundle so the scene cannot drift from the files. The path tool holds its own copy of the path, so it reloads too.
+  const ownedPaths = new Set([..._elementRegistry.values()].map((r) => r.pathData?.id).filter(Boolean));
+  const targeted = activeTool === pathEditTool ? null : pathOnlyRefresh(ops, ownedPaths);
+  if (targeted) {
+    try {
+      await adapter.restore(ops);
+      for (const { pathId, pathData } of targeted) {
+        for (const [elId, r] of _elementRegistry) if (r.pathData?.id === pathId) await _reRenderElement(elId, pathData);
+      }
+      if (_selectedElementId && _elementRegistry.has(_selectedElementId)) _selectElement(_selectedElementId);
+      statusBar.textContent = done;
+    } catch (e) {
+      _reportError(`${kind === 'undo' ? 'Undo' : 'Redo'} failed: ${e.message}`);
+    } finally {
+      _restoring = false;
+      _syncJournalUi();
+    }
+    return;
+  }
   const view = {
     position: editorScene.perspCamera.position.clone(), target: editorScene.controls.target.clone(),
     orthoPosition: editorScene.orthoCamera.position.clone(), orthoZoom: editorScene.orthoCamera.zoom,
@@ -1785,9 +1832,9 @@ async function _undoRedo(kind) {
     editorScene.orthoCamera.updateProjectionMatrix();
     if (selected && _elementRegistry.has(selected)) _selectElement(selected);
     else document.getElementById('props-content').innerHTML = '<p id="props-empty">Select an element to see properties.</p>';
-    statusBar.textContent = `${kind === 'undo' ? 'Undone' : 'Redone'} (${ops.length} file${ops.length === 1 ? '' : 's'})`;
+    statusBar.textContent = done;
   } catch (e) {
-    statusBar.textContent = `${kind === 'undo' ? 'Undo' : 'Redo'} failed: ${e.message}`;
+    _reportError(`${kind === 'undo' ? 'Undo' : 'Redo'} failed: ${e.message}`);
   } finally {
     _restoring = false;
     _syncJournalUi();
@@ -1799,6 +1846,9 @@ redoBtn.addEventListener('click', () => _undoRedo('redo'));
 function _syncJournalUi() {
   undoBtn.disabled = !adapter || !journal.canUndo();
   redoBtn.disabled = !adapter || !journal.canRedo();
+  const u = adapter && journal.undoLabel(), r = adapter && journal.redoLabel();
+  undoBtn.title = u ? `Undo: ${u} (Ctrl+Z)` : 'Undo (Ctrl+Z)';
+  redoBtn.title = r ? `Redo: ${r} (Ctrl+Shift+Z)` : 'Redo (Ctrl+Shift+Z)';
   // in memory the work exists only in this tab until Save downloads it
   saveBtn.classList.toggle('unsaved', !!adapter && adapter.type === 'memory' && journal.isDirty());
 }
@@ -1963,7 +2013,7 @@ function _openDetailEditor(detailId = null) {
           ? buildOpenerReply({ adapterType: 'fsa', handle: adapter.dirHandle, activeDetailId: detailId })
           : buildOpenerReply({ adapterType: 'memory', snapshot: buildSnapshot(await loadDetailContext(adapter), detailId), activeDetailId: detailId });
         tab.postMessage(reply, ownOrigin);
-      } catch (err) { statusBar.textContent = `Detail editor load failed: ${err.message}`; }
+      } catch (err) { _reportError(`Detail editor load failed: ${err.message}`); }
       return;
     }
     const saved = parseSaved(e, { ownOrigin, tab });
@@ -2018,7 +2068,7 @@ async function _onDetailSaved(saved) {
     _addDetailToTree(saved.id);
     statusBar.textContent = `Detail ${saved.id} updated${count ? ` at ${count} junction${count === 1 ? '' : 's'}` : ''}.`;
   } catch (err) {
-    statusBar.textContent = `Detail update failed: ${err.message}`;
+    _reportError(`Detail update failed: ${err.message}`);
   }
 }
 
@@ -2032,7 +2082,7 @@ async function _onJunctionUpdated(update) {
     await _refreshDetailScene(detailIds);
     statusBar.textContent = `Junction ${update.junctionId} updated${detailId ? ` (${detailId})` : ' (no detail)'}.`;
   } catch (err) {
-    statusBar.textContent = `Junction update failed: ${err.message}`;
+    _reportError(`Junction update failed: ${err.message}`);
   }
 }
 
@@ -2077,7 +2127,7 @@ async function _openStarter(starter) {
     _enableEditorTools();
     _setBundleOpen(adapter.name, true);
     saveBtn.disabled = false;
-  } catch (e) { statusBar.textContent = `Error: ${e.message}`; }
+  } catch (e) { _reportError(`Error: ${e.message}`); }
 }
 
 for (const starter of STARTERS) {
@@ -2380,7 +2430,7 @@ async function _addOpening(hostId, ifcType) {
 }
 
 async function _removeOpening(id, hostId) {
-  if (!window.confirm(`Remove opening ${id}?`)) return;
+  if (!await confirmDialog(`Remove opening ${id}?`, { ok: 'Remove', danger: true })) return;
   await adapter.deleteFile(`openings/${id}.json`);
   await _setOpeningRegistered(id, false);
   _removeOpeningObject(id);
@@ -2502,7 +2552,7 @@ function _addObjectRows(panel, hostId, reg) {
 }
 
 async function _removeObject(id, hostId) {
-  if (!window.confirm(`Remove object ${id}?`)) return;
+  if (!await confirmDialog(`Remove object ${id}?`, { ok: 'Remove', danger: true })) return;
   await adapter.deleteFile(`objects/${id}.json`);
   await writeEntity(adapter, 'model.json', withObjectUnregistered(await readEntity(adapter, 'model.json'), id));
   await _reloadObjects();
@@ -2724,3 +2774,6 @@ function _showStoreyProps(id) {
   _propRow(panel, `Height (${unitLabel()})`, height === null ? 'top storey' : String(toDisplay(height)), true);
 }
 storeyManager.onSelect = _showStoreyProps;
+
+tidyToolbarSeparators(document.getElementById('toolbar'));
+enableTreeKeyboard(document.getElementById('scene-tree-body'));

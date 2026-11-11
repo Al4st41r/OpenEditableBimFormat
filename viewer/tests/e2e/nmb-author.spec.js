@@ -12,6 +12,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { autoAnswerDialogs } from './dialogAnswers.js';
 import { unzipSync } from 'fflate';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
@@ -22,13 +23,7 @@ function hasUv() {
 
 test('a blank bundle can be built up to the NMB example\'s kinds of content in the editor and still validates', async ({ page }) => {
   test.setTimeout(180_000);
-  const answers = [];
-  const prompts = [];
-  page.on('dialog', async (d) => {
-    prompts.push(d.message());
-    if (d.type() === 'prompt') await d.accept(answers.length ? answers.shift() : d.defaultValue());
-    else await d.accept();
-  });
+  const answer = await autoAnswerDialogs(page);
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
 
@@ -40,14 +35,14 @@ test('a blank bundle can be built up to the NMB example\'s kinds of content in t
   // ── a blank bundle ──────────────────────────────────────────────────────────
   await page.goto('editor.html');
   await page.waitForFunction(() => window.__editor);
-  answers.push('NMB authoring check');
+  await answer('NMB authoring check');
   await page.locator('#welcome-new').click();
   await page.waitForFunction(() => window.__editor.adapter() && !document.getElementById('add-storey-btn').disabled);
   expect(await ed(() => window.__editor.storeys().getAll().map((s) => s.id))).toEqual(['storey-ground']);
 
   // ── storeys at a height ─────────────────────────────────────────────────────
   for (const [name, z] of [['First floor', '3000'], ['Roof', '5902']]) {
-    answers.push(name, z);
+    await answer({ name, z });
     await page.locator('#add-storey-btn').click();
     await settle(200);
   }
@@ -55,16 +50,16 @@ test('a blank bundle can be built up to the NMB example\'s kinds of content in t
   expect(storeys).toEqual([['storey-ground', 0], ['storey-first-floor', 3], ['storey-roof', 5.902]]);
 
   // ── two grids ───────────────────────────────────────────────────────────────
-  for (const [dir, off, label] of [['y', '0', '1'], ['y', '3000', '2'], ['x', '0', 'A'], ['x', '6000', 'B']]) {
-    answers.push(dir, off, label);
+  for (const [direction, offset, label] of [['y', '0', '1'], ['y', '3000', '2'], ['x', '0', 'A'], ['x', '6000', 'B']]) {
+    await answer({ direction, offset, label });
     await page.locator('#add-grid-btn').click();
     await settle(150);
   }
-  answers.push('Secondary grid');
+  await answer('Secondary grid');
   await page.locator('#add-gridset-btn').click();
   await settle(200);
-  for (const [dir, off, label] of [['y', '1500', '1-2'], ['x', '3000', 'A-B']]) {
-    answers.push(dir, off, label);
+  for (const [direction, offset, label] of [['y', '1500', '1-2'], ['x', '3000', 'A-B']]) {
+    await answer({ direction, offset, label });
     await page.locator('#add-grid-btn').click();
     await settle(150);
   }

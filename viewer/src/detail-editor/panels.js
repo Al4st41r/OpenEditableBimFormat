@@ -9,7 +9,8 @@
 
 import { toDisplay, unitLabel, getUnit } from '../editor/units.js';
 import { parseDimension } from '../snap/dimension.js';
-import { UNIT_PRESETS, KINDS, PLANES, EXTENTS, DATUM_KINDS, DATUM_REFERENCES, RULES } from './detailConstants.js';
+import { UNIT_PRESETS, KINDS, PLANES, EXTENTS, DATUM_KINDS, DATUM_REFERENCES, RULES, PARAM_NAME } from './detailConstants.js';
+import { ask } from '../ui/dialog.js';
 import { PACKAGES, BARRIERS, FIRE_ROLES, SHEARING_LAYERS } from '../detail-review/classification.js';
 import { drawReference } from './reference.js';
 import { LINE_STYLES } from './annotationOps.js';
@@ -176,7 +177,7 @@ function detailTab(pm, bundle, a) {
     ...referenceEditor(pm, a), ...clipEditor(pm, a),
     h('h3', {}, 'Parameters'),
     ...(pm.parameters.length === 0 ? [h('div', { class: 'note' }, 'None. Add one, then bind a vertex coordinate to it.')] : []),
-    ...pm.parameters.map((p) => parameterBox(p, bundle, a)),
+    ...pm.parameters.map((p) => parameterBox({ ...p, siblings: pm.parameters.map((q) => q.name) }, bundle, a)),
     newParameterForm(a),
     h('h3', {}, 'Condition'), ...conditionEditor(pm, a),
   ];
@@ -667,7 +668,14 @@ function parameterBox(p, bundle, a) {
     row('Max', plain(p.max, (v) => a.updateParameter(p.name, { max: v }))),
     slider, slider ? label : null,
     h('div', { class: 'row' },
-      h('button', { onclick: () => { const n = window.prompt('New name (snake_case):', p.name); if (n && n !== p.name) a.renameParameter(p.name, n); } }, 'Rename'),
+      h('button', { onclick: async () => {
+        const n = await ask('New name', p.name, {
+          title: `Rename parameter ${p.name}`, ok: 'Rename', hint: 'snake_case, eg width_m',
+          validate: (v) => (!PARAM_NAME.test(v.trim()) ? 'Use lowercase letters, numbers and underscores, starting with a letter.'
+            : v.trim() !== p.name && p.siblings?.includes(v.trim()) ? `There is already a parameter ${v.trim()}.` : null),
+        });
+        if (n && n !== p.name) a.renameParameter(p.name, n);
+      } }, 'Rename'),
       h('button', { onclick: () => a.removeParameter(p.name) }, 'Remove')));
 }
 

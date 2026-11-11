@@ -41,6 +41,10 @@ export function createJournal(limit = 100) {
     canUndo: () => undoStack.length > 0,
     canRedo: () => redoStack.length > 0,
 
+    /** A short name for the step undo or redo would act on, eg "move path-wall-south-gf", or null. */
+    undoLabel: () => (undoStack.length ? describeStep(undoStack.at(-1)) : null),
+    redoLabel: () => (redoStack.length ? describeStep(redoStack.at(-1)) : null),
+
     /** The files to restore to undo the last step, newest write first: [{ path, content }], or null. */
     undo() {
       const step = undoStack.pop();
@@ -71,6 +75,53 @@ export function createJournal(limit = 100) {
 }
 
 const isJson = (path) => path.endsWith('.json');
+
+/** The entity id a bundle path holds: "paths/path-a.json" → "path-a". */
+const entityOf = (path) => path.replace(/^.*\//, '').replace(/\.(json|svg)$/, '');
+
+/**
+ * Name a step from the files it changed. Pure. model.json is bookkeeping and is left out unless it is all there is;
+ * a profile's .svg goes with its .json.
+ *
+ * @param {Map<string, { before: string|null, after: string|null }>} step
+ * @returns {string}
+ */
+export function describeStep(step) {
+  const all = [...step];
+  const files = all.filter(([path]) => path !== 'model.json' && !path.endsWith('.svg'));
+  if (files.length === 0) return all.length ? 'edit the model index' : 'no change';
+  const verb = ({ before, after }) => (before === null ? 'add' : after === null ? 'remove' : 'edit');
+  if (files.length === 1) {
+    const [path, c] = files[0];
+    return `${verb(c)} ${entityOf(path)}`;
+  }
+  const verbs = new Set(files.map(([, c]) => verb(c)));
+  const first = entityOf(files.find(([, c]) => verb(c) !== 'edit')?.[0] ?? files[0][0]);
+  const v = verbs.has('add') ? 'add' : verbs.has('remove') ? 'remove' : 'edit';
+  return `${v} ${first} and ${files.length - 1} more`;
+}
+
+/**
+ * Whether a restore can be shown by redrawing single elements instead of reloading the bundle. Pure.
+ * True when every file restored is a path that elements in the scene are swept along, being changed (not made or
+ * removed).
+ *
+ * @param {{ path: string, content: string|null }[]} ops - from journal.undo() or redo()
+ * @param {Set<string>} ownedPaths - ids of the paths that elements in the scene use
+ * @returns {{ pathId: string, pathData: object }[]|null} the paths to redraw along, or null for a full reload
+ */
+export function pathOnlyRefresh(ops, ownedPaths) {
+  if (!ops.length) return null;
+  const out = [];
+  for (const { path, content } of ops) {
+    const m = /^paths\/(.+)\.json$/.exec(path);
+    if (!m || content === null || !ownedPaths.has(m[1])) return null;
+    let pathData;
+    try { pathData = JSON.parse(content); } catch { return null; }
+    out.push({ pathId: m[1], pathData });
+  }
+  return out;
+}
 
 /**
  * An adapter that behaves like `inner` and records every write and delete in `journal`. `restore(ops)` writes a list

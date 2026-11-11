@@ -10,6 +10,7 @@ import { writeEntity } from './bundleWriter.js';
 import { fatSegments } from './fatLine.js';
 import { toDisplay, unitLabel, fromDisplay } from './units.js';
 import { wireRow, makeRemoveButton } from './treeMenu.js';
+import { askForm, confirmDialog } from '../ui/dialog.js';
 
 const GUIDE_COLOUR       = 0x7090e8;
 const GUIDE_OPACITY      = 0.12;
@@ -104,15 +105,12 @@ export class GuideManager {
   async editGuide(id) {
     const g = this._guides.find(x => x.id === id);
     if (!g) return;
-    const name = window.prompt('Guide name:', g.name);
-    if (!name) return;
-    let z_m = g.z_m;
-    if (g.isZGuide) {
-      const zStr = window.prompt(`Z height (${unitLabel()}):`, String(toDisplay(g.z_m)));
-      if (zStr === null) return;
-      z_m = fromDisplay(parseFloat(zStr));
-      if (!Number.isFinite(z_m)) return;
-    }
+    const fields = [{ name: 'name', label: 'Name', value: g.name, required: true }];
+    if (g.isZGuide) fields.push({ name: 'z', label: `Height (${unitLabel()})`, type: 'number', value: String(toDisplay(g.z_m)), required: true });
+    const v = await askForm({ title: 'Edit guide', ok: 'Save', fields });
+    if (!v) return;
+    const name = v.name;
+    const z_m = g.isZGuide ? fromDisplay(Number(v.z)) : g.z_m;
     g.name = name;
     if (g.isZGuide && z_m !== g.z_m) {
       g.z_m = z_m;
@@ -138,7 +136,7 @@ export class GuideManager {
     const i = this._guides.findIndex(x => x.id === id);
     if (i < 0) return;
     const g = this._guides[i];
-    if (!window.confirm(`Remove guide "${g.name}"?`)) return;
+    if (!await confirmDialog(`Remove guide "${g.name}"?`, { ok: 'Remove', danger: true })) return;
     this._overlayGroup.remove(g.object3d);
     g.object3d.traverse(c => { c.geometry?.dispose(); c.material?.dispose(); });
     this._guides.splice(i, 1);

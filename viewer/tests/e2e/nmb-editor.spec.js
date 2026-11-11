@@ -12,6 +12,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { unzipSync } from 'fflate';
+import { autoAnswerDialogs } from './dialogAnswers.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const BUNDLE = path.join(ROOT, 'example/nmb-two-storey.oebf');
@@ -150,11 +151,10 @@ async function saveAndValidate(page) {
 }
 
 test('adding an axis to the secondary grid leaves the structural grid, its elevations and the other fields alone', async ({ page }) => {
-  page.on('dialog', async (d) => { await d.accept(d.type() === 'prompt' ? answers.shift() : undefined); });
-  const answers = [];
+  const answer = await autoAnswerDialogs(page);
   await openBundle(page);
   await page.locator('#grids-list .tree-item .tree-item-name', { hasText: /Secondary grid/ }).first().dispatchEvent('click');
-  answers.push('y', '10500', '4-5');
+  await answer({ direction: 'y', offset: '10500', label: '4-5' });
   await page.locator('#add-grid-btn').dispatchEvent('click');
   await page.waitForTimeout(500);
 

@@ -2,13 +2,15 @@
 
 **Date:** 2026-11-11
 **Branch:** main
-**Tests:** 2044 JS (Vitest, 126 test files) + 420 Python (pytest)
+**Tests:** 2080 JS (Vitest, 130 test files) + 420 Python (pytest)
 
 ---
 
 ## Summary
 
-v0.1.0 is released and `v0.2.0-editor-alpha` is tagged. The work planned for v0.3 (IFC in the editor, snapping, the full properties panel) and v0.4 (the junction detail system) is delivered on main but not yet tagged. Since then the project has added the detail review page with seven overlays, the New Model Building example bundle, `oebf validate` and `oebf apply`, openings cut through walls, and editor undo and redo. Phase 8 (editor polish and spec conformance) is in progress; 13 issues are open. The build is deployed at `architools.drawingtable.net/oebf/`.
+v0.1.0 is released and `v0.2.0-editor-alpha` is tagged. The work planned for v0.3 (IFC in the editor, snapping, the full properties panel) and v0.4 (the junction detail system) is delivered on main but not yet tagged. Since then the project has added the detail review page with seven overlays, the New Model Building example bundle, `oebf validate` and `oebf apply`, openings cut through walls, and editor undo and redo. Phase 8 (editor polish and spec conformance) is in progress. The build is deployed at `architools.drawingtable.net/oebf/`.
+
+**Editor consistency and safety (#136, 2026-11-11).** The three editors share one toolbar order (see `docs/ui-conventions.md`). Every browser `prompt`, `alert` and `confirm` is replaced by an in-app dialog that checks its fields as you type (`viewer/src/ui/dialog.js`). The profile editor has undo and redo, an unsaved marker and a leave warning (`profileHistory.js`). The detail editor's open, import, export and publish actions are in one File menu, and its toolbar fits one row at 1400 px. In the 3D editor, undo names its step ("Undo: edit path-wall-south-gf"), and undoing a path edit redraws only the elements on that path. A veil with a spinner shows while a bundle loads, errors stay on screen until dismissed, the scene tree works from the keyboard, low-contrast text is raised to at least 4.5:1, the Edit tool has its own icon, and a separator never starts or ends a wrapped toolbar row. End-to-end tests answer the dialogs through `tests/e2e/dialogAnswers.js`.
 
 The sections below record delivery in the order it happened; the earlier tables are kept as a history.
 
@@ -105,7 +107,7 @@ The open issue list is the plan: `gh issue list --state open`.
 
 | # | Title | Phase |
 |---|---|---|
-| #136 | UI review: consistency across the three editors, browser prompts, profile editor safety | 8 |
+| #137 | e2e: seven Playwright specs fail on main | 8 |
 | #135 | Detail editor: trim and extend for lines and arcs, pick a base point on the canvas | 8 |
 | #134 | Detail review: seen lines, a carbon total, a per-region line weight, repeat on profile layers | 8 |
 | #133 | IFC import: other profiles, boolean-clipped and BREP bodies, material constituent sets | 8 |
@@ -125,11 +127,10 @@ The open issue list is the plan: `gh issue list --state open`.
 
 | Limitation | Notes |
 |---|---|
-| 33 browser `prompt` and `alert` calls remain (storeys, guides, grid axes, project names, profile editor) | #136 |
-| The profile editor has no undo and no warning on leaving with unsaved work | #136 |
-| Undo in the 3D editor reloads the whole scene rather than the changed entities | #136 |
+| Undo in the 3D editor redraws only for path edits; other steps (and the first edit after opening, which normalises `model.json`) reload the scene | Correct but slower on a large model |
 | Python and browser IFC implementations are separate and not checked against each other | #133 |
-| Playwright end-to-end tests are not run on the Pi (no Playwright browsers); CI runs them | |
+| Seven Playwright specs fail on main, independent of recent work (detail-assign, detail-editor, detail-reference, homepage, profile-change) | #137 |
+| Playwright's pinned Chromium is not installed on the Pi; run with `PW_CHROMIUM=<headless_shell> npx playwright test -c playwright.local.config.js` | |
 | `v0.2.0-editor-alpha` tag not pushed to GitHub; v0.3 and v0.4 not tagged | |
 
 ---

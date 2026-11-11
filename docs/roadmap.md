@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-11-11
 **Latest tag:** `v0.2.0-editor-alpha` (v0.3 and v0.4 delivered on main, not tagged)
-**Tests:** 2,464 passing (2,044 Vitest + 420 pytest)
+**Tests:** 2,500 passing (2,080 Vitest + 420 pytest)
 **Deployed at:** `architools.drawingtable.net/oebf/`
 
 ---
@@ -56,7 +56,7 @@ A three-panel browser editor (`editor.html`) for creating and modifying OEBF bun
 
 **Theme:** Make the three editors consistent and safe, and finish the detail review.
 
-- **Editor consistency and safety (#136):** one toolbar and dialog convention across the 3D, profile and detail editors; inline dialogs instead of browser `prompt` and `alert`; undo and a leave warning in the profile editor; undo that reloads only the changed entities.
+- **Editor consistency and safety (#136, done):** one toolbar order and in-app dialogs across the three editors; undo and a leave warning in the profile editor; named undo steps and redraw-only undo for path edits; load progress, persistent errors, keyboard tree and contrast fixes.
 - **Detail review (#134):** seen lines beyond the cut, an embodied carbon total per detail, a per-region line weight, repeating units on profile layers.
 - **Detail editor (#135):** trim and extend for lines and arcs; pick a base point on the canvas.
 - **Membranes and tapes (#127):** a drawing convention that keeps them visible in 2D and free of flicker in 3D.

@@ -10,6 +10,7 @@ import * as THREE from 'three';
 import { writeEntity } from './bundleWriter.js';
 import { toDisplay, unitLabel, fromDisplay } from './units.js';
 import { wireRow, makeRemoveButton } from './treeMenu.js';
+import { askForm, ask, confirmDialog, notify } from '../ui/dialog.js';
 import { fatSegments } from './fatLine.js';
 import { axisEndpoints, axisPlaneGeometry, axisPlaneExtent, axisLabel } from '../grid/gridAxis.js';
 import {
@@ -85,31 +86,53 @@ export class GridOverlayManager {
     this._renderList();
   }
 
+  /**
+   * The fields of the axis dialog. A label is the axis id (junction locations refer to it), so it must be free in its
+   * grid; `own` is the axis being edited, whose own label is allowed.
+   */
+  _axisFields(gridId, { label, direction, offset }, own = null) {
+    const taken = (l) => l !== own && this._axes.some((x) => x.gridId === gridId && x.id === l);
+    return [
+      { name: 'label', label: 'Label', value: label, required: true, hint: 'Junction locations name the axis by this label.',
+        validate: (v) => (taken(v.trim()) ? `This grid already has an axis ${v.trim()}.` : null) },
+      { name: 'direction', label: 'Runs', type: 'select', value: direction, options: [
+        { value: 'y', label: 'North-south (placed at an X value)' },
+        { value: 'x', label: 'East-west (placed at a Y value)' },
+      ] },
+      { name: 'offset', label: `Offset (${unitLabel()})`, type: 'number', value: offset, required: true },
+    ];
+  }
+
+  _nextLabel() { return String.fromCharCode(65 + this._axes.length); }
+
   /** Add a grid axis interactively (numeric input) to the active grid. */
   async addAxisNumeric() {
-    const dir = window.prompt('Direction the axis runs (x = east-west, at a Y value; y = north-south, at an X value):', 'y');
-    if (!dir || !['x','y'].includes(dir.toLowerCase())) return;
-    const offStr = window.prompt(`Offset (${unitLabel()}):`, '0');
-    if (offStr === null) return;
-    const offset = fromDisplay(parseFloat(offStr));
-    if (Number.isNaN(offset)) return;
-    const label  = window.prompt('Label:', String.fromCharCode(65 + this._axes.length));
-    if (!label) return;
-    await this._add(label, dir.toLowerCase(), offset);
+    const grid = activeGrid(this._set);
+    const v = await askForm({
+      title: `Add axis to ${grid.entity?.description ?? grid.id}`,
+      ok: 'Add',
+      fields: this._axisFields(grid.id, { label: this._nextLabel(), direction: 'y', offset: '0' }),
+    });
+    if (!v) return;
+    await this._add(v.label, v.direction, fromDisplay(Number(v.offset)));
   }
 
   /** Add a grid axis at a specific offset (called from click-to-place tool). */
   async addAxisAtOffset(direction, offset_m) {
-    const label = window.prompt('Grid axis label:', String.fromCharCode(65 + this._axes.length));
+    const grid = activeGrid(this._set);
+    const label = await ask('Grid axis label', this._nextLabel(), {
+      title: 'Add grid axis',
+      validate: (v) => (this._axes.some((x) => x.gridId === grid.id && x.id === v.trim()) ? `This grid already has an axis ${v.trim()}.` : null),
+    });
     if (!label) return;
     await this._add(label, direction, Math.round(offset_m * 10) / 10);
   }
 
   /** Start a new, empty grid (eg a secondary grid of mid-bay lines) and make it the one new axes go into. */
   async addGrid() {
-    const name = window.prompt('Grid name:', 'Secondary grid');
-    if (!name?.trim()) return;
-    const grid = addGridTo(this._set, { name: name.trim() });
+    const name = await ask('Grid name', 'Secondary grid', { title: 'Add grid', ok: 'Add' });
+    if (!name) return;
+    const grid = addGridTo(this._set, { name });
     this._renderList();
     await this._saveGrid(grid.id);
   }
@@ -137,22 +160,21 @@ export class GridOverlayManager {
   async editAxis(key) {
     const a = this._axes.find(x => x.key === key);
     if (!a) return;
-    const label = window.prompt('Label:', a.label);
-    if (!label) return;
-    const dir = window.prompt('Direction the axis runs (x = east-west, at a Y value; y = north-south, at an X value):', a.direction);
-    if (!dir || !['x', 'y'].includes(dir.toLowerCase())) return;
-    const offStr = window.prompt(`Offset (${unitLabel()}):`, String(toDisplay(a.offset_m)));
-    if (offStr === null) return;
-    const offset = fromDisplay(parseFloat(offStr));
-    if (Number.isNaN(offset)) return;
-    // The label is the axis id (junction locations refer to it), so a rename needs a free id in the grid.
-    if (label !== a.id) {
-      if (this.isAxisUsed?.(a.gridId, a.id)) { window.alert(`Junctions place details at axis ${a.id}. Move them first, then rename it.`); return; }
-      const taken = this._axes.some(x => x.gridId === a.gridId && x.id === label);
-      if (taken) { window.alert(`Grid ${a.gridId} already has an axis ${label}.`); return; }
+    const v = await askForm({
+      title: `Edit axis ${a.label}`,
+      ok: 'Save',
+      fields: this._axisFields(a.gridId, { label: a.label, direction: a.direction, offset: String(toDisplay(a.offset_m)) }, a.id),
+    });
+    if (!v) return;
+    const label = v.label;
+    const dir = v.direction;
+    const offset = fromDisplay(Number(v.offset));
+    if (label !== a.id && this.isAxisUsed?.(a.gridId, a.id)) {
+      await notify(`Junctions place details at axis ${a.id}. Move them first, then rename it.`, { title: 'Axis in use' });
+      return;
     }
     this._overlayGroup.remove(a.object3d);
-    const direction = dir.toLowerCase();
+    const direction = dir;
     updateAxisIn(this._set, a.gridId, a.id, { id: label, label, direction, offset_m: offset });
     Object.assign(a, { id: label, key: `${a.gridId}/${label}`, label, direction, offset_m: offset });
     this._rebuildAll();
@@ -165,7 +187,8 @@ export class GridOverlayManager {
     if (i < 0) return;
     const a = this._axes[i];
     const used = this.isAxisUsed?.(a.gridId, a.id);
-    if (!window.confirm(used ? `Junctions place details at axis ${a.label}. Remove it anyway?` : `Remove grid axis ${a.label}?`)) return;
+    const message = used ? `Junctions place details at axis ${a.label}. Remove it anyway?` : `Remove grid axis ${a.label}?`;
+    if (!await confirmDialog(message, { ok: 'Remove', danger: true })) return;
     this._overlayGroup.remove(a.object3d);
     this._axes.splice(i, 1);
     removeAxisFrom(this._set, a.gridId, a.id);
@@ -181,7 +204,7 @@ export class GridOverlayManager {
     try {
       addAxisTo(this._set, grid.id, { label, direction, offset_m });
     } catch (err) {
-      window.alert(err.message);
+      await notify(err.message, { title: 'Axis not added' });
       return;
     }
     this._drawAxis(grid.id, label, label, direction, offset_m, true);
