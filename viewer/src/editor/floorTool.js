@@ -181,6 +181,7 @@ export class FloorTool {
         normals:     meshData.normals,
         indices:     meshData.indices,
         colour:      meshData.materialId ? (this._matMap[meshData.materialId]?.colour_hex ?? colour) : colour,
+        opacity:     meshData.materialId ? this._matMap[meshData.materialId]?.opacity : undefined,
         elementId:   slabId,
         description: 'Floor slab',
       });
@@ -259,6 +260,7 @@ export class FloorTool {
             normals:     layerData.normals,
             indices:     layerData.indices,
             colour,
+            opacity:     matData?.opacity,
             elementId,
             description: 'Floor slab',
           });

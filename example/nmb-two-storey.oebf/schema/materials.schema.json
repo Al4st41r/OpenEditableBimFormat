@@ -34,6 +34,7 @@
           "name":               { "type": "string" },
           "category":           { "type": "string" },
           "colour_hex":         { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" },
+          "opacity":            { "type": "number", "minimum": 0, "maximum": 1, "description": "How opaque the material is drawn in 3D: 1 (the default) is solid, 0 is invisible. Air and other voids are drawn see-through so the layers behind them show." },
           "ifc_material_name":  { "type": "string" },
           "properties":         { "type": "object" },
           "classification":     { "$ref": "#/definitions/classification" },

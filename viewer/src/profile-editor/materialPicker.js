@@ -190,6 +190,7 @@ export function openMaterialPicker(matMap, { onNewMaterial } = {}) {
         let id = 'mat-' + name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
         for (let n = 2; matMap[id]; n++) id = `${id.replace(/-\d+$/, '')}-${n}`;   // never overwrite a material that exists
         const mat = { id, type: 'Material', name, category: catSel.value, colour_hex, interactions: {} };
+        if (catSel.value === 'air') mat.opacity = 0.15;   // drawn see-through in 3D, like the library's air
         try {
           await onNewMaterial(mat);
           modal.remove();

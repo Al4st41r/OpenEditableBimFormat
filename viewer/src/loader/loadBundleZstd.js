@@ -99,7 +99,7 @@ export async function loadBundleZstd(file) {
       const sweptMeshes   = sweepProfile(parsedPath.points, profileShapes, sweepOptionsFromElement(element));
       for (const sm of sweptMeshes) {
         const mat = matMap[sm.materialId];
-        meshes.push({ ...sm, elementId, colour: mat?.colour_hex ?? '#888888', description: element.description });
+        meshes.push({ ...sm, elementId, colour: mat?.colour_hex ?? '#888888', opacity: mat?.opacity, description: element.description });
       }
     } catch (err) {
       console.warn(`[OEBF] Skipping element ${elementId}: ${err.message}`);
@@ -114,6 +114,7 @@ export async function loadBundleZstd(file) {
       meshes.push({
         ...buildSlabMeshData(slab, pathData),
         colour: mat?.colour_hex ?? '#888888',
+        opacity: mat?.opacity,
         description: slab.description ?? '',
       });
     } catch (err) {

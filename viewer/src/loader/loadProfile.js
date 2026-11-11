@@ -24,7 +24,7 @@ const UNSET_MATERIAL = 'mat-unset';
 /** A library material id as it is written into a bundle: materials.schema.json requires the "mat-" prefix. */
 export const bundleMaterialId = (id) => (String(id).startsWith('mat-') ? String(id) : `mat-${id}`);
 
-const MATERIAL_FIELDS = new Set(['id', 'type', 'name', 'category', 'colour_hex', 'ifc_material_name', 'properties', 'interactions']);
+const MATERIAL_FIELDS = new Set(['id', 'type', 'name', 'category', 'colour_hex', 'opacity', 'ifc_material_name', 'properties', 'interactions']);
 
 /**
  * A material from the editor's default library (viewer/public/library) in the bundle's format
@@ -39,6 +39,7 @@ export function libraryMaterialToBundle(lib) {
     name: lib.name ?? lib.id,
     category: lib.category ?? 'imported',
     colour_hex: lib.colour_hex ?? '#888888',
+    ...(typeof lib.opacity === 'number' ? { opacity: lib.opacity } : {}),
     ...(lib.ifc_material_name ? { ifc_material_name: lib.ifc_material_name } : {}),
     properties: { ...extras, ...(lib.properties ?? {}) },
     interactions: lib.interactions ?? {},

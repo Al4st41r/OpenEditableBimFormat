@@ -84,6 +84,21 @@ describe('buildThreeMesh — material', () => {
     expect(mesh.material.side).toBe(THREE.DoubleSide);
   });
 
+  test('a material with opacity below 1 is drawn see-through and does not hide what is behind it', () => {
+    const { material } = buildThreeMesh(minimalMeshData({ opacity: 0.15 }));
+    expect(material.transparent).toBe(true);
+    expect(material.opacity).toBeCloseTo(0.15);
+    expect(material.depthWrite).toBe(false);
+  });
+
+  test('without opacity, or at 1, the material is solid', () => {
+    for (const opacity of [undefined, 1]) {
+      const { material } = buildThreeMesh(minimalMeshData({ opacity }));
+      expect(material.transparent).toBe(false);
+      expect(material.depthWrite).toBe(true);
+    }
+  });
+
   test('material has polygonOffset enabled', () => {
     const mesh = buildThreeMesh(minimalMeshData());
     expect(mesh.material.polygonOffset).toBe(true);

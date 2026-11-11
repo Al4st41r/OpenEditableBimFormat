@@ -57,6 +57,7 @@ export async function loadBundle(dirHandle) {
           ...sm,
           elementId,
           colour:      mat?.colour_hex ?? '#888888',
+          opacity:     mat?.opacity,
           description: element.description,
         });
       }
@@ -73,6 +74,7 @@ export async function loadBundle(dirHandle) {
       meshes.push({
         ...buildSlabMeshData(slab, pathData),
         colour:      mat?.colour_hex ?? '#888888',
+        opacity:     mat?.opacity,
         description: slab.description ?? '',
       });
     } catch (err) {

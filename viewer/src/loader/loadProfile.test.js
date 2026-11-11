@@ -448,6 +448,17 @@ describe('libraryMaterialToBundle', () => {
     expect(b).not.toHaveProperty('carbon_kgCO2e_per_kg');
   });
 
+  test('air is in the library and keeps its opacity, so it is drawn see-through', () => {
+    const b = libraryMaterialToBundle(LIB_MATERIALS.find((m) => m.id === 'air'));
+    expect(b).toMatchObject({ id: 'mat-air', category: 'air', opacity: 0.15 });
+    expect(b.properties).not.toHaveProperty('opacity');
+    expect(item.properties.opacity).toMatchObject({ type: 'number', minimum: 0, maximum: 1 });
+  });
+
+  test('a solid material gets no opacity field', () => {
+    expect(libraryMaterialToBundle(LIB_MATERIALS.find((m) => m.id === 'clay-brick-general'))).not.toHaveProperty('opacity');
+  });
+
   test('the input is not mutated', () => {
     const m = Object.freeze({ ...LIB_MATERIALS[0] });
     expect(() => libraryMaterialToBundle(m)).not.toThrow();

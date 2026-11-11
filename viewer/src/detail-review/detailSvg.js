@@ -14,6 +14,7 @@
 
 import { resolveLineweight, functionForCategory, DEFAULT_LINEWEIGHTS, HAIRLINE_MM } from '../lineweights.js';
 import { NONE_COLOUR } from './overlays.js';
+import { fill2d } from '../materialFill.js';
 import { signedArea } from '../detail/regionGeometry.js';
 import { guideSvg } from './guideSvg.js';
 import { annotationSvg, annotationBounds } from './annotationSvg.js';
@@ -57,10 +58,10 @@ export function styleFor(prism, { materials, profiles, k = 200 } = {}) {
   // A membrane or sealant a millimetre or two thick would be all outline. Draw it as a solid, darker shape with a
   // lighter outline and no hatch, so it reads as one line (the way a drawn membrane does).
   if (minSideSheetMm(prism, k) < THIN_SOLID_MM) {
-    return { fill: tint(material?.colour_hex, 0.85), cut: Math.min(cut, 0.18), hatch: resolveLineweight('hatch', { profile, layer }), hatchKind: 'none', thin: true };
+    return { fill: fill2d(material, tint(material?.colour_hex, 0.85)), cut: Math.min(cut, 0.18), hatch: resolveLineweight('hatch', { profile, layer }), hatchKind: 'none', thin: true };
   }
   return {
-    fill: tint(material?.colour_hex, 0.3),
+    fill: fill2d(material, tint(material?.colour_hex, 0.3)),
     cut,
     hatch: resolveLineweight('hatch', { profile, layer }),
     hatchKind: hatchKindFor(material?.category),
@@ -125,7 +126,7 @@ export function buildDetailSvg(model, opts = {}) {
   let outlines = '';
   for (const it of styled) {
     const { p, s } = it;
-    fills += `<polygon ${polyAttrs(it)} points="${points(p)}" fill="${fillOf(p.id, s.fill, s.thin)}" stroke="none"/>`;
+    fills += `<polygon ${polyAttrs(it)} points="${points(p)}" fill="${fillOf(p.id, s.fill, s.thin)}" stroke="none" pointer-events="all"/>`;
     if (s.hatchKind !== 'none') {
       fills += `<polygon class="hatch" points="${points(p)}" fill="url(#${patternId(s.hatchKind, s.hatch)})" stroke="none" pointer-events="none"/>`;
     }

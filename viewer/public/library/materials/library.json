@@ -552,6 +552,19 @@
       "thermal_conductivity_W_mK": 0.4,
       "source": "estimated",
       "notes": "Established turf; excludes maintenance carbon"
+    },
+    {
+      "id": "air",
+      "name": "Air (cavity or void)",
+      "category": "air",
+      "category_name": "Air & Cavities",
+      "colour_hex": "#E8F1F5",
+      "opacity": 0.15,
+      "carbon_kgCO2e_per_kg": 0,
+      "density_kg_per_m3": 1.2,
+      "thermal_conductivity_W_mK": 0.025,
+      "source": "standard",
+      "notes": "Still air at 10 °C. A cavity's thermal resistance depends on its width and surfaces (BS EN ISO 6946), not on this conductivity. Drawn see-through in 3D."
     }
   ]
 }

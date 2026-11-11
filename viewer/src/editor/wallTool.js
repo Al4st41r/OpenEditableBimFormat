@@ -139,6 +139,7 @@ export class WallTool {
             normals:     layerData.normals,
             indices:     layerData.indices,
             colour,
+            opacity:     matData?.opacity,
             elementId,
             description: 'Wall',
           });

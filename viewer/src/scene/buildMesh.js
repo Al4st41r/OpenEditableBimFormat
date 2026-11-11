@@ -41,7 +41,8 @@ export function resetDepthBias() { _ranks.clear(); }
  * (hidden by default). setRenderMode() in editorScene.js toggles its visibility.
  *
  * @param {{ vertices: Float32Array, normals: Float32Array, indices: Uint32Array,
- *           colour: string, elementId: string, description: string }} meshData
+ *           colour: string, opacity?: number, elementId: string, description: string }} meshData
+ *   opacity is the material's (materials.schema.json); below 1 the mesh is drawn see-through, as air is.
  * @returns {THREE.Mesh}
  */
 export function buildThreeMesh(meshData) {
@@ -59,6 +60,12 @@ export function buildThreeMesh(meshData) {
     polygonOffsetFactor: 1,
     polygonOffsetUnits:  depthBiasUnits(meshData.elementId),
   });
+  const opacity = meshData.opacity;
+  if (typeof opacity === 'number' && opacity < 1) {
+    material.transparent = true;
+    material.opacity     = Math.max(0, opacity);
+    material.depthWrite  = false;   // the layers behind still draw
+  }
 
   const mesh = new THREE.Mesh(geometry, material);
   mesh.userData.elementId   = meshData.elementId;

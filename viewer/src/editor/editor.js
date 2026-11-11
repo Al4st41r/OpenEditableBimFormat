@@ -966,7 +966,7 @@ async function _loadBundleFromAdapter(adapter) {
       const sweptMeshes   = sweepProfile(parsedPath.points, profileShapes, sweepOptionsFromElement(element));
       for (const sm of sweptMeshes) {
         const mat = matMap[sm.materialId];
-        meshes.push({ ...sm, elementId, colour: mat?.colour_hex ?? '#888888', description: element.description });
+        meshes.push({ ...sm, elementId, colour: mat?.colour_hex ?? '#888888', opacity: mat?.opacity, description: element.description });
       }
     } catch (err) {
       console.warn(`[OEBF] Skipping element ${elementId}: ${err.message}`);
@@ -981,6 +981,7 @@ async function _loadBundleFromAdapter(adapter) {
       meshes.push({
         ...buildSlabMeshData(slab, pathData),
         colour: mat?.colour_hex ?? '#888888',
+        opacity: mat?.opacity,
         description: slab.description ?? '',
       });
     } catch (err) {
@@ -1459,7 +1460,7 @@ async function _reRenderElement(elementId, updatedPathData) {
         if (gen !== _renderGen) return;
         const meshData = bsm(slabJson, updatedPathData);
         if (gen !== _renderGen) return;
-        editorScene.modelGroup.add(buildThreeMesh({ ...meshData, colour, elementId, description: reg.description }));
+        editorScene.modelGroup.add(buildThreeMesh({ ...meshData, colour, opacity: matData?.opacity, elementId, description: reg.description }));
       } catch (err) {
         console.warn(`[OEBF] _reRenderElement slab ${elementId}:`, err.message);
       }
@@ -1481,6 +1482,7 @@ async function _reRenderElement(elementId, updatedPathData) {
           normals:     layerData.normals,
           indices:     layerData.indices,
           colour,
+          opacity:     matData?.opacity,
           elementId,
           description: reg.description,
         }));
@@ -1695,6 +1697,7 @@ async function _changeElementProfile(elementId, newProfileId) {
         normals:     layerData.normals,
         indices:     layerData.indices,
         colour,
+        opacity:     matData?.opacity,
         elementId,
         description: reg.description,
       }));

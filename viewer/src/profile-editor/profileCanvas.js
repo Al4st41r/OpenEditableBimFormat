@@ -9,6 +9,8 @@
  *   'origin-moved'    — detail: { originX: number }
  */
 
+import { fill2d } from '../materialFill.js';
+
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const WALL_HEIGHT = 2.7; // metres — fixed for v0.1
 
@@ -94,12 +96,13 @@ export function renderCanvas(svgEl, layers, originX, matMap, selectedIndex = nul
 
   let cursor = 0;
   layers.forEach((layer, i) => {
-    const colour = matMap[layer.material_id]?.colour_hex ?? '#888888';
+    const colour = fill2d(matMap[layer.material_id], matMap[layer.material_id]?.colour_hex ?? '#888888');
 
     if (layer.type === 'region' && Array.isArray(layer.vertices) && layer.vertices.length >= 3) {
       const poly = document.createElementNS(SVG_NS, 'polygon');
       poly.setAttribute('points', layer.vertices.map(v => `${v.x},${v.y}`).join(' '));
       poly.setAttribute('fill', colour);
+      poly.setAttribute('pointer-events', 'all');   // air has no fill but is still picked by clicking inside it
       poly.setAttribute('stroke', i === selectedIndex ? '#0080ff' : '#333');
       _stroke(poly, opts, i, '0.003');
       poly.style.cursor = 'pointer';
@@ -117,6 +120,7 @@ export function renderCanvas(svgEl, layers, originX, matMap, selectedIndex = nul
     rect.setAttribute('width',  String(Math.round((layer.thickness ?? 0) * 1e6) / 1e6));
     rect.setAttribute('height', String(WALL_HEIGHT));
     rect.setAttribute('fill',   colour);
+    rect.setAttribute('pointer-events', 'all');
     rect.setAttribute('stroke', i === selectedIndex ? '#0080ff' : '#333');
     _stroke(rect, opts, i, '0.003');
     rect.style.cursor = 'pointer';
@@ -201,7 +205,8 @@ function _renderStacked(svgEl, layers, originX, matMap, selectedIndex, opts) {
     const rect = document.createElementNS(SVG_NS, 'rect');
     rect.setAttribute('x', '0'); rect.setAttribute('y', String(y));
     rect.setAttribute('width', String(W)); rect.setAttribute('height', String(t));
-    rect.setAttribute('fill', matMap[layer.material_id]?.colour_hex ?? '#888888');
+    rect.setAttribute('fill', fill2d(matMap[layer.material_id], matMap[layer.material_id]?.colour_hex ?? '#888888'));
+    rect.setAttribute('pointer-events', 'all');
     rect.setAttribute('stroke', index === selectedIndex ? '#0080ff' : '#333');
     _stroke(rect, opts, index, String(Math.max(total, 0.1) * 0.01));
     rect.style.cursor = 'pointer';

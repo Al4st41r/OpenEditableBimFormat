@@ -5,6 +5,8 @@
  * No DOM dependency — fully unit-testable.
  */
 
+import { fill2d } from '../materialFill.js';
+
 const r6 = (v) => Math.round(v * 1e6) / 1e6;
 const bandTotal = (layers) => layers.filter((l) => l.type !== 'region').reduce((sum, l) => sum + (l.thickness ?? 0), 0);
 
@@ -82,7 +84,7 @@ export function buildSvg({ layers, originX, matMap, profileType, alignment, plan
   let cursor = 0;
   for (let i = 0; i < layers.length; i++) {
     const l = layers[i];
-    const colour = matMap[l.material_id]?.colour_hex ?? '#888888';
+    const colour = fill2d(matMap[l.material_id], matMap[l.material_id]?.colour_hex ?? '#888888');
     const x = Math.round(cursor * 1e6) / 1e6;
     const w = Math.round((l.thickness ?? 0) * 1e6) / 1e6;
     rects += `  <!-- Layer ${i + 1}: ${l.name} -->\n`;
@@ -111,7 +113,7 @@ function buildStackedSvg({ layers, originX, matMap, alignment, planWidth }) {
   bands.forEach((l, i) => {
     const t = r6(l.thickness ?? 0);
     const y = alignment === 'top-face' ? r6(cursor) : r6(total - cursor - t);
-    const colour = matMap[l.material_id]?.colour_hex ?? '#888888';
+    const colour = fill2d(matMap[l.material_id], matMap[l.material_id]?.colour_hex ?? '#888888');
     rects += `  <!-- Layer ${i + 1}: ${l.name} -->\n`;
     rects += `  <rect x="0" y="${y}" width="${W}" height="${t}" fill="${colour}" stroke="#888" stroke-width="0.002"/>\n`;
     cursor = r6(cursor + t);

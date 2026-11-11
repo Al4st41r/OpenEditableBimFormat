@@ -8,6 +8,7 @@
 
 import { hatchKindFor, hatchDefs, patternId } from '../detail-review/hatches.js';
 import { tint } from '../detail-review/detailSvg.js';
+import { fill2d } from '../materialFill.js';
 import { resolveLineweight, functionForCategory, HAIRLINE_MM } from '../lineweights.js';
 
 export const PX_PER_MM = 4;
@@ -24,7 +25,7 @@ export function primitiveStyle(prim, { doc, materials, profiles, thin = false })
   const { profile, layer } = profileLayerOf(prim, doc, profiles);
   const cut = thin ? HAIRLINE_MM : cutWeightMm(prim, { doc, materials, profiles });
   return {
-    fill: material?.colour_hex ? tint(material.colour_hex, 0.3) : prim.fill,
+    fill: fill2d(material, material?.colour_hex ? tint(material.colour_hex, 0.3) : prim.fill),
     hatchKind: hatchKindFor(material?.category),
     hatch: thin ? HAIRLINE_MM : resolveLineweight('hatch', { profile, layer }),
     cutPx: Math.max(1, cut * PX_PER_MM),
