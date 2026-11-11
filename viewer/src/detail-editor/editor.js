@@ -134,11 +134,12 @@ function paint() {
 /** The Plan / Section button says where it goes: to the paired detail, or to a new one to draw. */
 function updateViewSwitch() {
   const btn = $('view-switch-btn');
-  if (!st || !bundle) { btn.disabled = true; btn.textContent = 'Plan / Section'; return; }
+  const lbl = btn.querySelector('.lbl') ?? btn;   // keep the icon
+  if (!st || !bundle) { btn.disabled = true; lbl.textContent = 'Plan / Section'; return; }
   const want = otherPlane(st.doc.plane);
   const pair = findCounterpart(st.doc, bundle.ctx.details);
   btn.disabled = false;
-  btn.textContent = pair ? `Show ${want}` : `New ${want}`;
+  lbl.textContent = pair ? `Show ${want}` : `New ${want}`;
   btn.title = pair ? `Open ${pair.id}, the same junction in ${want}` : `Make a new, empty ${want} detail with the same members and condition`;
 }
 
@@ -200,7 +201,7 @@ function refresh() {
   for (const t of TOOLS) $(`tool-${t}`).classList.toggle('active', st?.tool === t || (!st && t === 'select'));
   const mark = MARK_TOOLS.includes(st?.tool);
   $('marks-menu').classList.toggle('active', mark);
-  $('marks-summary').textContent = mark ? `Marks: ${$(`tool-${st.tool}`).textContent}` : 'Marks';
+  $('marks-summary').querySelector('.lbl').textContent = mark ? `Marks: ${$(`tool-${st.tool}`).textContent}` : 'Marks';
   svg.style.cursor = st?.tool === 'select' || !st ? 'default' : 'crosshair';
   paint();
 }

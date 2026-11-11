@@ -3,6 +3,8 @@
  * Shows project materials, default library materials, and an inline create-new form.
  */
 
+import { libraryMaterialToBundle } from '../loader/loadProfile.js';
+
 /** Categories offered for a new material; the schema takes any string. */
 export const MATERIAL_CATEGORIES = ['masonry', 'insulation', 'air', 'mortar', 'plaster', 'timber', 'concrete', 'metal', 'membrane', 'glass', 'other'];
 
@@ -102,7 +104,7 @@ export function openMaterialPicker(matMap, { onNewMaterial } = {}) {
       row.addEventListener('click', async () => {
         // A library material is not in the project yet: add it, or the layer would name a material the bundle lacks.
         if (mat.raw) {
-          const full = { type: 'Material', category: 'other', interactions: {}, ...mat.raw };
+          const full = libraryMaterialToBundle(mat.raw);   // the bundle's form: mat- id, extras under properties
           try { await onNewMaterial?.(full); } catch { return; }
           modal.remove(); resolve({ id: full.id, newMat: full });
           return;

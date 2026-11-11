@@ -10,6 +10,7 @@
  */
 
 import { FsaAdapter } from '../editor/storageAdapter.js';
+import { renderIcons } from '../ui/icons.js';
 import { AxoViewer } from './axoScene.js';
 import { buildAxoModel, materialsUsed, usagesOf, AXO_VIEWS } from './detailAxo.js';
 import { httpReader, loadDetailData } from './loadDetailData.js';
@@ -21,6 +22,8 @@ import { detailToDxf } from '../detail-editor/dxfExport.js';
 import { buildDetailSheet, embeddedFontCss, deliverSheet } from '../detail-review/sheetExport.js';
 import { diffDetails } from '../detail-review/detailDiff.js';
 import { OVERLAYS, applyOverlay, tagsOf, carbonValues } from '../detail-review/overlays.js';
+
+renderIcons();
 
 const $ = (id) => document.getElementById(id);
 const params = new URLSearchParams(location.search);
@@ -75,7 +78,7 @@ function changeSummary(shown) {
 function syncCompare() {
   $('compare-btn').hidden = !originals.has(selectedId);
   $('compare-btn').classList.toggle('active', showOriginal);
-  $('compare-btn').textContent = showOriginal ? 'Showing original' : 'Original';
+  $('compare-btn').querySelector('.lbl').textContent = showOriginal ? 'Showing original' : 'Original';
 }
 
 function renderInfo(detail, model) {

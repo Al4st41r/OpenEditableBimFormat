@@ -16,7 +16,17 @@ import {
   FilePlus, FolderOpen, Save, Undo2, Redo2, MousePointer2, SplinePointer, BrickWall, SquareDashed, Grid3x3, Ruler,
   Magnet, Layers, Import, PackageOpen, Plus, Trash, Eye, EyeOff, Scan, RulerDimensionLine, CircleQuestionMark,
   Library, Pentagon, Square, ChevronDown, ChevronUp, FileOutput, Box,
+  PanelLeft, PanelRight, BookOpen, Columns2, Feather, Shapes, Crop, Frame, ImageDown, PencilRuler, History,
+  Download, Copy, PencilLine, SeparatorHorizontal, SeparatorVertical, File, Package, Upload, ArrowLeftRight, PenTool,
+  Minus, Circle, MoveHorizontal, MessageSquareText, Cuboid, PenLine, Grid2x2,
 } from 'lucide';
+
+/** Our own drawings in Lucide's form (24 grid, stroke only), for commands Lucide has no icon for. */
+const ARC = [
+  ['path', { d: 'M5 19A14 14 0 0 1 19 5' }],
+  ['circle', { cx: '5', cy: '19', r: '1.5' }],
+  ['circle', { cx: '19', cy: '5', r: '1.5' }],
+];
 
 /** Our name for each icon → its Lucide drawing. Names are the roles they play, not Lucide's names. */
 export const ICONS = {
@@ -49,6 +59,38 @@ export const ICONS = {
   model: Box,
   'chevron-down': ChevronDown,
   'chevron-up': ChevronUp,
+  // panels and files
+  'panel-left': PanelLeft,
+  'panel-right': PanelRight,
+  example: BookOpen,
+  file: File,
+  objects: Package,
+  publish: Upload,
+  download: Download,
+  copy: Copy,
+  rename: PencilLine,
+  history: History,
+  image: ImageDown,
+  edit: PencilRuler,
+  switch: ArrowLeftRight,
+  // views and display
+  split: Columns2,
+  thin: Feather,
+  regions: Shapes,
+  clip: Crop,
+  edges: Frame,
+  solid: Cuboid,
+  drawing: PenLine,
+  planes: Grid2x2,
+  'h-guide': SeparatorHorizontal,
+  'v-guide': SeparatorVertical,
+  // 2D marks
+  marks: PenTool,
+  line: Minus,
+  arc: ARC,
+  circle: Circle,
+  dimension: MoveHorizontal,
+  note: MessageSquareText,
 };
 
 /**

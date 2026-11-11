@@ -23,6 +23,9 @@
     #detail-select { max-width: 110px; }
     #material-select { max-width: 90px; }
     #header .sep { margin: 0 1px; }
+    [hidden] { display: none !important; }
+    @media (max-width: 1599px) { .short .lbl { display: none; } }   /* secondary commands show only their icon on narrower screens */
+
     #header > button { padding: 4px 6px; display: inline-flex; align-items: center; gap: 4px; }
     .menu summary { display: inline-flex; align-items: center; gap: 4px; }
     #snap-menu summary { padding-left: 6px; padding-right: 6px; }
@@ -77,11 +80,12 @@
     .menu summary::-webkit-details-marker { display: none; }
     .menu summary::after { content: ' ▾'; font-size: 10px; }
     .menu-body { position: absolute; z-index: 30; top: 30px; left: 0; background: #262626; border: 1px solid #555; border-radius: 3px; padding: 6px; display: flex; flex-direction: column; gap: 3px; min-width: 200px; box-shadow: 0 4px 12px rgba(0,0,0,0.4); }
+    .menu-body button, #marks-menu-body button { display: flex; align-items: center; gap: 6px; }
     .menu-body button { text-align: left; border-color: transparent; background: transparent; }
     .menu-body button:hover:not(:disabled) { background: #3a3a3a; }
     .menu-body hr { border: 0; border-top: 1px solid #444; margin: 3px 0; }
     #marks-menu { position: relative; }
-    #marks-menu summary { cursor: pointer; padding: 4px 10px; background: #333; border: 1px solid #555; border-radius: 3px; list-style: none; white-space: nowrap; }
+    #marks-menu summary { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; padding: 4px 10px; background: #333; border: 1px solid #555; border-radius: 3px; list-style: none; white-space: nowrap; }
     #marks-menu.active summary { background: #1e3a5a; border-color: #0a6cff; }
     #marks-menu-body { position: absolute; z-index: 20; top: 30px; left: 0; background: #262626; border: 1px solid #555; border-radius: 3px; padding: 6px; display: flex; flex-direction: column; gap: 4px; min-width: 120px; }
     #marks-menu-body button { text-align: left; }
@@ -154,52 +158,52 @@
   <div id="header">
     <span id="project-name">No bundle open</span>
     <span class="sep"></span>
-    <details id="file-menu" class="menu"><summary title="Open, import, export and publish">File</summary><div id="file-menu-body" class="menu-body">
-      <button id="open-btn" title="Open a bundle folder">Open folder…</button>
-      <button id="open-file-btn" title="Open a .oebfz archive">Open .oebfz…</button>
-      <button id="demo-btn" title="Open the example bundle">Open demo</button>
+    <details id="file-menu" class="menu"><summary id="file-summary" title="Open, import, export and publish"><i data-icon="file"></i><span class="lbl">File</span></summary><div id="file-menu-body" class="menu-body">
+      <button id="open-btn" title="Open a bundle folder"><i data-icon="open"></i><span class="lbl">Open folder…</span></button>
+      <button id="open-file-btn" title="Open a .oebfz archive"><i data-icon="open-archive"></i><span class="lbl">Open .oebfz…</span></button>
+      <button id="demo-btn" title="Open the example bundle"><i data-icon="example"></i><span class="lbl">Open demo</span></button>
       <hr>
-      <button id="objects-btn" disabled title="Make a small multi-part object (a screw, a brick tie, a cavity tray) and keep it in the bundle for reuse">Objects…</button>
+      <button id="objects-btn" disabled title="Make a small multi-part object (a screw, a brick tie, a cavity tray) and keep it in the bundle for reuse"><i data-icon="objects"></i><span class="lbl">Objects…</span></button>
       <hr>
-      <button data-export="import-dxf" title="Closed shapes become regions in the material chosen in the toolbar">Import DXF…</button>
-      <button data-export="import-svg" title="Closed shapes become regions in the material chosen in the toolbar">Import SVG…</button>
+      <button data-export="import-dxf" title="Closed shapes become regions in the material chosen in the toolbar"><i data-icon="import"></i><span class="lbl">Import DXF…</span></button>
+      <button data-export="import-svg" title="Closed shapes become regions in the material chosen in the toolbar"><i data-icon="import"></i><span class="lbl">Import SVG…</span></button>
       <hr>
-      <button data-export="json" title="Download this detail as JSON">Export detail JSON</button>
-      <button data-export="sheet" title="A scaled sheet as SVG or PDF">Export sheet (SVG or PDF)…</button>
-      <button data-export="dxf" title="A DXF in millimetres">Export DXF</button>
+      <button data-export="json" title="Download this detail as JSON"><i data-icon="export"></i><span class="lbl">Export detail JSON</span></button>
+      <button data-export="sheet" title="A scaled sheet as SVG or PDF"><i data-icon="export"></i><span class="lbl">Export sheet (SVG or PDF)…</span></button>
+      <button data-export="dxf" title="A DXF in millimetres"><i data-icon="export"></i><span class="lbl">Export DXF</span></button>
       <hr>
-      <button id="zip-btn" hidden title="Download the whole bundle as a zip">Download bundle (zip)</button>
-      <button id="publish-btn" title="Download the edited files and show how to put them on the site">Publish…</button>
+      <button id="zip-btn" hidden title="Download the whole bundle as a zip"><i data-icon="download"></i><span class="lbl">Download bundle (zip)</span></button>
+      <button id="publish-btn" title="Download the edited files and show how to put them on the site"><i data-icon="publish"></i><span class="lbl">Publish…</span></button>
     </div></details>
-    <button id="save-btn" class="primary" disabled title="Save (Ctrl+S)"><i data-icon="save"></i> Save</button>
+    <button id="save-btn" class="primary" disabled title="Save (Ctrl+S)"><i data-icon="save"></i><span class="lbl">Save</span></button>
     <button id="undo-btn" disabled title="Undo (Ctrl+Z)" aria-label="Undo"><i data-icon="undo"></i></button>
     <button id="redo-btn" disabled title="Redo (Ctrl+Y)" aria-label="Redo"><i data-icon="redo"></i></button>
     <span id="dirty" hidden title="Unsaved changes" aria-label="Unsaved changes">●</span>
     <span class="sep"></span>
     <select id="detail-select" disabled aria-label="Detail"><option value="">— select detail —</option></select>
-    <button id="new-btn" disabled title="New detail">New</button>
-    <button id="view-switch-btn" disabled title="Switch to the same junction in the other view: plan or section">Plan / Section</button>
-    <button id="profile-btn" title="Edit the profile of the selected member (opens the profile editor); changes come back here when you save there">Profile</button>
+    <button id="new-btn" disabled title="New detail"><i data-icon="new"></i><span class="lbl">New</span></button>
+    <button id="view-switch-btn" disabled title="Switch to the same junction in the other view: plan or section"><i data-icon="switch"></i><span class="lbl">Plan / Section</span></button>
+    <button id="profile-btn" title="Edit the profile of the selected member (opens the profile editor); changes come back here when you save there" class="short" aria-label="Profile"><i data-icon="layers"></i><span class="lbl">Profile</span></button>
     <span class="sep"></span>
-    <button id="tool-select" class="active" title="Select and move (V)"><i data-icon="select"></i> Select</button>
-    <button id="tool-rect" title="Rectangle region (R)"><i data-icon="rect"></i> Rect</button>
-    <button id="tool-polygon" title="Polygon region (P)"><i data-icon="polygon"></i> Polygon</button>
-    <button id="tool-measure" title="Measure distance and angle between two points (M)"><i data-icon="measure"></i> Measure</button>
-    <details id="marks-menu"><summary id="marks-summary" title="Lines, arcs, circles, dimensions and notes">Marks</summary><div id="marks-menu-body">
-      <button id="tool-line" title="Open line: a break line, centre line or damp-proof course (L). Enter or double-click finishes.">Line</button>
-      <button id="tool-arc" title="Arc: centre, start, end, anticlockwise (A)">Arc</button>
-      <button id="tool-circle" title="Circle: centre and a point on it (C)">Circle</button>
-      <button id="tool-dim" title="Dimension between two points (D)">Dim</button>
-      <button id="tool-note" title="Note with a leader line (N)">Note</button>
+    <button id="tool-select" class="active" title="Select and move (V)"><i data-icon="select"></i><span class="lbl">Select</span></button>
+    <button id="tool-rect" title="Rectangle region (R)"><i data-icon="rect"></i><span class="lbl">Rect</span></button>
+    <button id="tool-polygon" title="Polygon region (P)"><i data-icon="polygon"></i><span class="lbl">Polygon</span></button>
+    <button id="tool-measure" title="Measure distance and angle between two points (M)"><i data-icon="measure"></i><span class="lbl">Measure</span></button>
+    <details id="marks-menu"><summary id="marks-summary" title="Lines, arcs, circles, dimensions and notes"><i data-icon="marks"></i><span class="lbl">Marks</span></summary><div id="marks-menu-body">
+      <button id="tool-line" title="Open line: a break line, centre line or damp-proof course (L). Enter or double-click finishes."><i data-icon="line"></i><span class="lbl">Line</span></button>
+      <button id="tool-arc" title="Arc: centre, start, end, anticlockwise (A)"><i data-icon="arc"></i><span class="lbl">Arc</span></button>
+      <button id="tool-circle" title="Circle: centre and a point on it (C)"><i data-icon="circle"></i><span class="lbl">Circle</span></button>
+      <button id="tool-dim" title="Dimension between two points (D)"><i data-icon="dimension"></i><span class="lbl">Dim</span></button>
+      <button id="tool-note" title="Note with a leader line (N)"><i data-icon="note"></i><span class="lbl">Note</span></button>
     </div></details>
     <select id="material-select" title="Material for new regions" aria-label="Material for new regions" disabled></select>
-    <button id="snap-btn" class="active" title="Snapping on or off (S). Hold Alt to suspend it while you move.">Snap</button>
-    <details id="snap-menu"><summary title="Which snaps are active" aria-label="Snap settings">▾</summary><div id="snap-menu-body"></div></details>
+    <button id="snap-btn" class="active" title="Snapping on or off (S). Hold Alt to suspend it while you move."><i data-icon="snap"></i><span class="lbl">Snap</span></button>
+    <details id="snap-menu"><summary id="snap-menu-summary" title="Which snaps are active" aria-label="Snap settings"><i data-icon="chevron-down" data-size="14"></i></summary><div id="snap-menu-body"></div></details>
     <span class="sep"></span>
-    <button id="fit-btn" title="Fit to view (F)">Fit</button>
-    <button id="thin-btn" title="Draw every line as a hairline, so the drawing reads as a sketch. Pen weights are kept in the data.">Thin</button>
+    <button id="fit-btn" title="Fit to view (F)" class="short" aria-label="Fit"><i data-icon="fit"></i><span class="lbl">Fit</span></button>
+    <button id="thin-btn" title="Draw every line as a hairline, so the drawing reads as a sketch. Pen weights are kept in the data." class="short" aria-label="Thin"><i data-icon="thin"></i><span class="lbl">Thin</span></button>
     <select id="units-select" title="Display units" aria-label="Units"><option value="mm" selected>mm</option><option value="m">m</option></select>
-    <button id="view3d-btn" title="See this detail in 3D, including unsaved changes (opens the review page)">3D</button>
+    <button id="view3d-btn" title="See this detail in 3D, including unsaved changes (opens the review page)" class="short" aria-label="3D"><i data-icon="model"></i><span class="lbl">3D</span></button>
     <button id="help-btn" title="Keyboard and mouse shortcuts (?)" aria-label="Help"><i data-icon="help"></i></button>
   </div>
   <div id="main">

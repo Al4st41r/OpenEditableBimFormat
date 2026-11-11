@@ -1722,10 +1722,24 @@ window.addEventListener('message', async (e) => {
   if (e.origin !== window.location.origin) return;
   if (e.data?.type !== 'profile-saved') return;
   if (!adapter) return;
-  const { id, json, svg } = e.data;
-  await adapter.writeJson(`profiles/${id}.json`, json);
-  if (adapter.writeRaw) await adapter.writeRaw(`profiles/${id}.svg`, svg);
-  statusBar.textContent = `Profile saved: ${id}`;
+  const { id, json, svg, newMaterials = [] } = e.data;
+  try {
+    await adapter.writeJson(`profiles/${id}.json`, json);
+    if (adapter.writeRaw) await adapter.writeRaw(`profiles/${id}.svg`, svg);
+    if (newMaterials.length) {   // materials the profile editor added (new, or from the library) go into the bundle
+      let lib = { $schema: 'oebf://schema/0.1/materials', materials: [] };
+      try { lib = await adapter.readJson('materials/library.json'); } catch { /* new */ }
+      const have = new Set((lib.materials ?? []).map((m) => m.id));
+      lib.materials = [...(lib.materials ?? []), ...newMaterials.filter((m) => !have.has(m.id))];
+      await adapter.writeJson('materials/library.json', lib);
+    }
+    await _writeModelJson();   // what this session added is in the files before the reload
+    await _loadAndRenderBundle(adapter, { keepView: true });   // walls and slabs on this profile redraw
+    statusBar.textContent = `Profile saved: ${id}`;
+  } catch (err) {
+    _reportError(`Profile save failed: ${err.message}`);
+    return;
+  }
 
   // Add to dropdowns if this is a new profile id
   const wallSel = document.getElementById('default-wall-profile');

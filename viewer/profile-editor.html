@@ -7,6 +7,9 @@
   <link rel="icon" href="/oebf/icons/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/oebf/fonts/barlow.css">
   <style>
+    [hidden] { display: none !important; }
+    @media (max-width: 1599px) { .short .lbl { display: none; } }   /* secondary commands show only their icon on narrower screens */
+
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { background: #1a1a1a; color: #ddd; font-family: 'Barlow', sans-serif; font-size: 13px; display: flex; flex-direction: column; height: 100vh; }
 
@@ -19,7 +22,7 @@
     #header button { padding: 4px 10px; font-size: 12px; cursor: pointer; background: #2a4a2a; color: #8f8; border: 1px solid #555; border-radius: 3px; }
     #header button:hover { background: #3a5a3a; }
     #header button.secondary { background: #333; color: #ddd; }
-    #header button.icon-btn { display: flex; align-items: center; gap: 5px; }
+    #header button { display: inline-flex; align-items: center; gap: 5px; }
     #header button:disabled { opacity: 0.45; cursor: default; }
     #header .sep { width: 1px; height: 20px; background: #444; margin: 0 2px; }
     #dirty { color: #e8b04a; font-size: 14px; }
@@ -53,25 +56,25 @@
   <div id="header">
     <span id="project-name" style="color:#aaa">No bundle open</span>
     <span class="sep"></span>
-    <button id="new-btn" class="secondary icon-btn" disabled title="New profile"><i data-icon="new"></i> New</button>
-    <button id="open-btn" class="secondary icon-btn" title="Open a bundle folder"><i data-icon="open"></i> Open</button>
-    <button id="save-btn" class="icon-btn" disabled title="Save (Ctrl+S)"><i data-icon="save"></i> Save</button>
+    <button id="new-btn" class="secondary icon-btn" disabled title="New profile"><i data-icon="new"></i><span class="lbl">New</span></button>
+    <button id="open-btn" class="secondary icon-btn" title="Open a bundle folder"><i data-icon="open"></i><span class="lbl">Open</span></button>
+    <button id="save-btn" class="icon-btn" disabled title="Save (Ctrl+S)"><i data-icon="save"></i><span class="lbl">Save</span></button>
     <button id="undo-btn" class="secondary icon-btn" disabled title="Undo (Ctrl+Z)" aria-label="Undo"><i data-icon="undo"></i></button>
     <button id="redo-btn" class="secondary icon-btn" disabled title="Redo (Ctrl+Shift+Z or Ctrl+Y)" aria-label="Redo"><i data-icon="redo"></i></button>
     <span id="dirty" hidden title="Unsaved changes" aria-label="Unsaved changes">●</span>
     <span class="sep"></span>
     <input id="profile-search" type="search" placeholder="Search profiles" style="width:120px;background:#333;color:#ddd;border:1px solid #555;border-radius:3px;padding:3px 6px;font-size:12px;" aria-label="Search profiles">
     <select id="profile-select" disabled aria-label="Profile"><option>— select profile —</option></select>
-    <button id="dup-btn" class="secondary" title="Save a copy of this profile under a new id">Duplicate</button>
-    <button id="rename-btn" class="secondary" title="Rename this profile and the elements and details that use it">Rename</button>
-    <button id="delete-btn" class="secondary" title="Delete this profile (refused while anything uses it)">Delete</button>
+    <button id="dup-btn" class="secondary short" title="Save a copy of this profile under a new id" aria-label="Duplicate"><i data-icon="copy"></i><span class="lbl">Duplicate</span></button>
+    <button id="rename-btn" class="secondary" title="Rename this profile and the elements and details that use it"><i data-icon="rename"></i><span class="lbl">Rename</span></button>
+    <button id="delete-btn" class="secondary" title="Delete this profile (refused while anything uses it)"><i data-icon="delete"></i><span class="lbl">Delete</span></button>
     <span class="sep"></span>
-    <button id="tool-rect-btn" class="secondary icon-btn" title="Draw a rectangular region"><i data-icon="rect"></i> Rect</button>
-    <button id="tool-poly-btn" class="secondary icon-btn" title="Draw a polygon region"><i data-icon="polygon"></i> Polygon</button>
-    <button id="add-h-guide-btn" class="secondary" title="Add a horizontal guide">H guide</button>
-    <button id="add-v-guide-btn" class="secondary" title="Add a vertical guide">V guide</button>
+    <button id="tool-rect-btn" class="secondary icon-btn" title="Draw a rectangular region"><i data-icon="rect"></i><span class="lbl">Rect</span></button>
+    <button id="tool-poly-btn" class="secondary icon-btn" title="Draw a polygon region"><i data-icon="polygon"></i><span class="lbl">Polygon</span></button>
+    <button id="add-h-guide-btn" class="secondary short" title="Add a horizontal guide" aria-label="H guide"><i data-icon="h-guide"></i><span class="lbl">H guide</span></button>
+    <button id="add-v-guide-btn" class="secondary short" title="Add a vertical guide" aria-label="V guide"><i data-icon="v-guide"></i><span class="lbl">V guide</span></button>
     <span class="sep"></span>
-    <button id="fit-btn" class="secondary icon-btn" title="Fit the detail in view (wheel zooms, middle-drag or Shift-drag pans)"><i data-icon="fit"></i> Fit</button>
+    <button id="fit-btn" class="secondary icon-btn short" title="Fit the detail in view (wheel zooms, middle-drag or Shift-drag pans)" aria-label="Fit"><i data-icon="fit"></i><span class="lbl">Fit</span></button>
     <label for="units-select" style="font-size:12px;color:#aaa;">Units</label>
     <select id="units-select" title="Display units" style="background:#333;color:#ddd;border:1px solid #555;border-radius:3px;padding:3px 6px;font-size:12px;">
       <option value="mm" selected>mm</option>
@@ -122,7 +125,7 @@
       </div>
       <div id="layer-list"></div>
       <div id="form-footer">
-        <button id="add-layer-btn" class="icon-btn" disabled title="Add a layer"><i data-icon="add"></i> Add layer</button>
+        <button id="add-layer-btn" class="icon-btn" disabled title="Add a layer"><i data-icon="add"></i><span class="lbl">Add layer</span></button>
       </div>
     </div>
   </div>

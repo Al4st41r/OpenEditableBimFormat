@@ -14,10 +14,14 @@
     #header select, #header input[type=text], .panel input[type=text] { background: #333; color: #ddd; border: 1px solid #555; padding: 3px 6px; border-radius: 3px; }
     button { padding: 4px 8px; cursor: pointer; background: #333; color: #ddd; border: 1px solid #555; border-radius: 3px; }
     button:hover:not(:disabled) { background: #444; }
+    #header button { display: inline-flex; align-items: center; gap: 4px; }
     button.active { background: #1e3a5a; border-color: #4a8aaa; color: #fff; }
     .sep { width: 1px; align-self: stretch; background: #333; margin: 0 4px; }
     #project-name { opacity: 0.6; max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     #header .sep { margin: 0 1px; }
+    [hidden] { display: none !important; }
+    @media (max-width: 1599px) { .short .lbl { display: none; } }   /* secondary commands show only their icon on narrower screens */
+
     #overlay-select { max-width: 130px; }
     #status { margin-left: auto; opacity: 0.8; font-size: 12px; max-width: 40%; text-align: right; }
     #status.error { color: #f88; opacity: 1; }
@@ -61,29 +65,29 @@
 </head>
 <body>
   <div id="header">
-    <button id="left-btn" class="active" title="Show or hide the detail list">List</button>
+    <button id="left-btn" class="active short" title="Show or hide the detail list" aria-label="List"><i data-icon="panel-left"></i><span class="lbl">List</span></button>
     <strong>Detail review</strong>
     <span id="project-name"></span>
     <span class="sep"></span>
-    <button id="open-btn" title="Open a bundle folder">Open</button>
-    <button id="demo-btn" title="Load the NMB two-storey example">NMB</button>
+    <button id="open-btn" title="Open a bundle folder"><i data-icon="open"></i><span class="lbl">Open</span></button>
+    <button id="demo-btn" title="Load the NMB two-storey example" class="short" aria-label="NMB"><i data-icon="example"></i><span class="lbl">NMB</span></button>
     <span class="sep"></span>
-    <button id="pane2d-btn" class="active" title="Show the 2D drawing beside the 3D view">2D</button>
+    <button id="pane2d-btn" class="active short" title="Show the 2D drawing beside the 3D view" aria-label="2D"><i data-icon="split"></i><span class="lbl">2D</span></button>
     <select id="scale-select" title="Drawing scale of the 2D pane">
       <option value="1">1:1</option><option value="2">1:2</option><option value="5" selected>1:5</option><option value="10">1:10</option>
     </select>
-    <button id="thin-btn" title="Draw every line as a hairline">Thin</button>
+    <button id="thin-btn" title="Draw every line as a hairline" class="short" aria-label="Thin"><i data-icon="thin"></i><span class="lbl">Thin</span></button>
     <select id="overlay-select" title="Colour both panes by a strategy"></select>
     <select id="carbon-unit" title="Carbon per kilogram or per cubic metre" hidden><option value="kg">per kg</option><option value="m3">per m3</option></select>
     <span class="sep"></span>
     <select id="view-select" title="Axonometric view"></select>
-    <button id="members-btn" class="active" title="Show the swept wall profiles">Members</button>
-    <button id="regions-btn" class="active" title="Show the detail's own regions">Regions</button>
-    <button id="guides-btn" class="active" title="Show the reference lines (grid, FFL, level) in 3D">Lines</button>
-    <button id="clip-btn" class="active" title="Cut the 3D view to the detail's clip region">Clip</button>
-    <button id="edges-btn" class="active" title="Outline each solid">Edges</button>
-    <button id="fit-btn" title="Fit to view">Fit</button>
-    <button id="png-btn" title="Save the current view as a PNG">PNG</button>
+    <button id="members-btn" class="active short" title="Show the swept wall profiles" aria-label="Members"><i data-icon="layers"></i><span class="lbl">Members</span></button>
+    <button id="regions-btn" class="active short" title="Show the detail's own regions" aria-label="Regions"><i data-icon="regions"></i><span class="lbl">Regions</span></button>
+    <button id="guides-btn" class="active short" title="Show the reference lines (grid, FFL, level) in 3D" aria-label="Lines"><i data-icon="guide"></i><span class="lbl">Lines</span></button>
+    <button id="clip-btn" class="active short" title="Cut the 3D view to the detail's clip region" aria-label="Clip"><i data-icon="clip"></i><span class="lbl">Clip</span></button>
+    <button id="edges-btn" class="active short" title="Outline each solid" aria-label="Edges"><i data-icon="edges"></i><span class="lbl">Edges</span></button>
+    <button id="fit-btn" title="Fit to view" class="short" aria-label="Fit"><i data-icon="fit"></i><span class="lbl">Fit</span></button>
+    <button id="png-btn" title="Save the current view as a PNG" class="short" aria-label="PNG"><i data-icon="image"></i><span class="lbl">PNG</span></button>
     <select id="export-select" title="Export the 2D drawing on a sheet with a title block">
       <option value="">Export</option><option value="svg">SVG sheet</option><option value="pdf">PDF (print)</option><option value="dxf">DXF (mm)</option>
     </select>
@@ -91,10 +95,10 @@
       <option value="">Auto</option><option>A4</option><option>A3</option><option>A2</option><option>A1</option>
     </select>
     <span class="sep"></span>
-    <button id="edit-btn" title="Open this detail in the detail editor" disabled>Edit detail</button>
-    <button id="compare-btn" title="Show the detail as it was before your edits" hidden>Original</button>
-    <button id="download-btn" title="Download the edited detail as JSON" hidden>Download edit</button>
-    <button id="right-btn" class="active" title="Show or hide the information panel">Info</button>
+    <button id="edit-btn" title="Open this detail in the detail editor" disabled><i data-icon="edit"></i><span class="lbl">Edit detail</span></button>
+    <button id="compare-btn" title="Show the detail as it was before your edits" hidden><i data-icon="history"></i><span class="lbl">Original</span></button>
+    <button id="download-btn" title="Download the edited detail as JSON" hidden><i data-icon="download"></i><span class="lbl">Download edit</span></button>
+    <button id="right-btn" class="active short" title="Show or hide the information panel" aria-label="Info"><i data-icon="panel-right"></i><span class="lbl">Info</span></button>
     <span id="status"></span>
   </div>
   <div id="main">

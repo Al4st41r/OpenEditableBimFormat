@@ -17,7 +17,9 @@ Buttons carry words, with an icon where one exists. Undo, Redo and Help are icon
 ## Icons
 
 - Generic commands use [Lucide](https://lucide.dev) (ISC licence), pinned to an exact version in `viewer/package.json` because icon names change between majors. They are drawn inline from `viewer/src/ui/icons.js`: write `<i data-icon="save"></i>` in the HTML (the page calls `renderIcons()`), or `icon('trash')` in script. Icons take the button's text colour, so disabled and active states need no extra artwork. `src/ui/icons.test.js` fails if a page names an icon that is not registered.
-- Building-specific icons stay our own drawings in `viewer/public/icons/` (sources in `docs/assets/`): the layer functions (structure, insulation, membrane, service, finish), the vertical and horizontal planes (3D and Plan), storey, the arc tools, the logo and the favicon.
+- Building-specific icons stay our own drawings in `viewer/public/icons/` (sources in `docs/assets/`): the layer functions (structure, insulation, membrane, service, finish), the vertical and horizontal planes (3D and Plan), storey, the logo and the favicon. The arc mark tool is our own drawing kept in Lucide's form inside `icons.js`, so it takes the button colour like the rest.
+- Every toolbar command has an icon, on all four editing pages (3D editor, profile editor, detail editor, detail review). The label sits in `<span class="lbl">`; script that changes a label changes that span, so the icon stays.
+- Below 1600 px wide, secondary commands (class `short`: view toggles, Fit, Thin, Library, IFC, the render modes) show only their icon, with an `aria-label` and tooltip, so each toolbar fits one row at 1400 px. Primary commands (file, undo, the drawing tools, Snap) keep their words.
 - The launch page has no script, so its card icons are inline Lucide SVG markup.
 
 | Role | Name | Lucide | Role | Name | Lucide |
@@ -32,6 +34,19 @@ Buttons carry words, with an icon where one exists. Undo, Redo and Help are icon
 | Wall | `wall` | brick-wall | Add, Delete | `add`, `delete` | plus, trash |
 | Library | `library` | library | Help | `help` | circle-question-mark |
 | Layers | `layers` | layers | Move up, down | `chevron-up`, `chevron-down` | chevron-up, chevron-down |
+| Show panel | `panel-left`, `panel-right` | panel-left, panel-right | Example | `example` | book-open |
+| File menu | `file` | file | Objects | `objects` | package |
+| Import, Export | `import`, `export` | import, file-output | Download, Publish | `download`, `publish` | download, upload |
+| Duplicate, Rename | `copy`, `rename` | copy, pencil-line | Original | `history` | history |
+| Save image | `image` | image-down | Edit detail | `edit` | pencil-ruler |
+| Plan / Section | `switch` | arrow-left-right | 2D beside 3D | `split` | columns-2 |
+| Thin lines | `thin` | feather | Regions | `regions` | shapes |
+| Clip | `clip` | crop | Edges | `edges` | frame |
+| Solid | `solid` | cuboid | Line drawing | `drawing` | pen-line |
+| Grid planes | `planes` | grid-2x2 | H, V guide | `h-guide`, `v-guide` | separator-horizontal, separator-vertical |
+| Marks | `marks` | pen-tool | Line, Circle | `line`, `circle` | minus, circle |
+| Arc | `arc` | (our own) | Dimension, Note | `dimension`, `note` | move-horizontal, message-square-text |
+| 3D model | `model` | box | | | |
 
 ## Names
 
