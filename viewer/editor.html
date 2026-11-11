@@ -229,26 +229,26 @@
   </div>
   <dialog id="object-dialog"></dialog>
   <div id="toolbar">
-    <button id="new-btn" aria-label="New bundle">New</button>
+    <button id="new-btn" aria-label="New bundle" title="New project"><i data-icon="new"></i> New</button>
     <button id="open-btn" aria-label="Open bundle">
-      <img src="/oebf/icons/folder.svg" width="16" height="16" alt=""> Open
+      <i data-icon="open"></i> Open
     </button>
     <button id="save-btn" disabled aria-label="Save" title="Save (Ctrl+S)">
-      <img src="/oebf/icons/save.svg" width="16" height="16" alt=""> Save
+      <i data-icon="save"></i> Save
     </button>
-    <button id="undo-btn" disabled title="Undo (Ctrl+Z)" aria-label="Undo">Undo</button>
-    <button id="redo-btn" disabled title="Redo (Ctrl+Shift+Z)" aria-label="Redo">Redo</button>
+    <button id="undo-btn" disabled title="Undo (Ctrl+Z)" aria-label="Undo"><i data-icon="undo"></i></button>
+    <button id="redo-btn" disabled title="Redo (Ctrl+Shift+Z)" aria-label="Redo"><i data-icon="redo"></i></button>
     <button id="ifc-btn" title="IFC import / export">IFC</button>
     <div class="toolbar-sep"></div>
-    <button id="tool-select" class="active" aria-label="Select tool" title="Select an element (V)"><img src="/oebf/icons/select.svg" width="16" height="16" alt=""> Select</button>
-    <button id="tool-path-edit" disabled aria-label="Path edit tool" title="Edit the path of the selected element: drag a node, click a midpoint to add one (E)"><img src="/oebf/icons/edit-nodes.svg" width="16" height="16" alt=""> Edit</button>
-    <button id="tool-wall" disabled aria-label="Wall tool" title="Draw a wall (W)"><img src="/oebf/icons/draw-line.svg" width="16" height="16" alt=""> Wall</button>
-    <button id="tool-floor" disabled aria-label="Floor tool" title="Draw a floor (F)"><img src="/oebf/icons/draw-rect.svg" width="16" height="16" alt=""> Floor</button>
-    <button id="tool-grid" disabled aria-label="Add grid axis" title="Add a grid axis"><img src="/oebf/icons/grid.svg" width="16" height="16" alt=""> Grid</button>
-    <button id="tool-guide" disabled aria-label="Add guide" title="Draw a reference guide"><img src="/oebf/icons/align.svg" width="16" height="16" alt=""> Guide</button>
+    <button id="tool-select" class="active" aria-label="Select tool" title="Select an element (V)"><i data-icon="select"></i> Select</button>
+    <button id="tool-path-edit" disabled aria-label="Path edit tool" title="Edit the path of the selected element: drag a node, click a midpoint to add one (E)"><i data-icon="edit-path"></i> Edit</button>
+    <button id="tool-wall" disabled aria-label="Wall tool" title="Draw a wall (W)"><i data-icon="wall"></i> Wall</button>
+    <button id="tool-floor" disabled aria-label="Floor tool" title="Draw a floor (F)"><i data-icon="floor"></i> Floor</button>
+    <button id="tool-grid" disabled aria-label="Add grid axis" title="Add a grid axis"><i data-icon="grid"></i> Grid</button>
+    <button id="tool-guide" disabled aria-label="Add guide" title="Draw a reference guide"><i data-icon="guide"></i> Guide</button>
     <span class="toolbar-group">
-    <button id="snap-toggle" class="active" title="Smart cursor (S): snap to endpoints, midpoints, intersections, grid and alignments. Hold Alt to suspend." aria-label="Toggle snapping"><img src="/oebf/icons/align.svg" width="16" height="16" alt=""> Snap</button>
-    <button id="snap-settings-btn" title="Snap settings: which snaps are on, grid spacing, angle step" aria-label="Snap settings"><img src="/oebf/icons/chevron-down.svg" width="12" height="12" alt=""></button>
+    <button id="snap-toggle" class="active" title="Smart cursor (S): snap to endpoints, midpoints, intersections, grid and alignments. Hold Alt to suspend." aria-label="Toggle snapping"><i data-icon="snap"></i> Snap</button>
+    <button id="snap-settings-btn" title="Snap settings: which snaps are on, grid spacing, angle step" aria-label="Snap settings"><i data-icon="chevron-down" data-size="12"></i></button>
     </span>
     <div class="toolbar-sep"></div>
     <button id="view-3d" class="active" aria-label="3D view" title="3D view (3)"><img src="/oebf/icons/plane-vertical.svg" width="16" height="16" alt=""> 3D</button>
@@ -260,14 +260,14 @@
     <button id="render-solid-edges" class="active" title="Solid with edge overlay" aria-label="Solid with edges">Edges</button>
     </span>
     <div class="toolbar-sep"></div>
-    <button id="lib-btn" title="Material library">Library</button>
+    <button id="lib-btn" title="Material library"><i data-icon="library"></i> Library</button>
     <div class="toolbar-sep"></div>
     <label for="units-select">Units</label>
     <select id="units-select" title="Display units">
       <option value="mm" selected>mm</option>
       <option value="m">m</option>
     </select>
-    <button id="help-btn" title="Shortcuts and mouse controls (?)" aria-label="Help" style="margin-left:auto;">?</button>
+    <button id="help-btn" title="Shortcuts and mouse controls (?)" aria-label="Help" style="margin-left:auto;"><i data-icon="help"></i></button>
   </div>
 
   <div id="main">

@@ -53,11 +53,11 @@
   <div id="header">
     <span id="project-name" style="color:#aaa">No bundle open</span>
     <span class="sep"></span>
-    <button id="new-btn" class="secondary icon-btn" disabled title="New profile"><img src="/oebf/icons/document.svg" width="16" height="16" alt=""> New</button>
-    <button id="open-btn" class="secondary icon-btn" title="Open a bundle folder"><img src="/oebf/icons/folder.svg" width="16" height="16" alt=""> Open</button>
-    <button id="save-btn" class="icon-btn" disabled title="Save (Ctrl+S)"><img src="/oebf/icons/save.svg" width="16" height="16" alt=""> Save</button>
-    <button id="undo-btn" class="secondary" disabled title="Undo (Ctrl+Z)">Undo</button>
-    <button id="redo-btn" class="secondary" disabled title="Redo (Ctrl+Shift+Z or Ctrl+Y)">Redo</button>
+    <button id="new-btn" class="secondary icon-btn" disabled title="New profile"><i data-icon="new"></i> New</button>
+    <button id="open-btn" class="secondary icon-btn" title="Open a bundle folder"><i data-icon="open"></i> Open</button>
+    <button id="save-btn" class="icon-btn" disabled title="Save (Ctrl+S)"><i data-icon="save"></i> Save</button>
+    <button id="undo-btn" class="secondary icon-btn" disabled title="Undo (Ctrl+Z)" aria-label="Undo"><i data-icon="undo"></i></button>
+    <button id="redo-btn" class="secondary icon-btn" disabled title="Redo (Ctrl+Shift+Z or Ctrl+Y)" aria-label="Redo"><i data-icon="redo"></i></button>
     <span id="dirty" hidden title="Unsaved changes" aria-label="Unsaved changes">●</span>
     <span class="sep"></span>
     <input id="profile-search" type="search" placeholder="Search profiles" style="width:120px;background:#333;color:#ddd;border:1px solid #555;border-radius:3px;padding:3px 6px;font-size:12px;" aria-label="Search profiles">
@@ -66,12 +66,12 @@
     <button id="rename-btn" class="secondary" title="Rename this profile and the elements and details that use it">Rename</button>
     <button id="delete-btn" class="secondary" title="Delete this profile (refused while anything uses it)">Delete</button>
     <span class="sep"></span>
-    <button id="tool-rect-btn" class="secondary" title="Draw a rectangular region">Rect</button>
-    <button id="tool-poly-btn" class="secondary" title="Draw a polygon region">Polygon</button>
+    <button id="tool-rect-btn" class="secondary icon-btn" title="Draw a rectangular region"><i data-icon="rect"></i> Rect</button>
+    <button id="tool-poly-btn" class="secondary icon-btn" title="Draw a polygon region"><i data-icon="polygon"></i> Polygon</button>
     <button id="add-h-guide-btn" class="secondary" title="Add a horizontal guide">H guide</button>
     <button id="add-v-guide-btn" class="secondary" title="Add a vertical guide">V guide</button>
     <span class="sep"></span>
-    <button id="fit-btn" class="secondary" title="Fit the detail in view (wheel zooms, middle-drag or Shift-drag pans)">Fit</button>
+    <button id="fit-btn" class="secondary icon-btn" title="Fit the detail in view (wheel zooms, middle-drag or Shift-drag pans)"><i data-icon="fit"></i> Fit</button>
     <label for="units-select" style="font-size:12px;color:#aaa;">Units</label>
     <select id="units-select" title="Display units" style="background:#333;color:#ddd;border:1px solid #555;border-radius:3px;padding:3px 6px;font-size:12px;">
       <option value="mm" selected>mm</option>
@@ -122,9 +122,7 @@
       </div>
       <div id="layer-list"></div>
       <div id="form-footer">
-        <button id="add-layer-btn" class="icon-btn" disabled aria-label="Add layer">
-          <img src="/oebf/icons/add.svg" width="16" height="16" alt="">
-        </button>
+        <button id="add-layer-btn" class="icon-btn" disabled title="Add a layer"><i data-icon="add"></i> Add layer</button>
       </div>
     </div>
   </div>

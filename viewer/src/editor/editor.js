@@ -73,6 +73,7 @@ import { ask, askForm, confirmDialog, notify, idValidator } from '../ui/dialog.j
 import { tidyToolbarSeparators } from '../ui/toolbar.js';
 import { enableTreeKeyboard } from '../ui/treeKeys.js';
 import { showBusy, setBusy, hideBusy, showError } from '../ui/notice.js';
+import { renderIcons } from '../ui/icons.js';
 import * as THREE from 'three';
 
 // ── DOM refs ─────────────────────────────────────────────────────────────────
@@ -2775,5 +2776,6 @@ function _showStoreyProps(id) {
 }
 storeyManager.onSelect = _showStoreyProps;
 
+renderIcons();
 tidyToolbarSeparators(document.getElementById('toolbar'));
 enableTreeKeyboard(document.getElementById('scene-tree-body'));

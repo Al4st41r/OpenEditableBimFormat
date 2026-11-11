@@ -14,6 +14,7 @@ import { PACKAGES, BARRIERS, FIRE_ROLES, SHEARING_LAYERS, SFB_PATTERN } from '..
 import { withTag, tagsToSave } from './layerTags.js';
 import { PEN_SERIES } from '../lineweights.js';
 import { toDisplay, fromDisplay, unitLabel } from '../editor/units.js';
+import { icon } from '../ui/icons.js';
 
 const ICON_BASE = import.meta.env.BASE_URL + 'icons/';
 
@@ -206,9 +207,9 @@ function _appendRow(formEl, layer, index) {
     fnSelect.appendChild(opt);
   });
 
-  const upBtn   = _btn('chevron-up.svg',   'Move layer up',   () => _move(formEl, index, -1));
-  const downBtn = _btn('chevron-down.svg', 'Move layer down', () => _move(formEl, index, +1));
-  const delBtn  = _btn('bin.svg',          'Delete layer',    () => _deleteRow(formEl, index));
+  const upBtn   = _btn('chevron-up',   'Move layer up',   () => _move(formEl, index, -1));
+  const downBtn = _btn('chevron-down', 'Move layer down', () => _move(formEl, index, +1));
+  const delBtn  = _btn('delete',       'Delete layer',    () => _deleteRow(formEl, index));
   const insBtn  = _textBtn('+', 'Insert a layer below this one', () => _insertAfter(formEl, index));
 
   matSelect.addEventListener('change', () => { if (matMap[matSelect.value]?.category === 'air') fnSelect.value = 'finish'; });   // an air cavity is a finish
@@ -250,16 +251,12 @@ function _appendRow(formEl, layer, index) {
   }
 }
 
-function _btn(iconFile, ariaLabel, onClick) {
+function _btn(iconName, ariaLabel, onClick) {
   const b = document.createElement('button');
   b.setAttribute('aria-label', ariaLabel);
-  b.style.cssText = 'padding:2px 4px;cursor:pointer;background:#333;border:1px solid #555;border-radius:2px;display:flex;align-items:center;';
-  const img = document.createElement('img');
-  img.src    = ICON_BASE + iconFile;
-  img.width  = 16;
-  img.height = 16;
-  img.alt    = '';
-  b.appendChild(img);
+  b.title = ariaLabel;
+  b.style.cssText = 'padding:2px 4px;cursor:pointer;background:#333;color:#ddd;border:1px solid #555;border-radius:2px;display:flex;align-items:center;';
+  b.appendChild(icon(iconName));
   b.addEventListener('click', onClick);
   return b;
 }

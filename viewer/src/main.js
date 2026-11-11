@@ -25,6 +25,9 @@ import { cutOpenings } from './geometry/openingCut.js';
 import { buildArrayGroup }       from './array/arrayRenderer.js';
 import { buildSymbolGeometries } from './loader/loadSymbol.js';
 import { buildGridLineSegments } from './loader/loadGrid.js';
+import { renderIcons } from './ui/icons.js';
+
+renderIcons();
 
 // --- Renderer ---
 const canvas = document.getElementById('canvas');

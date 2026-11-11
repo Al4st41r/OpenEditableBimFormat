@@ -10,7 +10,7 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { background: #1a1a1a; color: #ddd; font-family: 'Barlow', sans-serif; font-size: 13px; display: flex; flex-direction: column; height: 100vh; }
     button, select, input { font: inherit; }
-    #header { display: flex; align-items: center; flex-wrap: wrap; gap: 3px; padding: 6px 8px; background: #222; border-bottom: 1px solid #333; flex-shrink: 0; }
+    #header { display: flex; align-items: center; flex-wrap: wrap; gap: 2px; padding: 6px 8px; background: #222; border-bottom: 1px solid #333; flex-shrink: 0; }
     #header select, #header input, .panel select, .panel input[type=text], .panel input[type=number] { background: #333; color: #ddd; border: 1px solid #555; padding: 3px 6px; border-radius: 3px; }
     button { padding: 4px 8px; cursor: pointer; background: #333; color: #ddd; border: 1px solid #555; border-radius: 3px; }
     button:hover:not(:disabled) { background: #444; }
@@ -19,11 +19,12 @@
     button.primary:hover:not(:disabled) { background: #3a5a3a; }
     button.active { background: #1e3a5a; border-color: #4a8aaa; color: #fff; }
     .sep { width: 1px; align-self: stretch; background: #333; margin: 0 4px; }
-    #project-name { color: #aaa; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    #detail-select { max-width: 130px; }
-    #material-select { max-width: 100px; }
+    #project-name { color: #aaa; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #detail-select { max-width: 110px; }
+    #material-select { max-width: 90px; }
     #header .sep { margin: 0 1px; }
-    #header > button { padding: 4px 7px; }
+    #header > button { padding: 4px 6px; display: inline-flex; align-items: center; gap: 4px; }
+    .menu summary { display: inline-flex; align-items: center; gap: 4px; }
     #snap-menu summary { padding-left: 6px; padding-right: 6px; }
     #status { position: absolute; left: 10px; bottom: 10px; z-index: 5; max-width: 62%; padding: 5px 10px; border-radius: 4px; background: rgba(24,24,24,0.88); color: #ddd; font-size: 12px; pointer-events: none; }
     #status:empty { display: none; }
@@ -170,9 +171,9 @@
       <button id="zip-btn" hidden title="Download the whole bundle as a zip">Download bundle (zip)</button>
       <button id="publish-btn" title="Download the edited files and show how to put them on the site">Publish…</button>
     </div></details>
-    <button id="save-btn" class="primary" disabled title="Save (Ctrl+S)">Save</button>
-    <button id="undo-btn" disabled title="Undo (Ctrl+Z)">Undo</button>
-    <button id="redo-btn" disabled title="Redo (Ctrl+Y)">Redo</button>
+    <button id="save-btn" class="primary" disabled title="Save (Ctrl+S)"><i data-icon="save"></i> Save</button>
+    <button id="undo-btn" disabled title="Undo (Ctrl+Z)" aria-label="Undo"><i data-icon="undo"></i></button>
+    <button id="redo-btn" disabled title="Redo (Ctrl+Y)" aria-label="Redo"><i data-icon="redo"></i></button>
     <span id="dirty" hidden title="Unsaved changes" aria-label="Unsaved changes">●</span>
     <span class="sep"></span>
     <select id="detail-select" disabled aria-label="Detail"><option value="">— select detail —</option></select>
@@ -180,10 +181,10 @@
     <button id="view-switch-btn" disabled title="Switch to the same junction in the other view: plan or section">Plan / Section</button>
     <button id="profile-btn" title="Edit the profile of the selected member (opens the profile editor); changes come back here when you save there">Profile</button>
     <span class="sep"></span>
-    <button id="tool-select" class="active" title="Select and move (V)">Select</button>
-    <button id="tool-rect" title="Rectangle region (R)">Rect</button>
-    <button id="tool-polygon" title="Polygon region (P)">Polygon</button>
-    <button id="tool-measure" title="Measure distance and angle between two points (M)">Measure</button>
+    <button id="tool-select" class="active" title="Select and move (V)"><i data-icon="select"></i> Select</button>
+    <button id="tool-rect" title="Rectangle region (R)"><i data-icon="rect"></i> Rect</button>
+    <button id="tool-polygon" title="Polygon region (P)"><i data-icon="polygon"></i> Polygon</button>
+    <button id="tool-measure" title="Measure distance and angle between two points (M)"><i data-icon="measure"></i> Measure</button>
     <details id="marks-menu"><summary id="marks-summary" title="Lines, arcs, circles, dimensions and notes">Marks</summary><div id="marks-menu-body">
       <button id="tool-line" title="Open line: a break line, centre line or damp-proof course (L). Enter or double-click finishes.">Line</button>
       <button id="tool-arc" title="Arc: centre, start, end, anticlockwise (A)">Arc</button>
@@ -199,7 +200,7 @@
     <button id="thin-btn" title="Draw every line as a hairline, so the drawing reads as a sketch. Pen weights are kept in the data.">Thin</button>
     <select id="units-select" title="Display units" aria-label="Units"><option value="mm" selected>mm</option><option value="m">m</option></select>
     <button id="view3d-btn" title="See this detail in 3D, including unsaved changes (opens the review page)">3D</button>
-    <button id="help-btn" title="Keyboard and mouse shortcuts (?)" aria-label="Help">?</button>
+    <button id="help-btn" title="Keyboard and mouse shortcuts (?)" aria-label="Help"><i data-icon="help"></i></button>
   </div>
   <div id="main">
     <div id="left-panel" class="panel"></div>

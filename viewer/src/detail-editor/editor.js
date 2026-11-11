@@ -50,6 +50,7 @@ import { setRegionEdgeLength, setRegionSize } from './dimensionOps.js';
 import { KINDS, PLANES, TOOLS, MARK_TOOLS, SHORTCUTS } from './detailConstants.js';
 import { confirmDialog } from '../ui/dialog.js';
 import { tidyToolbarSeparators } from '../ui/toolbar.js';
+import { renderIcons } from '../ui/icons.js';
 
 const $ = (id) => document.getElementById(id);
 const svg = $('canvas');
@@ -1129,4 +1130,5 @@ document.addEventListener('paste', (e) => {
 });
 window.addEventListener('keyup', (e) => { if (e.key === 'Alt') pointer.alt = false; });
 
+renderIcons();
 tidyToolbarSeparators(document.getElementById('header'));

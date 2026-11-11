@@ -2,7 +2,7 @@
 
 **Date:** 2026-11-11
 **Branch:** main
-**Tests:** 2080 JS (Vitest, 130 test files) + 420 Python (pytest)
+**Tests:** 2083 JS (Vitest, 131 test files) + 420 Python (pytest)
 
 ---
 
@@ -11,6 +11,8 @@
 v0.1.0 is released and `v0.2.0-editor-alpha` is tagged. The work planned for v0.3 (IFC in the editor, snapping, the full properties panel) and v0.4 (the junction detail system) is delivered on main but not yet tagged. Since then the project has added the detail review page with seven overlays, the New Model Building example bundle, `oebf validate` and `oebf apply`, openings cut through walls, and editor undo and redo. Phase 8 (editor polish and spec conformance) is in progress. The build is deployed at `architools.drawingtable.net/oebf/`.
 
 **Editor consistency and safety (#136, 2026-11-11).** The three editors share one toolbar order (see `docs/ui-conventions.md`). Every browser `prompt`, `alert` and `confirm` is replaced by an in-app dialog that checks its fields as you type (`viewer/src/ui/dialog.js`). The profile editor has undo and redo, an unsaved marker and a leave warning (`profileHistory.js`). The detail editor's open, import, export and publish actions are in one File menu, and its toolbar fits one row at 1400 px. In the 3D editor, undo names its step ("Undo: edit path-wall-south-gf"), and undoing a path edit redraws only the elements on that path. A veil with a spinner shows while a bundle loads, errors stay on screen until dismissed, the scene tree works from the keyboard, low-contrast text is raised to at least 4.5:1, the Edit tool has its own icon, and a separator never starts or ends a wrapped toolbar row. End-to-end tests answer the dialogs through `tests/e2e/dialogAnswers.js`.
+
+**Lucide icons (2026-11-11).** Generic commands in the editors, the viewer and the launch page use Lucide icons (pinned at 1.72.0), drawn inline from `viewer/src/ui/icons.js` so they follow the button's colour and state. Undo, Redo and Help are icon-only. The building-specific icons (layer functions, planes, storey, arcs, logo) remain our own. The mapping is in `docs/ui-conventions.md`.
 
 The sections below record delivery in the order it happened; the earlier tables are kept as a history.
 

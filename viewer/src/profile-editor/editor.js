@@ -26,6 +26,7 @@ import { ask, confirmDialog, notify, idValidator } from '../ui/dialog.js';
 import { ProfileHistory } from './profileHistory.js';
 import { tidyToolbarSeparators } from '../ui/toolbar.js';
 import { showError } from '../ui/notice.js';
+import { renderIcons } from '../ui/icons.js';
 
 // ── DOM refs ─────────────────────────────────────────────────────────────────
 const profileSvg    = document.getElementById('profile-svg');
@@ -793,4 +794,5 @@ if (window.opener) {
   });
 }
 
+renderIcons();
 tidyToolbarSeparators(document.getElementById('header'));
