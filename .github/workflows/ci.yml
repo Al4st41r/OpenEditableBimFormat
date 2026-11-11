@@ -38,3 +38,4 @@ jobs:
           key: ifc-tools-venv-${{ hashFiles('ifc-tools/uv.lock') }}
       - run: cd ifc-tools && uv sync
       - run: cd ifc-tools && uv run pytest tests/ -v
+      - run: cd live-server && uv run pytest tests/ -q

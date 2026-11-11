@@ -1,6 +1,6 @@
 {
   "name": "oebf-viewer",
-  "version": "0.2.157",
+  "version": "0.2.160",
   "description": "Three.js viewer for OEBF building models",
   "type": "module",
   "scripts": {

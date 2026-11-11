@@ -127,6 +127,8 @@
       display: flex; align-items: center; gap: 6px;
       padding: 3px 10px 3px 20px; cursor: pointer; font-size: 12px;
     }
+    .tree-item-btn { margin-left: auto; display: inline-flex; align-items: center; padding: 2px 3px; background: none; border: 1px solid transparent; border-radius: 3px; color: #aaa; cursor: pointer; }
+    .tree-item-btn:hover { color: #fff; border-color: #555; background: #333; }
     .tree-item:hover { background: #2a2a2a; }
     .tree-item.active { background: #1e3a5a; border-left: 2px solid #4a8aaa; padding-left: 18px; }
     .tree-item-eye { background: none; border: none; color: #aaa; cursor: pointer; font-size: 12px; margin-left: auto; padding: 0 2px; }
@@ -207,6 +209,7 @@
     #welcome-open:hover { background: #3a3a3a; }
     #welcome-starters-box { margin-top: 26px; padding-top: 18px; border-top: 1px solid #444; text-align: left; max-width: 420px; }
     #welcome-starters-box h2 { font-size: 12px; font-weight: 700; color: #bbb; margin-bottom: 10px; text-align: center; }
+    #welcome-starters-note { font-size: 12px; color: #aaa; margin: -4px 0 10px; text-align: center; }
     #welcome-starters { display: flex; flex-direction: column; gap: 8px; }
     .welcome-starter { background: #2a2a2a; color: #ddd; border: 1px solid #555; border-radius: 3px; padding: 8px 12px; text-align: left; cursor: pointer; }
     .welcome-starter:hover { background: #333; border-color: #4a8aaa; }
@@ -231,6 +234,7 @@
       </div>
       <div id="welcome-starters-box">
         <h2>Or start from an example</h2>
+        <p id="welcome-starters-note">A copy is saved to your computer and opened, so your changes are kept.</p>
         <div id="welcome-starters"></div>
       </div>
     </div>
@@ -242,6 +246,7 @@
       <i data-icon="open"></i><span class="lbl">Open</span></button>
     <button id="save-btn" disabled aria-label="Save" title="Save (Ctrl+S)">
       <i data-icon="save"></i><span class="lbl">Save</span></button>
+    <button id="save-folder-btn" hidden title="Save to folder: write this bundle into a folder and keep working on it there, so every change is saved as you make it" aria-label="Save to folder"><i data-icon="save-folder"></i></button>
     <button id="undo-btn" disabled title="Undo (Ctrl+Z)" aria-label="Undo"><i data-icon="undo"></i></button>
     <button id="redo-btn" disabled title="Redo (Ctrl+Shift+Z)" aria-label="Redo"><i data-icon="redo"></i></button>
     <button id="ifc-btn" title="IFC import / export" class="short" aria-label="IFC"><i data-icon="import"></i><span class="lbl">IFC</span></button>

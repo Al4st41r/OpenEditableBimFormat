@@ -46,7 +46,7 @@ Buttons carry words, with an icon where one exists. Undo, Redo and Help are icon
 | Grid planes | `planes` | grid-2x2 | H, V guide | `h-guide`, `v-guide` | separator-horizontal, separator-vertical |
 | Marks | `marks` | pen-tool | Line, Circle | `line`, `circle` | minus, circle |
 | Arc | `arc` | (our own) | Dimension, Note | `dimension`, `note` | move-horizontal, message-square-text |
-| 3D model | `model` | box | | | |
+| 3D model | `model` | box | Save to folder | `save-folder` | folder-down |
 
 ## Names
 

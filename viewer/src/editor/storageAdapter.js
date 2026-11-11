@@ -1,14 +1,14 @@
 /**
  * storageAdapter.js — Storage backend abstraction for the OEBF editor.
  *
- * Two implementations:
+ * Three implementations:
  *   FsaAdapter    — wraps FileSystemDirectoryHandle (Chrome/Edge)
  *   MemoryAdapter — in-memory Map; saves by downloading a zip
+ *   ServerAdapter — the live copy on the server (live-server/live_server.py); every write is stored as it is made
  */
 
 import { zipSync } from 'fflate';
-import { decompress } from 'fzstd';
-import { extractFilesFromTar } from '../loader/loadBundleZstd.js';
+import { readArchiveFiles, archiveName } from '../loader/loadBundleZstd.js';
 
 // ── FsaAdapter ───────────────────────────────────────────────────────────────
 
@@ -90,18 +90,13 @@ export class FsaAdapter {
 
 export class MemoryAdapter {
   /**
-   * Build a MemoryAdapter from a .oebfz File object.
-   * Decompresses with fzstd, extracts tar, returns a MemoryAdapter.
+   * Build a MemoryAdapter from a bundle archive: a .oebfz, or the .oebf.zip that Save downloads.
    *
    * @param {File} file
    * @returns {Promise<MemoryAdapter>}
    */
   static async fromFile(file) {
-    const compressed = new Uint8Array(await file.arrayBuffer());
-    const tarBytes   = decompress(compressed);
-    const fileMap    = extractFilesFromTar(tarBytes);
-    const name = file.name.replace(/\.oebfz$/, '');
-    return new MemoryAdapter(fileMap, name);
+    return new MemoryAdapter(readArchiveFiles(new Uint8Array(await file.arrayBuffer())), archiveName(file.name));
   }
 
   /**
@@ -168,5 +163,54 @@ export class MemoryAdapter {
     a.download   = `${this.name}.oebf.zip`;
     a.click();
     URL.revokeObjectURL(url);
+  }
+}
+
+// ── ServerAdapter ────────────────────────────────────────────────────────────
+
+/** Where the live copy is served (nginx asks for its password). */
+export const LIVE_BASE = '/oebf-live/api/';
+
+export class ServerAdapter {
+  /**
+   * @param {string} base - the API root, eg LIVE_BASE
+   * @param {string} name
+   * @param {typeof fetch} [fetchFn]
+   */
+  constructor(base, name, fetchFn = (...a) => fetch(...a)) {
+    this.type  = 'server';
+    this.base  = base.endsWith('/') ? base : `${base}/`;
+    this.name  = name;
+    this._fetch = fetchFn;
+  }
+
+  _url(kind, path) { return this.base + kind + '/' + path.split('/').filter(Boolean).map(encodeURIComponent).join('/'); }
+
+  async _ok(res, path) {
+    if (!res.ok) throw new Error(`${path}: ${res.status === 404 ? 'not found' : `server answered ${res.status}`}`);
+    return res;
+  }
+
+  async readRaw(path) {
+    return (await this._ok(await this._fetch(this._url('files', path), { cache: 'no-store' }), path)).text();
+  }
+
+  async readJson(path) { return JSON.parse(await this.readRaw(path)); }
+
+  async writeRaw(path, text) {
+    await this._ok(await this._fetch(this._url('files', path), { method: 'PUT', body: text, headers: { 'Content-Type': 'text/plain' } }), path);
+  }
+
+  async writeJson(path, data) { await this.writeRaw(path, JSON.stringify(data, null, 2)); }
+
+  async deleteFile(path) {
+    await this._ok(await this._fetch(this._url('files', path), { method: 'DELETE' }), path);
+  }
+
+  async listDir(path) {
+    try {
+      const res = await this._fetch(this._url('list', path), { cache: 'no-store' });
+      return res.ok ? await res.json() : [];
+    } catch { return []; }
   }
 }

@@ -1,8 +1,8 @@
 /**
  * starters.js — The example bundles the editor offers as starting points (issue #118).
  *
- * Each is a packed .oebfz served beside the app (public/). Opening one loads it in memory, so nothing is
- * written to disk until the user saves.
+ * Each is a packed .oebfz served beside the app (public/). The welcome screen copies the chosen one to the
+ * user's machine and opens that copy (editor.js, _downloadAndOpenStarter); a ?demo link opens it in memory.
  */
 
 export const STARTERS = [

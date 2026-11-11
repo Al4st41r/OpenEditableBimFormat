@@ -6,7 +6,8 @@
  *
  * Storage backends:
  *   FsaAdapter    — FileSystemDirectoryHandle (Chrome/Edge, read/write to disk)
- *   MemoryAdapter — in-memory Map loaded from .oebfz (all browsers, save = zip download)
+ *   MemoryAdapter — in-memory Map loaded from .oebfz or .oebf.zip (all browsers, save = zip download)
+ *   ServerAdapter — the private live copy on the server (?live); every write is stored as it is made
  */
 
 import { buildMaterialTreeItem } from './materialTreeItem.js';
@@ -44,7 +45,10 @@ import { FloorTool } from './floorTool.js';
 import { JunctionEditor } from './junctionEditor.js';
 import { DrawingTool } from './drawingTool.js';
 import { PathEditTool } from './pathEditTool.js';
-import { FsaAdapter, MemoryAdapter } from './storageAdapter.js';
+import { FsaAdapter, MemoryAdapter, ServerAdapter, LIVE_BASE } from './storageAdapter.js';
+import { ARCHIVE_ACCEPT } from '../loader/loadBundleZstd.js';
+import { bundleMessage, isMessage, AXO_READY } from '../detail-axo/editorHandoff.js';
+import { icon } from '../ui/icons.js';
 import { mergeStoreyGroups, syncHierarchyStoreys } from '../detail/levelResolver.js';
 import { buildOpeningOutline } from '../loader/loadOpening.js';
 import { objectPlacement, buildObjectGroup, colourLookup } from '../loader/loadObject.js';
@@ -102,9 +106,13 @@ treeVersion.textContent = `v${__APP_VERSION__}`;
 function _setBundleOpen(name, memoryMode = false) {
   treeFilename.textContent = name;
   statusBar.textContent = `Opened ${name}`;
-  document.getElementById('status-mode').textContent = memoryMode
-    ? 'In memory: Save downloads the bundle as a zip'
-    : 'Folder open: changes are written to it as you make them';
+  document.getElementById('status-mode').textContent = adapter?.type === 'server'
+    ? 'Live copy on the server: changes are stored as you make them'
+    : memoryMode
+      ? 'In memory: Save downloads the bundle as a zip, or Save to folder keeps working on it as files'
+      : 'Folder open: changes are written to it as you make them';
+  // a bundle in memory can become a folder (Chromium browsers only)
+  document.getElementById('save-folder-btn').hidden = !(adapter?.type === 'memory' && window.showDirectoryPicker);
 }
 
 // ── Scene ────────────────────────────────────────────────────────────────────
@@ -211,7 +219,7 @@ let _renderGen = 0;
 // ── Hidden file input for .oebfz loading (all browsers) ───────────────────────
 const _fileInput = document.createElement('input');
 _fileInput.type   = 'file';
-_fileInput.accept = '.oebfz';
+_fileInput.accept = ARCHIVE_ACCEPT;
 _fileInput.style.display = 'none';
 document.body.appendChild(_fileInput);
 
@@ -491,7 +499,7 @@ function _showOpenMenu() {
     }
   }));
 
-  menu.appendChild(_menuItem('Open .oebfz file (all browsers)', () => {
+  menu.appendChild(_menuItem('Open .oebfz or .zip file (all browsers)', () => {
     _fileInput.click();
   }));
 
@@ -1110,9 +1118,36 @@ function _addDetailToTree(id) {
   const span = document.createElement('span');
   span.className = 'tree-item-name';
   span.textContent = id;
-  el.appendChild(span);
+  const review = document.createElement('button');
+  review.className = 'tree-item-btn';
+  review.title = 'Open in the detail review: 3D axonometric and drawing';
+  review.setAttribute('aria-label', `Review ${id} in 3D`);
+  review.append(icon('model', 13));
+  review.addEventListener('click', (e) => { e.stopPropagation(); _openDetailReview(id); });
+  el.append(span, review);
   el.addEventListener('click', () => _openDetailEditor(id));
   list.appendChild(el);
+}
+
+/**
+ * Open the detail review page (detail-axo.html) on this bundle, with `detailId` selected. The page asks for the
+ * bundle once it has loaded and is answered with it as this editor holds it (see detail-axo/editorHandoff.js).
+ */
+function _openDetailReview(detailId = null) {
+  if (!adapter) return;
+  const q = new URLSearchParams({ from: 'editor' });
+  if (detailId) q.set('detail', detailId);
+  const tab = window.open(`${import.meta.env.BASE_URL}detail-axo.html?${q}`, '_blank');
+  if (!tab) { statusBar.textContent = 'Pop-up blocked — allow pop-ups for this site.'; return; }
+  const onReady = async (e) => {
+    if (!isMessage(e, AXO_READY, { ownOrigin: window.location.origin, source: tab })) return;
+    window.removeEventListener('message', onReady);
+    try {
+      await _writeModelJson();   // what this session added is in the files the review page reads
+      tab.postMessage(bundleMessage(adapter), window.location.origin);
+    } catch (err) { _reportError(`Detail review failed: ${err.message}`); }
+  };
+  window.addEventListener('message', onReady);
 }
 
 function _openDetailInProfileEditor(id) {
@@ -2135,33 +2170,129 @@ window.__editor = {
 };
 
 // ── Starter models (#118): the welcome overlay lists them; ?demo opens the default, ?demo=<id> another ─────
+// Choosing one copies it to the user's machine and opens that copy, so the edits are theirs to keep:
+// in Chromium browsers into a new <id>.oebf folder in a folder they pick (saved as they edit); elsewhere
+// it downloads as <id>.oebf.zip and opens in memory (Save downloads the updated zip).
+async function _fetchStarter(starter) {
+  const resp = await fetch(import.meta.env.BASE_URL + starter.file);
+  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+  return MemoryAdapter.fromFile(new File([await resp.blob()], starter.file));
+}
+
+/** A new, empty folder for the bundle inside `parent`: name.oebf, or name-2.oebf and so on if that is taken. */
+async function _newBundleFolder(parent, name) {
+  for (let n = 1; ; n++) {
+    const dirName = n === 1 ? `${name}.oebf` : `${name}-${n}.oebf`;
+    try { await parent.getDirectoryHandle(dirName); continue; }   // taken: never write into an existing folder
+    catch (e) {
+      if (e.name === 'TypeMismatchError') continue;   // a file of that name
+      if (e.name !== 'NotFoundError') throw e;
+    }
+    return parent.getDirectoryHandle(dirName, { create: true });
+  }
+}
+
+/** Write every file of an in-memory bundle into a folder and carry on editing there. */
+async function _moveToFolder(memory, handle) {
+  const files = (memory.inner ?? memory)._map;
+  const folder = new FsaAdapter(handle);
+  for (const [path, text] of files) await folder.writeRaw(path, text);
+  _useAdapter(folder);
+  await _loadAndRenderBundle(adapter);
+  _enableEditorTools();
+  _setBundleOpen(handle.name, false);
+  saveBtn.disabled = false;
+  return files.size;
+}
+
+async function _openStarterInMemory(memory) {
+  _useAdapter(memory);
+  await _loadAndRenderBundle(adapter);
+  _enableEditorTools();
+  _setBundleOpen(adapter.name, true);
+  saveBtn.disabled = false;
+}
+
+/** ?demo: opened straight from the link, with no click to allow a folder picker, so it stays in memory. */
 async function _openStarter(starter) {
   try {
     statusBar.textContent = `Opening ${starter.title}…`;
-    const resp = await fetch(import.meta.env.BASE_URL + starter.file);
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    _useAdapter(await MemoryAdapter.fromFile(new File([await resp.blob()], starter.file)));
-    await _loadAndRenderBundle(adapter);
-    _enableEditorTools();
-    _setBundleOpen(adapter.name, true);
-    saveBtn.disabled = false;
+    await _openStarterInMemory(await _fetchStarter(starter));
   } catch (e) { _reportError(`Error: ${e.message}`); }
 }
 
+/** The welcome overlay's example buttons: download a copy, then open it. */
+async function _downloadAndOpenStarter(starter) {
+  try {
+    if (window.showDirectoryPicker) {
+      let parent;
+      try { parent = await window.showDirectoryPicker({ mode: 'readwrite', id: 'oebf-starter', startIn: 'documents' }); }
+      catch (e) { if (e.name !== 'AbortError') throw e; return; }   // cancelled: stay on the welcome screen
+      statusBar.textContent = `Copying ${starter.title}…`;
+      const memory = await _fetchStarter(starter);
+      const handle = await _newBundleFolder(parent, starter.id);
+      const count = await _moveToFolder(memory, handle);
+      statusBar.textContent = `Copied ${count} files to ${parent.name}/${handle.name} and opened it. Changes are saved there as you make them.`;
+    } else {
+      statusBar.textContent = `Downloading ${starter.title}…`;
+      const memory = await _fetchStarter(starter);
+      memory.downloadZip();
+      await _openStarterInMemory(memory);
+      statusBar.textContent = `Downloaded ${memory.name}.oebf.zip and opened it. Save downloads the updated zip; open it again with Open.`;
+    }
+  } catch (e) { _reportError(`The example did not open: ${e.message}`); }
+}
+
+document.getElementById('welcome-starters-note').textContent = window.showDirectoryPicker
+  ? 'Choose a folder: a copy of the example is made in it and opened, and your changes are saved there.'
+  : 'The example downloads as a zip and opens. Save downloads your updated copy.';
 for (const starter of STARTERS) {
   const btn = document.createElement('button');
   btn.className = 'welcome-starter';
   const title = document.createElement('strong'); title.textContent = starter.title;
   const about = document.createElement('span'); about.textContent = starter.description;
   btn.append(title, about);
-  btn.addEventListener('click', () => _openStarter(starter));
+  btn.addEventListener('click', () => _downloadAndOpenStarter(starter));
   document.getElementById('welcome-starters').appendChild(btn);
 }
 
 {
   const params = new URLSearchParams(window.location.search);
-  if (params.has('demo')) _openStarter(starterFor(params.get('demo')));
+  if (params.has('live')) _openLive();
+  else if (params.has('demo')) _openStarter(starterFor(params.get('demo')));
 }
+
+// ── The private live copy (?live): a bundle on the server, behind a password, saved as it is edited ─────────
+async function _openLive() {
+  try {
+    statusBar.textContent = 'Opening the live copy…';
+    const live = new ServerAdapter(LIVE_BASE, 'Live copy');
+    try { live.name = (await live.readJson('manifest.json')).project_name ?? live.name; } catch { /* keep the default name */ }
+    _useAdapter(live);
+    await _loadAndRenderBundle(adapter);
+    _enableEditorTools();
+    _setBundleOpen(`${adapter.name} (live)`);
+    saveBtn.disabled = false;
+  } catch (e) { _reportError(`The live copy did not open: ${e.message}. It needs its password and the oebf-live service.`); }
+}
+
+// ── Save to folder: a bundle held in memory is written into a folder, and the editor carries on there ─────────
+async function _saveToFolder() {
+  if (adapter?.type !== 'memory') return;
+  let handle;
+  try { handle = await window.showDirectoryPicker({ mode: 'readwrite', id: 'oebf-save-folder' }); }
+  catch (e) { if (e.name !== 'AbortError') _reportError(`Save to folder failed: ${e.message}`); return; }
+  let used = false;
+  for await (const _ of handle.values()) { used = true; break; }
+  if (used && !await confirmDialog(`${handle.name} is not empty. Files in it with the same names as the bundle's are replaced.`, { ok: 'Save into it', danger: true, title: 'Save to folder' })) return;
+  try {
+    statusBar.textContent = `Saving to ${handle.name}…`;
+    await _writeModelJson();
+    const count = await _moveToFolder(adapter, handle);
+    statusBar.textContent = `Saved ${count} files to ${handle.name}. Changes now go straight into that folder.`;
+  } catch (e) { _reportError(`Save to folder failed: ${e.message}`); }
+}
+document.getElementById('save-folder-btn').addEventListener('click', _saveToFolder);
 
 // ── Junctions: list, and make one by hand ─────────────────────────────────────
 

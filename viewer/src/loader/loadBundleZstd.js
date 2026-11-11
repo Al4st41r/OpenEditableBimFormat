@@ -1,7 +1,8 @@
 /**
  * loadBundleZstd.js
  *
- * Loads an OEBF bundle from a Zstd-compressed .oebfz archive (File object).
+ * Loads an OEBF bundle from a Zstd-compressed .oebfz archive, or from the .oebf.zip the editor's Save downloads
+ * (readArchiveFiles tells them apart by their first bytes).
  * Decompresses with fzstd (WASM), extracts files from a POSIX tar,
  * then runs the same geometry pipeline as loadBundle().
  *
@@ -11,12 +12,45 @@
 
 import { loadDetails } from '../detail/loadDetails.js';
 import { decompress } from 'fzstd';
+import { unzipSync } from 'fflate';
 import { parsePath }           from './loadPath.js';
 import { buildProfileShape }   from './loadProfile.js';
 import { sweepProfile, sweepOptionsFromElement } from '../geometry/sweep.js';
 import { buildSlabMeshData }   from './loadSlab.js';
 import { buildOpeningOutline } from './loadOpening.js';
 import { loadObjectPlacement } from './loadObject.js';
+
+// ── Archives ────────────────────────────────────────────────────────────────
+
+/** File types a bundle archive can be opened from, for a file input's accept attribute. */
+export const ARCHIVE_ACCEPT = '.oebfz,.zip';
+
+/** The bundle's name from its archive's file name: "terraced-house.oebf.zip" and "terraced-house.oebfz" give "terraced-house". */
+export const archiveName = (fileName) => fileName.replace(/(\.oebfz|\.oebf\.zip|\.zip)$/i, '').replace(/\.oebf$/i, '');
+
+/**
+ * The files in a bundle archive: a zip (the editor's Save, or a folder zipped by hand) or a .oebfz (Zstd tar).
+ * A zip made from the folder itself (terraced-house.oebf/model.json) has that folder taken off, and the
+ * __MACOSX and .DS_Store entries a Mac adds are left out.
+ *
+ * @param {Uint8Array} bytes
+ * @returns {Map<string, string>} path in the bundle -> text
+ */
+export function readArchiveFiles(bytes) {
+  const isZip = bytes[0] === 0x50 && bytes[1] === 0x4b;   // "PK"
+  if (!isZip) return extractFilesFromTar(decompress(bytes));
+  const decoder = new TextDecoder();
+  const entries = Object.entries(unzipSync(bytes))
+    .filter(([path]) => !path.endsWith('/') && !path.startsWith('__MACOSX/') && !path.split('/').pop().startsWith('.'));
+  let paths = entries.map(([p]) => p);
+  if (!paths.includes('model.json')) {
+    const inner = paths.find((p) => p.endsWith('/model.json'));
+    if (!inner) throw new Error('This zip has no model.json, so it is not an OEBF bundle');
+    const prefix = inner.slice(0, -'model.json'.length);
+    return new Map(entries.filter(([p]) => p.startsWith(prefix)).map(([p, data]) => [p.slice(prefix.length), decoder.decode(data)]));
+  }
+  return new Map(entries.map(([p, data]) => [p, decoder.decode(data)]));
+}
 
 // ── Tar extraction ──────────────────────────────────────────────────────────
 
@@ -70,9 +104,7 @@ export function extractFilesFromTar(tarBytes) {
  * @returns {Promise<{ meshes: Array, manifest: object, junctions: Array, arrays: Array, grids: Array }>}
  */
 export async function loadBundleZstd(file) {
-  const compressed = new Uint8Array(await file.arrayBuffer());
-  const tarBytes   = decompress(compressed);
-  const fileMap    = extractFilesFromTar(tarBytes);
+  const fileMap = readArchiveFiles(new Uint8Array(await file.arrayBuffer()));
 
   function readJson(path) {
     const text = fileMap.get(path);

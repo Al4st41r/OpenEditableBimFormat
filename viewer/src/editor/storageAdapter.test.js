@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest';
-import { MemoryAdapter } from './storageAdapter.js';
+import { MemoryAdapter, ServerAdapter, LIVE_BASE } from './storageAdapter.js';
 import { writeEntity, readEntity, writeModelJson } from './bundleWriter.js';
 
 describe('MemoryAdapter', () => {
@@ -66,5 +66,52 @@ describe('bundleWriter with MemoryAdapter', () => {
     await writeModelJson(adapter, { elements: ['el-a'] });
     const model = await readEntity(adapter, 'model.json');
     expect(model.elements).toContain('el-a');
+  });
+});
+
+describe('ServerAdapter', () => {
+  /** A fake live server over a Map, answering as live_server.py does. */
+  function fakeServer() {
+    const files = new Map([['model.json', '{"elements":[]}'], ['profiles/p 1.json', '{"id":"p 1"}']]);
+    const calls = [];
+    const fetchFn = async (url, opts = {}) => {
+      const method = opts.method ?? 'GET';
+      calls.push([method, url]);
+      const m = /^\/oebf-live\/api\/(files|list)\/(.*)$/.exec(url);
+      const rel = m[2].split('/').map(decodeURIComponent).join('/');
+      if (m[1] === 'list') {
+        const names = [...files.keys()].filter((k) => k.startsWith(rel + '/')).map((k) => k.slice(rel.length + 1)).filter((k) => !k.includes('/'));
+        return new Response(JSON.stringify(names), { status: 200 });
+      }
+      if (method === 'PUT') { files.set(rel, opts.body); return new Response(null, { status: 204 }); }
+      if (method === 'DELETE') { files.delete(rel); return new Response(null, { status: 204 }); }
+      return files.has(rel) ? new Response(files.get(rel), { status: 200 }) : new Response('not found', { status: 404 });
+    };
+    return { files, calls, adapter: new ServerAdapter(LIVE_BASE, 'Live copy', fetchFn) };
+  }
+
+  test('reads and writes JSON and text through the API, escaping each part of the path', async () => {
+    const { adapter, files, calls } = fakeServer();
+    expect(adapter.type).toBe('server');
+    expect(await adapter.readJson('profiles/p 1.json')).toEqual({ id: 'p 1' });
+    expect(calls.at(-1)).toEqual(['GET', '/oebf-live/api/files/profiles/p%201.json']);
+    await adapter.writeJson('details/d1.json', { id: 'd1' });
+    expect(JSON.parse(files.get('details/d1.json'))).toEqual({ id: 'd1' });
+    await adapter.writeRaw('profiles/p.svg', '<svg/>');
+    expect(await adapter.readRaw('profiles/p.svg')).toBe('<svg/>');
+  });
+
+  test('a missing file throws, an absent folder lists as empty, delete removes', async () => {
+    const { adapter } = fakeServer();
+    await expect(adapter.readJson('none.json')).rejects.toThrow(/not found/);
+    expect(await adapter.listDir('profiles')).toEqual(['p 1.json']);
+    expect(await adapter.listDir('junctions')).toEqual([]);
+    await adapter.deleteFile('profiles/p 1.json');
+    expect(await adapter.listDir('profiles')).toEqual([]);
+  });
+
+  test('a refused write (eg the password was not given) is an error, not silence', async () => {
+    const adapter = new ServerAdapter(LIVE_BASE, 'x', async () => new Response('', { status: 401 }));
+    await expect(adapter.writeJson('model.json', {})).rejects.toThrow(/401/);
   });
 });

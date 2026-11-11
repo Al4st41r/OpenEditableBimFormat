@@ -18,7 +18,7 @@ import {
   Library, Pentagon, Square, ChevronDown, ChevronUp, FileOutput, Box,
   PanelLeft, PanelRight, BookOpen, Columns2, Feather, Shapes, Crop, Frame, ImageDown, PencilRuler, History,
   Download, Copy, PencilLine, SeparatorHorizontal, SeparatorVertical, File, Package, Upload, ArrowLeftRight, PenTool,
-  Minus, Circle, MoveHorizontal, MessageSquareText, Cuboid, PenLine, Grid2x2,
+  Minus, Circle, MoveHorizontal, MessageSquareText, Cuboid, PenLine, Grid2x2, FolderDown,
 } from 'lucide';
 
 /** Our own drawings in Lucide's form (24 grid, stroke only), for commands Lucide has no icon for. */
@@ -34,6 +34,7 @@ export const ICONS = {
   open: FolderOpen,
   'open-archive': PackageOpen,
   save: Save,
+  'save-folder': FolderDown,
   undo: Undo2,
   redo: Redo2,
   select: MousePointer2,

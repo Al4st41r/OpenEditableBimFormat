@@ -14,3 +14,7 @@ bugs/
 example-NMB/
 cn
 uploads/
+
+# Private live copy edited through live-server (not in git)
+live/
+live-server/.venv/

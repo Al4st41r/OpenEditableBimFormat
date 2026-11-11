@@ -56,6 +56,7 @@ The open issue list is the plan: `gh issue list --state open`. At the time of wr
 | #134, #135 | Detail review leftovers; detail editor trim/extend for lines |
 | #127 | Membranes and tapes |
 | #137 | Seven Playwright specs fail on main (stale checks) |
+| #138 | Editor: Lines render mode shows nothing in 3D or plan view |
 
 ### Backlog / future phases
 

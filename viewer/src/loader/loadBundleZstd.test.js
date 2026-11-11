@@ -1,5 +1,7 @@
 import { describe, test, expect } from 'vitest';
-import { extractFilesFromTar } from './loadBundleZstd.js';
+import { extractFilesFromTar, readArchiveFiles, archiveName, ARCHIVE_ACCEPT } from './loadBundleZstd.js';
+import { zipSync, strToU8 } from 'fflate';
+import { MemoryAdapter } from '../editor/storageAdapter.js';
 
 // Build a minimal valid POSIX ustar tar block for a single file.
 // TAR format: 512-byte header + 512-byte-aligned data blocks.
@@ -58,5 +60,46 @@ describe('extractFilesFromTar', () => {
     const files = extractFilesFromTar(tar);
     expect(files.has('manifest.json')).toBe(true);
     expect(files.has('myproject.oebf/manifest.json')).toBe(false);
+  });
+});
+
+describe('readArchiveFiles: the .oebf.zip that Save downloads opens again', () => {
+  const bundle = { 'model.json': '{"elements":[]}', 'manifest.json': '{"project_name":"T"}', 'profiles/p.svg': '<svg/>' };
+  const zip = (files) => zipSync(Object.fromEntries(Object.entries(files).map(([p, t]) => [p, strToU8(t)])));
+
+  test('a zip with the bundle at its root, as Save writes it', () => {
+    const files = readArchiveFiles(zip(bundle));
+    expect(Object.fromEntries(files)).toEqual(bundle);
+  });
+
+  test('a zip of the folder itself, made on a Mac, loses the folder and the Mac extras', () => {
+    const nested = Object.fromEntries(Object.entries(bundle).map(([p, t]) => [`terraced-house.oebf/${p}`, t]));
+    const files = readArchiveFiles(zip({ ...nested, '__MACOSX/terraced-house.oebf/._model.json': 'x', 'terraced-house.oebf/.DS_Store': 'x' }));
+    expect(Object.fromEntries(files)).toEqual(bundle);
+  });
+
+  test('a zip that is not a bundle says so', () => {
+    expect(() => readArchiveFiles(zip({ 'readme.txt': 'hi' }))).toThrow(/no model.json/);
+  });
+
+  test('the name comes from the file name, whichever kind it is', () => {
+    expect(archiveName('terraced-house.oebf.zip')).toBe('terraced-house');
+    expect(archiveName('terraced-house.oebfz')).toBe('terraced-house');
+    expect(archiveName('terraced-house.zip')).toBe('terraced-house');
+    expect(ARCHIVE_ACCEPT.split(',')).toEqual(['.oebfz', '.zip']);
+  });
+
+  test('a project saved from memory reopens with the same files', async () => {
+    const saved = new MemoryAdapter(new Map(Object.entries(bundle)), 'terraced-house');
+    let blob;
+    const realCreate = URL.createObjectURL, realRevoke = URL.revokeObjectURL, realDoc = globalThis.document;
+    URL.createObjectURL = (b) => { blob = b; return 'blob:x'; };
+    URL.revokeObjectURL = () => {};
+    globalThis.document = { createElement: () => ({ click() {} }) };
+    try { saved.downloadZip(); } finally { URL.createObjectURL = realCreate; URL.revokeObjectURL = realRevoke; globalThis.document = realDoc; }
+    const reopened = await MemoryAdapter.fromFile(new File([await blob.arrayBuffer()], 'terraced-house.oebf.zip'));
+    expect(reopened.name).toBe('terraced-house');
+    expect(await reopened.readJson('manifest.json')).toEqual({ project_name: 'T' });
+    expect(await reopened.readRaw('profiles/p.svg')).toBe('<svg/>');
   });
 });

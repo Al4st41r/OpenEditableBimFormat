@@ -196,7 +196,7 @@ function _buildScene(meshes, manifest, junctions, arrays, grids, openings = [], 
 
 document.getElementById('open-dir-btn').addEventListener('click', async () => {
   if (!window.showDirectoryPicker) {
-    statusEl.textContent = 'Your browser does not support folder opening (Firefox). Use "Open .oebfz" instead.';
+    statusEl.textContent = 'Your browser does not support folder opening (Firefox). Use "Open archive" instead.';
     return;
   }
   statusEl.textContent = 'Opening…';
@@ -235,7 +235,7 @@ document.getElementById('load-demo-btn').addEventListener('click', async () => {
 document.getElementById('open-file-btn').addEventListener('click', () => {
   const input = document.createElement('input');
   input.type = 'file';
-  input.accept = '.oebfz';
+  input.accept = '.oebfz,.zip';
   input.onchange = async () => {
     const file = input.files[0];
     if (!file) return;

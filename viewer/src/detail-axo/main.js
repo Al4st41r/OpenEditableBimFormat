@@ -11,6 +11,7 @@
 
 import { FsaAdapter } from '../editor/storageAdapter.js';
 import { renderIcons } from '../ui/icons.js';
+import { AXO_READY, AXO_BUNDLE, isMessage, readerFor } from './editorHandoff.js';
 import { AxoViewer } from './axoScene.js';
 import { buildAxoModel, materialsUsed, usagesOf, AXO_VIEWS } from './detailAxo.js';
 import { httpReader, loadDetailData } from './loadDetailData.js';
@@ -459,5 +460,22 @@ $('download-btn').addEventListener('click', () => {
   URL.revokeObjectURL(a.href);
 });
 
-// Load the example straight away when a detail is named in the URL, so a link opens the picture.
-if (params.has('detail') || params.has('bundle')) $('demo-btn').click();
+// Opened from the 3D editor (?from=editor): ask it for the bundle it has open and show that.
+if (params.get('from') === 'editor' && window.opener) {
+  status('Waiting for the editor…');
+  window.addEventListener('message', async function onBundle(e) {
+    if (!isMessage(e, AXO_BUNDLE, { ownOrigin: window.location.origin, source: window.opener })) return;
+    window.removeEventListener('message', onBundle);
+    try {
+      const { readJson, label, handle } = readerFor(e.data, {
+        fsaReader: (h) => { const a = new FsaAdapter(h); return (p) => a.readJson(p); },
+        httpReader,
+      });
+      await open(readJson, label, handle);
+    } catch (err) { status(`Could not read the editor's bundle: ${err.message}`, true); }
+  });
+  window.opener.postMessage({ type: AXO_READY }, window.location.origin);
+} else if (params.has('detail') || params.has('bundle')) {
+  // Load the example straight away when a detail is named in the URL, so a link opens the picture.
+  $('demo-btn').click();
+}
