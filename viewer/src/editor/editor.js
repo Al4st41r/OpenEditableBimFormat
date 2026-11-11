@@ -10,6 +10,7 @@
  *   ServerAdapter — the private live copy on the server (?live); every write is stored as it is made
  */
 
+import { RENDER_MODES } from '../scene/renderMode.js';
 import { buildMaterialTreeItem } from './materialTreeItem.js';
 import { initEditorScene } from './editorScene.js';
 import { loadBundle }         from '../loader/loadBundle.js';
@@ -388,7 +389,7 @@ function _setRenderMode(mode) {
   localStorage.setItem('oebf-render-mode', mode);
 }
 
-const _validModes = ['solid', 'lines', 'solid+edges'];
+const _validModes = RENDER_MODES;
 const _storedMode = localStorage.getItem('oebf-render-mode');
 _setRenderMode(_validModes.includes(_storedMode) ? _storedMode : 'solid+edges');
 

@@ -6,6 +6,7 @@
  * Exports helpers for switching between 3D and plan view.
  */
 
+import { applyRenderMode } from '../scene/renderMode.js';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
@@ -112,16 +113,7 @@ export function initEditorScene(canvas) {
     _renderMode = mode;
     scene.background.setHex(mode === 'lines' ? 0xf5f5f0 : 0x1a1a1a);
 
-    // modelGroup contains only wall/floor geometry — construction plane is on
-    // `scene` directly, overlays are in `overlayGroup`, so isMesh check is safe.
-    modelGroup.traverse(child => {
-      if (child.name === 'edges') {
-        child.visible = mode === 'lines' || mode === 'solid+edges';
-        child.material.color.setHex(mode === 'lines' ? 0x222222 : 0x333333);
-      } else if (child.isMesh) {
-        child.visible = mode !== 'lines';
-      }
-    });
+    applyRenderMode(modelGroup, mode);   // overlays and the construction plane are outside modelGroup
   }
 
   function getRenderMode() { return _renderMode; }
