@@ -12,7 +12,7 @@ Existing BIM formats are not designed for inspection or editing by humans or lan
 
 OEBF takes a different approach. A model is a directory bundle — a folder with a `.oebf` extension — containing one JSON file per entity and one SVG file per profile. Every entity has a human-readable slug ID (`wall-south-gf`, not a GUID), a `$schema` field pointing to a JSON Schema definition, and a `description` field. An LLM can open any file in the bundle and understand exactly what it is looking at.
 
-The core modelling principle is path-first geometry: every building element is defined by sweeping a 2D profile along a 3D path. Walls, beams, rafters, pipes, and skirting boards all follow the same pattern. This constraint makes the format consistent, predictable, and easy for both humans and models to reason about. A junction — where two elements meet — is a first-class entity in its own file, not an implicit consequence of geometry overlap. The result is a format where a language model can edit a wall length, change a profile assembly, or reposition a junction by editing plain JSON, and see the result reflected immediately in the web viewer or Tauri desktop application.
+The core modelling principle is path-first geometry: every building element is defined by sweeping a 2D profile along a 3D path. Walls, beams, rafters, pipes, and skirting boards all follow the same pattern. This constraint makes the format consistent, predictable, and easy for both humans and models to reason about. A junction — where two elements meet — is a first-class entity in its own file, not an implicit consequence of geometry overlap. The result is a format where a language model can edit a wall length, change a profile assembly, or reposition a junction by editing plain JSON, and see the result in the web viewer or editor.
 
 ---
 
@@ -27,9 +27,11 @@ The core modelling principle is path-first geometry: every building element is d
 - Structural grids as first-class entities with IFC mapping
 - Project-level material library in a single `materials/library.json` with IFC name mapping
 - `OEBF-GUIDE.md` embedded in every bundle to provide LLM editing context without external documentation
-- IFC 4x3 import and export via Python CLI using IfcOpenShell
-- Web viewer: Three.js + Vite, `InstancedMesh` array rendering, GPU clipping planes for junction trim
-- Desktop wrapper: Tauri v2 with Rust `notify` crate for live file watching (planned — Issue #10)
+- Reusable construction details placed at junctions by grid location and level
+- IFC 4x3 import and export, both in the browser editor and through the Python CLI (IfcOpenShell)
+- `oebf validate` checks a bundle against its schemas and cross-references; `oebf apply` runs a validated batch of commands (`spec/commands.json`)
+- Browser apps: a 3D viewer, a 3D editor, a profile editor, a detail editor and a detail review page with analytical overlays
+- Desktop wrapper: Tauri v2 with live file watching (planned, Issue #10)
 - JSON Schema draft-07 validation for all entity types, schemas embedded in every bundle
 
 ---
@@ -58,51 +60,62 @@ project.oebf/
 ### Repository layout
 
 ```
-spec/schema/               # JSON Schema definitions for all entity types
-example/                   # terraced-house.oebf — reference bundle
-viewer/                    # Three.js + Vite web viewer
-  src/loader/              # bundle loaders (loadBundle, loadBundleZstd)
-  src/geometry/            # sweep engine, geometry cache
-  src/array/               # array distributor and renderer
-  src/scene/               # mesh builder
-  src/profile-editor/      # SVG profile editor (in-browser)
+spec/
+  schema/                  # JSON Schema definitions for all entity types (source of truth)
+  commands.json            # command vocabulary for `oebf apply`
+  OEBF-GUIDE-template.md   # the guide copied into every bundle
+example/
+  terraced-house.oebf/     # compact reference bundle
+  nmb-two-storey.oebf/     # two-storey mass timber and masonry bundle with 31 details
+viewer/                    # Three.js + Vite browser apps
+  index.html               # home page
+  viewer.html              # read-only 3D viewer
+  editor.html              # 3D authoring editor
+  profile-editor.html      # cross-section (profile) editor
+  detail-editor.html       # 2D junction detail editor
+  detail-axo.html          # detail review: 2D drawing, 3D axonometric and overlays
+  src/                     # loaders, geometry, editor, detail, IFC and snapping modules
   tests/e2e/               # Playwright end-to-end tests
-ifc-tools/                 # Python CLI: oebf ifc import / oebf ifc export
-  src/oebf/                # ifc_importer.py, ifc_exporter.py, cli.py
+ifc-tools/                 # Python CLI: oebf ifc-import, ifc-export, validate, apply
+  src/oebf/
   tests/                   # pytest test suite
+scripts/                   # schema sync, library build, CarbonBench sync
 docs/
   decisions/               # architecture decision records
   plans/                   # implementation plans
-  performance.md
+  project-status.md        # what is delivered and what is open
+  roadmap.md
 ```
 
 ---
 
 ## Quick Start
 
-### Open the example bundle in the viewer
+### Use the deployed apps
+
+The apps are deployed at `https://architools.drawingtable.net/oebf/`. Each app can open a bundle folder (File System Access API, Chromium browsers), an `.oebfz` archive, or one of the two example bundles.
+
+### Run the apps locally
 
 ```bash
 cd viewer
 npm install
 npm run dev
-# Open http://localhost:5173 (or the domain shown in the terminal)
-# Click "Open folder" and select example/terraced-house.oebf/
 ```
 
-### Validate a bundle with ajv
+Open the address Vite prints, then choose Open folder and select `example/terraced-house.oebf/`.
 
-```bash
-cd viewer
-npx ajv validate -s ../spec/schema/manifest.schema.json -d ../example/terraced-house.oebf/manifest.json
-```
-
-### IFC import
+### Command-line tools
 
 ```bash
 cd ifc-tools
-uv run oebf ifc import path/to/model.ifc --output ./output.oebf/
+uv run oebf validate ../example/terraced-house.oebf
+uv run oebf apply ../example/terraced-house.oebf commands.json --dry-run
+uv run oebf ifc-import path/to/model.ifc --output ./output.oebf/
+uv run oebf ifc-export ../example/terraced-house.oebf --output ./model.ifc
 ```
+
+`oebf apply` writes nothing if the commands would leave a new validation problem.
 
 ---
 
@@ -112,10 +125,11 @@ uv run oebf ifc import path/to/model.ifc --output ./output.oebf/
 |-------|-----------|-------|
 | Format | JSON Schema draft-07, SVG | Absolute metre coordinates, right-hand Z-up |
 | Compression | Zstd (`.oebfz`) | `fzstd` WASM for in-browser decompression |
-| Viewer | Three.js 0.170+, Vite 6, Vitest | `InstancedMesh`, GPU clipping planes for junctions |
-| IFC tools | Python 3.12, IfcOpenShell, uv | CLI only in v0.1; WASM planned for v0.2 |
+| Browser apps | Three.js 0.170+, Vite 6, Vitest, Playwright | `InstancedMesh` arrays, GPU clipping planes for junctions |
+| IFC tools | Python 3.12, IfcOpenShell, uv; a JavaScript STEP reader and writer in the browser | Two implementations, see #133 |
+| CSG | three-bvh-csg | Openings cut through walls; curved junction trim |
 | Desktop | Tauri v2 | Rust `notify` crate for file watching (planned) |
-| Validation | ajv (JSON Schema draft-07) | Schema embedded in every bundle |
+| Validation | ajv (browser), jsonschema (`oebf validate`) | Schemas embedded in every bundle |
 
 ---
 
@@ -125,24 +139,30 @@ uv run oebf ifc import path/to/model.ifc --output ./output.oebf/
 # JavaScript unit tests (Vitest)
 cd viewer && npm test
 
-# Playwright e2e tests (profile editor)
+# Playwright end-to-end tests (needs Playwright browsers installed)
 cd viewer && npx playwright test
 
 # Python tests (pytest)
-cd ifc-tools && uv run pytest tests/ -v
+cd ifc-tools && uv run pytest
 ```
+
+At 2026-11-11: 2,044 Vitest tests in 126 files and 420 pytest tests, all passing.
 
 ---
 
-## Roadmap
+## Status and Roadmap
 
-| Phase | Tasks | Status |
+| Release | Theme | Status |
 |-------|-------|--------|
-| Phase 1 — Format Foundation | Schemas, example bundle, OEBF-GUIDE.md | Complete |
-| Phase 2 — Three.js Viewer | Path/profile/sweep loaders, scene builder, junction trim, arrays, grids | Complete |
-| Phase 3 — IFC Tools | Python CLI, IFC importer, IFC exporter, slab support | Complete |
-| Phase 4 — Extended Features | Profile SVG editor, `.oebfz` loading, test coverage | Complete |
-| Phase 5 — Desktop and Release | Tauri v2 wrapper (#10), OEBF-GUIDE test harness (#22), v0.1 release (#30) | In progress |
+| v0.1.0 | Format, schemas, viewer, IFC CLI | Released |
+| v0.2.0-editor-alpha | Browser 3D editor and profile editor | Tagged |
+| v0.3 | IFC in the editor, snapping, full properties panel | Delivered on main, not tagged |
+| v0.4 | Detail system: detail editor, building reference, detail review | Delivered on main, not tagged |
+| Phase 8 | Editor polish and spec conformance | In progress |
+| v0.5 | In-browser AI command palette | Planned |
+| v1.0 | Desktop app with file watching (#10) | Planned |
+
+See `docs/project-status.md` for detail and `docs/roadmap.md` for the plan. Open work is tracked as GitHub issues.
 
 ---
 

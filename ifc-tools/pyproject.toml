@@ -1,7 +1,7 @@
 [project]
 name = "oebf-ifc-tools"
 version = "0.1.0"
-description = "Add your description here"
+description = "OEBF command-line tools: IFC import and export, bundle validation and command batches"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [

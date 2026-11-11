@@ -55,6 +55,7 @@ The open issue list is the plan: `gh issue list --state open`. At the time of wr
 | #133 | IFC import: other profiles, boolean-clipped and BREP bodies, constituent sets |
 | #134, #135 | Detail review leftovers; detail editor trim/extend for lines |
 | #127 | Membranes and tapes |
+| #136 | UI consistency across the three editors, browser prompts, profile editor safety |
 
 ### Backlog / future phases
 
@@ -62,7 +63,7 @@ The open issue list is the plan: `gh issue list --state open`. At the time of wr
 |---|---|
 | #104 | Parametric grid frame generator (future scope) |
 | #117 | Quantities and carbon panel |
-| #128, #129, #130, #131, #132 | IFC comparison; junction-based IFC workflow; plan/section switch; detail game; Archicad |
+| #128, #129, #131, #132 | IFC comparison; junction-based IFC workflow; detail game; Archicad |
 | #10 | Desktop wrapper: Tauri v2 and file watching |
 
 ### Review checklist

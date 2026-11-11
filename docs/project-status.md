@@ -1,6 +1,6 @@
 # OEBF Project Status
 
-**Date:** 2026-11-06
+**Date:** 2026-11-11
 **Branch:** main
 **Tests:** 2044 JS (Vitest, 126 test files) + 420 Python (pytest)
 
@@ -8,7 +8,9 @@
 
 ## Summary
 
-Phases 1–6 are complete. v0.1.0 is tagged and published. The v0.2 editor alpha (`v0.2.0-editor-alpha`) adds a full browser-based OEBF bundle editor. PR #68 (review batch 1) extended the editor with 7 additional features. Issue #66 (profile editor improvements) added 6 more features to the profile editor: profile type/FFL/height-limit metadata, FFL and height-limit dashed lines on canvas, session-only draggable guide lines, material colour-swatch picker, and rect/polygon drawing tools producing region layers. The build is deployed at `architools.drawingtable.net/oebf/`.
+v0.1.0 is released and `v0.2.0-editor-alpha` is tagged. The work planned for v0.3 (IFC in the editor, snapping, the full properties panel) and v0.4 (the junction detail system) is delivered on main but not yet tagged. Since then the project has added the detail review page with seven overlays, the New Model Building example bundle, `oebf validate` and `oebf apply`, openings cut through walls, and editor undo and redo. Phase 8 (editor polish and spec conformance) is in progress; 13 issues are open. The build is deployed at `architools.drawingtable.net/oebf/`.
+
+The sections below record delivery in the order it happened; the earlier tables are kept as a history.
 
 ---
 
@@ -16,8 +18,9 @@ Phases 1–6 are complete. v0.1.0 is tagged and published. The v0.2 editor alpha
 
 ### Format specification
 
-- All JSON schemas in `spec/schema/` and embedded in `example/terraced-house.oebf/schema/`
-- Schemas: `manifest`, `path`, `profile`, `element`, `junction`, `junction-geometry`, `array`, `material`, `group`, `opening`, `symbol`, `grid`
+- 17 JSON schemas in `spec/schema/`, copied into both example bundles by `scripts/sync-schemas.mjs` (CI checks they match)
+- Schemas: `manifest`, `model`, `path`, `profile`, `element`, `slab`, `junction`, `junction-geometry`, `detail`, `opening`, `object`, `symbol`, `array`, `grid`, `group`, `materials`, `ifc-mapping`
+- `spec/commands.json`: the command vocabulary for `oebf apply`
 - `model.json` now supports `units` field (`"mm"` or `"m"`, default `"mm"`)
 
 ### Example bundle — `terraced-house.oebf`
@@ -65,8 +68,11 @@ Phases 1–6 are complete. v0.1.0 is tagged and published. The v0.2 editor alpha
 
 | Module | Status |
 |---|---|
-| IFC importer CLI | Done — `IfcWall` → OEBF Element; 21 pytest tests |
-| IFC exporter | Done — OEBF sweep → `IfcExtrudedAreaSolid` |
+| IFC importer CLI (`oebf ifc-import`) | Done — walls, slabs, roofs, columns, beams, doors and windows, materials, junction details; further profiles and bodies in #133 |
+| IFC exporter (`oebf ifc-export`) | Done — OEBF sweep → `IfcExtrudedAreaSolid`, junction details round trip |
+| Bundle checker (`oebf validate`) | Done — schemas and cross-references |
+| Command batches (`oebf apply`) | Done — validated, all or nothing, `--dry-run` |
+| Browser IFC import and export | Done — `viewer/src/ifc/` (STEP reader and writer), used by the 3D editor |
 
 ### CI / tooling
 
@@ -75,9 +81,9 @@ Phases 1–6 are complete. v0.1.0 is tagged and published. The v0.2 editor alpha
 
 ---
 
-## Scope Conformance (2026-10-08)
+## Scope Conformance (updated 2026-11-11)
 
-Two suites check the repository against the original design (`docs/plans/2026-02-22-oebf-format-design.md`): `viewer/src/scope-conformance.test.js` and `ifc-tools/tests/test_scope_conformance.py`. Documented gaps (3 Python xfails, 3 Vitest `test.fails`): bezier/spline paths (#97), ignored sweep mode, caps and offsets (#98), and undelivered spec items (#101). The default library keeps its own dialect and is converted on import (#100).
+Two suites check the repository against the original design (`docs/plans/2026-02-22-oebf-format-design.md`): `viewer/src/scope-conformance.test.js` and `ifc-tools/tests/test_scope_conformance.py`. The gaps they once documented (bezier and spline paths #97, sweep mode, caps and offsets #98, library dialect #100, undelivered spec items #101) are all fixed and the issues closed; no `test.fails` or `xfail` markers remain.
 
 ---
 
@@ -93,38 +99,38 @@ Plan: `docs/plans/2026-10-08-junction-detail-system.md`. Delivered: `detail.sche
 
 ---
 
-## Open Issues
+## Open Issues (2026-11-11)
 
-See `docs/roadmap.md` for the full version-by-version plan.
+The open issue list is the plan: `gh issue list --state open`.
 
-| # | Title | Target | Notes |
-|---|---|---|---|
-| #82 | Snapping tools (endpoint, grid, angle, midpoint) | v0.3 | Precision drawing |
-| #83 | Object properties panel — full inline editing | v0.3 | All entity fields editable in panel |
-| #81 | Junction detail editor — multi-profile 2D canvas | v0.4 | Edit connecting profiles in context |
-| #10 | Tauri v2 desktop wrapper + file-watching | v1.0 | Design plan written; not started |
-| #45 | Project/marketing website | Done | Closed — homepage covers all requirements |
-| #91 | Bug: changing wall profile makes wall disappear | v0.3 | Open |
-| #96 / #95 | Profile manager and material panel issues | v0.3 | Open |
-| #97 | Bezier and spline path segments | v0.3 | Scope gap; silently skipped today |
-| #98 | Honour sweep_mode, caps, offsets | v0.3 | Scope gap; fields ignored by loader |
-| #100 | Library format differs from spec schemas | v0.3 | Two profile dialects |
-| #106 | IFC importer: imported bundles do not pass oebf validate | v0.3 | Schemas, profiles, materials, parent_group_id, slabs |
-| #101 | commands.json, ifc/mapping.json, migrations | Pre-v0.5 | Spec items not delivered |
-
-| #117 | Quantities and embodied carbon panel | Future | Same proposal |
-| #118 | Starter models on the editor home page | Future | Same proposal |
+| # | Title | Phase |
+|---|---|---|
+| #136 | UI review: consistency across the three editors, browser prompts, profile editor safety | 8 |
+| #135 | Detail editor: trim and extend for lines and arcs, pick a base point on the canvas | 8 |
+| #134 | Detail review: seen lines, a carbon total, a per-region line weight, repeat on profile layers | 8 |
+| #133 | IFC import: other profiles, boolean-clipped and BREP bodies, material constituent sets | 8 |
+| #127 | Design: membranes and tapes (drawing, 2D visibility, no 3D flicker) | 8 |
+| #114 | NMB example: placed-detail floor regions can flicker (fixed from the cause; awaiting a check on a real GPU) | 8 |
+| #117 | Quantities and embodied carbon panel | Backlog |
+| #128 | Research: compare OEBF with IFC (tokens, readability, schema and CLI completeness) | Backlog |
+| #129 | Junction-based workflow on an imported IFC | Backlog |
+| #131 | Idea: detail game | Backlog |
+| #132 | Archicad import and export alongside IFC | Backlog |
+| #104 | Parametric grid frame generator | Future |
+| #10 | Desktop wrapper: file watching for live LLM editing sessions (Tauri v2) | v1.0 |
 
 ---
 
-## Known Limitations — v0.2 alpha
+## Known Limitations
 
 | Limitation | Notes |
 |---|---|
-| Storey and guide creation still uses `window.prompt` / `alert` | To be replaced with inline panel UI |
-| ~~Junction sprites placed at world origin for pre-existing junctions~~ | Fixed in slice 3d (location or element end points) |
-| Mesh does not appear after drawing until a default profile is selected | Entities written correctly; visual requires profile |
-| `v0.2.0-editor-alpha` tag not pushed to GitHub | Tag only exists locally |
+| 33 browser `prompt` and `alert` calls remain (storeys, guides, grid axes, project names, profile editor) | #136 |
+| The profile editor has no undo and no warning on leaving with unsaved work | #136 |
+| Undo in the 3D editor reloads the whole scene rather than the changed entities | #136 |
+| Python and browser IFC implementations are separate and not checked against each other | #133 |
+| Playwright end-to-end tests are not run on the Pi (no Playwright browsers); CI runs them | |
+| `v0.2.0-editor-alpha` tag not pushed to GitHub; v0.3 and v0.4 not tagged | |
 
 ---
 
@@ -139,4 +145,5 @@ See `docs/roadmap.md` for the full version-by-version plan.
 | Phase 5 — Scene completeness & release | Tasks 21–29 | Complete — v0.1.0 tagged |
 | Phase 6 — Browser editor (v0.2 alpha) | Tasks 30–42 | Complete — v0.2.0-editor-alpha |
 | Phase 7 — Editor review batch 1 | PR #68 | Complete — #59 #60 #61 #62 #63 #64 #65 |
-| Phase 8 — Editor polish and spec conformance | #66, #69–#77, #91–#101 | Polish items complete; bugs and scope gaps open (see above) |
+| Junction detail system | #81 and follow-ons | Complete — detail editor, building reference, `oebf validate`, detail review (#119, #120) |
+| Phase 8 — Editor polish and spec conformance | #66, #69–#77, #91–#101, #133–#136 | Scope gaps closed; editor polish in progress (see Open Issues) |

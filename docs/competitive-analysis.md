@@ -1,6 +1,6 @@
 # OEBF — Competitive Analysis and Positioning
 
-**Date:** 2026-03-16
+**Date:** 2026-03-16 (OEBF columns updated 2026-11-11)
 
 ---
 
@@ -28,8 +28,8 @@
 | Human-readable without tooling | ✗ | ✗ | ✗ | ✗ | ~ (IFCJSON) | ✗ | **✓** | **✓** |
 | Meaningful git diffs | ✗ | ✗ | ✗ | ✗ | ~ (IFCJSON) | ✗ | **✓** | **✓** |
 | LLM-editable without parser | ✗ | ✗ | ✗ | ✗ | ~ | ✗ | **✓** | **✓** |
-| IFC import | ✓ | ✓ | ~ | ✓ | **✓ (native)** | ✓ | ~ (CLI) | ✓ (v0.3) |
-| IFC export | ✓ | ✓ | ~ | ✓ | **✓ (native)** | ✓ | ~ (CLI) | ✓ (v0.3) |
+| IFC import | ✓ | ✓ | ~ | ✓ | **✓ (native)** | ✓ | ✓ (editor + CLI) | ✓ |
+| IFC export | ✓ | ✓ | ~ | ✓ | **✓ (native)** | ✓ | ✓ (editor + CLI) | ✓ |
 | Compressed archive format | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ (.oebfz) | ✓ (.oebfz) |
 
 **IFCJSON note:** BlenderBIM supports IFCJSON as a serialisation option, making it the only other tool with a machine-readable format. However, IFCJSON maps directly to the IFC schema — it is verbose, deeply nested, and not designed for hand-editing. OEBF's flat JSON files (one entity per file, metres, human-scale IDs) are designed from the outset to be read and written by an LLM or a person with a text editor.
@@ -56,11 +56,11 @@
 | Parametric path-based elements | ~ | ~ | ✗ | ~ | ✓ | ✓ | **✓** | **✓** |
 | Profile / cross-section editor (2D canvas) | ~ | ~ | ✗ | ~ | ✗ | ✗ | **✓** | **✓** |
 | Polygon / region layer drawing | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | **✓** | **✓** |
-| Snapping (endpoint, grid, angle) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | ✓ (v0.3) |
+| Snapping (endpoint, grid, angle) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Coordinate input / HUD | ✓ | ✓ | ~ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Configurable units (mm / m) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 2D plan / section / elevation output | ✓ | ✓ | ~ | ✓ | ~ | ✓ | ✗ | ✗ |
-| Annotation and dimensioning | ✓ | ✓ | ~ | ✓ | ~ | ~ | ✗ | ✗ |
+| 2D plan / section / elevation output | ✓ | ✓ | ~ | ✓ | ~ | ✓ | ~ (details only: SVG, PDF, DXF) | ~ |
+| Annotation and dimensioning | ✓ | ✓ | ~ | ✓ | ~ | ~ | ~ (detail editor) | ~ |
 | Structural arrays (InstancedMesh) | ~ | ~ | ✗ | ~ | ~ | ~ | ✓ | ✓ |
 
 ---
@@ -74,11 +74,11 @@ This is the area with the greatest opportunity for differentiation.
 | Automatic priority-based join | ✓ | ✓ | ✗ | ✓ | ✗ | ✗ | ~ (rules) | ~ (rules) |
 | Junction as a named, editable entity | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | **✓** | **✓** |
 | Junction rule editor (mitre / butt / custom) | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | **✓** | **✓** |
-| Visual junction detail editor — 2D multi-profile canvas | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | **✓ (v0.4)** |
-| Building reference map for junction type instances | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | **✓ (v0.4)** |
-| 3D isolated junction view | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | **✓ (v0.4)** |
+| Visual junction detail editor — 2D multi-profile canvas | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | **✓** | **✓** |
+| Building reference map for junction type instances | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | **✓** | **✓** |
+| 3D isolated junction view | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | **✓** (detail review) | **✓** |
 | Custom junction polygon mesh | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | **✓** | **✓** |
-| CSG boolean trim for curved junctions | ✗ | ~ | ✗ | ~ | ✓ | ~ | ~ (#18) | ✓ |
+| CSG boolean trim for curved junctions | ✗ | ~ | ✗ | ~ | ✓ | ~ | ✓ | ✓ |
 
 **How competitors handle junctions:** Revit uses "Join Geometry" — a silent, automatic operation that cuts geometry by wall priority. ArchiCAD uses "junction orders" and layer intersection groups. Neither tool exposes the junction as a named object with its own geometry, rule, or editable detail. The user cannot open a junction and see the cross-sections of both walls meeting; they can only change which wall has higher priority. SketchUp has no junction concept at all; elements must be cut manually.
 
@@ -88,7 +88,7 @@ This is the area with the greatest opportunity for differentiation.
 
 | Feature | Revit | ArchiCAD | SketchUp | BricsCAD | BlenderBIM | FreeCAD | OEBF now | OEBF v1.0 |
 |---|---|---|---|---|---|---|---|---|
-| Inline object property editing | ✓ | ✓ | ~ | ✓ | ✓ | ✓ | ~ (partial) | ✓ (v0.3) |
+| Inline object property editing | ✓ | ✓ | ~ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Material library | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Type / component / family library | ✓ | ✓ | ✓ | ✓ | ~ | ~ | ✓ (profiles + mats) | ✓ |
 | Path node editing | ✗ | ✗ | ✗ | ✗ | ~ | ~ | **✓** | **✓** |
@@ -102,8 +102,8 @@ This is the area with the greatest opportunity for differentiation.
 | Format readable by LLM without parser | ✗ | ✗ | ✗ | ✗ | ~ | ✗ | **✓** | **✓** |
 | Command palette / natural-language editing | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | **✓ (v0.5)** |
 | Agent loop (read → edit → write → verify) | ✗ | ✗ | ✗ | ✗ | ~ (scripts) | ✗ | ✗ | **✓ (v0.5)** |
-| LLM context guide (OEBF-GUIDE.md) | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ~ (draft) | **✓** |
-| Schema validation on LLM writes | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | **✓ (v0.5)** |
+| LLM context guide (OEBF-GUIDE.md) | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | **✓** | **✓** |
+| Schema validation on LLM writes | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ~ (`oebf validate`, `oebf apply`) | **✓ (v0.5)** |
 | External LLM CLI editing (file-watch reload) | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | **✓ (v1.0)** |
 | Built-in generative / AI features | ~ (Forma) | ~ (AI Viz) | ✗ | ✗ | ~ (MCP4IFC) | ✗ | ✗ | ✓ (v0.5) |
 
@@ -124,15 +124,13 @@ OEBF is early-stage. A candid picture:
 
 **On par with open-source tools (BlenderBIM, FreeCAD):**
 - Free and open source
-- IFC import / export (CLI-level, not yet integrated into the editor UI)
+- IFC import / export, in the editor and the CLI
 - Basic wall and slab drawing
 
 **Behind all established tools:**
-- No 2D output: no plan drawings, sections, elevations, or sheet layouts
-- No annotation or dimensioning
-- No snapping (v0.3)
-- No full object property editing (v0.3)
-- Partial IFC integration (CLI only until v0.3)
+- No building-wide 2D output: no plan drawings, sections, elevations or sheet layouts
+- Annotation and dimensioning only in the detail editor
+- 2D output covers construction details only, not whole-building plans, sections or sheets
 - Small ecosystem: no parametric family library comparable to Revit's
 - No cloud collaboration
 - No rendering
@@ -161,7 +159,7 @@ In Revit and ArchiCAD, a junction is not a thing — it is the absence of geomet
 OEBF treats every junction as a named entity (`junction-corner-sw-gf.json`) with an explicit rule and, optionally, custom polygon mesh geometry. This makes junctions:
 - **Auditable:** every junction in the model is listed in the manifest
 - **Reusable:** the same junction detail type can be applied to multiple endpoints
-- **Editable:** the planned detail editor (v0.4) lets the user open a junction and see all connecting profiles together in a 2D canvas, edit their assembly in context, and see where every instance of that junction occurs in the building
+- **Editable:** the detail editor lets the user open a junction and see all connecting profiles together in a 2D canvas, edit their assembly in context, and see where every instance of that junction occurs in the building
 
 No other BIM tool offers this. The closest concept is ArchiCAD's "2D Patch Graphics" — a manual 2D annotation overlay — which has no connection to the 3D geometry or the profile assembly data.
 
@@ -179,7 +177,7 @@ Given the above, OEBF's clearest path to a distinct position is:
 
 The two reinforce each other. An LLM-editable format makes it easy to generate and modify building geometry via natural language. Junctions as first-class entities means the LLM (and the architect) can reason about connections explicitly — not as a side-effect of automatic priority rules.
 
-The junction detail editor (v0.4) is the feature that no other tool has attempted: a 2D canvas showing all connecting profiles at a junction simultaneously, with a building reference showing every instance. Combined with the AI command palette (v0.5), a user will be able to say "make the insulation layer in the corner junction 50 mm thicker" and have the change applied consistently to every instance of that junction type in the model.
+The junction detail editor, delivered in 2026, is the feature that no other tool has attempted: a 2D canvas showing all connecting profiles at a junction simultaneously, with a building reference showing every instance. Combined with the AI command palette (v0.5), a user will be able to say "make the insulation layer in the corner junction 50 mm thicker" and have the change applied consistently to every instance of that junction type in the model.
 
 That combination — visual junction editing + LLM instruction + consistent propagation — is not possible in any other tool today.
 
@@ -191,8 +189,6 @@ That combination — visual junction editing + LLM instruction + consistent prop
 |---|---|
 | 2D drawing output (plans, sections, elevations) | The single largest missing capability for professional use |
 | Annotation and dimensioning | Required for construction documents |
-| Snapping | v0.3 |
-| Full object property editing | v0.3 |
-| IFC editor integration | v0.3 |
+| IFC coverage (profiles, BREP bodies, constituent sets) | #133 |
 | Larger default library | More profiles and materials |
-| Documentation (OEBF-GUIDE.md) | Required before v0.5 AI integration |
+| Editor consistency and safety | #136 |

@@ -1,8 +1,8 @@
 # OEBF Project Roadmap
 
-**Last updated:** 2026-03-16
-**Current release:** `v0.2.0-editor-alpha`
-**Tests:** 399 passing (Vitest + pytest)
+**Last updated:** 2026-11-11
+**Latest tag:** `v0.2.0-editor-alpha` (v0.3 and v0.4 delivered on main, not tagged)
+**Tests:** 2,464 passing (2,044 Vitest + 420 pytest)
 **Deployed at:** `architools.drawingtable.net/oebf/`
 
 ---
@@ -25,53 +25,43 @@ A three-panel browser editor (`editor.html`) for creating and modifying OEBF bun
 
 ---
 
-## Roadmap
+### v0.3 — IFC Integration, Editor Precision and Robustness (delivered, not tagged)
 
-### v0.3 — IFC Integration, Editor Precision and Robustness
+- IFC import and export from the editor toolbar, using a browser STEP reader and writer (`viewer/src/ifc/`), alongside the Python CLI (#58).
+- Snapping: endpoint, grid, angle and midpoint, with a shared snap engine, named-snap tooltips and typed lengths and sizes in the 3D editor and the detail editor (#82, #105).
+- Full properties panel with inline editing for elements, paths, junctions and storeys (#83).
+- Junction sprites at their real positions; bezier and spline paths; sweep mode, caps and offsets; one library format (#97, #98, #100).
+- `oebf validate` and `oebf apply` (`spec/commands.json`), with imported bundles passing validation (#101, #106).
 
-**Theme:** Promote the IFC tools from CLI-only to first-class editor features; add precision drawing tools; resolve known alpha-quality rough edges.
+### v0.4 — Junction Detail System (delivered, not tagged)
 
-**IFC integration — Issue #58**
-- Import IFC files directly from the editor: open a `.ifc` file and receive a populated OEBF bundle.
-- Export the current bundle to IFC from the editor toolbar.
-- The existing `ifc-tools/` CLI (`IfcWall` importer, `IfcExtrudedAreaSolid` exporter) provides the implementation foundation.
+- Reusable details referenced from junctions by grid location and level, with parameter overrides and mirroring (#81).
+- Detail editor (`detail-editor.html`): plan and section, multi-profile members, regions with repeating units, annotations, DXF and SVG import and export, layers, clipboard, fillet and chamfer (#120).
+- Building reference: a plan thumbnail of every junction coloured by its detail, linked to the 3D editor.
+- Detail review (`detail-axo.html`): a scaled 2D drawing beside a 3D axonometric, with seven overlays (subcontractor package, waterproofing and air barriers, fire, embodied carbon, construction sequence, shearing layers, CI/SfB) (#119).
+- `nmb-two-storey.oebf`: a two-storey mass timber and masonry bundle with 59 materials, 31 details and 41 junctions.
 
-**Snapping tools — Issue #82**
-- Endpoint snap: snap to existing path endpoints when placing or moving nodes.
-- Grid snap: constrain placement to the active construction grid at configurable spacing.
-- Angle snap: constrain wall direction to 45°/90° increments (toggle with Shift).
-- Midpoint snap: snap to midpoint of existing path segments.
-- Snap mode indicator in the drawing tool HUD.
+### Since v0.4
 
-**Object properties — Issue #83**
-Expand the existing properties panel to show and allow inline editing of all relevant fields for any selected entity:
-- Element: profile assignment, material, IFC type, description, linked path.
-- Path: full node coordinate list, total path length.
-- Junction: rule, connected element IDs, link to open the junction detail editor.
-- Storey: name, elevation, height.
-- All fields write back to the bundle on change without a full scene reload.
-
-**Editor robustness**
-- Replace `window.prompt` / `alert` dialogs (storey creation, guide creation) with inline panel UI.
-- Fix junction sprites: register path endpoint data at bundle-load time so sprites appear at correct positions for pre-existing junctions.
-- Show mesh immediately after drawing a wall or slab, before a default profile is selected (placeholder geometry or a default library profile auto-assigned).
-- Push `v0.2.0-editor-alpha` tag to GitHub; tag `v0.3.0` on release.
+- Doors and windows cut through every layer of their host wall (three-bvh-csg), in the viewer and the editor.
+- Per-element depth bias to stop coincident faces flickering (#114).
+- Editor undo and redo, keyboard shortcuts, a status bar and an unsaved-work warning.
+- Starter models on the editor home page (#118).
 
 ---
 
-### v0.4 — Junction Detail Editor
+## Roadmap
 
-**Theme:** Make junction geometry visible and editable in a dedicated 2D canvas, bringing the same workflow as the profile editor to the points where elements meet.
+### Phase 8 — Editor Polish and Spec Conformance (in progress)
 
-**Junction detail editor — Issue #81**
+**Theme:** Make the three editors consistent and safe, and finish the detail review.
 
-The current junction rule editor sets a rule (mitre/butt/custom) but gives no visual representation of the actual connection. The detail editor adds a 2D SVG canvas showing the cross-sections of all profiles meeting at a selected junction, positioned and oriented as they meet in the building.
-
-- **Multi-profile canvas:** all connecting profiles are rendered together on the same 2D canvas — a corner junction shows two profiles; a T-junction shows three. Each profile's layer assembly is visible and editable in context.
-- **Building reference:** a plan-view thumbnail of the building marks every junction that uses the current detail, so the user can see where in the model the detail applies and navigate between instances.
-- **Edit in context:** layer thicknesses, material assignments, and region geometry can be adjusted for each profile while seeing how all profiles fit together at the connection point.
-- **Links to the 3D editor:** selecting a junction entity in the 3D editor's scene tree opens its detail canvas; the object properties panel (v0.3) provides the entry point.
-- **Saved as junction geometry:** edited details write back to the bundle's junction entity (rule: `custom`, geometry derived from the canvas state).
+- **Editor consistency and safety (#136):** one toolbar and dialog convention across the 3D, profile and detail editors; inline dialogs instead of browser `prompt` and `alert`; undo and a leave warning in the profile editor; undo that reloads only the changed entities.
+- **Detail review (#134):** seen lines beyond the cut, an embodied carbon total per detail, a per-region line weight, repeating units on profile layers.
+- **Detail editor (#135):** trim and extend for lines and arcs; pick a base point on the canvas.
+- **Membranes and tapes (#127):** a drawing convention that keeps them visible in 2D and free of flicker in 3D.
+- **IFC import (#133):** I-shape, circle and arbitrary profiles, boolean-clipped and BREP bodies, material constituent sets; a shared set of fixtures to keep the Python and browser implementations in step.
+- **Release housekeeping:** push `v0.2.0-editor-alpha`; tag v0.3 or a combined release once Phase 8 closes.
 
 ---
 
@@ -91,7 +81,7 @@ New module `src/editor/commandPalette.js` and `Ctrl+K` shortcut. The palette str
 Right-click a scene tree item to open the palette with that entity pre-loaded as focused context. The `aiContext.js` module is updated to accept an optional focused entity list.
 
 **Phase 4 — Validation and undo**
-LLM-written entities are validated against `spec/schema/` before being committed. Writes that fail schema validation are blocked and reported in the palette. `Ctrl+Z` reverts the last AI edit batch via a simple undo stack in `editor.js`.
+LLM-written entities are validated against `spec/schema/` before being committed. Writes that fail schema validation are blocked and reported in the palette. `Ctrl+Z` reverts the last AI edit batch through the existing edit journal (`editJournal.js`).
 
 ---
 
@@ -110,10 +100,12 @@ The design plan is documented in `docs/plans/2026-03-03-macos-file-watching-desi
 
 ---
 
-### Parallel track — Documentation
+### Backlog
 
-**OEBF-GUIDE.md — Issue #22**
-A compact, schema-correct context document written for LLM editors. Required before Phase 1 of v0.5 can begin. The guide explains coordinate conventions, entity relationships, ID patterns, and provides minimal complete examples for each schema type.
+- Quantities and embodied carbon panel for the whole building (#117).
+- Compare OEBF with IFC: tokens, readability, schema and CLI completeness, and an LLM edit-accuracy benchmark (#128).
+- Junction-based workflow on an imported IFC: map details to every matching location (#129).
+- Archicad import and export (#132); detail game (#131).
 
 ---
 
@@ -124,42 +116,25 @@ A compact, schema-correct context document written for LLM editors. Required bef
 - **Controls:** bays in x and y, spacing per bay, storeys, storey height, roof level, column and beam profiles, floor build-up, roof type (flat first; mono-pitch and gable later).
 - **Link to the junction detail system (#81):** column-to-beam and beam-to-floor connections are junctions located by grid axes and level, so generation can set their `location` and a detail can be assigned once and reused at every connection.
 - **Open questions:** whether the frame stays linked to its sliders (regenerate) or is written once as plain entities; columns as elements or as a parametric array; and how manual edits survive a regenerate.
-- **Needs first:** column and beam profiles in the default library, the grid direction convention (fixed in #102), and snapping (#82).
+- **Needs first:** column and beam profiles in the default library. The grid direction convention (#102) and snapping (#82) are done.
 
 ---
 
-### Future scope — Smart cursor, tooltips and direct dimension editing (#105)
+## Known Limitations
 
-**Not scheduled; needs a design note.** Drawing and editing in the style of Vectorworks and ArchiCAD: a smart cursor that names what it is snapping to (endpoint, midpoint, on grid, intersection, perpendicular, parallel), live tooltips with length, angle and coordinates, alignment guides, an always-visible object info palette, and typed editing of a line's length or an object's size.
-
-- **Extends:** #82 (snapping) and #83 (object properties), in both the 3D editor and the detail editor canvas.
-- **Detail editor today:** snaps to a ruler-derived step and edits member offsets and vertex coordinates in a side panel; it has no named snap types, no cursor tooltips and no edge-length editing.
-- **Likely shape:** one shared snap engine, a tooltip layer, and the properties palette driven by the same panel-model approach used by the detail editor.
-
----
-
-## Known Limitations (v0.2 alpha)
-
-| Limitation | Target |
-|---|---|
-| Storey / guide creation uses `window.prompt` | v0.3 |
-| Junction sprites render at world origin for pre-existing junctions | v0.3 |
-| No mesh visible until a default profile is selected | v0.3 |
-| `v0.2.0-editor-alpha` tag not pushed to GitHub | v0.3 |
-| Openings not yet rendered in viewer or editor | v0.3 / v1.0 |
-| CSG spline-path junction trim not yet complete (#18) | v0.3 |
+See `docs/project-status.md`, Known Limitations, for the current list.
 
 ---
 
 ## Version Summary
 
-| Version | Theme | Key deliverables |
+| Version | Theme | Status |
 |---|---|---|
-| v0.1.0 | Format + viewer | Schemas, sweep engine, junction trimmer, read-only viewer, IFC CLI |
-| v0.2.0-alpha | Browser editor | 3D editor, profile editor, library browser, node editing, units |
-| **v0.3** | IFC + precision + robustness | IFC editor integration, snapping, object properties, dialog-free UI |
-| **v0.4** | Junction detail editor | Multi-profile 2D canvas, building reference map, edit-in-context |
-| **v0.5** | AI editing | Command palette, Claude agent loop, diff preview, schema validation, undo |
-| **v1.0** | Desktop app | Tauri v2, file watching, native dialogs, OS keychain for API key |
-| Future | Smart cursor, tooltips, direct length/size editing (#105) | Named snaps, live dimension tooltips, object info palette, typed length and size |
-| Future | Grid frame generator (#104) | Sliders for bays, storeys and heights; columns, floors, roof and beams placed automatically |
+| v0.1.0 | Format + viewer: schemas, sweep engine, junction trimmer, read-only viewer, IFC CLI | Released |
+| v0.2.0-alpha | Browser editor: 3D editor, profile editor, library browser, node editing, units | Tagged |
+| v0.3 | IFC in the editor, snapping, properties panel, validate and apply | Delivered, not tagged |
+| v0.4 | Junction detail system: detail editor, building reference, detail review | Delivered, not tagged |
+| Phase 8 | Editor consistency and safety, detail review, membranes, IFC coverage | In progress |
+| v0.5 | AI editing: command palette, agent loop, diff preview, validation, undo | Planned |
+| v1.0 | Desktop app: Tauri v2, file watching, native dialogs, OS keychain | Planned |
+| Future | Grid frame generator (#104) | Not scheduled |
