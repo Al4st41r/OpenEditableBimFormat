@@ -110,13 +110,25 @@ def test_a_polygon_footprint_that_is_a_rectangle_gives_the_axis_and_thickness(tm
     assert seg["start"]["y"] == pytest.approx(0.0)
 
 
-def test_an_l_shaped_footprint_is_not_taken_for_a_wall_axis(tmp_path):
+def test_an_l_shaped_footprint_gives_a_two_leg_centreline(tmp_path):
     ifc, context, axis_ctx, storey = _file()
     pts = [_pt(ifc, *p) for p in [(0, 0), (4, 0), (4, 1), (1, 1), (1, 3), (0, 3), (0, 0)]]
     profile = ifc.create_entity("IfcArbitraryClosedProfileDef", ProfileType="AREA", OuterCurve=ifc.create_entity("IfcPolyline", Points=pts))
     _wall(ifc, storey, axis_ctx, body_ctx=context, body_profile=profile)
+    out = _import(ifc, tmp_path)
+    segs = _path_of(out)["segments"]   # the L is a wall 1 m thick: its centreline runs (4, 0.5) -> (0.5, 0.5) -> (0.5, 3)
+    assert [(s["start"]["x"], s["start"]["y"], s["end"]["x"], s["end"]["y"]) for s in segs] == [(4.0, 0.5, 0.5, 0.5), (0.5, 0.5, 0.5, 3.0)]
+    assert validate_bundle(out) == []
+
+
+def test_a_footprint_that_is_not_a_wall_outline_falls_back_to_its_bounding_box(tmp_path, capsys):
+    ifc, context, axis_ctx, storey = _file()
+    pts = [_pt(ifc, *p) for p in [(0, 0), (4, 0), (2, 3), (0, 0)]]   # a triangle: no two parallel runs
+    profile = ifc.create_entity("IfcArbitraryClosedProfileDef", ProfileType="AREA", OuterCurve=ifc.create_entity("IfcPolyline", Points=pts))
+    _wall(ifc, storey, axis_ctx, body_ctx=context, body_profile=profile)
     seg = _path_of(_import(ifc, tmp_path))["segments"][0]
-    assert seg["end"] == {"x": 1.0, "y": 0.0, "z": 0.0}   # the 1 m stub: the shape was not understood
+    assert seg["type"] == "line"
+    assert "bounding box" in capsys.readouterr().out
 
 
 # ── openings and the doors and windows in them ───────────────────────────────

@@ -42,7 +42,7 @@ Checks every file against the schemas in the bundle's `schema/` folder and the c
 
 ### Junction details in IFC
 
-IFC has no junction or detail concept, so OEBF carries them in property sets that other IFC tools ignore and an OEBF import restores: `OEBF_Element` (the OEBF id), `OEBF_Junction_<id>` on each member element (rule, `DetailId`, grid location, mirror flag, parameter overrides) and `OEBF_Bundle` on the project (details, grids, levels, and the element, slab, path, profile and material files, as JSON). The import restores a complete bundle that passes `oebf validate`; IFC from other tools gets placeholder profiles and materials. See `spec/OEBF-GUIDE-template.md`.
+IFC has no junction or detail concept, so OEBF carries them in property sets that other IFC tools ignore and an OEBF import restores: `OEBF_Element` (the OEBF id), `OEBF_Junction_<id>` on each member element (rule, `DetailId`, grid location, mirror flag, parameter overrides) and `OEBF_Bundle` on the project (details, grids, levels, and the element, slab, path, profile and material files, as JSON). The import restores a complete bundle that passes `oebf validate`; IFC from other tools is rebuilt from what it holds: wall axes and footprints (straight, multi-leg, L-shaped or curved), beam and column sections as region profiles, layer and constituent sets, openings (including boxes cut by a boolean), and doors and windows; mapped items and boolean results are read through, and other bodies fall back to their bounding box, with a warning. What cannot be read gets placeholder profiles and materials. See `spec/OEBF-GUIDE-template.md`.
 
 ## Tests
 

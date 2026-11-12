@@ -830,18 +830,30 @@ IFC from other tools has no such record, so the import rebuilds what the IFC hol
 a wall's centreline comes from its "Axis" representation when it has one (a polyline gives
 one segment per leg, a trimmed circle gives an arc), else from its swept solid (a footprint
 extruded up, rectangular or a four-corner polyline, or a section extruded along the wall),
-converted from the file's length unit to metres; its build-up
-comes from the `IfcMaterialLayerSet` as a profile (layer names, materials and
-thicknesses, with each layer's function guessed from its name); and its property sets
-become element properties, with an `ifc/mapping.json` that sends them back to the same
-sets on export. An element with no layer set but one material gets a one-layer profile
-of its thickness. Anything the IFC does not hold falls back to a placeholder profile
-and material. Elements take the first level (or `storey-imported`) as `parent_group_id`,
+else from a footprint made of two parallel runs joined by straight ends (an L, a run of
+several legs, or a curve, which gives an arc), converted from the file's length unit to metres.
+A body that is a mapped item is read through its mapping; a boolean result is read from its
+first operand, a vertical clipping plane across an end trims the path there (an end cut at
+an angle gets `cap_*: "angled"`), and a box cut out of the wall becomes an `Opening`. Any
+other body (a BREP or a face set) is stood in for by its plan bounding box, with a warning.
+A beam or column swept from a section that is not a rectangle (I, T, L, U, C, circle,
+ellipse, hollow, polygon) gets a profile of `region` layers, cut into convex pieces; a
+column's path runs vertically from its base. The build-up comes from the
+`IfcMaterialLayerSet` as a profile (layer names, materials and thicknesses, with each
+layer's function guessed from its name), else from an `IfcMaterialConstituentSet` whose
+fractions are all given (one layer per constituent, its share of the thickness); and its
+property sets become element properties, with an `ifc/mapping.json` that sends them back
+to the same sets on export. An element with no layer set but one material (or a profile
+set, a constituent set without fractions or a material list, which give their main
+material) gets a one-layer profile of its thickness. Anything the IFC does not hold falls
+back to a placeholder profile and material. Elements take the first level (or `storey-imported`) as `parent_group_id`,
 and a slab with a polyline outline becomes a `Slab` with a closed boundary path.
 An `IfcOpeningElement` that voids an imported wall becomes an `Opening` (position, width, height and
 sill read from its box), and the `IfcDoor` or `IfcWindow` that fills it becomes an `Object` with a box
-`Symbol` of its size. Shapes the import cannot read (other profiles, boolean-clipped or BREP bodies,
-`IfcMaterialConstituentSet`) fall back to the placeholders. Geometry edited in another tool is not read back when the OEBF record is present; the
+`Symbol` of its size. A door or window in no opening hangs on the wall it stands in, as an
+`Object` with `base_height_m` and no `opening_id`; one that stands in no imported wall is
+skipped with a warning. Clips across the top or at a slope, and shapes the import cannot read,
+are left out with a warning. Geometry edited in another tool is not read back when the OEBF record is present; the
 import says when an element was moved there.
 
 ### Mapping to IFC classes and property sets (`ifc/mapping.json`)

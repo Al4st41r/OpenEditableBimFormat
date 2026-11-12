@@ -74,7 +74,7 @@ The sections below record delivery in the order it happened; the earlier tables 
 
 | Module | Status |
 |---|---|
-| IFC importer CLI (`oebf ifc-import`) | Done — walls, slabs, roofs, columns, beams, doors and windows, materials, junction details; further profiles and bodies in #133 |
+| IFC importer CLI (`oebf ifc-import`) | Done — walls (axis, footprint, clipped, mapped, BREP bounding box), slabs, roofs, columns and beams (sections as region profiles), doors and windows (in or out of openings), layer and constituent sets, junction details (#133) |
 | IFC exporter (`oebf ifc-export`) | Done — OEBF sweep → `IfcExtrudedAreaSolid`, junction details round trip |
 | Bundle checker (`oebf validate`) | Done — schemas and cross-references |
 | Command batches (`oebf apply`) | Done — validated, all or nothing, `--dry-run` |

@@ -10,6 +10,7 @@ import ifcopenshell.util.element as ifc_element
 import ifcopenshell.util.placement
 
 from . import ifc_reconstruct as rebuild
+from . import ifc_shapes as shapes
 
 
 IFC_TO_OEBF = {
@@ -43,6 +44,7 @@ def import_ifc(ifc_path: Path, out_dir: Path) -> None:
     imported = {}   # element id -> entity, for restoring junctions
     placeholder_used = False
     rebuilt = Rebuilt()   # profiles and property mappings rebuilt from IFC made by other tools
+    cut_boxes = {}        # element id -> world points of the solids a boolean cut out of it
     for ifc_type, oebf_type in IFC_TO_OEBF.items():
         for entity in model.by_type(ifc_type):
             element_id = _oebf_id(entity) or _slugify(entity.GlobalId or str(uuid.uuid4()))
@@ -52,7 +54,7 @@ def import_ifc(ifc_path: Path, out_dir: Path) -> None:
                 _warn_if_moved(entity, element_id, out_dir, kind)
             elif oebf_type == "IfcSlab" and _process_slab(entity, element_id, group_id, out_dir, rebuilt):
                 kind, parent = "slab", group_id
-            elif _process_element(entity, element_id, oebf_type, group_id, out_dir, rebuilt):
+            elif _process_element(entity, element_id, oebf_type, group_id, out_dir, rebuilt, cut_boxes):
                 kind, parent = "element", group_id
             else:
                 continue
@@ -61,13 +63,13 @@ def import_ifc(ifc_path: Path, out_dir: Path) -> None:
             imported[element_id] = entity
 
     junctions = _restore_junctions(imported, out_dir)
-    openings, objects = _import_openings(model, imported, out_dir, groups, group_id)
+    openings, objects = _import_openings(model, imported, out_dir, groups, group_id, rebuilt, cut_boxes)
 
     _write_manifest(out_dir, project_name)
     _write_model(out_dir, elements, junctions, details, grids, levels, slabs=slabs, groups=groups, openings=openings, objects=objects)
     _write_profiles(bundle, out_dir)
     placeholder_used = rebuilt.placeholder_used
-    _write_materials(out_dir, model, bundle, placeholder_used)
+    _write_materials(out_dir, model, bundle, placeholder_used or rebuilt.placeholder_material_used)
     if placeholder_used:
         _write_placeholder_profile(out_dir)
     rebuilt.write(out_dir)
@@ -223,6 +225,7 @@ class Rebuilt:
 
     def __init__(self):
         self.placeholder_used = False
+        self.placeholder_material_used = False
         self.profiles = {}        # profile id -> (json, svg)
         self._by_signature = {}   # build-up signature -> profile id
         self.mapping = {}         # property key -> {pset, name}
@@ -241,10 +244,13 @@ class Rebuilt:
 
     def profile_for(self, entity, thickness=None) -> str:
         """The id of a profile for this entity: its layer set, else one layer of its material, else the placeholder."""
-        lp = rebuild.layer_profile(entity)
+        lp = rebuild.layer_profile(entity) or rebuild.constituent_profile(entity, thickness)
         if lp is None and thickness:
-            name = _single_material_name(entity)
+            name = rebuild.primary_material(entity)
             if name:
+                kind = rebuild.material_kind(entity)
+                if kind not in ("IfcMaterial", "IfcMaterialLayerSet"):
+                    print(f"  Warning: {_label(entity)}: its {kind} gives no layer thicknesses; {name!r} was used for the whole thickness")
                 lp = {"name": name, "layers": [{"name": name, "material_name": name, "thickness": round(float(thickness), 6)}], "offset": None}
         if lp is None:
             self.placeholder_used = True
@@ -260,6 +266,26 @@ class Rebuilt:
             self.profiles[pid] = _profile_files(pid, lp)
         return self._by_signature[sig]
 
+    def region_profile_for(self, entity, regions, note=None) -> str:
+        """The id of a profile whose regions are the entity's section, in the entity's material."""
+        name = rebuild.primary_material(entity)
+        if name and rebuild.slugify(name):
+            material_id = rebuild.material_id(name)
+        else:
+            material_id = PLACEHOLDER_MATERIAL
+            self.placeholder_material_used = True
+        sig = "region|" + material_id + "|" + ";".join(",".join(f"{x:.4f}:{y:.4f}" for x, y in r) for r in regions)
+        if sig not in self._by_signature:
+            label = rebuild.slugify(getattr(entity, "Name", None) or "") or rebuild.slugify(entity.is_a()[3:])
+            base = f"profile-imported-section-{label}"[:60].rstrip("-")
+            pid, n = base, 1
+            while pid in self.profiles:
+                n += 1
+                pid = f"{base}-{n}"
+            self._by_signature[sig] = pid
+            self.profiles[pid] = _region_profile_files(pid, regions, material_id, name or "Imported", note)
+        return self._by_signature[sig]
+
     def write(self, out_dir: Path) -> None:
         for pid, (doc, svg) in self.profiles.items():
             (out_dir / "profiles" / f"{pid}.json").write_text(json.dumps(doc, indent=2))
@@ -271,14 +297,6 @@ class Rebuilt:
                 "description": "Property sets read from the imported IFC, so they are written back to the same sets on export",
                 "classes": {}, "property_sets": self.mapping, "materials": {},
             }, indent=2))
-
-
-def _single_material_name(entity):
-    try:
-        material = ifc_element.get_material(entity)
-    except Exception:
-        return None
-    return material.Name if material is not None and material.is_a("IfcMaterial") and material.Name else None
 
 
 _GREYS = ("#8a8a8a", "#b4b4b4", "#6e6e6e", "#c8c8c8")
@@ -305,6 +323,34 @@ def _profile_files(pid: str, lp: dict):
     return doc, svg
 
 
+def _region_profile_files(pid, regions, material_id, material_name, note):
+    """A profile made of regions (the section of a beam or column), and an SVG of it."""
+    xs = [x for r in regions for x, _ in r]
+    ys = [y for r in regions for _, y in r]
+    function = rebuild.layer_function(material_name)
+    doc = {
+        "$schema": "oebf://schema/0.1/profile", "id": pid, "type": "Profile",
+        "description": "Rebuilt from the IFC section" + (f" ({note})" if note else ""),
+        "svg_file": f"profiles/{pid}.svg", "width": round(max(max(xs) - min(xs), 1e-6), 6),
+        "height": round(max(ys) - min(ys), 6),
+        "origin": {"x": 0.0, "y": 0.0}, "alignment": "center",
+        "assembly": [{
+            "layer": i, "name": material_name if len(regions) == 1 else f"{material_name} {i}", "material_id": material_id,
+            "function": function, "type": "region", "vertices": [{"x": x, "y": y} for x, y in r],
+        } for i, r in enumerate(regions, 1)],
+    }
+    x0, y1 = min(xs), max(ys)
+    w, h = max(xs) - x0, y1 - min(ys)
+    polys = "\n  ".join('<polygon points="' + " ".join(f"{round(x - x0, 6)},{round(y1 - y, 6)}" for x, y in r)
+                        + '" fill="#8a8a8a" stroke="#333" stroke-width="0.003"/>' for r in regions)
+    svg = f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {round(w, 6)} {round(h, 6)}">\n  {polys}\n</svg>\n'
+    return doc, svg
+
+
+def _label(entity) -> str:
+    return f"{entity.is_a()} {getattr(entity, 'Name', None) or entity.GlobalId}"
+
+
 def _warn_if_moved(entity, element_id, out_dir, kind):
     """The OEBF record wins over the IFC geometry. Say so when the other tool moved the element."""
     axis = rebuild.wall_axis(entity)
@@ -325,37 +371,76 @@ def _pt(p) -> dict:
     return {"x": round(p[0], 4), "y": round(p[1], 4), "z": round(p[2], 4)}
 
 
-def _axis_segments(entity, axis) -> list:
-    """The wall's path: its Axis representation (several segments or an arc), else the swept solid's axis, else a stub."""
+def _line(a, b) -> dict:
+    return {"type": "line", "start": a, "end": b}
+
+
+def _element_shape(entity):
+    """How the element is swept, read from its IFC shape: {segments (world tuples), thickness} or, for a section,
+    {segments, regions, note}.
+
+    In order: a section that is not a rectangle (a beam or column) gives a path and regions; else the Axis
+    representation (several legs or an arc), the rectangle the body is swept from, or a wall footprint (an L, several
+    legs, a curve) gives the path. Any other body (a BREP, say) is read through the geometry engine and stood in for
+    by its plan bounding box. With none of these the path is a 1 m stub."""
+    section = shapes.section_profile(entity)
+    if section and section["regions"]:
+        return {"segments": [_line(section["start"], section["end"])], "regions": section["regions"], "note": section["note"]}
+    axis = rebuild.wall_axis(entity)
     drawn = rebuild.axis_path(entity)
-    if drawn:
-        out = []
-        for seg in drawn:
-            out.append({"type": seg["type"], **{k: _pt(seg[k]) for k in (("start", "mid", "end") if seg["type"] == "arc" else ("start", "end"))}})
-        return out
-    if axis:
-        return [{"type": "line", "start": _pt(axis["start"]), "end": _pt(axis["end"])}]
-    return [_extract_path_segment(entity)]
+    footprint = None if axis else shapes.footprint_axis(entity)
+    thickness = (axis or footprint or {}).get("thickness")
+    segments = drawn or ([_line(axis["start"], axis["end"])] if axis else None) or (footprint or {}).get("segments")
+    items = rebuild.body_items(entity)
+    solids = [i for i, _, _ in items if i.is_a("IfcExtrudedAreaSolid")]
+    if items and (segments is None or (thickness is None and not solids)):
+        points = shapes.mesh_points(entity)
+        box = shapes.box_axis(points) if points is not None else None
+        if box:
+            if segments is None:
+                segments = [_line(box["start"], box["end"])]
+                print(f"  Warning: {_label(entity)}: its body ({items[0][0].is_a()}) was read as its plan bounding box")
+            thickness = thickness or box["thickness"]
+    if segments is None:
+        if items:
+            print(f"  Warning: {_label(entity)}: its shape could not be read; it was given a 1 m placeholder path")
+        stub = _extract_path_segment(entity)
+        return {"segments": [_line(tuple(stub["start"].values()), tuple(stub["end"].values()))], "thickness": thickness, "stub": True}
+    return {"segments": segments, "thickness": thickness}
 
 
-def _process_element(entity, element_id, oebf_type, group_id, out_dir, rebuilt):
+def _format_segment(seg) -> dict:
+    keys = ("start", "mid", "end") if seg["type"] == "arc" else ("start", "end")
+    return {"type": seg["type"], **{k: _pt(seg[k]) for k in keys}}
+
+
+def _process_element(entity, element_id, oebf_type, group_id, out_dir, rebuilt, cut_boxes=None):
     """Write path + element JSON for one IFC entity. Returns element_id on success."""
     try:
-        # Try to extract swept geometry; fall back to a unit-length placeholder path.
         path_id = f"path-{element_id}"
-        axis = rebuild.wall_axis(entity)
-        segments = _axis_segments(entity, axis)
+        shape = _element_shape(entity)
+        segments, angled = shape["segments"], set()
+        if not shape.get("stub") and not shape.get("regions"):
+            segments, angled, boxes, notes = shapes.clip_path(entity, segments)
+            for note in notes:
+                print(f"  Warning: {_label(entity)}: {note}")
+            if boxes and cut_boxes is not None:
+                cut_boxes[element_id] = boxes
         path_data = {
             "$schema": "oebf://schema/0.1/path",
             "id": path_id,
             "type": "Path",
             "description": f"Imported path for {entity.is_a()} {getattr(entity, 'Name', '') or ''}".strip(),
             "closed": False,
-            "segments": segments,
+            "segments": [_format_segment(seg) for seg in segments],
             "tags": ["imported"],
         }
         (out_dir / "paths" / f"{path_id}.json").write_text(json.dumps(path_data, indent=2))
 
+        if shape.get("regions"):
+            profile_id = rebuilt.region_profile_for(entity, shape["regions"], shape.get("note"))
+        else:
+            profile_id = rebuilt.profile_for(entity, shape.get("thickness"))
         elem_data = {
             "$schema": "oebf://schema/0.1/element",
             "id": element_id,
@@ -363,10 +448,10 @@ def _process_element(entity, element_id, oebf_type, group_id, out_dir, rebuilt):
             "description": getattr(entity, "Name", None) or entity.is_a(),
             "ifc_type": oebf_type,
             "path_id": path_id,
-            "profile_id": rebuilt.profile_for(entity, (axis or {}).get("thickness")),
+            "profile_id": profile_id,
             "sweep_mode": "perpendicular",
-            "cap_start": "flat",
-            "cap_end": "flat",
+            "cap_start": "angled" if "start" in angled else "flat",
+            "cap_end": "angled" if "end" in angled else "flat",
             "start_offset": 0.0,
             "end_offset": 0.0,
             "parent_group_id": group_id,
@@ -422,7 +507,7 @@ def _process_slab(entity, slab_id, group_id, out_dir, rebuilt) -> bool:
 def _slab_material(entity, rebuilt) -> str:
     """A slab has one material: that of its thickest layer, else its single material, else the placeholder."""
     lp = rebuild.layer_profile(entity)
-    name = max(lp["layers"], key=lambda l: l["thickness"])["material_name"] if lp else _single_material_name(entity)
+    name = max(lp["layers"], key=lambda l: l["thickness"])["material_name"] if lp else rebuild.primary_material(entity)
     if name and rebuild.slugify(name):
         return rebuild.material_id(name)
     rebuilt.placeholder_used = True
@@ -603,57 +688,134 @@ def _slugify(text: str) -> str:
     return text.strip("-")[:40]
 
 
-# ── openings, doors and windows (#125) ───────────────────────────────────────
+# ── openings, doors and windows (#125, #133) ─────────────────────────────────
 
 _FILLERS = ("IfcDoor", "IfcWindow")
+HOST_GAP = 0.05   # how far a door or window that is in no opening may stand off its wall's face, metres
 
 
-def _import_openings(model, imported, out_dir, groups, group_id):
+def _points(entity):
+    """World points of the entity's body: its extruded solid, else the mesh the geometry engine builds."""
+    points = rebuild.solid_points(entity)
+    return points if points is not None else shapes.mesh_points(entity)
+
+
+def _read_wall(out_dir, wall_id):
+    try:
+        wall = json.loads((out_dir / "elements" / f"{wall_id}.json").read_text())
+        path = json.loads((out_dir / "paths" / f"{wall['path_id']}.json").read_text())
+        return wall, path
+    except (FileNotFoundError, KeyError, json.JSONDecodeError):
+        return None, None
+
+
+def _write_opening(out_dir, opening_id, name, wall_id, wall, placed, ifc_type=None):
+    doc = {
+        "$schema": "oebf://schema/0.1/opening", "id": opening_id, "type": "Opening",
+        "description": name or "Opening",
+        "host_element_id": wall_id, "path_id": wall["path_id"],
+        "path_position": round(placed["position"], 4), "width_m": round(placed["width"], 4),
+        "height_m": round(placed["height"], 4), "sill_height_m": round(max(placed["sill"], 0.0), 4),
+    }
+    if ifc_type:
+        doc["ifc_type"] = ifc_type
+    (out_dir / "openings" / f"{opening_id}.json").write_text(json.dumps(doc, indent=2))
+
+
+def _import_openings(model, imported, out_dir, groups, group_id, rebuilt=None, cut_boxes=None):
     """Openings cut in imported walls become Opening entities; the doors and windows that fill them become Objects.
 
-    Returns (opening ids, object ids). A door or window that is not in a wall opening has no host to hang on and is skipped."""
+    An opening is read from an IfcRelVoidsElement or from a box a boolean cut out of the wall's body. A door or
+    window that is in no opening is hung on the wall it stands in, without an opening; one that stands in no
+    imported wall has no host and is skipped with a warning. Returns (opening ids, object ids)."""
     host_id = {e.id(): eid for eid, e in imported.items()}
-    openings, objects, symbols = [], [], {}
+    openings, objects, symbols, placed_fillers = [], [], {}, set()
     for rel in model.by_type("IfcRelVoidsElement"):
         wall_id = host_id.get(rel.RelatingBuildingElement.id())
         if wall_id is None:
             continue
         opening = rel.RelatedOpeningElement
-        try:
-            wall = json.loads((out_dir / "elements" / f"{wall_id}.json").read_text())
-            path = json.loads((out_dir / "paths" / f"{wall['path_id']}.json").read_text())
-        except (FileNotFoundError, KeyError, json.JSONDecodeError):
+        wall, path = _read_wall(out_dir, wall_id)
+        if wall is None:
             continue
-        points = rebuild.solid_points(opening)
+        points = _points(opening)
         placed = rebuild.place_on_path(points, path["segments"]) if points is not None else None
         if not placed or placed["width"] < 1e-3 or placed["height"] < 1e-3:
             print(f"  Warning: skipped opening {opening.Name or opening.GlobalId}: its shape is not a box the importer can place")
             continue
         fillers = [f.RelatedBuildingElement for f in (getattr(opening, "HasFillings", None) or []) if f.RelatedBuildingElement.is_a() in _FILLERS]
         opening_id = _oebf_id(opening) or f"opening-{_slugify(opening.GlobalId or str(uuid.uuid4()))}"
-        doc = {
-            "$schema": "oebf://schema/0.1/opening", "id": opening_id, "type": "Opening",
-            "description": opening.Name or "Opening",
-            "host_element_id": wall_id, "path_id": wall["path_id"],
-            "path_position": round(placed["position"], 4), "width_m": round(placed["width"], 4),
-            "height_m": round(placed["height"], 4), "sill_height_m": round(max(placed["sill"], 0.0), 4),
-        }
-        if fillers:
-            doc["ifc_type"] = fillers[0].is_a()
-        (out_dir / "openings" / f"{opening_id}.json").write_text(json.dumps(doc, indent=2))
+        _write_opening(out_dir, opening_id, opening.Name, wall_id, wall, placed, fillers[0].is_a() if fillers else None)
         openings.append(opening_id)
         for filler in fillers:
             object_id = _import_filler(filler, opening_id, placed, wall_id, wall, path, symbols, out_dir)
             if object_id:
+                placed_fillers.add(filler.id())
                 objects.append(object_id)
                 groups.setdefault(wall.get("parent_group_id", group_id), []).append(object_id)
+
+    for wall_id, boxes in sorted((cut_boxes or {}).items()):
+        wall, path = _read_wall(out_dir, wall_id)
+        if wall is None:
+            continue
+        for n, points in enumerate(boxes, 1):
+            placed = rebuild.place_on_path(points, path["segments"])
+            if not placed or placed["width"] < 1e-3 or placed["height"] < 1e-3 or placed["gap"] > 1e-3:
+                print(f"  Warning: skipped a cut in {wall_id}: it is not a box on the wall the importer can place")
+                continue
+            opening_id = f"opening-{wall_id}-cut-{n}"[:120]
+            _write_opening(out_dir, opening_id, f"Cut {n} in {wall.get('description', wall_id)}", wall_id, wall, placed)
+            openings.append(opening_id)
+
+    walls = {eid: _read_wall(out_dir, eid) for eid, e in imported.items() if e.is_a("IfcWall")}
+    for filler in [f for kind in _FILLERS for f in model.by_type(kind) if f.id() not in placed_fillers]:
+        points = _points(filler)
+        host = _host_wall(points, walls, rebuilt, out_dir) if points is not None else None
+        if host is None:
+            print(f"  Warning: skipped {_label(filler)}: it is in no opening and stands in no imported wall, so it has no host")
+            continue
+        wall_id, placed = host
+        wall, path = walls[wall_id]
+        object_id = _import_filler(filler, None, placed, wall_id, wall, path, symbols, out_dir)
+        if object_id:
+            objects.append(object_id)
+            groups.setdefault(wall.get("parent_group_id", group_id), []).append(object_id)
     return openings, objects
 
 
+def _wall_thickness(wall, rebuilt, out_dir) -> float:
+    pid = wall.get("profile_id")
+    doc = rebuilt.profiles.get(pid, (None,))[0] if rebuilt else None
+    if doc is None:
+        try:
+            doc = json.loads((out_dir / "profiles" / f"{pid}.json").read_text())
+        except (FileNotFoundError, json.JSONDecodeError):
+            doc = {}
+    return float(doc.get("width") or 0.2)
+
+
+def _host_wall(points, walls, rebuilt, out_dir):
+    """(wall id, placement) of the wall a box of world points stands in: on its path's run and no further from its
+    centreline than half its thickness plus HOST_GAP. The nearest such wall; None when there is none."""
+    best = None
+    for wall_id, (wall, path) in walls.items():
+        if wall is None:
+            continue
+        placed = rebuild.place_on_path(points, path["segments"])
+        if not placed or placed["width"] < 1e-3 or placed["height"] < 1e-3 or placed["gap"] > HOST_GAP:
+            continue
+        if placed["offset"] > _wall_thickness(wall, rebuilt, out_dir) / 2 + HOST_GAP:
+            continue
+        if best is None or placed["offset"] < best[1]["offset"]:
+            best = (wall_id, placed)
+    return best
+
+
 def _import_filler(filler, opening_id, opening_box, wall_id, wall, path, symbols, out_dir):
-    """A door or window as an Object on its wall, with a box Symbol of its own size. Returns the object id."""
+    """A door or window as an Object on its wall, with a box Symbol of its own size. Returns the object id.
+    Without an opening, `opening_box` is where the filler itself stands, and its height above the path is kept."""
     scale = rebuild.unit_scale(filler)
-    points = rebuild.solid_points(filler)
+    points = _points(filler)
     own = rebuild.place_on_path(points, path["segments"]) if points is not None else None
     width = (own or {}).get("width") or float(getattr(filler, "OverallWidth", None) or 0) * scale or opening_box["width"]
     height = (own or {}).get("height") or float(getattr(filler, "OverallHeight", None) or 0) * scale or opening_box["height"]
@@ -684,9 +846,13 @@ def _import_filler(filler, opening_id, opening_box, wall_id, wall, path, symbols
         "description": filler.Name or ifc_class, "ifc_type": ifc_class,
         "symbol_id": symbols[key], "host_element_id": wall_id, "path_id": wall["path_id"],
         "path_position": round(opening_box["position"] + opening_box["width"] / 2, 4),
-        "opening_id": opening_id, "parameter_overrides": {},
+        "parameter_overrides": {},
         "parent_group_id": wall.get("parent_group_id", DEFAULT_GROUP),
         "properties": {"imported_from_ifc": True},
     }
+    if opening_id:
+        doc["opening_id"] = opening_id
+    else:
+        doc["base_height_m"] = round(max(opening_box["sill"], 0.0), 4)
     (out_dir / "objects" / f"{object_id}.json").write_text(json.dumps(doc, indent=2))
     return object_id
