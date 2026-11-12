@@ -1,5 +1,7 @@
 import { describe, test, expect } from 'vitest';
-import { extractFilesFromTar, readArchiveFiles, archiveName, ARCHIVE_ACCEPT } from './loadBundleZstd.js';
+import { extractFilesFromTar, readArchiveFiles, archiveName, ARCHIVE_ACCEPT, isSafeEntryPath, MAX_ARCHIVE_BYTES } from './loadBundleZstd.js';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { zipSync, strToU8 } from 'fflate';
 import { MemoryAdapter } from '../editor/storageAdapter.js';
 
@@ -101,5 +103,41 @@ describe('readArchiveFiles: the .oebf.zip that Save downloads opens again', () =
     expect(reopened.name).toBe('terraced-house');
     expect(await reopened.readJson('manifest.json')).toEqual({ project_name: 'T' });
     expect(await reopened.readRaw('profiles/p.svg')).toBe('<svg/>');
+  });
+});
+
+describe('readArchiveFiles: unsafe entries and size (#149)', () => {
+  const zip = (files) => zipSync(Object.fromEntries(Object.entries(files).map(([p, t]) => [p, strToU8(t)])));
+
+  test('entries with "..", ".", empty segments, a leading "/" or a backslash are skipped', () => {
+    const files = readArchiveFiles(zip({
+      'model.json': '{}', 'profiles/p.json': '{}',
+      '../evil.json': 'x', 'profiles/../../evil.json': 'x', '/abs.json': 'x', 'profiles//p2.json': 'x',
+      './model2.json': 'x', 'profiles\\win.json': 'x',
+    }));
+    expect([...files.keys()].sort()).toEqual(['model.json', 'profiles/p.json']);
+  });
+
+  test('isSafeEntryPath', () => {
+    for (const ok of ['model.json', 'profiles/p.json', 'a/b/c.svg']) expect(isSafeEntryPath(ok)).toBe(true);
+    for (const bad of ['', '/x', '..', 'a/../b', 'a//b', './a', 'a/.', 'a\\b']) expect(isSafeEntryPath(bad)).toBe(false);
+  });
+
+  test('a tar entry with ".." is skipped', () => {
+    const tar = buildMiniTar('bundle.oebf/../../evil.json', 'x');
+    expect(extractFilesFromTar(tar).size).toBe(0);
+  });
+
+  test('a zip larger than the limit once decompressed is refused with a clear error', () => {
+    const big = zip({ 'model.json': '{}', 'profiles/big.svg': ' '.repeat(5000) });   // compresses to almost nothing
+    expect(() => readArchiveFiles(big, { maxBytes: 4096 })).toThrow(/more than .* once decompressed/);
+    expect(readArchiveFiles(big, { maxBytes: 10000 }).size).toBe(2);
+    expect(MAX_ARCHIVE_BYTES).toBe(200 * 1024 * 1024);
+  });
+
+  test('a .oebfz larger than the limit once decompressed is refused; within it, it opens', () => {
+    const bytes = new Uint8Array(readFileSync(fileURLToPath(new URL('../../public/terraced-house.oebfz', import.meta.url))));
+    expect(readArchiveFiles(bytes).has('model.json')).toBe(true);
+    expect(() => readArchiveFiles(bytes, { maxBytes: 1024 })).toThrow(/once decompressed/);
   });
 });
