@@ -33,7 +33,7 @@ import { assignDetail, unassignDetail, setOverride, setMirrored, setLocation, su
 import { regionIndices, selectionOfRegions } from './pageState.js';
 import { createState, commit, undo, redo, select, setPreview, setTool, markSaved, isDirty, canUndo, canRedo } from './pageState.js';
 import { buildCanvasModel, rulerTicks } from './canvasModel.js';
-import { createController, setControllerTool, handleEvent } from './canvasController.js';
+import { createController, setControllerTool, handleEvent, startPick } from './canvasController.js';
 import { buildPanelModel } from './panelModel.js';
 import { remapDocLayers } from './layerRemap.js';
 import { publishSteps } from './publishSteps.js';
@@ -47,7 +47,7 @@ import { snapPoint, SNAP_KINDS } from '../snap/snapEngine.js';
 import { buildTooltip } from '../snap/tooltip.js';
 import { buildSnapScene } from './snapScene.js';
 import { setRegionEdgeLength, setRegionSize } from './dimensionOps.js';
-import { KINDS, PLANES, TOOLS, MARK_TOOLS, SHORTCUTS } from './detailConstants.js';
+import { KINDS, PLANES, TOOLS, MARK_TOOLS, PICK_TOOLS, SHORTCUTS } from './detailConstants.js';
 import { confirmDialog } from '../ui/dialog.js';
 import { tidyToolbarSeparators } from '../ui/toolbar.js';
 import { renderIcons } from '../ui/icons.js';
@@ -61,6 +61,7 @@ let bundle = null;          // { ctx, adapter, source: 'fsa' | 'memory' | 'snaps
 let st = null;              // pageState
 let display = null;         // transient document while dragging
 let controller = createController('select');
+let onPicked = null;        // what to do with the points of a canvas pick (startPick), while one is under way
 let draft = null;
 let view = { cx: 0, cy: 0, scale: 100 };
 let size = { width: 800, height: 600 };
@@ -201,8 +202,8 @@ function refresh() {
   for (const t of TOOLS) $(`tool-${t}`).classList.toggle('active', st?.tool === t || (!st && t === 'select'));
   const mark = MARK_TOOLS.includes(st?.tool);
   $('marks-menu').classList.toggle('active', mark);
-  $('marks-summary').querySelector('.lbl').textContent = mark ? `Marks: ${$(`tool-${st.tool}`).textContent}` : 'Marks';
-  svg.style.cursor = st?.tool === 'select' || !st ? 'default' : 'crosshair';
+  $('marks-summary').querySelector('.lbl').textContent = mark ? `Marks: ${$(`tool-${st.tool}`).textContent.trim()}` : 'Marks';
+  svg.style.cursor = controller.pick || (st && st.tool !== 'select') ? 'crosshair' : 'default';
   paint();
 }
 
@@ -268,6 +269,15 @@ const actions = {
       if (r.locked.length) status('Coordinates bound to a parameter stay where they are.');
     }
   },
+  // Click one point (a base point) or two (a move) on the canvas; then(points) gets them, snapped.
+  pickPoints: (count, then, prompt) => {
+    if (!st) return;
+    closeCmd();
+    controller = startPick(controller, count);
+    onPicked = then; draft = null;
+    status(`${prompt} Type a point, or Esc to cancel.`);
+    refresh();
+  },
   transform: (op) => {
     const picked = regionIndices(st.selection);
     const about = op.about ?? selectionCentre(st.doc, picked);
@@ -329,6 +339,7 @@ const actions = {
   renameParameter: (from, to) => apply((d) => D.renameParameter(d, from, to).doc),
   setConditionRule: (rule) => apply((d) => (rule === null ? D.setCondition(d, null) : D.setCondition(d, { ...(d.condition ?? {}), rule, member_count: d.members.length, member_kinds: d.members.map((m) => m.kind) }))),
   notify: (text) => status(text, true),
+  info: (text) => status(text),
   setAnchor: (kind, value) => { anchors[kind] = value; refresh(); },
   setEdgeLength: (r, edge, length) => apply((d) => setRegionEdgeLength(d, r, edge, length, anchors.edge, st.preview).doc),
   setRegionSize: (r, w, h) => apply((d) => setRegionSize(d, r, w, h, anchors.rect, st.preview).doc),
@@ -366,6 +377,7 @@ $('fit-btn').addEventListener('click', fit);
 function chooseTool(tool) {
   if (!st) return;
   closeCmd();
+  onPicked = null;
   st = setTool(st, tool);
   controller = setControllerTool(controller, tool);
   draft = null;
@@ -412,6 +424,14 @@ function applyEffects(effects) {
       case 'hint': hint = e.hint; break;
       case 'message': status(e.text, true); break;
       case 'cancel': display = null; needsRefresh = true; break;
+      case 'picked': {
+        const then = onPicked;
+        onPicked = null;
+        closeCmd();
+        needsRefresh = true;
+        if (e.points && then) then(e.points); else status('Pick cancelled.');
+        break;
+      }
     }
   }
   if (needsRefresh) refresh(); else paint();
@@ -446,8 +466,10 @@ svg.addEventListener('wheel', (e) => {
 // ── typed coordinates ────────────────────────────────────────────────────────
 // With a drawing tool active, typing a digit, minus, @ or . opens a command box. Enter places the point exactly,
 // with no snapping: 2400,1200 absolute, @300,0 relative, 500<45 polar, or a distance towards the cursor.
-const DRAWING_TOOLS = TOOLS.filter((t) => t !== 'select');
+const DRAWING_TOOLS = TOOLS.filter((t) => !PICK_TOOLS.includes(t));
+const typingPoints = () => !!st && (DRAWING_TOOLS.includes(st.tool) || !!controller.pick);
 function lastPoint() {
+  if (controller.pick) return controller.pick.points.at(-1) ?? null;
   const d = controller.draft;
   if (!d) return null;
   if (d.kind === 'polygon' || d.kind === 'line') return d.points.at(-1) ?? null;
@@ -458,6 +480,7 @@ function lastPoint() {
 function cmdHint() {
   const d = controller.draft;
   const tool = st?.tool;
+  if (controller.pick) return controller.pick.points.length ? 'Second point: @dx,dy or d<angle' : controller.pick.count === 2 ? 'Base point: x,y' : 'Point: x,y';
   if (tool === 'rect') return d ? 'Opposite corner: @w,h' : 'First corner: x,y';
   if (tool === 'polygon') return d ? 'Next point: @dx,dy or d<angle. Enter on empty closes.' : 'First point: x,y';
   if (tool === 'line') return d ? 'Next point: @dx,dy or d<angle. Enter on empty finishes.' : 'First point: x,y';
@@ -482,7 +505,7 @@ function closeCmd() {
 function commitTyped(point) {
   const ctx = { ...controllerContext(), snapFn: null, snap: 0, suspendSnap: true };
   const screen = { x: 0, y: 0 };
-  const kind = st.tool === 'rect' && controller.draft ? 'up' : 'down';
+  const kind = st.tool === 'rect' && controller.draft && !controller.pick ? 'up' : 'down';
   const r = handleEvent(controller, { type: kind, point, screen }, ctx);
   controller = r.state;
   applyEffects(r.effects);
@@ -494,7 +517,7 @@ $('cmd-input').addEventListener('keydown', (e) => {
   e.preventDefault();
   const text = $('cmd-input').value.trim();
   if (text === '') {
-    if ((st.tool === 'polygon' || st.tool === 'line') && controller.draft) { dispatch('key', { clientX: 0, clientY: 0 }, 'Enter'); closeCmd(); }
+    if ((st.tool === 'polygon' || st.tool === 'line') && controller.draft && !controller.pick) { dispatch('key', { clientX: 0, clientY: 0 }, 'Enter'); closeCmd(); }
     return;
   }
   const res = parseTypedPoint(text, { last: lastPoint(), cursor: pointer.x || pointer.y ? toDetail(view, size, pointer) : null, unit: getUnit() });
@@ -503,12 +526,12 @@ $('cmd-input').addEventListener('keydown', (e) => {
   commitTyped(res.point);
   $('cmd-input').value = '';
   $('cmd-hint').textContent = cmdHint();
-  if (st.tool === 'rect' && !controller.draft) closeCmd();   // the rectangle is complete
+  if (st.tool === 'rect' && !controller.draft && !controller.pick) closeCmd();   // the rectangle is complete
 });
 
 window.addEventListener('keydown', (e) => {
   if (e.key === 'Alt') pointer.alt = true;
-  if (st && DRAWING_TOOLS.includes(st.tool) && !e.ctrlKey && !e.metaKey && !e.altKey && /^[0-9@.\-]$/.test(e.key)
+  if (typingPoints() && !e.ctrlKey && !e.metaKey && !e.altKey && /^[0-9@.\-]$/.test(e.key)
       && !['INPUT', 'SELECT', 'TEXTAREA'].includes(e.target.tagName)) {
     e.preventDefault();
     openCmd(e.key);
@@ -554,7 +577,7 @@ window.addEventListener('keydown', (e) => {
     }
   }
   if (e.key === '?') { showHelp(); return; }
-  const tools = { v: 'select', r: 'rect', p: 'polygon', m: 'measure', l: 'line', a: 'arc', c: 'circle', d: 'dim', n: 'note' };
+  const tools = { v: 'select', r: 'rect', p: 'polygon', m: 'measure', l: 'line', a: 'arc', c: 'circle', d: 'dim', n: 'note', t: 'trim', e: 'extend' };
   if (!mod && tools[e.key.toLowerCase()]) { chooseTool(tools[e.key.toLowerCase()]); return; }
   if (!mod && e.key.toLowerCase() === 'f') { fit(); return; }
   if (!mod && e.key.toLowerCase() === 's') { toggleSnap(); return; }

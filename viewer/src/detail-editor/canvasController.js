@@ -22,6 +22,7 @@
  *     { type: 'message', text }
  *     { type: 'cancel' }               discard transient changes, show the committed doc
  *     { type: 'hint', hint }           smart cursor: { snap, lastPoint } to show (marker, guides, tooltip), or null to clear
+ *     { type: 'picked', points }       a point pick (startPick) finished: the snapped points, or null when cancelled
  *
  *   ctx.snapFn (optional): (point, { lastPoint, exclude, suspend }) => snap result of snap/snapEngine.js.
  *   When absent everything works as before with the step in ctx.snap and no hints.
@@ -37,6 +38,7 @@ import { addAnnotation, removeAnnotation, moveAnnotation, setAnnotationPoint, se
 import { setClip, resolvePlacement } from './referenceOps.js';
 import { startFromPoint, runPositionFromPoint } from './memberShapes.js';
 import { signedArea, isSelfIntersecting } from '../detail/regionGeometry.js';
+import { boundariesOf, trimMark, extendMark } from './markTrim.js';
 
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
@@ -46,6 +48,35 @@ export function createController(tool = 'select') {
 }
 
 export const setControllerTool = (_state, tool) => createController(tool);
+
+/**
+ * Pick `count` points on the canvas (1 or 2) for a command elsewhere, such as a base point to rotate about, or the two
+ * points of a move. The tool stays as it was; while picking, clicks are snapped and give points instead of selecting,
+ * with a rubber band from the first point. Escape cancels. Ends with a 'picked' effect.
+ */
+export function startPick(state, count = 1) {
+  if (count !== 1 && count !== 2) throw new Error('Pick one or two points');
+  return { ...state, drag: null, draft: null, pick: { count, points: [] } };
+}
+
+function pickTool(state, event, ctx) {
+  const { type, point } = event;
+  const { pick } = state;
+  const last = pick.points.at(-1) ?? null;
+  const end = (points) => done({ ...state, pick: null, draft: null }, [{ type: 'draft', draft: null }, ...clearHint(ctx), { type: 'picked', points }]);
+  if (type === 'key') return event.key === 'Escape' ? end(null) : done(state);
+  if (type !== 'move' && type !== 'down') return done(state);
+  const s = snapAt(ctx, point, last ? { lastPoint: last } : {});
+  if (type === 'move') {
+    if (!last) return ctx.snapFn ? done(state, [hintEffect(s)]) : done(state);
+    const draft = { kind: 'measure', a: last, b: s.point, fixed: false };
+    return done({ ...state, draft }, [{ type: 'draft', draft }, ...(s.snap ? [hintEffect(s)] : [])]);
+  }
+  const points = [...pick.points, s.point];
+  if (points.length >= pick.count) return end(points);
+  const draft = { kind: 'measure', a: s.point, b: s.point, fixed: false };
+  return done({ ...state, pick: { ...pick, points }, draft }, [{ type: 'draft', draft }]);
+}
 
 const stepSnap = (p, snap) => ({ x: snapValue(p.x, snap), y: snapValue(p.y, snap) });
 
@@ -62,6 +93,7 @@ const msg = (text) => ({ type: 'message', text });
 const done = (state, effects = []) => ({ state, effects });
 
 export function handleEvent(state, event, ctx) {
+  if (state.pick) return pickTool(state, event, ctx);
   switch (state.tool) {
     case 'rect': return rectTool(state, event, ctx);
     case 'polygon': return polygonTool(state, event, ctx);
@@ -71,6 +103,8 @@ export function handleEvent(state, event, ctx) {
     case 'note': return noteTool(state, event, ctx);
     case 'circle': return circleTool(state, event, ctx);
     case 'arc': return arcTool(state, event, ctx);
+    case 'trim': return trimExtendTool(state, event, ctx, trimMark);
+    case 'extend': return trimExtendTool(state, event, ctx, extendMark);
     default: return rememberClick(selectTool(state, event, ctx), event);
   }
 }
@@ -566,4 +600,20 @@ function arcTool(state, event, ctx) {
     type: 'arc', centre: d.c, radius_m: round6(Math.hypot(d.s.x - d.c.x, d.s.y - d.c.y)),
     start_deg: round6(angleOf(d.c, d.s)), end_deg: round6(angleOf(d.c, p)),
   });
+}
+
+// ── trim and extend marks ───────────────────────────────────────────────────
+// Click a line, arc or circle. Trim cuts away the piece under the click, back to the nearest crossings with anything
+// else drawn; extend runs the end nearer the click on to the next thing in its way. Each click is one undo step.
+
+function trimExtendTool(state, event, ctx, op) {
+  if (event.type !== 'down') return done(state);
+  const hit = hitStack(ctx.model, event.point, ctx.tolerance).find((h) => h.ref.type === 'annotation');
+  const ann = hit ? ctx.doc.annotations?.[hit.ref.index] : null;
+  if (!ann || !['line', 'arc', 'circle'].includes(ann.type)) {
+    return done(state, [msg(op === trimMark ? 'Click the part of a line, arc or circle to cut away.' : 'Click a line or arc near the end to extend.')]);
+  }
+  let doc;
+  try { doc = op(ctx.doc, hit.ref.index, event.point, boundariesOf(ctx.model, hit.ref.index)).doc; } catch (err) { return done(state, [msg(err.message)]); }
+  return done(state, [{ type: 'doc', doc, transient: false }, { type: 'select', selection: null }]);
 }

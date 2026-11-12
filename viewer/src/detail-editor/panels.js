@@ -331,7 +331,7 @@ function regionOffsetEditor(r, pm, a) {
       h('button', { title: 'Cut away the part of this region that the other covers (rectangles only)', onclick: () => a.trimBy(by) }, 'Trim'),
       select(['left', 'right', 'bottom', 'top'], offsetDraft.side, (v) => { offsetDraft.side = v; }, { title: 'Side to extend' }),
       h('button', { title: 'Run that side out to the nearest face of the other region (rectangles only)', onclick: () => a.extendTo(offsetDraft.side, by) }, 'Extend to')) : null,
-    h('div', { class: 'note' }, 'Offset and trim need plain-number vertices. Trim and extend work on rectangles for now.'))];
+    h('div', { class: 'note' }, 'Offset and trim need plain-number vertices. Trim and extend here work on rectangles; for lines, arcs and circles use Trim and Extend in the Marks menu.'))];
 }
 
 /** Round or chamfer corners of the selected region. The corner defaults to the selected vertex. */
@@ -350,7 +350,10 @@ function regionCornerEditor(r, a) {
     h('div', { class: 'note' }, 'A rounded corner is drawn as short straight segments. Needs plain-number vertices.'))];
 }
 
-/** Numeric move, copy, rotate and mirror. Acts on every selected region; rotate and mirror turn about the selection's centre. */
+/**
+ * Move, copy, rotate and mirror, typed or picked on the canvas. Acts on every selected region; rotate and mirror turn
+ * about the selection's centre, the origin, or a base point typed or clicked.
+ */
 const transformDraft = { dx: 0, dy: 0, deg: 90, about: 'centre', ax: 0, ay: 0 };
 const aboutOf = () => (transformDraft.about === 'origin' ? { x: 0, y: 0 } : transformDraft.about === 'point' ? { x: transformDraft.ax, y: transformDraft.ay } : undefined);
 function regionTransformEditor(r, a) {
@@ -362,8 +365,13 @@ function regionTransformEditor(r, a) {
     h('div', { class: 'row' },
       h('button', { onclick: () => a.moveBy(transformDraft.dx, transformDraft.dy, false) }, 'Move'),
       h('button', { onclick: () => a.moveBy(transformDraft.dx, transformDraft.dy, true) }, 'Copy')),
+    h('div', { class: 'row' },
+      h('button', { title: 'Click a base point on the canvas, then where it goes', onclick: () => pickMove(a, false) }, 'Move by 2 points'),
+      h('button', { title: 'Click a base point on the canvas, then where the copy goes', onclick: () => pickMove(a, true) }, 'Copy by 2 points')),
     row('Angle (deg)', plain(transformDraft.deg, (v) => { transformDraft.deg = v; })),
-    row('About', select(['centre', 'origin', 'point'], transformDraft.about, (v) => { transformDraft.about = v; a.refresh?.(); })),
+    h('div', { class: 'row' }, h('label', {}, 'About'),
+      select(['centre', 'origin', 'point'], transformDraft.about, (v) => { transformDraft.about = v; a.refresh?.(); }),
+      h('button', { title: 'Click the base point on the canvas', onclick: () => pickBase(a) }, 'Pick')),
     ...(transformDraft.about === 'point' ? [
       row(`Point x (${unitLabel()})`, num(transformDraft.ax, (m) => { transformDraft.ax = m; })),
       row(`Point y (${unitLabel()})`, num(transformDraft.ay, (m) => { transformDraft.ay = m; }))] : []),
@@ -373,7 +381,24 @@ function regionTransformEditor(r, a) {
     h('div', { class: 'row' },
       h('button', { onclick: () => a.transform({ mirror: 'x', about: aboutOf() }) }, 'Mirror left-right'),
       h('button', { onclick: () => a.transform({ mirror: 'y', about: aboutOf() }) }, 'Mirror top-bottom')),
-    h('div', { class: 'note' }, `Applies to ${scope}. Rotate and mirror turn about the centre of the selection, the drawing's origin, or a point you type (the mirror line passes through it).`))];
+    h('div', { class: 'note' }, `Applies to ${scope}. Rotate and mirror turn about the centre of the selection, the drawing's origin, or a point you type or pick on the canvas (the mirror line passes through it).`))];
+}
+
+/** Click the base point for rotate and mirror on the canvas. */
+function pickBase(a) {
+  a.pickPoints(1, ([p]) => {
+    Object.assign(transformDraft, { about: 'point', ax: p.x, ay: p.y });
+    a.refresh?.();
+    a.info?.(`Base point set at ${toDisplay(p.x)}, ${toDisplay(p.y)} ${unitLabel()}. Now rotate or mirror.`);
+  }, 'Click the base point.');
+}
+
+/** Move or copy the selection by two clicked points: from the first to the second. */
+function pickMove(a, copy) {
+  a.pickPoints(2, ([p, q]) => {
+    Object.assign(transformDraft, { dx: q.x - p.x, dy: q.y - p.y });
+    a.moveBy(q.x - p.x, q.y - p.y, copy);
+  }, `Click the base point, then where it ${copy ? 'is copied to' : 'goes'}.`);
 }
 
 /** Depth and repeat of a region: one unit is drawn, repeated at a pitch (brick 210 deep every 220, tile 90 deep on 98). */
