@@ -159,7 +159,14 @@ export function buildCustomJunctionMesh(geomJson, materialMap) {
     const material = materialMap.get(matId) ||
       new THREE.MeshStandardMaterial({ color: 0x888888 });
 
-    group.add(new THREE.Mesh(geometry, material));
+    const mesh = new THREE.Mesh(geometry, material);
+    // its outline, as buildThreeMesh gives a wall: hidden until applyRenderMode shows it, so in lines mode a detail
+    // draws as lines rather than vanishing (#146)
+    const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geometry, 15), new THREE.LineBasicMaterial({ color: 0x333333 }));
+    edges.name = 'edges';
+    edges.visible = false;
+    mesh.add(edges);
+    group.add(mesh);
   }
 
   return group;

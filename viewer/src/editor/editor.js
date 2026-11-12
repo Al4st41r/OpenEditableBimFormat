@@ -2110,6 +2110,7 @@ async function _refreshDetailScene(detailIds) {
     for (const group of buildJunctionDetailMeshes(affected, detailMatMap)) editorScene.modelGroup.add(group);
     changed += affected.length;
   }
+  editorScene.setRenderMode(editorScene.getRenderMode());   // the new groups drawn as the rest are, eg in lines mode (#146)
   return changed;
 }
 
