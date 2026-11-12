@@ -46,7 +46,7 @@ import { FloorTool } from './floorTool.js';
 import { JunctionEditor } from './junctionEditor.js';
 import { DrawingTool } from './drawingTool.js';
 import { PathEditTool } from './pathEditTool.js';
-import { FsaAdapter, MemoryAdapter, ServerAdapter, LIVE_BASE } from './storageAdapter.js';
+import { FsaAdapter, MemoryAdapter, ServerAdapter, LIVE_BASE, readJsonOr } from './storageAdapter.js';
 import { ARCHIVE_ACCEPT } from '../loader/loadBundleZstd.js';
 import { bundleMessage, isMessage, AXO_READY } from '../detail-axo/editorHandoff.js';
 import { icon } from '../ui/icons.js';
@@ -136,7 +136,7 @@ storeyManager.onWritten = async () => {
     const next = { ...m, storeys: all.map(s => s.id) };   // registered now, so a reload sees a storey made a moment ago
     if (m.hierarchy) next.hierarchy = syncHierarchyStoreys(m.hierarchy, all.map(s => ({ id: s.id, name: s.name, z_m: s.z_m })));
     await writeEntity(adapter, 'model.json', next);
-  } catch { /* the Save button writes it again */ }
+  } catch (e) { _reportError(`The storey was not registered in model.json: ${e.message}`); }
 };
 
 document.getElementById('add-storey-btn').addEventListener('click', () => {
@@ -257,8 +257,8 @@ _ifcInput.addEventListener('change', async () => {
 
     // Merge imported materials into library
     if (materials.length > 0) {
-      let lib = { materials: [] };
-      try { lib = await adapter.readJson('materials/library.json'); } catch { /* new */ }
+      const lib = await readJsonOr(adapter, 'materials/library.json', { materials: [] });   // only absent means new
+      if (!Array.isArray(lib.materials)) lib.materials = [];
       const existingIds = new Set(lib.materials.map(m => m.id));
       for (const m of materials) {
         if (!existingIds.has(m.id)) lib.materials.push(m);
@@ -267,8 +267,8 @@ _ifcInput.addEventListener('change', async () => {
     }
 
     // Update model.json
-    let model = { hierarchy: { type: 'Project', id: 'project-root', description: projectName, children: [] }, elements: [], slabs: [], objects: [], arrays: [], junctions: [] };
-    try { model = await adapter.readJson('model.json'); } catch { /* new bundle */ }
+    const model = await readJsonOr(adapter, 'model.json',
+      { hierarchy: { type: 'Project', id: 'project-root', description: projectName, children: [] }, elements: [], slabs: [], objects: [], arrays: [], junctions: [] });
     model.elements = [...new Set([...(model.elements ?? []), ...elementIds])];
     model.slabs    = [...new Set([...(model.slabs    ?? []), ...slabIds])];
     await adapter.writeJson('model.json', model);
@@ -616,7 +616,9 @@ document.getElementById('tool-path-edit').addEventListener('click', () => {
 
 document.getElementById('tool-wall').addEventListener('click', async () => {
   if (!wallTool) return;
-  const created = await _ensureDefaultProfile();
+  let created;
+  try { created = await _ensureDefaultProfile(); }
+  catch (e) { _reportError(`The default profile could not be made: ${e.message}`); return; }
   if (created) statusBar.textContent = 'Default profile created — edit it in the Details panel.';
   _setActiveTool(wallTool, document.getElementById('tool-wall'));
   wallTool.activate();
@@ -624,7 +626,9 @@ document.getElementById('tool-wall').addEventListener('click', async () => {
 
 document.getElementById('tool-floor').addEventListener('click', async () => {
   if (!floorTool) return;
-  const created = await _ensureDefaultProfile();
+  let created;
+  try { created = await _ensureDefaultProfile(); }
+  catch (e) { _reportError(`The default profile could not be made: ${e.message}`); return; }
   if (created) statusBar.textContent = 'Default profile created — edit it in the Details panel.';
   _setActiveTool(floorTool, document.getElementById('tool-floor'));
   floorTool.activate();
@@ -741,10 +745,9 @@ async function _loadAndRenderBundleInner(adapter, keepView) {
   editorScene.setRenderMode(editorScene.getRenderMode());
 
   // Load storeys and grids from model.json
-  let model = {};
-  try {
-    model = await readEntity(adapter, 'model.json');
-  } catch { /* new or minimal bundle */ }
+  // only a missing model.json is a new or minimal bundle: a failed read stops the load rather than show (and later
+  // write back) a model with no storeys or grids (#141)
+  const model = await readJsonOr(adapter, 'model.json', {});
 
   // Load units setting from model
   if (model.units === 'mm' || model.units === 'm') {
@@ -1216,7 +1219,8 @@ document.getElementById('add-subassembly-btn').addEventListener('click', async (
   if (!raw) return;
   const id = slug(raw);
 
-  await _ensureUnsetMaterial();
+  try { await _ensureUnsetMaterial(); }
+  catch (e) { _reportError(`Add sub-assembly failed: the material library could not be read (${e.message})`); return; }
   await writeEntity(adapter, `profiles/${id}.json`, {
     $schema:   'oebf://schema/0.1/profile',
     id,
@@ -1239,8 +1243,7 @@ document.getElementById('add-subassembly-btn').addEventListener('click', async (
 /** Make sure the placeholder material the editor's defaults name is in the library. */
 async function _ensureUnsetMaterial() {
   if (!adapter) return;
-  let lib = null;
-  try { lib = await readEntity(adapter, 'materials/library.json'); } catch { /* no library yet */ }
+  const lib = await readJsonOr(adapter, 'materials/library.json', null);   // a failed read is thrown, not taken as no library
   const next = withUnsetMaterial(lib);
   if (next.materials.length !== (lib?.materials?.length ?? -1)) await writeEntity(adapter, 'materials/library.json', next);
 }
@@ -1248,8 +1251,9 @@ async function _ensureUnsetMaterial() {
 document.getElementById('add-material-btn').addEventListener('click', async () => {
   if (!adapter) return;
   // Read existing library (or start fresh)
-  let lib = { '$schema': 'oebf://schema/0.1/materials', materials: [] };
-  try { lib = await readEntity(adapter, 'materials/library.json'); } catch { /* new bundle */ }
+  let lib;
+  try { lib = await readJsonOr(adapter, 'materials/library.json', { '$schema': 'oebf://schema/0.1/materials', materials: [] }); }
+  catch (err) { _reportError(`Add material failed: the material library could not be read (${err.message})`); return; }
   if (!Array.isArray(lib.materials)) lib.materials = [];
 
   const input = await _askMaterial(lib.materials);
@@ -1257,7 +1261,8 @@ document.getElementById('add-material-btn').addEventListener('click', async () =
 
   const mat = buildMaterial(input.name, input.colour, lib.materials, input);
   lib.materials.push(mat);
-  await writeEntity(adapter, 'materials/library.json', lib);
+  try { await writeEntity(adapter, 'materials/library.json', lib); }
+  catch (err) { _reportError(`Add material failed: ${err.message}`); return; }
 
   activeProfileMap[mat.id] = mat;
   _addMaterialToTree(mat);
@@ -1763,8 +1768,7 @@ window.addEventListener('message', async (e) => {
     await adapter.writeJson(`profiles/${id}.json`, json);
     if (adapter.writeRaw) await adapter.writeRaw(`profiles/${id}.svg`, svg);
     if (newMaterials.length) {   // materials the profile editor added (new, or from the library) go into the bundle
-      let lib = { $schema: 'oebf://schema/0.1/materials', materials: [] };
-      try { lib = await adapter.readJson('materials/library.json'); } catch { /* new */ }
+      const lib = await readJsonOr(adapter, 'materials/library.json', { $schema: 'oebf://schema/0.1/materials', materials: [] });
       const have = new Set((lib.materials ?? []).map((m) => m.id));
       lib.materials = [...(lib.materials ?? []), ...newMaterials.filter((m) => !have.has(m.id))];
       await adapter.writeJson('materials/library.json', lib);
@@ -1795,9 +1799,9 @@ window.addEventListener('message', async (e) => {
  * files, so that nothing added since the last save is dropped by the reload.
  */
 async function _writeModelJson() {
-  let existingModel = {};
-  try { existingModel = await readEntity(adapter, 'model.json'); }
-  catch { /* new bundle */ }
+  // Only a model.json that is not there is a new bundle; a failed read (a server error, a file that does not parse)
+  // is thrown, so the index is never rewritten from what this session alone knows (#141).
+  const existingModel = await readJsonOr(adapter, 'model.json', {});
 
   const newModel = {
     ...existingModel,
@@ -1915,7 +1919,9 @@ journal.onChange(() => {
   if (_loading || _restoring || _syncingModel || !adapter) return;
   _syncingModel = true;
   queueMicrotask(async () => {
-    try { await _writeModelJson(); } catch { /* reported on Save */ } finally { _syncingModel = false; }
+    try { await _writeModelJson(); }
+    catch (e) { _reportError(`model.json was not updated: ${e.message}`); }
+    finally { _syncingModel = false; }
   });
 });
 _syncJournalUi();

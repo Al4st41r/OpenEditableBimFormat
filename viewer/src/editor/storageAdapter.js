@@ -10,6 +10,34 @@
 import { zipSync } from 'fflate';
 import { readArchiveFiles, archiveName } from '../loader/loadBundleZstd.js';
 
+// ── Not found ────────────────────────────────────────────────────────────────
+
+/**
+ * Thrown by an adapter when a file or folder is not there. Its name matches the DOMException the File System
+ * Access API throws, so `isNotFound` answers for every adapter alike.
+ */
+export class NotFoundError extends Error {
+  constructor(path, message = `Missing file in bundle: ${path} (not found)`) {
+    super(message);
+    this.name = 'NotFoundError';
+    this.path = path;
+  }
+}
+
+/** Whether `err` says the file is not there (as opposed to unreadable, unparsable or a server failure). */
+export function isNotFound(err) {
+  return err?.name === 'NotFoundError';
+}
+
+/**
+ * Read a JSON file, or `fallback` when it is not there. Every other failure (a server error, a file that does not
+ * parse) is thrown, so that a caller never rewrites a file it could not read.
+ */
+export async function readJsonOr(adapter, path, fallback) {
+  try { return await adapter.readJson(path); }
+  catch (err) { if (isNotFound(err)) return fallback; throw err; }
+}
+
 // ── FsaAdapter ───────────────────────────────────────────────────────────────
 
 export class FsaAdapter {
@@ -80,8 +108,9 @@ export class FsaAdapter {
       const names = [];
       for await (const [name] of handle) names.push(name);
       return names;
-    } catch {
-      return [];
+    } catch (err) {
+      if (isNotFound(err)) return [];
+      throw err;
     }
   }
 }
@@ -111,7 +140,7 @@ export class MemoryAdapter {
 
   async readJson(path) {
     const text = this._map.get(path);
-    if (!text) throw new Error(`Missing file in bundle: ${path}`);
+    if (text === undefined) throw new NotFoundError(path);
     return JSON.parse(text);
   }
 
@@ -124,7 +153,7 @@ export class MemoryAdapter {
   }
 
   async readRaw(path) {
-    if (!this._map.has(path)) throw new Error(`Missing file in bundle: ${path}`);
+    if (!this._map.has(path)) throw new NotFoundError(path);
     return this._map.get(path);
   }
 
@@ -187,7 +216,8 @@ export class ServerAdapter {
   _url(kind, path) { return this.base + kind + '/' + path.split('/').filter(Boolean).map(encodeURIComponent).join('/'); }
 
   async _ok(res, path) {
-    if (!res.ok) throw new Error(`${path}: ${res.status === 404 ? 'not found' : `server answered ${res.status}`}`);
+    if (res.status === 404) throw new NotFoundError(path);
+    if (!res.ok) throw new Error(`${path}: server answered ${res.status}`);
     return res;
   }
 
@@ -207,10 +237,11 @@ export class ServerAdapter {
     await this._ok(await this._fetch(this._url('files', path), { method: 'DELETE' }), path);
   }
 
+  /** The names in a folder; [] only when the folder is not there. */
   async listDir(path) {
-    try {
-      const res = await this._fetch(this._url('list', path), { cache: 'no-store' });
-      return res.ok ? await res.json() : [];
-    } catch { return []; }
+    const res = await this._fetch(this._url('list', path), { cache: 'no-store' });
+    if (res.status === 404) return [];
+    await this._ok(res, path);
+    return res.json();
   }
 }

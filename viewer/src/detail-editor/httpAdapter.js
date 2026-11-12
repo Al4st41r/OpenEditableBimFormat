@@ -7,7 +7,7 @@
  * open straight on a detail.
  */
 
-import { MemoryAdapter } from '../editor/storageAdapter.js';
+import { MemoryAdapter, NotFoundError } from '../editor/storageAdapter.js';
 
 /** A served bundle folder name: letters, digits, dot, dash and underscore, ending .oebf. No paths. */
 export const BUNDLE_NAME = /^[A-Za-z0-9_-][A-Za-z0-9._-]*\.oebf$/;
@@ -48,7 +48,8 @@ export class HttpAdapter extends MemoryAdapter {
   async readJson(path) {
     if (!this._map.has(path)) {
       const res = await fetch(this.base + path);
-      if (!res.ok) throw new Error(`Missing file in bundle: ${path}`);
+      if (res.status === 404) throw new NotFoundError(path, `Missing file in bundle: ${path}`);
+      if (!res.ok) throw new Error(`${path}: server answered ${res.status}`);
       this._map.set(path, await res.text());
     }
     return super.readJson(path);

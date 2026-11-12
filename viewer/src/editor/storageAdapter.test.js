@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest';
-import { MemoryAdapter, ServerAdapter, LIVE_BASE } from './storageAdapter.js';
+import { MemoryAdapter, ServerAdapter, LIVE_BASE, isNotFound, readJsonOr } from './storageAdapter.js';
 import { writeEntity, readEntity, writeModelJson } from './bundleWriter.js';
 
 describe('MemoryAdapter', () => {
@@ -113,5 +113,35 @@ describe('ServerAdapter', () => {
   test('a refused write (eg the password was not given) is an error, not silence', async () => {
     const adapter = new ServerAdapter(LIVE_BASE, 'x', async () => new Response('', { status: 401 }));
     await expect(adapter.writeJson('model.json', {})).rejects.toThrow(/401/);
+  });
+});
+
+describe('not found versus other failures (#141, #142)', () => {
+  const answering = (status, body = '') => new ServerAdapter(LIVE_BASE, 'x', async () => new Response(body, { status }));
+
+  test('a 404 is not-found; a 502 is a different error', async () => {
+    expect(isNotFound(await answering(404).readJson('model.json').catch((e) => e))).toBe(true);
+    const err = await answering(502).readJson('model.json').catch((e) => e);
+    expect(isNotFound(err)).toBe(false);
+    expect(err.message).toMatch(/502/);
+  });
+
+  test('listDir is [] only on a 404, and a 502 is thrown', async () => {
+    expect(await answering(404).listDir('profiles')).toEqual([]);
+    await expect(answering(502).listDir('profiles')).rejects.toThrow(/502/);
+  });
+
+  test('a MemoryAdapter missing key is not-found; a file that does not parse is not', async () => {
+    const a = new MemoryAdapter(new Map([['model.json', '{oops']]), 'b');
+    expect(isNotFound(await a.readJson('none.json').catch((e) => e))).toBe(true);
+    expect(isNotFound(await a.readRaw('none.svg').catch((e) => e))).toBe(true);
+    expect(isNotFound(await a.readJson('model.json').catch((e) => e))).toBe(false);
+  });
+
+  test('readJsonOr gives the fallback only when the file is not there', async () => {
+    expect(await readJsonOr(answering(404), 'materials/library.json', { materials: [] })).toEqual({ materials: [] });
+    await expect(readJsonOr(answering(502), 'materials/library.json', { materials: [] })).rejects.toThrow(/502/);
+    await expect(readJsonOr(new MemoryAdapter(new Map([['model.json', '{oops']]), 'b'), 'model.json', {})).rejects.toThrow();
+    expect(await readJsonOr(new MemoryAdapter(new Map([['model.json', '{"a":1}']]), 'b'), 'model.json', {})).toEqual({ a: 1 });
   });
 });
