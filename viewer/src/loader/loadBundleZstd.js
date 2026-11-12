@@ -11,7 +11,7 @@
  */
 
 import { loadDetails } from '../detail/loadDetails.js';
-import { decompress } from 'fzstd';
+import { Decompress } from 'fzstd';
 import { unzipSync } from 'fflate';
 import { parsePath }           from './loadPath.js';
 import { buildProfileShape }   from './loadProfile.js';
@@ -29,20 +29,60 @@ export const ARCHIVE_ACCEPT = '.oebfz,.zip';
 /** The bundle's name from its archive's file name: "terraced-house.oebf.zip" and "terraced-house.oebfz" give "terraced-house". */
 export const archiveName = (fileName) => fileName.replace(/(\.oebfz|\.oebf\.zip|\.zip)$/i, '').replace(/\.oebf$/i, '');
 
+/** The most an archive may hold once decompressed: far above any real bundle, well short of exhausting the tab. */
+export const MAX_ARCHIVE_BYTES = 200 * 1024 * 1024;
+
+const tooBig = (max) => new Error(`This archive holds more than ${Math.round(max / 1024 / 1024)} MB once decompressed, so it was not opened`);
+
+/**
+ * Whether an entry path can be a file in a bundle: relative, with no empty, '.' or '..' segments (and no backslash,
+ * which some zips use as a separator). Anything else is left out of the bundle (#149).
+ */
+export function isSafeEntryPath(path) {
+  if (!path || path.startsWith('/') || path.includes('\\')) return false;
+  return path.split('/').every((seg) => seg !== '' && seg !== '.' && seg !== '..');
+}
+
+/** Zstd-decompress, stopping with an error once the output passes `max` bytes. */
+function decompressCapped(bytes, max) {
+  const chunks = [];
+  let total = 0;
+  const stream = new Decompress((chunk) => {
+    total += chunk.length;
+    if (total > max) throw tooBig(max);
+    chunks.push(chunk);
+  });
+  stream.push(bytes, true);
+  const out = new Uint8Array(total);
+  let at = 0;
+  for (const c of chunks) { out.set(c, at); at += c.length; }
+  return out;
+}
+
 /**
  * The files in a bundle archive: a zip (the editor's Save, or a folder zipped by hand) or a .oebfz (Zstd tar).
  * A zip made from the folder itself (terraced-house.oebf/model.json) has that folder taken off, and the
- * __MACOSX and .DS_Store entries a Mac adds are left out.
+ * __MACOSX and .DS_Store entries a Mac adds are left out. Entries with unsafe paths (isSafeEntryPath) are skipped,
+ * and an archive larger than MAX_ARCHIVE_BYTES once decompressed is refused before it is decompressed (zip) or as soon
+ * as it passes the limit (.oebfz).
  *
  * @param {Uint8Array} bytes
+ * @param {{ maxBytes?: number }} [options] - the decompressed size limit (tests use a small one)
  * @returns {Map<string, string>} path in the bundle -> text
  */
-export function readArchiveFiles(bytes) {
+export function readArchiveFiles(bytes, { maxBytes = MAX_ARCHIVE_BYTES } = {}) {
   const isZip = bytes[0] === 0x50 && bytes[1] === 0x4b;   // "PK"
-  if (!isZip) return extractFilesFromTar(decompress(bytes));
+  if (!isZip) return extractFilesFromTar(decompressCapped(bytes, maxBytes));
   const decoder = new TextDecoder();
-  const entries = Object.entries(unzipSync(bytes))
-    .filter(([path]) => !path.endsWith('/') && !path.startsWith('__MACOSX/') && !path.split('/').pop().startsWith('.'));
+  let total = 0;
+  const wanted = ({ name, originalSize }) => {
+    if (name.endsWith('/') || name.startsWith('__MACOSX/') || name.split('/').pop().startsWith('.')) return false;
+    if (!isSafeEntryPath(name)) return false;
+    total += originalSize;
+    if (total > maxBytes) throw tooBig(maxBytes);
+    return true;
+  };
+  const entries = Object.entries(unzipSync(bytes, { filter: wanted }));
   let paths = entries.map(([p]) => p);
   if (!paths.includes('model.json')) {
     const inner = paths.find((p) => p.endsWith('/model.json'));
@@ -84,7 +124,7 @@ export function extractFilesFromTar(tarBytes) {
     if (typeFlag === '0' || typeFlag === '\0') {
       // Strip leading directory component (e.g. "project.oebf/manifest.json" → "manifest.json")
       const normalised = name.replace(/^[^/]+\//, '');
-      if (normalised && size > 0) {
+      if (normalised && size > 0 && isSafeEntryPath(normalised)) {
         const content = decoder.decode(tarBytes.subarray(dataOffset, dataOffset + size));
         files.set(normalised, content);
       }

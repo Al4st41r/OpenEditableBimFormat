@@ -10,6 +10,8 @@
  * No DOM and no adapter specifics: contents are strings (null for "no file").
  */
 
+import { isNotFound } from './storageAdapter.js';
+
 export function createJournal(limit = 100) {
   let undoStack = [];      // steps: Map<path, { before, after }>
   let redoStack = [];
@@ -75,6 +77,7 @@ export function createJournal(limit = 100) {
 }
 
 const isJson = (path) => path.endsWith('.json');
+const parses = (text) => { try { JSON.parse(text); return true; } catch { return false; } };
 
 /** The entity id a bundle path holds: "paths/path-a.json" → "path-a". */
 const entityOf = (path) => path.replace(/^.*\//, '').replace(/\.(json|svg)$/, '');
@@ -128,9 +131,17 @@ export function pathOnlyRefresh(ops, ownedPaths) {
  * from journal.undo() or journal.redo() straight to `inner`, without recording it.
  */
 export function journalled(inner, journal) {
+  // What a file holds before a write: null only when it is not there. Any other failure (a server error) fails the
+  // write, since recording it as 'no file' would make undo delete a file that existed (#142).
   const read = async (path) => {
-    try { return isJson(path) ? JSON.stringify(await inner.readJson(path), null, 2) : await inner.readRaw(path); }
-    catch { return null; }
+    try {
+      if (!isJson(path)) return await inner.readRaw(path);
+      try { return JSON.stringify(await inner.readJson(path), null, 2); }
+      catch (err) { if (err instanceof SyntaxError) return await inner.readRaw(path); throw err; }   // kept as it was
+    } catch (err) {
+      if (isNotFound(err)) return null;
+      throw err;
+    }
   };
   const a = Object.create(inner);
   a.inner = inner;
@@ -151,8 +162,9 @@ export function journalled(inner, journal) {
   };
   a.restore = async (ops) => {
     for (const { path, content } of ops) {
-      if (content === null) { try { await inner.deleteFile(path); } catch { /* already gone */ } }
-      else if (isJson(path)) await inner.writeJson(path, JSON.parse(content));
+      if (content === null) {
+        try { await inner.deleteFile(path); } catch (err) { if (!isNotFound(err)) throw err; }   // already gone
+      } else if (isJson(path) && parses(content)) await inner.writeJson(path, JSON.parse(content));
       else await inner.writeRaw(path, content);
     }
   };

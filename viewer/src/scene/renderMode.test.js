@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
 import { buildThreeMesh } from './buildMesh.js';
 import { applyRenderMode } from './renderMode.js';
+import { buildJunctionDetailMeshes } from '../junction-renderer.js';
 
 function model() {
   const group = new THREE.Group();
@@ -81,5 +82,45 @@ describe('gridColours (#140)', () => {
     const lum = (hex) => ((hex >> 16) & 255) + ((hex >> 8) & 255) + (hex & 255);
     for (const c of gridColours('lines')) expect(lum(c)).toBeGreaterThan(lum(0x999999));
     for (const m of ['solid', 'solid+edges']) expect(gridColours(m)).toEqual([0x333333, 0x2a2a2a]);
+  });
+});
+
+describe('junction detail meshes (#146)', () => {
+  const box = {
+    junction_id: 'j1',
+    vertices: [{ x: 0, y: 0, z: 0 }, { x: 1, y: 0, z: 0 }, { x: 1, y: 1, z: 0 }, { x: 0, y: 1, z: 0 }, { x: 0, y: 0, z: 1 }, { x: 1, y: 0, z: 1 }],
+    faces: [{ indices: [0, 1, 2, 3], material_id: 'm' }, { indices: [0, 1, 5, 4], material_id: 'm' }],
+  };
+  const details = () => {
+    const group = new THREE.Group();
+    const material = new THREE.MeshStandardMaterial({ polygonOffset: true });
+    for (const g of buildJunctionDetailMeshes([{ detail_id: 'd1', detailGeometry: box }], new Map([['m', material]]))) group.add(g);
+    const mesh = group.children[0].children[0];
+    return { group, mesh, edges: mesh.getObjectByName('edges') };
+  };
+
+  it('carry an outline, hidden in solid mode', () => {
+    const { group, edges } = details();
+    expect(edges).toBeInstanceOf(THREE.LineSegments);
+    expect(edges.geometry.attributes.position.count).toBeGreaterThan(0);
+    applyRenderMode(group, 'solid');
+    expect(drawn(edges)).toBe(false);
+  });
+
+  it('lines: the outline is drawn, so a detail does not vanish when its faces stop drawing colour', () => {
+    const { group, mesh, edges } = details();
+    applyRenderMode(group, 'lines');
+    expect(mesh.material.colorWrite).toBe(false);
+    expect(drawn(edges)).toBe(true);
+  });
+
+  it('detail groups added after the mode was set are styled when it is applied again (as _refreshDetailScene does)', () => {
+    const scene = new THREE.Group();
+    applyRenderMode(scene, 'lines');
+    const { group, edges } = details();
+    scene.add(group);
+    expect(drawn(edges)).toBe(false);   // a refreshed group starts solid
+    applyRenderMode(scene, 'lines');
+    expect(drawn(edges)).toBe(true);
   });
 });

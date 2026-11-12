@@ -10,6 +10,8 @@
  *                    detail-saved          { id, json, persisted, previousId? }
  *                      persisted: the page already wrote the file (file-system and archive bundles);
  *                      false means the opener must write it (snapshot bundles)
+ *                    profile-saved         { id, json, svg, newMaterials }   (snapshot bundles: a profile edited in
+ *                      the profile editor, for the opener to write; the same message the profile editor sends)
  *   opener -> page   detail-bundle-handle  { handle, activeDetailId }   (file-system bundle)
  *                    detail-snapshot       { snapshot, activeDetailId }  (memory bundle, eg Firefox)
  *
@@ -24,6 +26,11 @@ export function savedMessage({ doc, previousId, persisted = false }) {
   const m = { type: 'detail-saved', id: doc.id, json: serializeDetail(doc), persisted };
   if (previousId !== undefined) m.previousId = previousId;
   return m;
+}
+
+/** A profile saved in the profile editor, forwarded to the opener to write (snapshot bundles, #143). */
+export function profileSavedMessage({ id, json, svg, newMaterials = [] }) {
+  return { type: 'profile-saved', id, json, svg, newMaterials };
 }
 
 const isObject = (x) => x !== null && typeof x === 'object';

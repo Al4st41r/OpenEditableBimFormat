@@ -1,6 +1,6 @@
 import { describe, it, test, expect } from 'vitest';
 import { createJournal, journalled, describeStep, pathOnlyRefresh } from './editJournal.js';
-import { MemoryAdapter } from './storageAdapter.js';
+import { MemoryAdapter, ServerAdapter } from './storageAdapter.js';
 
 const bundle = () => new MemoryAdapter(new Map([['paths/p.json', JSON.stringify({ x: 1 }, null, 2)], ['model.json', JSON.stringify({ elements: [] }, null, 2)]]), 'b');
 
@@ -168,5 +168,55 @@ describe('pathOnlyRefresh', () => {
       { path: 'model.json', content: '{}' },
     ], owners)).toBeNull();
     expect(pathOnlyRefresh([], owners)).toBeNull();
+  });
+});
+
+describe('journalled adapter: a failed read is not "no file" (#142)', () => {
+  // A live-copy server holding model.json, whose GETs answer `getStatus` (eg 502 while the service restarts).
+  const server = (getStatus) => {
+    const files = new Map([['model.json', '{"elements":["e1"]}']]);
+    const status = { get: getStatus };
+    const fetchFn = async (url, opts = {}) => {
+      const rel = decodeURIComponent(url.replace(/^.*\/files\//, ''));
+      if (opts.method === 'PUT') { files.set(rel, opts.body); return new Response(null, { status: 204 }); }
+      if (opts.method === 'DELETE') { files.delete(rel); return new Response(null, { status: 204 }); }
+      if (status.get !== 200) return new Response('', { status: status.get });
+      return files.has(rel) ? new Response(files.get(rel), { status: 200 }) : new Response('not found', { status: 404 });
+    };
+    return { files, status, adapter: new ServerAdapter('/oebf-live/api/', 'live', fetchFn) };
+  };
+
+  it('a 502 on the before-read fails the write, records nothing, and leaves the file', async () => {
+    const { files, adapter } = server(502);
+    const j = createJournal(); const a = journalled(adapter, j);
+    j.begin();
+    await expect(a.writeJson('model.json', { elements: [] })).rejects.toThrow(/502/);
+    expect(j.canUndo()).toBe(false);
+    expect(files.get('model.json')).toBe('{"elements":["e1"]}');
+  });
+
+  it('undo after a write whose before-read worked puts the file back, not deletes it', async () => {
+    const { files, status, adapter } = server(200);
+    const j = createJournal(); const a = journalled(adapter, j);
+    j.begin(); await a.writeJson('model.json', { elements: [] });
+    status.get = 502;   // the server fails later: the restore does not read, so undo still works
+    await a.restore(j.undo());
+    expect(JSON.parse(files.get('model.json'))).toEqual({ elements: ['e1'] });
+  });
+
+  it('a 404 on the before-read is a new file, which undo deletes', async () => {
+    const { files, adapter } = server(200);
+    const j = createJournal(); const a = journalled(adapter, j);
+    j.begin(); await a.writeJson('paths/new.json', { id: 'new' });
+    await a.restore(j.undo());
+    expect(files.has('paths/new.json')).toBe(false);
+  });
+
+  it('a JSON file that does not parse is kept as it was, and undo writes it back', async () => {
+    const inner = new MemoryAdapter(new Map([['model.json', '{oops']]), 'b');
+    const j = createJournal(); const a = journalled(inner, j);
+    j.begin(); await a.writeJson('model.json', { elements: [] });
+    await a.restore(j.undo());
+    expect(await inner.readRaw('model.json')).toBe('{oops');
   });
 });

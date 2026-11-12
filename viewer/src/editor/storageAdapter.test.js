@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest';
-import { MemoryAdapter, ServerAdapter, LIVE_BASE } from './storageAdapter.js';
+import { MemoryAdapter, ServerAdapter, LIVE_BASE, isNotFound, readJsonOr, newBundleFolder, bundleFolderBase } from './storageAdapter.js';
 import { writeEntity, readEntity, writeModelJson } from './bundleWriter.js';
 
 describe('MemoryAdapter', () => {
@@ -113,5 +113,75 @@ describe('ServerAdapter', () => {
   test('a refused write (eg the password was not given) is an error, not silence', async () => {
     const adapter = new ServerAdapter(LIVE_BASE, 'x', async () => new Response('', { status: 401 }));
     await expect(adapter.writeJson('model.json', {})).rejects.toThrow(/401/);
+  });
+});
+
+describe('not found versus other failures (#141, #142)', () => {
+  const answering = (status, body = '') => new ServerAdapter(LIVE_BASE, 'x', async () => new Response(body, { status }));
+
+  test('a 404 is not-found; a 502 is a different error', async () => {
+    expect(isNotFound(await answering(404).readJson('model.json').catch((e) => e))).toBe(true);
+    const err = await answering(502).readJson('model.json').catch((e) => e);
+    expect(isNotFound(err)).toBe(false);
+    expect(err.message).toMatch(/502/);
+  });
+
+  test('listDir is [] only on a 404, and a 502 is thrown', async () => {
+    expect(await answering(404).listDir('profiles')).toEqual([]);
+    await expect(answering(502).listDir('profiles')).rejects.toThrow(/502/);
+  });
+
+  test('a MemoryAdapter missing key is not-found; a file that does not parse is not', async () => {
+    const a = new MemoryAdapter(new Map([['model.json', '{oops']]), 'b');
+    expect(isNotFound(await a.readJson('none.json').catch((e) => e))).toBe(true);
+    expect(isNotFound(await a.readRaw('none.svg').catch((e) => e))).toBe(true);
+    expect(isNotFound(await a.readJson('model.json').catch((e) => e))).toBe(false);
+  });
+
+  test('readJsonOr gives the fallback only when the file is not there', async () => {
+    expect(await readJsonOr(answering(404), 'materials/library.json', { materials: [] })).toEqual({ materials: [] });
+    await expect(readJsonOr(answering(502), 'materials/library.json', { materials: [] })).rejects.toThrow(/502/);
+    await expect(readJsonOr(new MemoryAdapter(new Map([['model.json', '{oops']]), 'b'), 'model.json', {})).rejects.toThrow();
+    expect(await readJsonOr(new MemoryAdapter(new Map([['model.json', '{"a":1}']]), 'b'), 'model.json', {})).toEqual({ a: 1 });
+  });
+});
+
+describe('newBundleFolder: Save to folder makes a new bundle folder (#147)', () => {
+  // A parent folder holding these entries: name -> 'dir' | 'file'.
+  const parent = (entries) => ({
+    name: 'Documents',
+    created: [],
+    async getDirectoryHandle(name, { create } = {}) {
+      const kind = entries[name];
+      if (kind === 'file') throw Object.assign(new Error('a file'), { name: 'TypeMismatchError' });
+      if (kind === 'dir') return { name };
+      if (!create) throw Object.assign(new Error('none'), { name: 'NotFoundError' });
+      entries[name] = 'dir'; this.created.push(name);
+      return { name };
+    },
+  });
+
+  test('makes <name>.oebf in the folder picked', async () => {
+    const p = parent({ 'notes.txt': 'file' });
+    expect((await newBundleFolder(p, 'terraced-house')).name).toBe('terraced-house.oebf');
+    expect(p.created).toEqual(['terraced-house.oebf']);
+  });
+
+  test('never writes into an existing folder (or over a file): takes the next free name', async () => {
+    const p = parent({ 'house.oebf': 'dir', 'house-2.oebf': 'file' });
+    expect((await newBundleFolder(p, 'house')).name).toBe('house-3.oebf');
+    expect(p.created).toEqual(['house-3.oebf']);
+  });
+
+  test('a failure other than not-found is thrown', async () => {
+    const p = { getDirectoryHandle: async () => { throw Object.assign(new Error('denied'), { name: 'NotAllowedError' }); } };
+    await expect(newBundleFolder(p, 'house')).rejects.toThrow('denied');
+  });
+
+  test('the folder name is made safe from the bundle name', () => {
+    expect(bundleFolderBase('house.oebf')).toBe('house');
+    expect(bundleFolderBase('a/b:c')).toBe('a-b-c');
+    expect(bundleFolderBase('..')).toBe('bundle');
+    expect(bundleFolderBase('')).toBe('bundle');
   });
 });
