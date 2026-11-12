@@ -23,7 +23,7 @@
       await until(() => E.junctions().length > 0);
       await sleep(500);
       const id = 'element-wall-south-gf';
-      [...document.querySelectorAll('#elements-list .tree-item')].find((i) => i.textContent.includes('uth-gf')).click();
+      document.querySelector('#elements-list .tree-item[data-element-id="element-wall-south-gf"]').click();
       await until(() => document.getElementById('field-ifc_type'));
 
       note(['field-ifc_type', 'field-description', 'field-sweep_mode', 'field-cap_start', 'field-cap_end', 'field-start_offset', 'field-end_offset'].every((f) => document.getElementById(f)), 'element field rows are shown');
@@ -52,7 +52,7 @@
       note(Math.abs(file('paths/path-wall-south-gf.json').segments[0].end.x - 0.5) < 1e-9 && endX !== 0.5, 'node coordinate edit is written to the path file');
 
       // slab material
-      [...document.querySelectorAll('#elements-list .tree-item')].find((i) => i.textContent.includes('lab-gf')).click();
+      document.querySelector('#elements-list .tree-item[data-element-id="slab-gf"]').click();
       await until(() => document.getElementById('field-material_id'));
       const slabId = E.selectedId();
       const mat = document.getElementById('field-material_id');

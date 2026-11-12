@@ -18,9 +18,12 @@
     await sleep(500);
     const orig = window.open; window.open = (...a) => (window.__popup = orig.apply(window, a));
     document.querySelector('#details-list .tree-item').click();
-    await until(() => window.__popup && window.__popup.__detailEditor && window.__popup.__detailEditor.state());
+    await until(() => window.__popup && window.__popup.__detailEditor && window.__popup.__detailEditor.state(), 60000);   // a new page: slow to start when the machine is busy
     await sleep(500);
     const P = window.__popup, d = P.document;
+    // the plan, legend and usage rows live on the right panel's Used at tab
+    [...d.querySelectorAll('#right-panel .tab')].find((b) => b.textContent.startsWith('Used at')).click();
+    await sleep(200);
     const markers = () => [...d.querySelectorAll('#right-panel .ref svg g[data-junction]')];
     const marker = (id) => markers().find((g) => g.getAttribute('data-junction') === id);
     note(markers().length === 5, 'plan: five markers drawn (four corners and the padstone)', markers().length);

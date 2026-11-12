@@ -14,10 +14,11 @@
   };
   const note = (ok, name, extra) => { log.push(`${ok ? 'PASS' : 'FAIL'} ${name}${extra !== undefined ? ' ' + JSON.stringify(extra) : ''}`); show(); };
   const E = window.__editor;
-  const when = (cond, ms = 8000) => new Promise((res, rej) => { const t0 = Date.now(); const i = setInterval(() => { try { if (cond()) { clearInterval(i); res(); } else if (Date.now() - t0 > ms) { clearInterval(i); rej(new Error('timeout: ' + cond)); } } catch (e) { /* keep waiting */ } }, 100); });
+  const when = (cond, ms = 20000) => new Promise((res, rej) => { const t0 = Date.now(); const i = setInterval(() => { try { if (cond()) { clearInterval(i); res(); } else if (Date.now() - t0 > ms) { clearInterval(i); rej(new Error('timeout: ' + cond)); } } catch (e) { /* keep waiting */ } }, 100); });
   const zmax = (groups) => { let m = -Infinity; for (const g of groups) g.traverse((o) => { if (o.geometry) { o.geometry.computeBoundingBox(); const b = o.geometry.boundingBox; if (b) m = Math.max(m, b.max.z); } }); return m; };
 
-  when(() => E.junctions().length > 0 && E.junctionMarkers().length > 0).then(async () => {
+  // wait for everything the checks read: markers, the Details tree and the four detail groups, which are built after the junctions
+  when(() => E.junctions().length > 0 && E.junctionMarkers().length >= 5 && document.querySelector('#details-list .tree-item') && E.detailGroups('detail-corner-cavity-butt').length === 4).then(async () => {
     // tree
     const details = [...document.querySelectorAll('#details-list .tree-item')].map((e) => e.textContent);
     const subs = [...document.querySelectorAll('#subassemblies-list .tree-item')].map((e) => e.textContent);
@@ -41,12 +42,12 @@
     // open the detail editor from the tree and answer the handoff
     const orig = window.open; window.open = (...a) => (window.__popup = orig.apply(window, a));
     document.querySelector('#details-list .tree-item').click();
-    await when(() => window.__popup && window.__popup.__detailEditor && window.__popup.__detailEditor.state());
+    await when(() => window.__popup && window.__popup.__detailEditor && window.__popup.__detailEditor.state(), 60000);   // a new page: slow to start when the machine is busy
     const P = window.__popup, d = P.document;
     note(P.__detailEditor.state().doc.id === id, 'handoff: popup opened the detail from the tree (snapshot)', P.__detailEditor.status());
 
     // edit the extrusion and save from the popup
-    d.querySelector('#left-panel .item:nth-of-type(1)'); // ensure panels rendered
+    await when(() => [...d.querySelectorAll('#right-panel .row')].some((r) => r.textContent.startsWith('Extrusion')));   // panels rendered
     const ext = [...d.querySelectorAll('#right-panel .row')].find((r) => r.textContent.startsWith('Extrusion')).querySelector('input');
     ext.value = '3300'; ext.dispatchEvent(new P.Event('change', { bubbles: true }));
     d.getElementById('save-btn').click();

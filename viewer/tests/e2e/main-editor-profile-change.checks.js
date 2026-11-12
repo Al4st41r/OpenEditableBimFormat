@@ -20,7 +20,7 @@
     // as the library browser used to write it (library format), and a broken profile
     await A.writeJson('profiles/solid-wall.json', { '$schema': 'oebf://schema/0.1/profile', id: 'solid-wall', type: 'Profile', description: 'lib', profile_type: 'wall', origin_x: 0, layers: [{ id: 'brick', name: 'Solid Brick', thickness_m: 0.215, material_id: mat, function: 'structure' }, { id: 'air', name: 'Cavity', thickness_m: 0.05, material_id: null, function: 'insulation' }] });
     await A.writeJson('profiles/profile-broken.json', { '$schema': 'oebf://schema/0.1/profile', id: 'profile-broken', type: 'Profile', description: 'broken' });
-    [...document.querySelectorAll('#elements-list .tree-item')].find((i) => i.textContent.includes('uth-gf')).click();
+    document.querySelector('#elements-list .tree-item[data-element-id="element-wall-south-gf"]').click();
     await sleep(700);
     const select = () => document.querySelector('#props-content select');
     const choose = async (pid, done) => { select().value = pid; select().dispatchEvent(new Event('change', { bubbles: true })); await until(done, 8000).catch(() => {}); await sleep(200); };
