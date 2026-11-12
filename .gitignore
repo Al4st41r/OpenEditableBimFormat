@@ -18,3 +18,6 @@ uploads/
 # Private live copy edited through live-server (not in git)
 live/
 live-server/.venv/
+
+# Claude Code instructions: kept locally, not published
+CLAUDE.md
