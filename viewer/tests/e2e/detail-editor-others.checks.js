@@ -13,6 +13,8 @@
   (async () => {
     while (!(E.state() && E.state().doc)) await sleep(100);
     await sleep(300);
+    // junction usage is on the right panel's 'Used at' tab
+    [...document.querySelectorAll('#right-panel .tab')].find((b) => b.textContent.startsWith('Used at')).click(); await sleep(100);
     const panel = document.getElementById('right-panel');
     const sel = [...panel.querySelectorAll('select')].find((s) => [...s.options].some((o) => o.value === 'junction-ne-padstone'));
     note(!!sel && panel.textContent.includes('Other junctions'), 'others: the padstone (custom rule, not matching the condition) is offered', sel && [...sel.options].map((o) => o.textContent));

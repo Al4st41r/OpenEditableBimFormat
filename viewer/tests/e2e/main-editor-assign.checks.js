@@ -22,9 +22,11 @@
     await sleep(500);
     const orig = window.open; window.open = (...a) => (window.__popup = orig.apply(window, a));
     document.querySelector('#details-list .tree-item').click();
-    await until(() => window.__popup && window.__popup.__detailEditor && window.__popup.__detailEditor.state());
+    await until(() => window.__popup && window.__popup.__detailEditor && window.__popup.__detailEditor.state(), 60000);   // a new page: slow to start when the machine is busy
     await sleep(400);
     const P = window.__popup, d = P.document;
+    // junction usage is on the popup's right-panel 'Used at' tab
+    [...d.querySelectorAll('#right-panel .tab')].find((b) => b.textContent.startsWith('Used at')).click(); await sleep(100);
     const pbox = (jid) => [...d.querySelectorAll('#right-panel .box')].find((b) => b.textContent.includes(jid));
     const pbtn = (root, label) => [...root.querySelectorAll('button')].find((b) => b.textContent === label);
     note(E.detailGroups(id).length === 4, 'start: four detail groups in the 3D view');

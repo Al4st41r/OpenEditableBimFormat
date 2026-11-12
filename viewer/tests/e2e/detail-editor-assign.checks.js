@@ -15,11 +15,14 @@
   const box = (id) => boxes().find((b) => b.textContent.includes(id));
   const btn = (root, label) => [...root.querySelectorAll('button')].find((b) => b.textContent === label);
   const cands = () => [...document.querySelectorAll('#right-panel .item')].filter((i) => i.querySelector('button'));
+  // the right panel is tabbed: junction usage is on 'Used at', the extrusion on 'Detail'
+  const tab = (label) => [...document.querySelectorAll('#right-panel .tab')].find((b) => b.textContent.startsWith(label)).click();
   const setNum = (input, v) => { input.value = String(v); input.dispatchEvent(new Event('change', { bubbles: true })); };
 
   (async () => {
     while (!(E.state() && E.state().doc)) await sleep(100);
     await sleep(300);
+    tab('Used at'); await sleep(100);
     note(boxes().length === 4, 'usage: four junctions listed with their settings', boxes().length);
     const se = box('junction-se-corner');
     note(se.textContent.includes('2 / A @ storey-gf') && se.querySelector('input[type=number]').value === '0.075' && !!btn(se, 'Reset'), 'usage: SE shows its location and overridden width 0.075 with Reset');
@@ -62,8 +65,10 @@
     note(!('detail_mirrored' in J('junction-nw-corner')), 'mirror: cleared flag is omitted');
 
     // unsaved changes lock junction edits
+    tab('Detail'); await sleep(100);
     const ext = [...document.querySelectorAll('#right-panel .row')].find((r) => r.textContent.startsWith('Extrusion')).querySelector('input');
     setNum(ext, 3000); await sleep(150);
+    tab('Used at'); await sleep(100);
     note(/Save the detail before/.test(document.getElementById('right-panel').textContent) && btn(box('junction-ne-corner'), 'Unassign').disabled, 'lock: junction controls disabled while the detail has unsaved changes');
     document.getElementById('undo-btn').click(); await sleep(150);
     note(!btn(box('junction-ne-corner'), 'Unassign').disabled, 'lock: enabled again after undo');

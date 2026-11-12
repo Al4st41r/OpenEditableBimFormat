@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 test('homepage has viewer and editor cards', async ({ page }) => {
   await page.goto('launch.html');
   await expect(page.locator('.card-title', { hasText: 'Viewer' })).toBeVisible();
-  await expect(page.locator('.card-title', { hasText: 'Editor' })).toBeVisible();
+  await expect(page.locator('.card-title', { hasText: /^Editor$/ })).toBeVisible();
 });
 
 test('viewer card navigates to viewer.html', async ({ page }) => {

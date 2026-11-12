@@ -42,7 +42,7 @@ async function openBundle(page) {
   await page.goto('editor.html');
   await page.waitForFunction(() => window.__editor);
   await page.locator('#welcome-overlay').evaluate((el) => el.classList.add('hidden'));   // the Open flow dismisses it first
-  await page.locator('input[type=file][accept=".oebfz"]').setInputFiles(archive);
+  await page.locator('input[type=file][accept*=".oebfz"]').setInputFiles(archive);
   await page.waitForFunction(() => window.__editor.adapter() && !document.getElementById('save-btn').disabled, null, { timeout: 30_000 });
   await page.waitForTimeout(1500);
   return errors;

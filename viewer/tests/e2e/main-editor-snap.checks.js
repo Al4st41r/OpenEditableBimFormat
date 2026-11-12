@@ -39,7 +39,7 @@
 
     // typed length with attached paths following
     document.getElementById('tool-select').click();
-    [...document.querySelectorAll('#elements-list .tree-item')].find((i) => i.textContent.includes('uth-gf')).click();
+    document.querySelector('#elements-list .tree-item[data-element-id="element-wall-south-gf"]').click();
     await sleep(800);
     const inp = document.getElementById('seg-length-0');
     note(!!inp, 'length field shown in the properties panel');

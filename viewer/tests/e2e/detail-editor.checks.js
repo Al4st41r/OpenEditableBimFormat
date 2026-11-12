@@ -50,9 +50,9 @@
     ok('f. polygon added', doc().geometry.regions.length === 3);
     click(document.getElementById('tool-select'));
 
-    // g. select a member, edit its offset through the panel input
+    // g. select a member (opens the Properties tab), edit its insertion x through the panel input
     click(items('left-panel').find((i) => i.textContent.includes('butting-wall')));
-    const offsetInput = [...document.querySelectorAll('#right-panel .row')].find((r) => r.textContent.startsWith('Offset x'))?.querySelector('input');
+    const offsetInput = [...document.querySelectorAll('#right-panel .row')].find((r) => r.textContent.startsWith('Insert x'))?.querySelector('input');
     ok('g. member editor shown', !!offsetInput);
     offsetInput.value = '10'; offsetInput.dispatchEvent(new Event('change', { bubbles: true }));
     ok('g. offset edited (mm to m)', Math.abs(doc().members[1].placement.offset_x_m - 0.01) < 1e-9, doc().members[1].placement);
@@ -65,6 +65,7 @@
 
     // i. parameter preview slider moves the drawing, not the document
     const before = JSON.stringify(doc());
+    click([...document.querySelectorAll('#right-panel .tab')].find((b) => b.textContent.startsWith('Detail')));   // parameters are on the Detail tab
     const slider = document.querySelector('#right-panel input[type=range]');
     slider.value = slider.max; slider.dispatchEvent(new Event('input', { bubbles: true }));
     ok('i. preview does not touch the document', JSON.stringify(doc()) === before && E.state().preview?.cavity_closer_width_m > 0.05, E.state().preview);
