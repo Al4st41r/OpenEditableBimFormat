@@ -41,7 +41,8 @@ function boundsOf(polys) {
  * @param {{ profiles: Map<string, object>|Object<string, object> }} ctx
  * @returns {{ plane: 'plan'|'section', extrusion: number, prisms: Array<object>, skipped: string[],
  *             warnings: string[], bounds: object|null }}
- *   prism: { id, kind: 'region'|'member', role, materialId, points, w0, w1, profileId?, layer?, function?, regionIndex?, unit? }
+ *   prism: { id, kind: 'region'|'member', role, materialId, points, w0, w1, profileId?, layer?, function?, regionIndex?, unit?,
+ *            course?, outlineMm? } (outlineMm: the region's own outline_mm)
  */
 export function buildAxoModel(detail, ctx = {}) {
   const plane = detail.plane ?? 'section';
@@ -108,7 +109,7 @@ export function buildAxoModel(detail, ctx = {}) {
     for (const u of units) {
       prisms.push({
         kind: 'region', role: units.length > 1 ? `region ${i} unit ${u.ix},${u.iy}` : `region ${i}`, regionIndex: i, unit: { ix: u.ix, iy: u.iy },
-        materialId: r.material_id, points: u.points, w0, w1,
+        materialId: r.material_id, points: u.points, w0, w1, ...(r.outline_mm !== undefined ? { outlineMm: r.outline_mm } : {}),
       });
     }
   });

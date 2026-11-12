@@ -11,6 +11,10 @@ test('detail review: the 2D drawing shows line weights and selection links to th
   expect(widths.length).toBeGreaterThan(10);
   for (const w of widths) expect(['0.09', '0.13', '0.18', '0.25', '0.35', '0.5', '0.7']).toContain(w);
 
+  // The side panel totals the detail's embodied carbon.
+  await expect(page.locator('#carbon-total')).toContainText(/\d+(\.\d)? kgCO2e/);
+  await expect(page.locator('#carbon-total')).toContainText('per m run');
+
   // Click an item in 2D: it is outlined and the side panel names it.
   await page.locator('#drawing polygon[data-material="mat-nmb-clt"]').first().dispatchEvent('click');
   await expect(page.locator('#drawing .outline.selected')).toHaveCount(1);

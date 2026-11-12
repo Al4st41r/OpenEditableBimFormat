@@ -351,6 +351,12 @@ describe('region repeat and tags', () => {
     d = D.setRegionTag(D.setRegionTag(d, 0, 'package', null), 0, 'barrier', []);
     expect('tags' in d.geometry.regions[0]).toBe(false);
   });
+  test('setRegionOutline sets a pen weight, clears it, and rejects one outside the series', () => {
+    const d = D.setRegionOutline(base(), 0, 0.7);
+    expect(d.geometry.regions[0].outline_mm).toBe(0.7);
+    expect('outline_mm' in D.setRegionOutline(d, 0, null).geometry.regions[0]).toBe(false);
+    expect(() => D.setRegionOutline(base(), 0, 0.4)).toThrow(/outline_mm/);
+  });
   test('setRegionTag checks the key and the sequence range', () => {
     expect(() => D.setRegionTag(base(), 0, 'colour', 'red')).toThrow(/not a tag/);
     expect(() => D.setRegionTag(base(), 0, 'sequence', 100)).toThrow(/1 to 99/);

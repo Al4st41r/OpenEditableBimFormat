@@ -13,6 +13,7 @@ import { UNIT_PRESETS, KINDS, PLANES, EXTENTS, DATUM_KINDS, DATUM_REFERENCES, RU
 import { ask } from '../ui/dialog.js';
 import { PACKAGES, BARRIERS, FIRE_ROLES, SHEARING_LAYERS } from '../detail-review/classification.js';
 import { drawReference } from './reference.js';
+import { PEN_SERIES } from '../lineweights.js';
 import { LINE_STYLES } from './annotationOps.js';
 import { REFERENCE_KINDS, AXES, CLIP_SIDES } from './referenceOps.js';
 import { LAYERS, LAYER_LABELS } from './layers.js';
@@ -431,14 +432,16 @@ function regionTagEditor(r, a) {
       if (e.target.checked) set.add(b); else set.delete(b);
       a.setRegionTag(r.index, 'barrier', [...set]);
     } }), ` ${b}`))));
-  return [h('details', { class: 'fold', open: Object.keys(t).length > 0 },
-    h('summary', {}, 'Tags'),
+  return [h('details', { class: 'fold', open: Object.keys(t).length > 0 || r.outline !== null },
+    h('summary', {}, 'Tags and outline'),
     pick('Package', 'package', PACKAGES), barrier, pick('Fire', 'fire_role', FIRE_ROLES), pick('Shearing', 'shearing_layer', SHEARING_LAYERS),
     row('Sequence', h('input', {
       type: 'number', min: 1, max: 99, step: 1, value: t.sequence ?? '', placeholder: 'from material',
       onchange: (e) => a.setRegionTag(r.index, 'sequence', e.target.value === '' ? null : parseInt(e.target.value, 10)),
     })),
-    h('div', { class: 'note' }, 'A tag here overrides the material for this region only.'))];
+    row('Outline (mm)', h('select', { title: 'Pen weight of the region\'s outline in the 2D drawings', onchange: (e) => a.setRegionOutline(r.index, e.target.value === '' ? null : Number(e.target.value)) },
+      h('option', { value: '' }, 'from material'), ...PEN_SERIES.map((w) => h('option', { value: w, selected: w === r.outline }, String(w))))),
+    h('div', { class: 'note' }, 'A tag or outline weight here overrides the material for this region only.'))];
 }
 
 /**
