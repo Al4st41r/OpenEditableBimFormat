@@ -46,7 +46,7 @@ import { FloorTool } from './floorTool.js';
 import { JunctionEditor } from './junctionEditor.js';
 import { DrawingTool } from './drawingTool.js';
 import { PathEditTool } from './pathEditTool.js';
-import { FsaAdapter, MemoryAdapter, ServerAdapter, LIVE_BASE, readJsonOr } from './storageAdapter.js';
+import { FsaAdapter, MemoryAdapter, ServerAdapter, LIVE_BASE, readJsonOr, newBundleFolder } from './storageAdapter.js';
 import { ARCHIVE_ACCEPT } from '../loader/loadBundleZstd.js';
 import { bundleMessage, isMessage, AXO_READY } from '../detail-axo/editorHandoff.js';
 import { icon } from '../ui/icons.js';
@@ -2181,19 +2181,6 @@ async function _fetchStarter(starter) {
   return MemoryAdapter.fromFile(new File([await resp.blob()], starter.file));
 }
 
-/** A new, empty folder for the bundle inside `parent`: name.oebf, or name-2.oebf and so on if that is taken. */
-async function _newBundleFolder(parent, name) {
-  for (let n = 1; ; n++) {
-    const dirName = n === 1 ? `${name}.oebf` : `${name}-${n}.oebf`;
-    try { await parent.getDirectoryHandle(dirName); continue; }   // taken: never write into an existing folder
-    catch (e) {
-      if (e.name === 'TypeMismatchError') continue;   // a file of that name
-      if (e.name !== 'NotFoundError') throw e;
-    }
-    return parent.getDirectoryHandle(dirName, { create: true });
-  }
-}
-
 /** Write every file of an in-memory bundle into a folder and carry on editing there. */
 async function _moveToFolder(memory, handle) {
   const files = (memory.inner ?? memory)._map;
@@ -2232,7 +2219,7 @@ async function _downloadAndOpenStarter(starter) {
       catch (e) { if (e.name !== 'AbortError') throw e; return; }   // cancelled: stay on the welcome screen
       statusBar.textContent = `Copying ${starter.title}…`;
       const memory = await _fetchStarter(starter);
-      const handle = await _newBundleFolder(parent, starter.id);
+      const handle = await newBundleFolder(parent, starter.id);
       const count = await _moveToFolder(memory, handle);
       statusBar.textContent = `Copied ${count} files to ${parent.name}/${handle.name} and opened it. Changes are saved there as you make them.`;
     } else {
@@ -2278,20 +2265,19 @@ async function _openLive() {
   } catch (e) { _reportError(`The live copy did not open: ${e.message}. It needs its password and the oebf-live service.`); }
 }
 
-// ── Save to folder: a bundle held in memory is written into a folder, and the editor carries on there ─────────
+// ── Save to folder: a bundle held in memory is written into a new <name>.oebf folder inside the folder picked, and
+// the editor carries on there. Never into an existing folder, whose leftover files would mix with this bundle (#147).
 async function _saveToFolder() {
   if (adapter?.type !== 'memory') return;
-  let handle;
-  try { handle = await window.showDirectoryPicker({ mode: 'readwrite', id: 'oebf-save-folder' }); }
+  let parent;
+  try { parent = await window.showDirectoryPicker({ mode: 'readwrite', id: 'oebf-save-folder', startIn: 'documents' }); }
   catch (e) { if (e.name !== 'AbortError') _reportError(`Save to folder failed: ${e.message}`); return; }
-  let used = false;
-  for await (const _ of handle.values()) { used = true; break; }
-  if (used && !await confirmDialog(`${handle.name} is not empty. Files in it with the same names as the bundle's are replaced.`, { ok: 'Save into it', danger: true, title: 'Save to folder' })) return;
   try {
-    statusBar.textContent = `Saving to ${handle.name}…`;
+    statusBar.textContent = `Saving to ${parent.name}…`;
     await _writeModelJson();
+    const handle = await newBundleFolder(parent, adapter.name);
     const count = await _moveToFolder(adapter, handle);
-    statusBar.textContent = `Saved ${count} files to ${handle.name}. Changes now go straight into that folder.`;
+    statusBar.textContent = `Saved ${count} files to ${parent.name}/${handle.name}. Changes now go straight into that folder.`;
   } catch (e) { _reportError(`Save to folder failed: ${e.message}`); }
 }
 document.getElementById('save-folder-btn').addEventListener('click', _saveToFolder);

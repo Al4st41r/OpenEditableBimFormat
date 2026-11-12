@@ -115,6 +115,30 @@ export class FsaAdapter {
   }
 }
 
+/** A bundle name made safe for a folder name: no path separators or characters folders cannot hold, no .oebf. */
+export function bundleFolderBase(name) {
+  const base = String(name ?? '').replace(/\.oebf(\.zip)?$/i, '').replace(/[\\/:*?"<>|\x00-\x1f]+/g, '-')
+    .replace(/^[.\s-]+|[.\s-]+$/g, '');
+  return base || 'bundle';
+}
+
+/**
+ * A new, empty folder for a bundle inside `parent` (a FileSystemDirectoryHandle): name.oebf, or name-2.oebf and so
+ * on if that is taken. Never an existing folder, so two bundles' files are never mixed (#147).
+ */
+export async function newBundleFolder(parent, name) {
+  const base = bundleFolderBase(name);
+  for (let n = 1; ; n++) {
+    const dirName = n === 1 ? `${base}.oebf` : `${base}-${n}.oebf`;
+    try { await parent.getDirectoryHandle(dirName); continue; }   // taken: never write into an existing folder
+    catch (e) {
+      if (e.name === 'TypeMismatchError') continue;   // a file of that name
+      if (e.name !== 'NotFoundError') throw e;
+    }
+    return parent.getDirectoryHandle(dirName, { create: true });
+  }
+}
+
 // ── MemoryAdapter ────────────────────────────────────────────────────────────
 
 export class MemoryAdapter {

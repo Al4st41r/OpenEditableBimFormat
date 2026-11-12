@@ -25,7 +25,7 @@ There is no history on the server beyond the editor's undo. Copy the folder befo
 
 ## Save to folder
 
-A bundle held in memory (the demo, or an opened `.oebfz`) shows a Save to folder button next to Save, in Chromium browsers (Chrome, Edge). Pick or make an empty folder: the editor writes the bundle into it and carries on there, so from then on every change is written to the folder as you make it. Next time, open that folder with Open.
+A bundle held in memory (the demo, or an opened `.oebfz`) shows a Save to folder button next to Save, in Chromium browsers (Chrome, Edge). Pick a folder: the editor makes a new `<name>.oebf` folder inside it (`<name>-2.oebf` and so on if that is taken), writes the bundle there and carries on there, so from then on every change is written to the folder as you make it. Next time, open that folder with Open.
 
 ## Starting from an example
 
