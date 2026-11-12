@@ -12,8 +12,10 @@ import ifcopenshell.api.spatial
 import ifcopenshell.api.aggregate
 import ifcopenshell.api.geometry
 import ifcopenshell.api.material
+import numpy as np
 from . import ifc_mapping
 from . import ifc_openings
+from .ifc_shapes import section_frame
 import ifcopenshell.api.pset
 
 # Default wall height when the profile has no explicit height field
@@ -77,7 +79,11 @@ def _export_element(ifc, oebf_dir, element_id, storey, body_context, mat_by_id, 
         return None
 
     path_length, tangent = _path_length_and_tangent(path_data)
-    if abs(tangent["x"]) + abs(tangent["y"]) < 1e-9:
+    regions = [l for l in profile_data["assembly"] if l.get("type") == "region" and len(l.get("vertices") or []) >= 3]
+    # A section (a beam or column: regions only) is swept as solids per region; a wall with bands keeps its layer
+    # set, its region layers (e.g. a DPC in one leaf, #127) left out of it.
+    section = bool(regions) and not _band_layers(profile_data["assembly"])
+    if not section and abs(tangent["x"]) + abs(tangent["y"]) < 1e-9:
         print(f"  Warning: skipping {element_id}: its path is vertical, which the wall exporter cannot sweep")
         return None
 
@@ -88,13 +94,15 @@ def _export_element(ifc, oebf_dir, element_id, storey, body_context, mat_by_id, 
 
     first = path_data["segments"][0]
     start = first.get("start") or first["points"][0]
-    total_width = sum(layer["thickness"] for layer in _band_layers(profile_data["assembly"]))
-    origin_x = profile_data.get("origin", {}).get("x", total_width / 2)
-    height = WALL_HEIGHT
-
-    _assign_body_geometry(ifc, entity, body_context,
-                          start, tangent, path_length, total_width, origin_x, height)
-    _assign_material_layers(ifc, entity, profile_data["assembly"], mat_by_id, mapping)
+    if section:
+        _assign_region_body(ifc, entity, body_context, start, tangent, path_length, profile_data)
+        _assign_part_materials(ifc, entity, elem["description"], profile_data["assembly"], mat_by_id, mapping)
+    else:
+        total_width = sum(layer["thickness"] for layer in _band_layers(profile_data["assembly"]))
+        origin_x = profile_data.get("origin", {}).get("x", total_width / 2)
+        _assign_body_geometry(ifc, entity, body_context,
+                              start, tangent, path_length, total_width, origin_x, WALL_HEIGHT)
+        _assign_material_layers(ifc, entity, profile_data["assembly"], mat_by_id, mapping)
     _assign_property_set(ifc, entity, elem.get("properties", {}), mapping)
 
     ifcopenshell.api.spatial.assign_container(ifc, relating_structure=storey, products=[entity])
@@ -200,6 +208,69 @@ def _band_layers(assembly):
 
 def _is_membrane(function, material):
     return function == "membrane" or (material or {}).get("category") == "membrane"
+
+
+def _profile_polygons(profile_data):
+    """[(material id, [(x, y)])] of a profile in OEBF profile space measured from the path: each region's vertices,
+    and each band as a WALL_HEIGHT rectangle, both shifted by the profile's origin."""
+    assembly = profile_data["assembly"]
+    total = sum(l.get("thickness", 0.0) for l in assembly if l.get("type") != "region")
+    origin_x = profile_data.get("origin", {}).get("x", total / 2)
+    out, cursor = [], 0.0
+    for layer in assembly:
+        if layer.get("type") == "region":
+            if len(layer.get("vertices") or []) >= 3:
+                out.append((layer["material_id"], [(v["x"] - origin_x, v["y"]) for v in layer["vertices"]]))
+        elif layer.get("thickness"):
+            x0, x1 = cursor - origin_x, cursor + layer["thickness"] - origin_x
+            cursor += layer["thickness"]
+            out.append((layer["material_id"], [(x0, 0.0), (x1, 0.0), (x1, WALL_HEIGHT), (x0, WALL_HEIGHT)]))
+    return out
+
+
+def _assign_region_body(ifc, entity, context, start, tangent, path_length, profile_data):
+    """A profile with regions (a beam or column section) as one extruded solid per region and band, swept along the
+    path's first segment. The placement puts profile x and y where the viewer puts them (ifc_shapes.section_frame),
+    so a vertical path (a column) works as well as a level one."""
+    t = np.array([tangent["x"], tangent["y"], tangent["z"]])
+    across, up = section_frame(t)
+    normal = np.cross(across, up)
+    sense = 1.0 if float(normal @ t) > 0 else -1.0
+    matrix = np.eye(4)
+    matrix[:3, 0], matrix[:3, 1], matrix[:3, 2] = across, up, normal
+    matrix[:3, 3] = [start["x"], start["y"], start.get("z", 0.0)]
+    ifcopenshell.api.geometry.edit_object_placement(ifc, product=entity, matrix=matrix)
+    items = []
+    for _, pts in _profile_polygons(profile_data):
+        ring = [ifc.create_entity("IfcCartesianPoint", Coordinates=[float(x), float(y)]) for x, y in pts]
+        curve = ifc.create_entity("IfcPolyline", Points=ring + [ring[0]])
+        items.append(ifc.create_entity(
+            "IfcExtrudedAreaSolid",
+            SweptArea=ifc.create_entity("IfcArbitraryClosedProfileDef", ProfileType="AREA", OuterCurve=curve),
+            Position=ifc.create_entity("IfcAxis2Placement3D", Location=ifc.create_entity("IfcCartesianPoint", Coordinates=[0.0, 0.0, 0.0])),
+            ExtrudedDirection=ifc.create_entity("IfcDirection", DirectionRatios=[0.0, 0.0, sense]),
+            Depth=path_length,
+        ))
+    rep = ifc.create_entity("IfcShapeRepresentation", ContextOfItems=context, RepresentationIdentifier="Body",
+                            RepresentationType="SweptSolid", Items=items)
+    entity.Representation = ifc.create_entity("IfcProductDefinitionShape", Representations=[rep])
+
+
+def _assign_part_materials(ifc, entity, name, assembly, mat_by_id, mapping):
+    """The materials of a profile with regions: one IfcMaterial when it has one, else a constituent set."""
+    ids = list(dict.fromkeys(l["material_id"] for l in assembly if l.get("material_id")))
+    made = {mid: ifc.create_entity("IfcMaterial", Name=ifc_mapping.material_name(mapping, mid, mat_by_id.get(mid, {}).get("name")))
+            for mid in ids}
+    if not made:
+        return
+    if len(made) == 1:
+        ifcopenshell.api.material.assign_material(ifc, products=[entity], material=next(iter(made.values())))
+        return
+    cset = ifcopenshell.api.material.add_material_set(ifc, name=name, set_type="IfcMaterialConstituentSet")
+    for mid, material in made.items():
+        constituent = ifcopenshell.api.material.add_constituent(ifc, constituent_set=cset, material=material)
+        constituent.Name = mat_by_id.get(mid, {}).get("name") or mid
+    ifcopenshell.api.material.assign_material(ifc, products=[entity], material=cset)
 
 
 def _assign_material_layers(ifc, entity, assembly, mat_by_id, mapping):

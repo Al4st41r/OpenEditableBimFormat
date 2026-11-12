@@ -15,7 +15,8 @@
  *
  * This framing avoids frame twist on horizontal paths — the normal assumption
  * for architectural walls. For vertical paths (tangent ∥ worldZ), binormal
- * falls back to (1, 0, 0).
+ * falls back to (1, 0, 0) and profile Y runs along tangent × binormal (world Y
+ * on an upward path), so a column's section lies in plan.
  *
  * Geometry layout per layer (N path frames, M profile vertices):
  *   Tube vertices:   N × M  (grid, row-major by frame)
@@ -185,7 +186,12 @@ function _computeFrames(points) {
     }
 
     let binormal = _normalize(_cross(tangent, worldUp));
-    if (_len(binormal) < 1e-6) binormal = { x: 1, y: 0, z: 0 }; // vertical path fallback
+    if (_len(binormal) < 1e-6) {
+      // Vertical path (a column): profile x along world X, profile y along tangent × X, so the section lies in plan.
+      binormal = { x: 1, y: 0, z: 0 };
+      frames.push({ origin: points[i], tangent, normal: _normalize(_cross(binormal, tangent)), binormal, up: _normalize(_cross(tangent, binormal)) });
+      continue;
+    }
     const normal = _normalize(_cross(binormal, tangent));
 
     frames.push({ origin: points[i], tangent, normal, binormal });

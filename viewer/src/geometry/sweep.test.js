@@ -147,6 +147,21 @@ describe('sweepProfile — edge cases', () => {
     expect(() => sweepProfile(path, [layerFrom(rect(-0.1, 0.1))])).not.toThrow();
   });
 
+  test('vertical path: the profile lies in plan (x along world X, y along world Y), as for a column section', () => {
+    const path = [{ x: 2, y: 1, z: 0 }, { x: 2, y: 1, z: 3 }];
+    const section = { points: [{ x: -0.1, y: -0.2 }, { x: 0.1, y: -0.2 }, { x: 0.1, y: 0.2 }, { x: -0.1, y: 0.2 }], materialId: 'm', width: 0, function: 'structure' };
+    const [mesh] = sweepProfile(path, [section]);
+    const v = mesh.vertices;
+    const xs = [], ys = [], zs = [];
+    for (let i = 0; i < v.length; i += 3) { xs.push(v[i]); ys.push(v[i + 1]); zs.push(v[i + 2]); }
+    expect(Math.min(...xs)).toBeCloseTo(1.9, 6);
+    expect(Math.max(...xs)).toBeCloseTo(2.1, 6);
+    expect(Math.min(...ys)).toBeCloseTo(0.8, 6);
+    expect(Math.max(...ys)).toBeCloseTo(1.2, 6);
+    expect(Math.min(...zs)).toBeCloseTo(0, 6);
+    expect(Math.max(...zs)).toBeCloseTo(3, 6);
+  });
+
   test('empty profile layers: returns empty array', () => {
     const path = [{ x: 0, y: 0, z: 0 }, { x: 5, y: 0, z: 0 }];
     expect(sweepProfile(path, [])).toEqual([]);

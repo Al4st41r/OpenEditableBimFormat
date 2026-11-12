@@ -58,9 +58,50 @@ def _axis2_matrix(axis, scale=1.0):
     return m
 
 
+def body_items(entity):
+    """[(item, matrix, cuts)] for each representation item of the entity. `matrix` maps the item's coordinates
+    (multiplied by the unit scale) to world metres. A mapped item is replaced by the items it maps, with its transform
+    folded into the matrix; a boolean result by its first operand, its second operand going into `cuts` as
+    (operator, operand, matrix). Empty when the entity has no representation."""
+    out = []
+    try:
+        scale = unit_scale(entity)
+        world = _matrix(entity.ObjectPlacement, scale)
+        reps = entity.Representation.Representations if entity.Representation else []
+    except Exception:
+        return out
+
+    def walk(item, m, cuts, depth=0):
+        if depth > 20:
+            return
+        if item.is_a("IfcMappedItem"):
+            try:
+                t = ifcopenshell.util.placement.get_mappeditem_transformation(item)
+            except Exception:
+                t = None
+            if t is None:
+                return
+            t = np.array(t, dtype=float).copy()
+            t[:3, 3] *= scale
+            for sub in item.MappingSource.MappedRepresentation.Items:
+                walk(sub, m @ t, cuts, depth + 1)
+            return
+        if item.is_a("IfcBooleanResult"):
+            walk(item.FirstOperand, m, cuts + [(item.Operator, item.SecondOperand, m)], depth + 1)
+            return
+        out.append((item, m, cuts))
+
+    for rep in reps:
+        for item in rep.Items:
+            walk(item, world, [])
+    return out
+
+
 def _rect_of(profile, scale):
     """(centre x, centre y, x size, y size) of a rectangle profile, or of a polyline profile that is an
     axis-aligned rectangle (four corners); None for any other shape. Metres."""
+    if profile.is_a("IfcRectangleHollowProfileDef"):
+        return None
     if profile.is_a("IfcRectangleProfileDef"):
         return 0.0, 0.0, float(profile.XDim) * scale, float(profile.YDim) * scale
     curve = getattr(profile, "OuterCurve", None)
@@ -85,29 +126,27 @@ def wall_axis(entity):
     the start and end from the extrusion, and the thickness from the section's width."""
     try:
         scale = unit_scale(entity)
-        world = _matrix(entity.ObjectPlacement, scale)
-        for rep in entity.Representation.Representations:
-            for item in rep.Items:
-                if not item.is_a("IfcExtrudedAreaSolid"):
+        for item, world, _ in body_items(entity):
+            if not item.is_a("IfcExtrudedAreaSolid"):
+                continue
+            solid = world @ _axis2_matrix(item.Position, scale)
+            depth = float(item.Depth) * scale
+            direction = solid[:3, :3] @ np.array([float(v) for v in item.ExtrudedDirection.DirectionRatios])
+            profile = item.SweptArea
+            rect = _rect_of(profile, scale)   # (centre x, centre y, x size, y size) in the profile's plane, metres
+            at = solid @ _axis2_matrix(getattr(profile, "Position", None), scale)
+            if abs(direction[2]) / max(np.linalg.norm(direction), 1e-12) >= VERTICAL:
+                if rect is None:
                     continue
-                solid = world @ _axis2_matrix(item.Position, scale)
-                depth = float(item.Depth) * scale
-                direction = solid[:3, :3] @ np.array([float(v) for v in item.ExtrudedDirection.DirectionRatios])
-                profile = item.SweptArea
-                rect = _rect_of(profile, scale)   # (centre x, centre y, x size, y size) in the profile's plane, metres
-                at = solid @ _axis2_matrix(getattr(profile, "Position", None), scale)
-                if abs(direction[2]) / max(np.linalg.norm(direction), 1e-12) >= VERTICAL:
-                    if rect is None:
-                        continue
-                    cx, cy, xdim, ydim = rect
-                    a, b = at @ np.array([cx - xdim / 2, cy, 0, 1]), at @ np.array([cx + xdim / 2, cy, 0, 1])
-                    return {"start": tuple(float(v) for v in a[:3]), "end": tuple(float(v) for v in b[:3]),
-                            "thickness": ydim, "height": depth}
-                a = solid @ np.array([0, 0, 0, 1])
-                end = a[:3] + direction * depth
-                return {"start": tuple(float(v) for v in a[:3]), "end": tuple(float(v) for v in end),
-                        "thickness": rect[2] if rect is not None else None,
-                        "height": rect[3] if rect is not None else None}
+                cx, cy, xdim, ydim = rect
+                a, b = at @ np.array([cx - xdim / 2, cy, 0, 1]), at @ np.array([cx + xdim / 2, cy, 0, 1])
+                return {"start": tuple(float(v) for v in a[:3]), "end": tuple(float(v) for v in b[:3]),
+                        "thickness": ydim, "height": depth}
+            a = solid @ np.array([0, 0, 0, 1])
+            end = a[:3] + direction * depth
+            return {"start": tuple(float(v) for v in a[:3]), "end": tuple(float(v) for v in end),
+                    "thickness": rect[2] if rect is not None else None,
+                    "height": rect[3] if rect is not None else None}
     except Exception:
         pass
     return None
@@ -154,6 +193,70 @@ def layer_profile(entity):
     if not layers:
         return None
     return {"name": getattr(material, "LayerSetName", None) or "", "layers": layers, "offset": offset}
+
+
+def _material_of(entity):
+    try:
+        return ifc_element.get_material(entity)
+    except Exception:
+        return None
+
+
+def primary_material(entity):
+    """The name of the material that stands for the whole entity, else None: its single material; the thickest
+    layer of a layer set; the first profile of a profile set; the constituent with the largest fraction (else the
+    first) of a constituent set; the first material of a material list."""
+    material = _material_of(entity)
+    if material is None:
+        return None
+    for usage, attr in (("IfcMaterialLayerSetUsage", "ForLayerSet"), ("IfcMaterialProfileSetUsage", "ForProfileSet")):
+        if material.is_a(usage):
+            material = getattr(material, attr)
+    named = lambda m: m.Name if m is not None and getattr(m, "Name", None) else None
+    if material.is_a("IfcMaterial"):
+        return named(material)
+    if material.is_a("IfcMaterialLayerSet"):
+        layers = [l for l in material.MaterialLayers or [] if l.Material is not None]
+        return named(max(layers, key=lambda l: float(l.LayerThickness or 0)).Material) if layers else None
+    if material.is_a("IfcMaterialProfileSet"):
+        return next((named(p.Material) for p in material.MaterialProfiles or [] if named(p.Material)), None)
+    if material.is_a("IfcMaterialConstituentSet"):
+        parts = [c for c in material.MaterialConstituents or [] if named(c.Material)]
+        if not parts:
+            return None
+        return named(max(parts, key=lambda c: float(c.Fraction or 0)).Material)
+    if material.is_a("IfcMaterialList"):
+        return next((named(m) for m in material.Materials or [] if named(m)), None)
+    return None
+
+
+def constituent_profile(entity, thickness):
+    """{name, layers, offset} from a constituent set whose fractions are all given: one layer per constituent, as
+    thick as its share of the wall's thickness, in the set's order. None otherwise (no set, a fraction missing, or no
+    thickness to share out)."""
+    material = _material_of(entity)
+    if material is None or not material.is_a("IfcMaterialConstituentSet") or not thickness:
+        return None
+    parts = [c for c in material.MaterialConstituents or [] if c.Material is not None and c.Material.Name]
+    if not parts or any(c.Fraction is None for c in parts):
+        return None
+    total = sum(float(c.Fraction) for c in parts)
+    if total <= 0:
+        return None
+    layers = [{"name": c.Name or c.Material.Name, "material_name": c.Material.Name,
+               "thickness": round(float(thickness) * float(c.Fraction) / total, 6)} for c in parts if float(c.Fraction) > 0]
+    return {"name": material.Name or "", "layers": layers, "offset": None}
+
+
+def material_kind(entity) -> str | None:
+    """The IFC class of the entity's material association (after a usage), for warnings."""
+    material = _material_of(entity)
+    if material is None:
+        return None
+    for usage, attr in (("IfcMaterialLayerSetUsage", "ForLayerSet"), ("IfcMaterialProfileSetUsage", "ForProfileSet")):
+        if material.is_a(usage):
+            material = getattr(material, attr)
+    return material.is_a()
 
 
 def profile_origin_x(profile: dict) -> float:
@@ -266,25 +369,23 @@ def solid_points(entity):
     extrusion. A rectangle gives its four corners, a polyline profile its vertices. None when there is none."""
     try:
         scale = unit_scale(entity)
-        world = _matrix(entity.ObjectPlacement, scale)
-        for rep in entity.Representation.Representations:
-            for item in rep.Items:
-                if not item.is_a("IfcExtrudedAreaSolid"):
-                    continue
-                solid = world @ _axis2_matrix(item.Position, scale)
-                profile = item.SweptArea
-                if profile.is_a("IfcRectangleProfileDef"):
-                    hx, hy = float(profile.XDim) * scale / 2, float(profile.YDim) * scale / 2
-                    local = [(-hx, -hy), (hx, -hy), (hx, hy), (-hx, hy)]
-                elif getattr(profile, "OuterCurve", None) is not None and profile.OuterCurve.is_a("IfcPolyline"):
-                    local = [(float(p.Coordinates[0]) * scale, float(p.Coordinates[1]) * scale) for p in profile.OuterCurve.Points]
-                else:
-                    continue
-                at = solid @ _axis2_matrix(getattr(profile, "Position", None), scale)
-                base = np.array([(at @ np.array([x, y, 0, 1]))[:3] for x, y in local])
-                direction = solid[:3, :3] @ np.array([float(v) for v in item.ExtrudedDirection.DirectionRatios])
-                top = base + direction / max(np.linalg.norm(direction), 1e-12) * float(item.Depth) * scale
-                return np.vstack([base, top])
+        for item, world, _ in body_items(entity):
+            if not item.is_a("IfcExtrudedAreaSolid"):
+                continue
+            solid = world @ _axis2_matrix(item.Position, scale)
+            profile = item.SweptArea
+            if profile.is_a("IfcRectangleProfileDef"):
+                hx, hy = float(profile.XDim) * scale / 2, float(profile.YDim) * scale / 2
+                local = [(-hx, -hy), (hx, -hy), (hx, hy), (-hx, hy)]
+            elif getattr(profile, "OuterCurve", None) is not None and profile.OuterCurve.is_a("IfcPolyline"):
+                local = [(float(p.Coordinates[0]) * scale, float(p.Coordinates[1]) * scale) for p in profile.OuterCurve.Points]
+            else:
+                continue
+            at = solid @ _axis2_matrix(getattr(profile, "Position", None), scale)
+            base = np.array([(at @ np.array([x, y, 0, 1]))[:3] for x, y in local])
+            direction = solid[:3, :3] @ np.array([float(v) for v in item.ExtrudedDirection.DirectionRatios])
+            top = base + direction / max(np.linalg.norm(direction), 1e-12) * float(item.Depth) * scale
+            return np.vstack([base, top])
     except Exception:
         pass
     return None
@@ -294,7 +395,8 @@ def place_on_path(points, path_segments):
     """Where a box of world points sits against a wall's path: {position, width, depth, sill, height} or None.
 
     `position` is the arc length at the box's start, `width` its extent along the wall, `depth` across it,
-    `sill` its lowest point above the path's height, `height` its vertical extent. Uses the path segment nearest the centre."""
+    `sill` its lowest point above the path's height, `height` its vertical extent, `offset` how far its centre is from
+    the segment's line and `gap` how far beyond the segment's ends it is. Uses the path segment nearest the centre."""
     lines = [(np.array([s["start"]["x"], s["start"]["y"], s["start"].get("z", 0.0)]), np.array([s["end"]["x"], s["end"]["y"], s["end"].get("z", 0.0)]))
              for s in path_segments if s.get("type") == "line"]
     if not lines:
@@ -314,8 +416,11 @@ def place_on_path(points, path_segments):
         if best is None or score < best[0]:
             best = (score, a, t, run)
         run += length
-    _, a, t, run = best
+    score, a, t, run = best
     lo = (points[:, :2] - a[:2]) @ t
     nrm = (points[:, :2] - a[:2]) @ np.array([-t[1], t[0]])
+    along = float((centre[:2] - a[:2]) @ t)
+    across = abs(float((centre[:2] - a[:2]) @ np.array([-t[1], t[0]])))
     return {"position": float(run + lo.min()), "width": float(lo.max() - lo.min()), "depth": float(nrm.max() - nrm.min()),
-            "sill": float(points[:, 2].min() - a[2]), "height": float(points[:, 2].max() - points[:, 2].min())}
+            "sill": float(points[:, 2].min() - a[2]), "height": float(points[:, 2].max() - points[:, 2].min()),
+            "offset": across, "gap": float(score - across)}
