@@ -9,6 +9,7 @@
  * whether a document is *complete* is detailValidate.js's job, not theirs.
  */
 
+import { PEN_SERIES } from '../lineweights.js';
 import { filletCorner, chamferCorner, offsetPolygon, layerOnEdge, trimRect, extendRectTo } from './regionOps.js';
 import {
   KINDS, EXTENTS, PLANES, DATUM_KINDS, DATUM_REFERENCES, SLUG, PARAM_NAME, DEFAULT_EXTRUSION_M,
@@ -431,6 +432,16 @@ export function setRegionNumber(doc, index, field, value) {
   if (field !== 'stagger_x_m' && value <= 0) throw new DetailEditError(`${field} must be greater than zero`);
   if (INTEGER_FIELDS.includes(field) && !Number.isInteger(value)) throw new DetailEditError(`${field} must be a whole number`);
   region[field] = value;
+  return d;
+}
+
+/** Set or clear (null) a region's own outline weight, in mm; it must be a pen in the series (lineweights.js). */
+export function setRegionOutline(doc, index, mm) {
+  const d = clone(doc);
+  const region = regionAt(d, index);
+  if (mm === null || mm === undefined || mm === '') { delete region.outline_mm; return d; }
+  if (!PEN_SERIES.includes(mm)) throw new DetailEditError(`outline_mm must be one of ${PEN_SERIES.join(', ')}`);
+  region.outline_mm = mm;
   return d;
 }
 

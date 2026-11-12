@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { buildAxoModel } from '../detail-axo/detailAxo.js';
-import { buildDetailSvg, styleFor, tint } from './detailSvg.js';
+import { buildDetailSvg, styleFor, tint, drawRole } from './detailSvg.js';
 import { hatchKindFor, hatchDefs, patternId } from './hatches.js';
 import { NONE_COLOUR } from './overlays.js';
 
@@ -240,5 +240,52 @@ describe('buildDetailSvg with a clip box', () => {
   });
   it('falls back to the whole drawing when the clip box misses it', () => {
     expect(buildDetailSvg(model({ x_min_m: 10 })).width).toBe(buildDetailSvg(model(null)).width);
+  });
+});
+
+describe('seen lines', () => {
+  const sq = (x, y, sz) => [{ x, y }, { x: x + sz, y }, { x: x + sz, y: y + sz }, { x, y: y + sz }];
+  const prisms = [
+    { id: 'cut', kind: 'region', materialId: 'm', points: sq(0, 0, 1), w0: -0.5, w1: 0.5 },
+    { id: 'beyond', kind: 'region', materialId: 'm', points: sq(2, 0, 0.5), w0: -0.5, w1: -0.1 },
+    { id: 'beyond-2', kind: 'region', materialId: 'm', points: sq(2, 0, 0.5), w0: -1, w1: -0.6 },
+    { id: 'front', kind: 'region', materialId: 'm', points: sq(4, 0, 0.5), w0: 0.1, w1: 0.5 },
+  ];
+  const model = { plane: 'section', extrusion: 1, warnings: [], skipped: [], refLines: [], annotations: [], prisms, bounds: { minU: 0, maxU: 4.5, minV: 0, maxV: 1 } };
+
+  it('sorts solids into cut, seen beyond and hidden in front', () => {
+    expect(prisms.map((p) => drawRole(p, 'section'))).toEqual(['cut', 'seen', 'seen', 'hidden']);
+    expect(drawRole({ course: 1, w0: 0.1, w1: 0.2 }, 'plan')).toBe('hidden');
+    expect(drawRole({ w0: 0, w1: 1 }, 'plan')).toBe('cut');
+  });
+  it('draws a seen solid once, as an outline at the seen weight, under the cut solids', () => {
+    const { svg } = buildDetailSvg(model, {});
+    const seen = svg.match(/<polygon class="seen"[^>]*>/g);
+    expect(seen).toHaveLength(1);                         // the two beyond share one shape
+    expect(seen[0]).toContain('stroke-width="0.18"');
+    expect(seen[0]).toContain('fill="none"');
+    expect(svg.indexOf('class="seen-lines"')).toBeLessThan(svg.indexOf('class="fills"'));
+    expect(svg).not.toContain('data-item="beyond"');       // not drawn as cut
+    expect(svg).not.toContain('front');
+  });
+  it('takes the seen weight from the profile', () => {
+    const m = { ...model, prisms: [prisms[0], { ...prisms[1], kind: 'member', profileId: 'p', layer: 0 }] };
+    const { svg } = buildDetailSvg(m, { profiles: new Map([['p', { lineweights: { seen: 0.25 }, assembly: [{}] }]]) });
+    expect(svg).toMatch(/class="seen"[^>]*stroke-width="0\.25"/);
+  });
+});
+
+describe('a region outline weight', () => {
+  const pts = [{ x: 0, y: 0 }, { x: 0.2, y: 0 }, { x: 0.2, y: 0.2 }, { x: 0, y: 0.2 }];
+  const materials = new Map([['m', { category: 'insulation' }]]);
+  it('overrides the weight its material category implies', () => {
+    expect(styleFor({ kind: 'region', materialId: 'm', points: pts }, { materials }).cut).toBe(0.25);
+    expect(styleFor({ kind: 'region', materialId: 'm', points: pts, outlineMm: 0.7 }, { materials }).cut).toBe(0.7);
+  });
+  it('is carried from the detail region to the drawing', () => {
+    const detail = { id: 'd', plane: 'plan', geometry: { extrusion_m: 0.3, regions: [{ material_id: 'm', outline_mm: 0.13, vertices: pts }] } };
+    const model = buildAxoModel(detail, { profiles: new Map() });
+    expect(model.prisms[0].outlineMm).toBe(0.13);
+    expect(buildDetailSvg(model, { materials }).svg).toMatch(/class="outline"[^>]*stroke-width="0\.13"/);
   });
 });

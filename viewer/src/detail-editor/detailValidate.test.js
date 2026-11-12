@@ -130,6 +130,10 @@ describe('repeating regions', () => {
     tile.geometry.regions[0] = { material_id: 'mat-a', depth_m: 0.09, repeat_y_m: 0.098, count_y: 6, vertices: [{ x: 0, y: 0 }, { x: 0.3, y: 0 }, { x: 0.3, y: 0.09 }, { x: 0, y: 0.09 }] };
     expect(codes(tile)).toEqual([]);
   });
+  test('an outline weight must be a pen in the series', () => {
+    expect(codes(withRepeat({ outline_mm: 0.5 }))).toEqual([]);
+    expect(codes(withRepeat({ outline_mm: 0.3 }))).toContain('pen');
+  });
   test('a pitch smaller than the unit is an overlap, at the field', () => {
     const [m] = only(withRepeat({ repeat_x_m: 0.2, count_x: 3 }), 'repeat-overlap');
     expect(m.path).toBe('geometry.regions[0].repeat_x_m');

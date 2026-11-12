@@ -122,6 +122,43 @@ export function runningBondSpans(spec, extent) {
 }
 
 /**
+ * A profile region layer's own repeat (profile schema, assembly items; issue #77), or null when it has none:
+ *
+ *   depth_m, repeat_x_m   the unit's length along the run and its pitch along the run (both needed)
+ *   repeat_y_m            pitch of rows up the profile (profile y)
+ *   offset_x_m            shift along the run of every second row, for a bond (half the pitch gives a half-bond)
+ *   offset_y_m            shift up of the first row
+ *
+ * The region's vertices draw one unit's cross-section.
+ */
+export function layerRepeat(layer) {
+  const pos = (v) => typeof v === 'number' && Number.isFinite(v) && v > 0;
+  const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
+  const alongRun = pos(layer?.depth_m) && pos(layer?.repeat_x_m);
+  const up = pos(layer?.repeat_y_m);
+  if (!alongRun && !up) return null;
+  return { alongRun, up, depth: layer.depth_m, pitchRun: layer.repeat_x_m, pitchUp: layer.repeat_y_m, stagger: num(layer.offset_x_m), rise: num(layer.offset_y_m) };
+}
+
+/**
+ * Spans along a run of the units of a layerRepeat: units `depth` long at `anchor + shift + k * pitch` for every whole
+ * k, kept where they overlap [lo, hi] and trimmed to it.
+ * @returns {Array<[number, number]>}
+ */
+export function repeatRunSpans(rep, [lo, hi], anchor, shift = 0) {
+  const start = anchor + shift;
+  const k0 = Math.floor((lo - start - rep.depth) / rep.pitchRun) + 1;
+  const out = [];
+  for (let k = k0; out.length < MAX_UNITS; k++) {
+    const u0 = start + k * rep.pitchRun;
+    if (u0 >= hi - 1e-9) break;
+    const a = Math.max(u0, lo), b = Math.min(u0 + rep.depth, hi);
+    if (b - a > 1e-9) out.push([a, b]);
+  }
+  return out;
+}
+
+/**
  * Handles on the first unit of a layer drawn as units: the far end of the unit (drag to set its size) and the start of
  * the next unit (drag to set the pitch). `run` carries what turns a dragged point back into a size: the run's first
  * unit position, the direction sign and the view.
@@ -224,6 +261,51 @@ export function buildMemberShapes(member, profile, opts = {}) {
   const shapes = [];
   const warnings = [];
   const info = describeLayers(member, profile);
+
+  // A region layer with its own repeat: rows up the profile, and units along the run. In a section the units along the
+  // run lie across the drawing plane, so they are made only for the 3D view (opts.courses); they are centred on the
+  // cut (w = 0), so the drawing cuts a whole unit in the first row. In a plan they lie in the drawing plane and start at
+  // the member's origin end; rows up the wall are made for the 3D view only, as courses.
+  function repeatedRegion(rep, pts, lo, hi, i) {
+    const layer = profile.assembly[i];
+    const ys = pts.map((p) => p.y);
+    const ylo = Math.min(...ys), yhi = Math.max(...ys);
+    const top = plane === 'section' ? height : opts.courses && opts.wallTop > 0 ? opts.wallTop : null;
+    const rows = [];
+    for (let r = 0; rows.length < MAX_UNITS; r++) {
+      const dy = rep.rise + (rep.up ? r * rep.pitchUp : 0);
+      if (r > 0 && (!rep.up || top === null || yhi + dy > top + 1e-9)) break;
+      rows.push(dy);
+    }
+    let made = 0;
+    const push = (local, extra) => {
+      if (made >= MAX_COURSE_SHAPES) return;
+      const first = made === 0;
+      made++;
+      const points = ccw(local.map((p) => placePoint(placement, p)));
+      const startPoint = !first ? null : plane === 'section'
+        ? placePoint(placement, { x: lo, y: (ylo + yhi) / 2 + rows[0] })
+        : placePoint(placement, { x: (x0 + x1) / 2, y: -lo });
+      shapes.push({ points, materialId: layer.material_id, function: layer.function, layer: i, key: info[i].key, unit: made - 1, startPoint, ...extra });
+    };
+    const back = plane === 'plan' && mode === 'backward';
+    rows.forEach((dy, r) => {
+      const shift = r % 2 ? rep.stagger : 0;
+      if (plane === 'section') {
+        const local = pts.map((p) => ({ x: p.x, y: p.y + dy }));
+        if (rep.alongRun && opts.courses) {
+          for (const [w0, w1] of repeatRunSpans(rep, [-length / 2, length / 2], -rep.depth / 2, shift)) push(local, { w0, w1 });
+        } else push(local, {});
+        return;
+      }
+      if (!(hi > lo)) return;
+      const z = top !== null && rep.up ? { w0: ylo + dy, w1: Math.min(yhi + dy, top), course: r } : {};
+      const spans = rep.alongRun ? repeatRunSpans(rep, [x0, x1], back ? x1 - rep.depth : x0, back ? -shift : shift) : [[x0, x1]];
+      for (const [u0, u1] of spans) push([{ x: u0, y: -hi }, { x: u1, y: -hi }, { x: u1, y: -lo }, { x: u0, y: -lo }], z);
+    });
+    if (made >= MAX_COURSE_SHAPES) warnings.push(`Layer ${info[i].key} of "${member.role}" has more than ${MAX_COURSE_SHAPES} repeated units; showing the first`);
+  }
+
   profile.assembly.forEach((layer, i) => {
     let local; // polygon in the member's local frame
     let startPoint = null;
@@ -233,6 +315,11 @@ export function buildMemberShapes(member, profile, opts = {}) {
       const shift = info[i].start - info[i].natural;            // a region moves as a whole
       const pts = layer.vertices.map((v) => ({ x: v.x - originX + shift, y: v.y }));
       const lo = Math.min(...pts.map((p) => p.x)), hi = Math.max(...pts.map((p) => p.x));
+      const rep = layerRepeat(layer);
+      if (rep) {
+        repeatedRegion(rep, pts, lo, hi, i);
+        return;
+      }
       if (plane === 'section') {
         local = pts;
         const ys = pts.map((p) => p.y);

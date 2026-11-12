@@ -8,14 +8,15 @@
  * 0.35 stroke is 0.35 mm when printed. Real metres become sheet millimetres as `m * 1000 / scale`. The vertical
  * axis is flipped so that detail-space y (up) is up on the page.
  *
- * Every solid is a cut shape here, drawn as a tinted fill, a hatch and an outline. Seen-beyond lines are not
- * drawn: the model has no geometry beyond the cut plane.
+ * A solid the cut plane passes through is drawn as a tinted fill, a hatch and an outline at the cut weight. A solid
+ * wholly beyond the cut is seen, not cut: it is drawn as an outline only, at the seen weight, under the cut solids
+ * (see `drawRole`). A solid between the viewer and the cut is left out.
  */
 
 import { resolveLineweight, functionForCategory, DEFAULT_LINEWEIGHTS, HAIRLINE_MM } from '../lineweights.js';
 import { NONE_COLOUR } from './overlays.js';
 import { fill2d } from '../materialFill.js';
-import { signedArea } from '../detail/regionGeometry.js';
+import { paintOrder } from './visibleArea.js';
 import { guideSvg } from './guideSvg.js';
 import { annotationSvg, annotationBounds } from './annotationSvg.js';
 import { hatchKindFor, hatchDefs, patternId, noDataDef, NO_DATA_PATTERN_ID } from './hatches.js';
@@ -54,7 +55,9 @@ export function styleFor(prism, { materials, profiles, k = 200 } = {}) {
   const profile = prism.kind === 'member' ? profileOf(profiles, prism.profileId) : undefined;
   const layer = profile && Number.isInteger(prism.layer) ? profile.assembly?.[prism.layer] : undefined;
   const fn = prism.function ?? functionForCategory(material?.category);
-  const cut = resolveLineweight('cut', { profile, layer, function: fn });
+  // A detail region has no profile layer; its own outline_mm (carried on the prism) plays the layer's part.
+  const own = prism.kind === 'region' && prism.outlineMm !== undefined ? { outline_mm: prism.outlineMm } : layer;
+  const cut = resolveLineweight('cut', { profile, layer: own, function: fn });
   // A membrane or sealant a millimetre or two thick would be all outline. Draw it as a solid, darker shape with a
   // lighter outline and no hatch, so it reads as one line (the way a drawn membrane does).
   if (minSideSheetMm(prism, k) < THIN_SOLID_MM) {
@@ -67,6 +70,19 @@ export function styleFor(prism, { materials, profiles, k = 200 } = {}) {
     hatchKind: hatchKindFor(material?.category),
     thin: false,
   };
+}
+
+/**
+ * How the 2D drawing shows a solid: 'cut' (the cut plane passes through it), 'seen' (wholly beyond the cut) or
+ * 'hidden' (between the viewer and the cut).
+ *   section  the cut is at w = 0 and the viewer is on the +w side (the front elevation's side), looking towards -w.
+ *   plan     the drawing looks down on the first course: a solid in a higher course is hidden.
+ */
+export function drawRole(prism, plane) {
+  if (plane === 'plan') return prism.course > 0 ? 'hidden' : 'cut';
+  if (prism.w1 <= 0) return 'seen';
+  if (prism.w0 >= 0) return 'hidden';
+  return 'cut';
 }
 
 /**
@@ -99,13 +115,23 @@ export function buildDetailSvg(model, opts = {}) {
   const height = y1 - y0;
   const pt = (p) => `${num(p.x * k)},${num(-p.y * k)}`;
 
-  // Larger solids first, so a small item is never hidden under a large one. The 3D pick uses the same rule.
-  // a plan drawing looks down on the wall: only the first course of units shows, not every course stacked over it
-  const styled = model.prisms
-    .filter((p) => !(p.course > 0))
-    .map((p, i) => ({ p, i, area: Math.abs(signedArea(p.points)), s: styleFor(p, { ...opts, k }) }))
-    .sort((a, b) => b.area - a.area || a.i - b.i);
+  // Larger solids first, so a small item is never hidden under a large one (paintOrder; the 3D pick and the carbon
+  // total use the same rule).
+  const role = (p) => drawRole(p, model.plane);
+  const styled = paintOrder(model.prisms.filter((p) => role(p) === 'cut')).map((p) => ({ p, s: styleFor(p, { ...opts, k }) }));
   const defs = hatchDefs(styled.map(({ s }) => ({ kind: s.hatchKind, weight: s.hatch })));
+
+  // Seen solids: one outline per distinct shape (units in a row behind the cut share one), under the cut solids.
+  let seen = '';
+  const seenDone = new Set();
+  for (const p of model.prisms) {
+    if (role(p) !== 'seen') continue;
+    const key = p.points.map(pt).join(' ');
+    if (seenDone.has(key)) continue;
+    seenDone.add(key);
+    const profile = p.kind === 'member' ? profileOf(opts.profiles, p.profileId) : undefined;
+    seen += `<polygon class="seen" data-seen="${esc(p.id)}" points="${key}" fill="none" stroke="#000" stroke-width="${resolveLineweight('seen', { profile })}" stroke-linejoin="miter" pointer-events="none"/>`;
+  }
 
   // An overlay colour for a solid, or undefined when no overlay applies to it.
   const overlayOf = (id) => (opts.fills?.has(id) ? opts.fills.get(id) : undefined);
@@ -149,7 +175,7 @@ export function buildDetailSvg(model, opts = {}) {
 
   const style = `<style>` +
     `svg{--hair:${HAIRLINE_MM}}` +
-    `.thin .outline,.thin .annotation{stroke-width:var(--hair)}` +
+    `.thin .outline,.thin .seen,.thin .annotation{stroke-width:var(--hair)}` +
     `.thin .hatch{opacity:.55}` +
     `[data-item]{cursor:pointer}` +
     `polygon.selected:not(.outline){fill-opacity:.55}` +
@@ -159,7 +185,7 @@ export function buildDetailSvg(model, opts = {}) {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" class="detail-2d${opts.hairline ? ' thin' : ''}" ` +
     `viewBox="${num(x0)} ${num(y0)} ${num(width)} ${num(height)}" data-scale="${num(scale)}" role="img">` +
     `${style}<defs>${defs}${opts.fills ? noDataDef() : ''}<clipPath id="detail-frame"><rect x="${num(x0)}" y="${num(y0)}" width="${num(width)}" height="${num(height)}"/></clipPath></defs><rect x="${num(x0)}" y="${num(y0)}" width="${num(width)}" height="${num(height)}" fill="#fff"/>` +
-    `<g clip-path="url(#detail-frame)"><g class="fills">${fills}</g><g class="outlines">${outlines}</g>${guides.fade}${guides.lines}${annotations}${annotationSvg(model.annotations, k, { weight: ann, format: (m) => String(Math.round(m * 1000)) })}</g></svg>`;
+    `<g clip-path="url(#detail-frame)"><g class="seen-lines">${seen}</g><g class="fills">${fills}</g><g class="outlines">${outlines}</g>${guides.fade}${guides.lines}${annotations}${annotationSvg(model.annotations, k, { weight: ann, format: (m) => String(Math.round(m * 1000)) })}</g></svg>`;
 
   return { svg, width, height, scale };
 }

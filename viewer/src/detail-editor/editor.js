@@ -303,6 +303,7 @@ const actions = {
   },
   setRegionNumber: (i, f, v) => apply((d) => D.setRegionNumber(d, i, f, v)),
   setRegionTag: (i, k, v) => apply((d) => D.setRegionTag(d, i, k, v)),
+  setRegionOutline: (i, mm) => apply((d) => D.setRegionOutline(d, i, mm)),
   setLayerEnds: (role, layer, ends) => apply((d) => D.setLayerEnds(d, role, layer, ends)),
   setMemberInsertion: (role, spec) => apply((d) => D.setMemberInsertion(d, role, spec)),
   setLayerUnit: (role, layer, spec) => apply((d) => D.setLayerUnit(d, role, layer, spec)),

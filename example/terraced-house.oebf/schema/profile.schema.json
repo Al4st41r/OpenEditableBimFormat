@@ -97,11 +97,11 @@
               }
             }
           },
-          "depth_m":    { "type": "number", "exclusiveMinimum": 0 },
-          "repeat_x_m": { "type": "number", "exclusiveMinimum": 0 },
-          "repeat_y_m": { "type": "number", "exclusiveMinimum": 0 },
-          "offset_x_m": { "type": "number" },
-          "offset_y_m": { "type": "number" },
+          "depth_m":    { "type": "number", "exclusiveMinimum": 0, "description": "Region layers: the length of one unit along the run (a brick's 215 mm). Used with repeat_x_m." },
+          "repeat_x_m": { "type": "number", "exclusiveMinimum": 0, "description": "Region layers: pitch of the units along the run, from start to start. At least depth_m; the gap is the joint. Used with depth_m." },
+          "repeat_y_m": { "type": "number", "exclusiveMinimum": 0, "description": "Region layers: pitch of rows of the unit up the profile (profile y), such as brick courses or battens." },
+          "offset_x_m": { "type": "number", "description": "Region layers: shift along the run of every second row, for a bond. Half of repeat_x_m gives a half-bond." },
+          "offset_y_m": { "type": "number", "description": "Region layers: shift up of the first row." },
           "tags":       { "$ref": "#/definitions/classification" }
         }
       }

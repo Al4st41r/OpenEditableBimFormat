@@ -23,6 +23,7 @@ import { detailToDxf } from '../detail-editor/dxfExport.js';
 import { buildDetailSheet, embeddedFontCss, deliverSheet } from '../detail-review/sheetExport.js';
 import { diffDetails } from '../detail-review/detailDiff.js';
 import { OVERLAYS, applyOverlay, tagsOf, carbonValues } from '../detail-review/overlays.js';
+import { detailCarbon } from '../detail-review/carbonTotal.js';
 
 renderIcons();
 
@@ -82,6 +83,21 @@ function syncCompare() {
   $('compare-btn').querySelector('.lbl').textContent = showOriginal ? 'Showing original' : 'Original';
 }
 
+/** The detail's embodied carbon (A1-A3): overlap-aware volumes times CarbonBench factors. */
+function carbonSection(model) {
+  const c = detailCarbon(model, { materials: data.materials });
+  const kg = (v) => (v >= 100 ? Math.round(v) : Math.round(v * 10) / 10);
+  const name = (id) => data.materials.get(id)?.name ?? id;
+  const rows = c.rows.filter((r) => r.kg).slice(0, 5).map((r) =>
+    `<div class="legend-row"><span>${esc(name(r.materialId))}</span><span class="count">${kg(r.kg)} kg</span></div>`).join('');
+  return `<h3>Embodied carbon (A1-A3)</h3>` +
+    `<div id="carbon-total" class="use"><strong>${kg(c.totalKg)} kgCO2e</strong>` +
+    (c.perMetre !== null ? ` (${kg(c.perMetre)} per m run)` : '') + `<br>${Math.round(c.volumeM3 * 1e4) / 1e4} m3 of material</div>` +
+    rows +
+    (c.missing.length ? `<div class="note">Not counted, no per-m3 figure: ${c.missing.map((id) => esc(name(id))).join(', ')} (${Math.round(c.missingM3 * 1e4) / 1e4} m3).</div>` : '') +
+    `<div class="note">Where solids overlap, the one drawn on top (the smaller) owns the overlap, so nothing is counted twice.${model.clip ? ' Cut to the clip box.' : ''}</div>`;
+}
+
 function renderInfo(detail, model) {
   const uses = usagesOf(detail.id, data.junctions);
   const mats = [...materialsUsed(model)].map(([id, n]) => {
@@ -102,6 +118,7 @@ function renderInfo(detail, model) {
     `<h3>Members</h3>` +
     (detail.members ?? []).map((m) => `<div class="use"><code>${esc(m.role)}</code> (${esc(m.kind)}) ${esc(m.profile_id)}</div>`).join('') +
     `<h3>Materials</h3>${mats}` +
+    carbonSection(model) +
     (warnings.length ? `<h3>Notes</h3>${warnings.map((w) => `<div class="warn">${esc(w)}</div>`).join('')}` : '');
 }
 

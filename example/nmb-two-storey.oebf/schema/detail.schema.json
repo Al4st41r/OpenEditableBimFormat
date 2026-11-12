@@ -147,6 +147,7 @@
               "count_x":    { "type": "integer", "minimum": 1, "description": "Number of units along x. Needs repeat_x_m. Default 1." },
               "count_y":    { "type": "integer", "minimum": 1, "description": "Number of units along y. Needs repeat_y_m. Default 1." },
               "tags":       { "$ref": "#/definitions/classification" },
+              "outline_mm": { "$ref": "#/definitions/pen_mm", "description": "Pen weight of this region's cut outline in the 2D drawings, overriding the weight its material category implies (structure 0.5 down to membrane 0.18)." },
               "vertices": {
                 "type": "array",
                 "minItems": 3,
@@ -273,6 +274,11 @@
     "tags": { "type": "array", "items": { "type": "string" } }
   },
   "definitions": {
+    "pen_mm": {
+      "description": "Line weight in millimetres at print scale. Limited to the pen series so drawings plot predictably and map onto DXF lineweights. The same series as profile.schema.json.",
+      "type": "number",
+      "enum": [0.09, 0.13, 0.18, 0.25, 0.35, 0.5, 0.7]
+    },
     "point": {
       "type": "object",
       "required": ["x", "y"],
