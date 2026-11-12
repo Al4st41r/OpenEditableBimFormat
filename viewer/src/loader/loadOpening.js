@@ -14,11 +14,16 @@ import { parsePath } from './loadPath.js';
 /**
  * Build line-segment positions forming the rectangular outline of an opening.
  *
+ * Without `faces` the rectangle is drawn on the path. With them (geometry/openingCut.js openingFaces) it is drawn on
+ * both faces of the wall, joined at the corners, so it frames the hole from either side instead of sitting inside the
+ * wall, where it looked offset from the hole (#153).
+ *
  * @param {object} opening   — parsed opening JSON
  * @param {object} pathData  — parsed path JSON for the host wall path
+ * @param {{ near: number, far: number }} [faces] — the wall faces' offsets along the path's left-hand normal
  * @returns {{ positions: Float32Array, openingId: string }}
  */
-export function buildOpeningOutline(opening, pathData) {
+export function buildOpeningOutline(opening, pathData, faces = null) {
   const { path_position, width_m, height_m, sill_height_m = 0 } = opening;
 
   const { points } = parsePath(pathData);
@@ -28,21 +33,24 @@ export function buildOpeningOutline(opening, pathData) {
 
   const sz = sill_height_m;
 
-  // Four corners of the opening rectangle
-  const bl = [startPt[0], startPt[1], startPt[2] + sz];
-  const br = [endPt[0],   endPt[1],   endPt[2]   + sz];
-  const tr = [endPt[0],   endPt[1],   endPt[2]   + sz + height_m];
-  const tl = [startPt[0], startPt[1], startPt[2] + sz + height_m];
+  // Four corners of the opening rectangle, moved `d` across the wall
+  const dx = endPt[0] - startPt[0], dy = endPt[1] - startPt[1];
+  const len = Math.hypot(dx, dy) || 1;
+  const nx = -dy / len, ny = dx / len;
+  const rect = (d) => {
+    const bl = [startPt[0] + nx * d, startPt[1] + ny * d, startPt[2] + sz];
+    const br = [endPt[0]   + nx * d, endPt[1]   + ny * d, endPt[2]   + sz];
+    const tr = [br[0], br[1], endPt[2]   + sz + height_m];
+    const tl = [bl[0], bl[1], startPt[2] + sz + height_m];
+    return [bl, br, tr, tl];
+  };
+  const loop = (c) => [...c[0], ...c[1], ...c[1], ...c[2], ...c[2], ...c[3], ...c[3], ...c[0]];
 
-  // 4 line segments: bl→br, br→tr, tr→tl, tl→bl (24 floats)
-  const positions = new Float32Array([
-    ...bl, ...br,
-    ...br, ...tr,
-    ...tr, ...tl,
-    ...tl, ...bl,
-  ]);
+  if (!faces) return { positions: new Float32Array(loop(rect(0))), openingId: opening.id };   // 4 segments (24 floats)
 
-  return { positions, openingId: opening.id };
+  const a = rect(faces.near), b = rect(faces.far);
+  const joins = a.flatMap((p, i) => [...p, ...b[i]]);
+  return { positions: new Float32Array([...loop(a), ...loop(b), ...joins]), openingId: opening.id };   // 12 segments
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
