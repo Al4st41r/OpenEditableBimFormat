@@ -2,7 +2,7 @@
 
 **Date:** 2026-11-12
 **Branch:** main
-**Tests:** 2227 JS (Vitest, 140 test files) + 460 Python (445 ifc-tools, 15 live-server) + 29 Playwright e2e
+**Tests:** 2261 JS (Vitest, 145 test files) + 460 Python (445 ifc-tools, 15 live-server) + 36 Playwright e2e
 
 ---
 
@@ -107,14 +107,15 @@ Plan: `docs/plans/2026-10-08-junction-detail-system.md`. Delivered: `detail.sche
 
 ## Open Issues (2026-11-12)
 
-The open issue list is the plan: `gh issue list --state open`. On 2026-11-12, #133, #134, #135 and #137 were closed, along with #138-#149 from a code review. A code review and a screenshot review of every app then opened #150-#171.
+The open issue list is the plan: `gh issue list --state open`. On 2026-11-12, #133, #134, #135 and #137 were closed, along with #138-#149 from a code review. A code review and a screenshot review of every app then opened #150-#171; #151-#157, #159 and #161-#165 were fixed the same day and #172-#176 filed from what was left.
 
 | # | Title | Phase |
 |---|---|---|
 | #127 | Membranes and tapes: round 1 delivered (design note, rendering, `membrane-trial.oebf`); awaiting the user's answers | 8 |
 | #114 | NMB example: placed-detail floor regions can flicker (awaiting a check on a real GPU) | 8 |
-| #151-#165 | Screenshot review: slab properties, grid through the slab, edge artefacts, Lines-mode arrays, Library panel, home page, navigation, toolbar wrap, camera fit, phone widths, viewer, profile editor, detail apps, fonts, scene tree | 8 |
+| #158, #160 | Screenshot review leftovers: toolbars wrap at 1400 px; phone widths (#151-#157, #159, #161-#165 fixed 2026-11-12) | 8 |
 | #166-#171 | Leftovers from #133, #134, #135 and #141 (detail editor tools, seen lines, SfB check, IFC shapes, non-convex region caps, storey read errors) | 8 |
+| #172-#176 | Leftovers from the screenshot fixes: x-ray display of hidden objects, reference grid over the slab, UI polish, dev-server font path, a stale editor check | 8 |
 | #150 | Live copy on its own subdomain | Backlog |
 | #117 | Quantities and embodied carbon panel | Backlog |
 | #128 | Research: compare OEBF with IFC (tokens, readability, schema and CLI completeness) | Backlog |
