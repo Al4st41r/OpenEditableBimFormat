@@ -1,8 +1,8 @@
 # OEBF Project Status
 
-**Date:** 2026-11-11
+**Date:** 2026-11-12
 **Branch:** main
-**Tests:** 2113 JS (Vitest, 134 test files) + 433 Python (420 ifc-tools, 13 live-server)
+**Tests:** 2224 JS (Vitest, 139 test files) + 460 Python (445 ifc-tools, 15 live-server) + 29 Playwright e2e
 
 ---
 
@@ -105,18 +105,17 @@ Plan: `docs/plans/2026-10-08-junction-detail-system.md`. Delivered: `detail.sche
 
 ---
 
-## Open Issues (2026-11-11)
+## Open Issues (2026-11-12)
 
-The open issue list is the plan: `gh issue list --state open`.
+The open issue list is the plan: `gh issue list --state open`. On 2026-11-12, #133, #134, #135 and #137 were closed, along with #138-#149 from a code review. A code review and a screenshot review of every app then opened #150-#171.
 
 | # | Title | Phase |
 |---|---|---|
-| #137 | e2e: seven Playwright specs fail on main | 8 |
-| #135 | Detail editor: trim and extend for lines and arcs, pick a base point on the canvas | 8 |
-| #134 | Detail review: seen lines, a carbon total, a per-region line weight, repeat on profile layers | 8 |
-| #133 | IFC import: other profiles, boolean-clipped and BREP bodies, material constituent sets | 8 |
-| #127 | Design: membranes and tapes (drawing, 2D visibility, no 3D flicker) | 8 |
-| #114 | NMB example: placed-detail floor regions can flicker (fixed from the cause; awaiting a check on a real GPU) | 8 |
+| #127 | Membranes and tapes: round 1 delivered (design note, rendering, `membrane-trial.oebf`); awaiting the user's answers | 8 |
+| #114 | NMB example: placed-detail floor regions can flicker (awaiting a check on a real GPU) | 8 |
+| #151-#165 | Screenshot review: slab properties, grid through the slab, edge artefacts, Lines-mode arrays, Library panel, home page, navigation, toolbar wrap, camera fit, phone widths, viewer, profile editor, detail apps, fonts, scene tree | 8 |
+| #166-#171 | Leftovers from #133, #134, #135 and #141 (detail editor tools, seen lines, SfB check, IFC shapes, non-convex region caps, storey read errors) | 8 |
+| #150 | Live copy on its own subdomain | Backlog |
 | #117 | Quantities and embodied carbon panel | Backlog |
 | #128 | Research: compare OEBF with IFC (tokens, readability, schema and CLI completeness) | Backlog |
 | #129 | Junction-based workflow on an imported IFC | Backlog |

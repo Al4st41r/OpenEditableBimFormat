@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-11-11
 **Latest tag:** `v0.2.0-editor-alpha` (v0.3 and v0.4 delivered on main, not tagged)
-**Tests:** 2,546 passing (2,113 Vitest + 433 pytest)
+**Tests:** 2,713 passing (2,224 Vitest + 460 pytest + 29 Playwright)
 **Deployed at:** `architools.drawingtable.net/oebf/`
 
 ---
