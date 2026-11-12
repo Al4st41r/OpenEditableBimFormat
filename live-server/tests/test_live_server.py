@@ -82,3 +82,28 @@ def test_resolve_keeps_paths_inside(tmp_path):
     assert resolve(tmp_path, 'a/b.json') == (tmp_path / 'a' / 'b.json').resolve()
     assert resolve(tmp_path, '../x') is None
     assert resolve(tmp_path, '/etc/passwd') == (tmp_path / 'etc' / 'passwd').resolve()   # leading slash is dropped, stays inside
+
+
+def test_concurrent_writes_to_one_file_all_succeed_and_leave_one_whole_body(server):
+    """#144: every writer has its own temporary file, so none is lost and the result is one of the bodies, whole."""
+    base, root = server
+    bodies = [json.dumps({'writer': i, 'pad': 'x' * (i * 500)}).encode() for i in range(8)]
+    for _ in range(5):
+        results = []
+        threads = [threading.Thread(target=lambda b=b: results.append(call(f'{base}/files/model.json', 'PUT', b)[0])) for b in bodies]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        assert results == [204] * len(bodies)
+        assert (root / 'model.json').read_bytes() in bodies
+    assert not list(root.rglob('*.tmp'))
+
+
+def test_responses_carry_nosniff_and_a_sandbox_csp(server):
+    """#145: a stored SVG opened directly must not run script."""
+    base, root = server
+    (root / 'profiles' / 'p1.svg').write_text('<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>')
+    with urllib.request.urlopen(f'{base}/files/profiles/p1.svg') as r:
+        assert r.headers['X-Content-Type-Options'] == 'nosniff'
+        assert r.headers['Content-Security-Policy'].startswith('sandbox')

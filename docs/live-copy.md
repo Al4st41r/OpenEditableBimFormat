@@ -14,7 +14,9 @@ Three ways to keep working on a bundle in the 3D editor without losing changes, 
 | nginx | `location /oebf-live/` in `architools.conf`: password from `/etc/nginx/.htpasswd-oebf-live`, then to port 5080 |
 | Editor | `ServerAdapter` in `viewer/src/editor/storageAdapter.js`, opened by `?live` |
 
-The server reads, writes, deletes and lists files inside the bundle folder and nowhere else. It refuses JSON that does not parse and writes each file whole (to a temporary file, then renamed). Pages on other sites cannot write to it: a PUT or DELETE from another origin needs a CORS preflight, which the server never answers.
+The server reads, writes, deletes and lists files inside the bundle folder and nowhere else. It refuses JSON that does not parse and writes each file whole: through a temporary file of its own, renamed into place under a lock for that path, so two tabs writing at once neither lose a request nor mix their bodies. Pages on other sites cannot write to it: a PUT or DELETE from another origin needs a CORS preflight, which the server never answers. Every response carries `X-Content-Type-Options: nosniff` and a sandbox Content-Security-Policy, so a stored SVG opened directly cannot run script, and nginx rate-limits the location (zone `oebf_live`) to slow password guessing.
+
+**Limit:** the live copy shares its origin with every other app on architools.drawingtable.net. A script injected into any of them could use the password the browser has cached. Keep it to a private working copy; moving it to its own subdomain is #150.
 
 The profile and detail editors opened from the live copy hand their saves back to the 3D editor, which writes them to the server.
 
