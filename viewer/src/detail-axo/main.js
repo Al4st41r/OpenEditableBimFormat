@@ -11,6 +11,7 @@
 
 import { FsaAdapter } from '../editor/storageAdapter.js';
 import { renderIcons } from '../ui/icons.js';
+import { fitSelectToChoice } from '../ui/selectWidth.js';
 import { AXO_READY, AXO_BUNDLE, isMessage, readerFor } from './editorHandoff.js';
 import { AxoViewer } from './axoScene.js';
 import { buildAxoModel, materialsUsed, usagesOf, AXO_VIEWS } from './detailAxo.js';
@@ -143,11 +144,15 @@ function applyOverlays() {
     : '';
 }
 
+const EMPTY_2D = $('empty-2d').textContent;
 function draw2d() {
   const out = model && view2d.on
     ? buildDetailSvg(model, { materials: data.materials, profiles: data.profiles, scale: view2d.scale, hairline: view2d.hairline, selectedId: selection.get(), fills: overlayResult?.colours })
     : { svg: '' };
   $('drawing').innerHTML = out.svg;
+  // the pane says why it is empty rather than showing a blank sheet (#163)
+  $('empty-2d').hidden = Boolean(out.svg);
+  $('empty-2d').textContent = model ? 'This detail has no solids to draw in 2D.' : EMPTY_2D;
 }
 
 function tagLines(prism) {
@@ -251,6 +256,9 @@ $('pane2d-btn').addEventListener('click', () => {
   draw2d();
 });
 $('overlay-select').innerHTML = '<option value="">Materials (no overlay)</option>' + OVERLAYS.map((o) => `<option value="${o.id}">${o.label}</option>`).join('');
+// sized to the chosen overlay, so it is never cut and takes no more room than it needs (#163)
+fitSelectToChoice($('overlay-select'));
+document.fonts?.ready.then(() => fitSelectToChoice($('overlay-select')));
 $('overlay-select').addEventListener('change', (e) => {
   view2d.overlay = e.target.value;
   $('carbon-unit').hidden = view2d.overlay !== 'carbon';
@@ -334,7 +342,7 @@ for (const [btn, key] of [['members-btn', 'members'], ['regions-btn', 'regions']
     viewer.setShow({ [key]: on });
   });
 }
-$('fit-btn').addEventListener('click', () => viewer.fit());
+$('fit-btn').addEventListener('click', () => { viewer.fit(); resetZoom(); });   // both panes (#163)
 $('filter').addEventListener('input', renderList);
 $('demo-btn').addEventListener('click', () => open(httpReader(import.meta.env.BASE_URL + DEMO_BUNDLE), DEMO_BUNDLE));
 $('png-btn').addEventListener('click', async () => {
