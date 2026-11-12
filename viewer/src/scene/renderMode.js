@@ -9,7 +9,11 @@
  * Objects (doors, windows, ties: loadObject.js buildObjectGroup) carry their outline as a sibling named
  * 'object-edges', always shown. A part drawn many times has no outline, so it keeps its colour in lines
  * mode (userData.outlined === false) rather than vanishing (#139).
+ *
+ * A membrane's 'edges' (userData.membrane) are shown in every mode, in their own ink (#127).
  */
+
+import { MEMBRANE_INK } from '../membrane.js';
 
 export const RENDER_MODES = ['solid', 'lines', 'solid+edges'];
 
@@ -22,6 +26,9 @@ export function applyRenderMode(group, mode) {
   group.traverse((child) => {
     if (child.name === 'object-edges') {
       child.material.color.setHex(lines ? 0x222222 : (child.userData.colour ?? 0x333333));
+    } else if (child.name === 'edges' && child.userData.membrane) {
+      child.visible = true;   // a membrane's outline shows in every mode (#127)
+      child.material.color.set(MEMBRANE_INK);
     } else if (child.name === 'edges') {
       child.visible = lines || mode === 'solid+edges';
       child.material.color.setHex(lines ? 0x222222 : 0x333333);

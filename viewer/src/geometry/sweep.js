@@ -125,7 +125,11 @@ export function sweepProfile(pathPoints, profileShapes, options = {}) {
   const points = offsetPolyline(pathPoints, startOffset, endOffset);
   const frames = _applyMode(_computeFrames(points), sweepMode, twistPerMetre);
   const caps = { start: capStart !== 'open', end: capEnd !== 'open' };
-  return profileShapes.map(shape => _sweepShape(frames, shape.points, shape.materialId, caps));
+  // the layer function travels with the mesh, so the renderer can tell a membrane (#127)
+  return profileShapes.map(shape => {
+    const swept = _sweepShape(frames, shape.points, shape.materialId, caps);
+    return shape.function ? { ...swept, function: shape.function } : swept;
+  });
 }
 
 /** Adjust the frames for the sweep mode. perpendicular leaves them alone. */

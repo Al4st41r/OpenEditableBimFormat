@@ -1,0 +1,15 @@
+{
+  "format": "oebf",
+  "format_version": "0.1.0",
+  "project_name": "Membrane trial",
+  "description": "Trial bundle for membranes and tapes (issue #127): a timber frame wall with a breather membrane and a vapour control layer, a cavity wall with DPCs, and a ground slab on a DPM.",
+  "created": "2026-11-12",
+  "author": "OEBF Example",
+  "units": "metres",
+  "coordinate_system": "right_hand_z_up",
+  "files": {
+    "model": "model.json",
+    "materials": "materials/library.json",
+    "schema": "schema/oebf-schema.json"
+  }
+}

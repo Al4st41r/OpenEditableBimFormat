@@ -1,0 +1,156 @@
+{
+  "$schema": "oebf://schema/0.1/materials",
+  "materials": [
+    {
+      "id": "mat-timber-cladding",
+      "type": "Material",
+      "name": "Timber cladding",
+      "category": "timber",
+      "colour_hex": "#b08850"
+    },
+    {
+      "id": "mat-ventilated-cavity",
+      "type": "Material",
+      "name": "Ventilated cavity",
+      "category": "air",
+      "colour_hex": "#d8eef5",
+      "opacity": 0.15
+    },
+    {
+      "id": "mat-breather-membrane",
+      "type": "Material",
+      "name": "Breather membrane",
+      "category": "membrane",
+      "colour_hex": "#6ec8c8",
+      "classification": {
+        "barrier": [
+          "water",
+          "breathable"
+        ]
+      }
+    },
+    {
+      "id": "mat-osb",
+      "type": "Material",
+      "name": "OSB/3 sheathing",
+      "category": "timber",
+      "colour_hex": "#c8a96e"
+    },
+    {
+      "id": "mat-mineral-wool",
+      "type": "Material",
+      "name": "Mineral wool between studs",
+      "category": "insulation",
+      "colour_hex": "#c8c86e"
+    },
+    {
+      "id": "mat-vcl",
+      "type": "Material",
+      "name": "Vapour control layer",
+      "category": "membrane",
+      "colour_hex": "#3f9f9f",
+      "classification": {
+        "barrier": [
+          "vapour",
+          "air"
+        ]
+      }
+    },
+    {
+      "id": "mat-vcl-tape",
+      "type": "Material",
+      "name": "VCL tape",
+      "category": "membrane",
+      "colour_hex": "#2f7f7f",
+      "classification": {
+        "barrier": [
+          "vapour",
+          "air"
+        ]
+      }
+    },
+    {
+      "id": "mat-service-void",
+      "type": "Material",
+      "name": "Service void",
+      "category": "air",
+      "colour_hex": "#eeeeee",
+      "opacity": 0.15
+    },
+    {
+      "id": "mat-plasterboard",
+      "type": "Material",
+      "name": "Plasterboard",
+      "category": "board",
+      "colour_hex": "#f0f0ea"
+    },
+    {
+      "id": "mat-brick",
+      "type": "Material",
+      "name": "Facing brick",
+      "category": "masonry",
+      "colour_hex": "#c4693a"
+    },
+    {
+      "id": "mat-cavity",
+      "type": "Material",
+      "name": "Clear cavity",
+      "category": "air",
+      "colour_hex": "#d8eef5",
+      "opacity": 0.15
+    },
+    {
+      "id": "mat-pir",
+      "type": "Material",
+      "name": "PIR board",
+      "category": "insulation",
+      "colour_hex": "#e8d5a3"
+    },
+    {
+      "id": "mat-block",
+      "type": "Material",
+      "name": "Dense concrete block",
+      "category": "masonry",
+      "colour_hex": "#aaaaaa"
+    },
+    {
+      "id": "mat-plaster",
+      "type": "Material",
+      "name": "Gypsum plaster",
+      "category": "finish",
+      "colour_hex": "#f5f5f0"
+    },
+    {
+      "id": "mat-dpc",
+      "type": "Material",
+      "name": "Polymer DPC",
+      "category": "membrane",
+      "colour_hex": "#2b2b2b",
+      "classification": {
+        "barrier": [
+          "water"
+        ]
+      }
+    },
+    {
+      "id": "mat-dpm",
+      "type": "Material",
+      "name": "Polythene DPM, 1200 gauge",
+      "category": "membrane",
+      "colour_hex": "#3a3a5a",
+      "classification": {
+        "barrier": [
+          "water",
+          "vapour"
+        ]
+      }
+    },
+    {
+      "id": "mat-concrete",
+      "type": "Material",
+      "name": "Ground bearing concrete",
+      "category": "concrete",
+      "colour_hex": "#b0b0b0"
+    }
+  ]
+}

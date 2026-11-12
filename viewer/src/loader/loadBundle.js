@@ -24,6 +24,7 @@ import { buildSlabMeshData }   from './loadSlab.js';
 import { buildOpeningOutline } from './loadOpening.js';
 import { loadObjectPlacement } from './loadObject.js';
 import { loadDetails }         from '../detail/loadDetails.js';
+import { isMembrane }        from '../membrane.js';
 
 /**
  * Load an OEBF bundle from a File System Access API directory handle.
@@ -58,6 +59,7 @@ export async function loadBundle(dirHandle) {
           elementId,
           colour:      mat?.colour_hex ?? '#888888',
           opacity:     mat?.opacity,
+          membrane:    isMembrane({ function: sm.function, material: mat }),
           description: element.description,
         });
       }
@@ -75,6 +77,7 @@ export async function loadBundle(dirHandle) {
         ...buildSlabMeshData(slab, pathData),
         colour:      mat?.colour_hex ?? '#888888',
         opacity:     mat?.opacity,
+        membrane:    isMembrane({ function: slab.function, material: mat }),
         description: slab.description ?? '',
       });
     } catch (err) {

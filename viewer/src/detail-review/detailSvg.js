@@ -15,6 +15,7 @@
 import { resolveLineweight, functionForCategory, DEFAULT_LINEWEIGHTS, HAIRLINE_MM } from '../lineweights.js';
 import { NONE_COLOUR } from './overlays.js';
 import { fill2d } from '../materialFill.js';
+import { isMembrane, membranePenMm, MEMBRANE_INK, MEMBRANE_THIN_PEN_MM } from '../membrane.js';
 import { signedArea } from '../detail/regionGeometry.js';
 import { guideSvg } from './guideSvg.js';
 import { annotationSvg, annotationBounds } from './annotationSvg.js';
@@ -55,10 +56,13 @@ export function styleFor(prism, { materials, profiles, k = 200 } = {}) {
   const layer = profile && Number.isInteger(prism.layer) ? profile.assembly?.[prism.layer] : undefined;
   const fn = prism.function ?? functionForCategory(material?.category);
   const cut = resolveLineweight('cut', { profile, layer, function: fn });
+  // A membrane or tape (#127) is also stroked with a heavy pen on top of every outline, so it always reads.
+  const membrane = isMembrane({ function: prism.function, material });
+  const extra = membrane ? { membrane: true, membranePen: membranePenMm({ layer }) } : {};
   // A membrane or sealant a millimetre or two thick would be all outline. Draw it as a solid, darker shape with a
   // lighter outline and no hatch, so it reads as one line (the way a drawn membrane does).
   if (minSideSheetMm(prism, k) < THIN_SOLID_MM) {
-    return { fill: fill2d(material, tint(material?.colour_hex, 0.85)), cut: Math.min(cut, 0.18), hatch: resolveLineweight('hatch', { profile, layer }), hatchKind: 'none', thin: true };
+    return { fill: fill2d(material, tint(material?.colour_hex, 0.85)), cut: Math.min(cut, 0.18), hatch: resolveLineweight('hatch', { profile, layer }), hatchKind: 'none', thin: true, ...extra };
   }
   return {
     fill: fill2d(material, tint(material?.colour_hex, 0.3)),
@@ -66,6 +70,7 @@ export function styleFor(prism, { materials, profiles, k = 200 } = {}) {
     hatch: resolveLineweight('hatch', { profile, layer }),
     hatchKind: hatchKindFor(material?.category),
     thin: false,
+    ...extra,
   };
 }
 
@@ -124,6 +129,7 @@ export function buildDetailSvg(model, opts = {}) {
 
   let fills = '';
   let outlines = '';
+  let membranes = '';
   for (const it of styled) {
     const { p, s } = it;
     fills += `<polygon ${polyAttrs(it)} points="${points(p)}" fill="${fillOf(p.id, s.fill, s.thin)}" stroke="none" pointer-events="all"/>`;
@@ -132,6 +138,12 @@ export function buildDetailSvg(model, opts = {}) {
     }
     outlines += `<polygon class="outline${p.id === opts.selectedId ? ' selected' : ''}" data-item="${esc(p.id)}" points="${points(p)}" fill="none" ` +
       `stroke="${s.thin && isKey(overlayOf(p.id)) ? overlayOf(p.id) : '#000'}" stroke-width="${s.thin && isKey(overlayOf(p.id)) ? 0.7 : s.cut}" stroke-linejoin="miter" stroke-linecap="butt" pointer-events="none"/>`;
+    // The membrane line: the shape's own outline at the membrane pen, so it follows an upstand or a lapped tape.
+    if (s.membrane) {
+      const ink = isKey(overlayOf(p.id)) ? overlayOf(p.id) : MEMBRANE_INK;
+      membranes += `<polygon class="membrane${p.id === opts.selectedId ? ' selected' : ''}" data-membrane="${esc(p.id)}" points="${points(p)}" fill="${ink}" ` +
+        `stroke="${ink}" stroke-width="${s.membranePen}" stroke-linejoin="round" pointer-events="none"/>`;
+    }
   }
 
   const ann = DEFAULT_LINEWEIGHTS.annotation;
@@ -151,6 +163,8 @@ export function buildDetailSvg(model, opts = {}) {
     `svg{--hair:${HAIRLINE_MM}}` +
     `.thin .outline,.thin .annotation{stroke-width:var(--hair)}` +
     `.thin .hatch{opacity:.55}` +
+    `.thin .membrane{stroke-width:${MEMBRANE_THIN_PEN_MM}}` +
+    `.membrane.selected{stroke:#c0392b;fill:#c0392b}` +
     `[data-item]{cursor:pointer}` +
     `polygon.selected:not(.outline){fill-opacity:.55}` +
     `.outline.selected{stroke:#c0392b;stroke-width:.9}` +
@@ -159,7 +173,7 @@ export function buildDetailSvg(model, opts = {}) {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" class="detail-2d${opts.hairline ? ' thin' : ''}" ` +
     `viewBox="${num(x0)} ${num(y0)} ${num(width)} ${num(height)}" data-scale="${num(scale)}" role="img">` +
     `${style}<defs>${defs}${opts.fills ? noDataDef() : ''}<clipPath id="detail-frame"><rect x="${num(x0)}" y="${num(y0)}" width="${num(width)}" height="${num(height)}"/></clipPath></defs><rect x="${num(x0)}" y="${num(y0)}" width="${num(width)}" height="${num(height)}" fill="#fff"/>` +
-    `<g clip-path="url(#detail-frame)"><g class="fills">${fills}</g><g class="outlines">${outlines}</g>${guides.fade}${guides.lines}${annotations}${annotationSvg(model.annotations, k, { weight: ann, format: (m) => String(Math.round(m * 1000)) })}</g></svg>`;
+    `<g clip-path="url(#detail-frame)"><g class="fills">${fills}</g><g class="outlines">${outlines}</g><g class="membranes">${membranes}</g>${guides.fade}${guides.lines}${annotations}${annotationSvg(model.annotations, k, { weight: ann, format: (m) => String(Math.round(m * 1000)) })}</g></svg>`;
 
   return { svg, width, height, scale };
 }

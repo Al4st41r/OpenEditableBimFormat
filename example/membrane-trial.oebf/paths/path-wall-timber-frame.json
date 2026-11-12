@@ -1,0 +1,22 @@
+{
+  "$schema": "oebf://schema/0.1/path",
+  "id": "path-wall-timber-frame",
+  "type": "Path",
+  "description": "Timber frame wall centreline, west to east",
+  "closed": false,
+  "segments": [
+    {
+      "type": "line",
+      "start": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "end": {
+        "x": 3.0,
+        "y": 0.0,
+        "z": 0.0
+      }
+    }
+  ]
+}

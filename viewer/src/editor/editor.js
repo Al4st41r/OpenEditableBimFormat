@@ -11,6 +11,7 @@
  */
 
 import { RENDER_MODES } from '../scene/renderMode.js';
+import { isMembrane } from '../membrane.js';
 import { buildMaterialTreeItem } from './materialTreeItem.js';
 import { initEditorScene } from './editorScene.js';
 import { loadBundle }         from '../loader/loadBundle.js';
@@ -975,7 +976,7 @@ async function _loadBundleFromAdapter(adapter) {
       const sweptMeshes   = sweepProfile(parsedPath.points, profileShapes, sweepOptionsFromElement(element));
       for (const sm of sweptMeshes) {
         const mat = matMap[sm.materialId];
-        meshes.push({ ...sm, elementId, colour: mat?.colour_hex ?? '#888888', opacity: mat?.opacity, description: element.description });
+        meshes.push({ ...sm, elementId, colour: mat?.colour_hex ?? '#888888', opacity: mat?.opacity, membrane: isMembrane({ function: sm.function, material: mat }), description: element.description });
       }
     } catch (err) {
       console.warn(`[OEBF] Skipping element ${elementId}: ${err.message}`);
@@ -991,6 +992,7 @@ async function _loadBundleFromAdapter(adapter) {
         ...buildSlabMeshData(slab, pathData),
         colour: mat?.colour_hex ?? '#888888',
         opacity: mat?.opacity,
+        membrane: isMembrane({ function: slab.function, material: mat }),
         description: slab.description ?? '',
       });
     } catch (err) {

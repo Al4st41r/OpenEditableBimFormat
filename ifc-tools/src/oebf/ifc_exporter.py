@@ -88,7 +88,7 @@ def _export_element(ifc, oebf_dir, element_id, storey, body_context, mat_by_id, 
 
     first = path_data["segments"][0]
     start = first.get("start") or first["points"][0]
-    total_width = sum(layer["thickness"] for layer in profile_data["assembly"])
+    total_width = sum(layer["thickness"] for layer in _band_layers(profile_data["assembly"]))
     origin_x = profile_data.get("origin", {}).get("x", total_width / 2)
     height = WALL_HEIGHT
 
@@ -186,10 +186,26 @@ def _assign_body_geometry(ifc, entity, context,
     )
 
 
+# IfcMaterialLayer.Category for each OEBF layer function. IFC4 recommends LoadBearing, Insulation and Finish;
+# Membrane and Service are OEBF's own labels, so a membrane layer (DPC, VCL, breather membrane) can be found (#127).
+LAYER_CATEGORY = {"structure": "LoadBearing", "insulation": "Insulation", "finish": "Finish",
+                  "membrane": "Membrane", "service": "Service"}
+
+
+def _band_layers(assembly):
+    """The layers that stack across the profile. Region layers (drawn shapes such as a DPC in one leaf) have no
+    thickness and are not layers of the IFC layer set."""
+    return [layer for layer in assembly if layer.get("type") != "region" and "thickness" in layer]
+
+
+def _is_membrane(function, material):
+    return function == "membrane" or (material or {}).get("category") == "membrane"
+
+
 def _assign_material_layers(ifc, entity, assembly, mat_by_id, mapping):
     """Create an IfcMaterialLayerSet from the profile assembly and assign it."""
     ifc_layers = []
-    for layer in assembly:
+    for layer in _band_layers(assembly):
         mat_info = mat_by_id.get(layer["material_id"], {})
         ifc_mat = ifc.create_entity("IfcMaterial", Name=ifc_mapping.material_name(mapping, layer["material_id"], mat_info.get("name")))
         ifc_layer = ifc.create_entity(
@@ -198,6 +214,9 @@ def _assign_material_layers(ifc, entity, assembly, mat_by_id, mapping):
             LayerThickness=layer["thickness"],
             Name=layer["name"],
         )
+        category = "Membrane" if _is_membrane(layer.get("function"), mat_info) else LAYER_CATEGORY.get(layer.get("function"))
+        if category:
+            ifc_layer.Category = category
         ifc_layers.append(ifc_layer)
 
     layer_set = ifc.create_entity("IfcMaterialLayerSet", MaterialLayers=ifc_layers)
@@ -217,7 +236,10 @@ def _assign_material_layers(ifc, entity, assembly, mat_by_id, mapping):
 
 
 def _export_slab(ifc, oebf_dir, slab_id, storey, body_context, mat_by_id, mapping):
-    """Export one OEBF Slab as IfcSlab with IfcArbitraryClosedProfileDef geometry."""
+    """Export one OEBF Slab as IfcSlab with IfcArbitraryClosedProfileDef geometry.
+
+    A membrane slab (function "membrane", or a material of category "membrane": a DPM laid as its own sheet) is
+    exported as an IfcCovering of type MEMBRANE instead (#127)."""
     try:
         slab = json.loads((oebf_dir / "slabs" / f"{slab_id}.json").read_text())
         path_data = json.loads(
@@ -227,9 +249,14 @@ def _export_slab(ifc, oebf_dir, slab_id, storey, body_context, mat_by_id, mappin
         print(f"  Warning: skipping slab {slab_id}: {exc}")
         return None
 
-    entity = ifcopenshell.api.root.create_entity(
-        ifc, ifc_class=ifc_mapping.ifc_class(mapping, slab["ifc_type"]), name=slab["description"]
-    )
+    if _is_membrane(slab.get("function"), mat_by_id.get(slab.get("material_id", ""))):
+        entity = ifcopenshell.api.root.create_entity(
+            ifc, ifc_class="IfcCovering", predefined_type="MEMBRANE", name=slab["description"]
+        )
+    else:
+        entity = ifcopenshell.api.root.create_entity(
+            ifc, ifc_class=ifc_mapping.ifc_class(mapping, slab["ifc_type"]), name=slab["description"]
+        )
     _set_pset(ifc, entity, "OEBF_Element", {"OebfId": slab_id})
 
     pts_2d = [

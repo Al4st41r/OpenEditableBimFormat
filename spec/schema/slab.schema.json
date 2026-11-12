@@ -15,6 +15,7 @@
     "boundary_path_id":  { "type": "string" },
     "thickness_m":       { "type": "number", "exclusiveMinimum": 0 },
     "material_id":       { "type": "string" },
+    "function":          { "type": "string", "enum": ["finish", "structure", "insulation", "membrane", "service"], "description": "What the slab does, as for a profile layer. A 'membrane' slab (a DPM or a roofing membrane laid as its own sheet) is drawn as a membrane: always on top in 3D and as a heavy line in 2D, and exported to IFC as an IfcCovering of type MEMBRANE. A slab whose material has the category 'membrane' is drawn the same way." },
     "elevation_m":       { "type": "number", "description": "Z elevation of the top face in metres. Defaults to 0.0." },
     "parent_group_id":   { "type": "string" },
     "properties":        { "type": "object" },

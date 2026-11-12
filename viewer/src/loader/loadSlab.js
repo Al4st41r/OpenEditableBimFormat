@@ -118,5 +118,6 @@ export function buildSlabMeshData(slabData, pathData) {
     materialId:  slabData.material_id,
     elementId:   slabData.id,
     description: slabData.description ?? '',
+    ...(slabData.function ? { function: slabData.function } : {}),
   };
 }

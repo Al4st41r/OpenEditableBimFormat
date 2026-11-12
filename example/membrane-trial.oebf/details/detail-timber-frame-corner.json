@@ -1,0 +1,48 @@
+{
+  "$schema": "oebf://schema/0.1/detail",
+  "id": "detail-timber-frame-corner",
+  "type": "Detail",
+  "description": "Plan detail: two timber frame walls at a butt corner. The breather membrane and the VCL run round the corner, and a VCL tape seals the internal corner.",
+  "condition": {
+    "rule": "butt",
+    "member_count": 2,
+    "member_kinds": ["wall", "wall"]
+  },
+  "members": [
+    {
+      "role": "through-wall",
+      "kind": "wall",
+      "profile_id": "profile-timber-frame",
+      "placement": { "offset_x_m": -0.1176, "offset_y_m": 0, "rotation_deg": 0 },
+      "extent": "forward"
+    },
+    {
+      "role": "butting-wall",
+      "kind": "wall",
+      "profile_id": "profile-timber-frame",
+      "placement": { "offset_x_m": 0, "offset_y_m": -0.1176, "rotation_deg": 90 },
+      "extent": "backward"
+    }
+  ],
+  "datum": { "kind": "storey", "reference": "elevation" },
+  "plane": "plan",
+  "view_direction": "along_path",
+  "geometry": {
+    "extrusion_m": 2.7,
+    "regions": [
+      {
+        "material_id": "mat-vcl-tape",
+        "vertices": [
+          { "x": 0.0801, "y": -0.18 },
+          { "x": 0.0804, "y": -0.18 },
+          { "x": 0.0804, "y": -0.0804 },
+          { "x": 0.18, "y": -0.0804 },
+          { "x": 0.18, "y": -0.0801 },
+          { "x": 0.0801, "y": -0.0801 }
+        ]
+      }
+    ]
+  },
+  "clip": { "x_max_m": 0.45, "y_min_m": -0.45 },
+  "tags": ["junction", "corner", "membrane-trial"]
+}

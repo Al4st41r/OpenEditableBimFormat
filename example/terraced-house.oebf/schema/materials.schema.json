@@ -32,7 +32,7 @@
           "id":                 { "type": "string", "pattern": "^mat-[a-z0-9][a-z0-9-]*$", "description": "Unique slug ID. Must start with 'mat-'. The 'oebf-std:' prefix is reserved for the v0.2 standard library and is not valid in v0.1 project materials." },
           "type":               { "type": "string", "const": "Material" },
           "name":               { "type": "string" },
-          "category":           { "type": "string" },
+          "category":           { "type": "string", "description": "Free text grouping, for example masonry, timber, insulation. Two values change how the material is drawn: 'air' is a void (no fill in 2D, see-through in 3D) and 'membrane' is drawn as a membrane wherever it is used (a heavy line on top in 2D, priority over coplanar faces in 3D)." },
           "colour_hex":         { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" },
           "opacity":            { "type": "number", "minimum": 0, "maximum": 1, "description": "How opaque the material is drawn in 3D: 1 (the default) is solid, 0 is invisible. Air and other voids are drawn see-through so the layers behind them show." },
           "ifc_material_name":  { "type": "string" },

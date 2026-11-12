@@ -1,0 +1,22 @@
+{
+  "$schema": "oebf://schema/0.1/path",
+  "id": "path-wall-cavity",
+  "type": "Path",
+  "description": "Cavity wall centreline, south to north",
+  "closed": false,
+  "segments": [
+    {
+      "type": "line",
+      "start": {
+        "x": 4.2,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "end": {
+        "x": 4.2,
+        "y": 3.0,
+        "z": 0.0
+      }
+    }
+  ]
+}

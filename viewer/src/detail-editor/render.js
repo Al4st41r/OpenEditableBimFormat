@@ -10,6 +10,7 @@ import { toDisplay, unitLabel, getUnit } from '../editor/units.js';
 import { patternDefs, patternId } from './drawStyle.js';
 import { CLIP_SIDES } from './referenceOps.js';
 import { dimensionGeometry, arcPoints, pointAtAngle, angleOf } from './annotationOps.js';
+import { MEMBRANE_INK } from '../membrane.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 const el = (name, attrs = {}, text) => {
@@ -72,6 +73,16 @@ export function renderCanvas(svg, model, view, size, { draft = null, hint = null
       svg.appendChild(el('polygon', { points: pts, fill: `url(#${patternId(s.hatchKind, s.hatch)})`, stroke: 'none', 'pointer-events': 'none' }));
     }
     if (s) svg.appendChild(el('polygon', { points: pts, fill: 'none', stroke, 'stroke-width': width, 'stroke-linejoin': 'miter', 'pointer-events': 'none' }));
+  });
+  // Membranes and tapes (#127) last, as a heavy line over every other shape.
+  model.primitives.forEach((p, i) => {
+    const s = styles[i];
+    if (!s?.membranePx) return;
+    const ink = p.selected ? '#0a6cff' : MEMBRANE_INK;
+    svg.appendChild(el('polygon', {
+      points: pointsAttr(p.points, view, size), fill: ink, stroke: ink, 'stroke-width': s.membranePx,
+      'stroke-linejoin': 'round', 'pointer-events': 'none', class: 'membrane',
+    }));
   });
 
   drawClipFade(svg, model.clip, view, size);

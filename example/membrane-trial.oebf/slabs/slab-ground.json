@@ -1,0 +1,13 @@
+{
+  "$schema": "oebf://schema/0.1/slab",
+  "id": "slab-ground",
+  "type": "Slab",
+  "description": "Ground bearing concrete slab, 150 mm",
+  "ifc_type": "IfcSlab",
+  "boundary_path_id": "path-slab",
+  "thickness_m": 0.15,
+  "material_id": "mat-concrete",
+  "elevation_m": 0.0,
+  "parent_group_id": "storey-gf",
+  "function": "structure"
+}

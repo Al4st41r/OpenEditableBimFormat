@@ -1,0 +1,73 @@
+{
+  "$schema": "oebf://schema/0.1/profile",
+  "id": "profile-timber-frame",
+  "type": "Profile",
+  "description": "Timber frame wall: cladding, ventilated cavity, breather membrane, OSB, 140 studs with mineral wool, VCL, service void, plasterboard",
+  "svg_file": "profiles/profile-timber-frame.svg",
+  "width": 0.2352,
+  "height": null,
+  "origin": {
+    "x": 0.1176,
+    "y": 0.0
+  },
+  "alignment": "center",
+  "profile_type": "wall",
+  "assembly": [
+    {
+      "layer": 1,
+      "name": "Timber cladding",
+      "material_id": "mat-timber-cladding",
+      "thickness": 0.02,
+      "function": "finish"
+    },
+    {
+      "layer": 2,
+      "name": "Battens and ventilated cavity",
+      "material_id": "mat-ventilated-cavity",
+      "thickness": 0.025,
+      "function": "finish"
+    },
+    {
+      "layer": 3,
+      "name": "Breather membrane",
+      "material_id": "mat-breather-membrane",
+      "thickness": 0.0005,
+      "function": "membrane"
+    },
+    {
+      "layer": 4,
+      "name": "OSB sheathing",
+      "material_id": "mat-osb",
+      "thickness": 0.012,
+      "function": "structure"
+    },
+    {
+      "layer": 5,
+      "name": "Studs and mineral wool",
+      "material_id": "mat-mineral-wool",
+      "thickness": 0.14,
+      "function": "insulation"
+    },
+    {
+      "layer": 6,
+      "name": "Vapour control layer",
+      "material_id": "mat-vcl",
+      "thickness": 0.0002,
+      "function": "membrane"
+    },
+    {
+      "layer": 7,
+      "name": "Service void",
+      "material_id": "mat-service-void",
+      "thickness": 0.025,
+      "function": "service"
+    },
+    {
+      "layer": 8,
+      "name": "Plasterboard",
+      "material_id": "mat-plasterboard",
+      "thickness": 0.0125,
+      "function": "finish"
+    }
+  ]
+}
