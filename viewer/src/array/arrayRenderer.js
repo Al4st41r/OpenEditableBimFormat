@@ -18,6 +18,7 @@
 import * as THREE from 'three';
 import { computePathLength, samplePathAtDistance } from '../path/pathSampler.js';
 import { computeInstanceDistances } from './arrayDistributor.js';
+import { instancedEdgesGeometry } from '../scene/instancedEdges.js';
 
 // Module-level constants — avoids per-instance allocations
 const _FORWARD = new THREE.Vector3(1, 0, 0);
@@ -90,7 +91,8 @@ function buildInstanceMatrix(position, tangent, alignment, offsetLocal, rotation
 }
 
 /**
- * Build a THREE.Group containing one InstancedMesh per source geometry layer.
+ * Build a THREE.Group containing one InstancedMesh per source geometry layer, each with a merged
+ * outline of all its instances (a LineSegments named 'edges', shown by the render mode).
  *
  * @param {object} arrayDef - parsed OEBF array JSON
  * @param {Array<{x:number,y:number,z:number}>} pathPoints - pre-tessellated polyline
@@ -128,6 +130,18 @@ export function buildArrayGroup(arrayDef, pathPoints, sourceGeometries) {
 
     im.instanceMatrix.needsUpdate = true;
     group.add(im);
+
+    // every instance's outline as one line set, so Solid + Edges and Lines draw the array too (#154)
+    const edgeGeometry = instancedEdgesGeometry(geometry, matrices);
+    if (edgeGeometry) {
+      const edges = new THREE.LineSegments(edgeGeometry, new THREE.LineBasicMaterial({ color: 0x333333 }));
+      edges.name = 'edges';
+      edges.visible = false;   // the render mode shows it
+      edges.userData.arrayId = arrayDef.id;
+      group.add(edges);
+    } else {
+      im.userData.outlined = false;   // too many to outline: keep its colour in lines mode
+    }
   }
 
   return group;

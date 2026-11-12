@@ -114,4 +114,23 @@ describe('buildArrayGroup', () => {
     expect(xAxis.y).toBeCloseTo(1);
     expect(xAxis.z).toBeCloseTo(0);
   });
+
+  it('outlines every instance as one line set, hidden until the render mode shows it (#154)', () => {
+    const box = new THREE.BoxGeometry(0.1, 0.1, 1);
+    const group = buildArrayGroup(ARRAY_DEF, PATH_POINTS, [{ geometry: box, material: new THREE.MeshStandardMaterial() }]);
+    const edges = group.children.find((c) => c.name === 'edges');
+    expect(edges).toBeInstanceOf(THREE.LineSegments);
+    expect(edges.visible).toBe(false);
+    expect(edges.geometry.getAttribute('position').count).toBe(5 * 24);   // 12 box edges, 5 posts
+    const xs = new Set(); const a = edges.geometry.getAttribute('position').array;
+    for (let i = 0; i < a.length; i += 3) xs.add(Math.round(a[i] * 100));
+    expect(xs).toEqual(new Set([-5, 5, 95, 105, 195, 205, 295, 305, 395, 405]));
+    expect(group.children.find((c) => c.isInstancedMesh).userData.outlined).not.toBe(false);
+  });
+
+  it('a source with no geometry gets no outline and keeps its colour in lines mode', () => {
+    const group = buildArrayGroup(ARRAY_DEF, PATH_POINTS, SOURCE_GEOMETRIES);
+    expect(group.children.some((c) => c.name === 'edges')).toBe(false);
+    expect(group.children[0].userData.outlined).toBe(false);
+  });
 });
