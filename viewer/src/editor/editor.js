@@ -2520,6 +2520,7 @@ function _redrawOpeningsOf(hostId) {
 const _objectGroup = new THREE.Group();
 _objectGroup.name = 'objects';
 editorScene.overlayGroup.add(_objectGroup);
+editorScene.addRenderModeGroup(_objectGroup);   // doors and windows follow Solid / Lines / Edges (#139)
 
 function _clearObjects() {
   for (const o of [..._objectGroup.children]) {
@@ -2551,6 +2552,7 @@ async function _loadObjects(model) {
       console.warn(`[OEBF] object ${id} not drawn:`, err.message);
     }
   }
+  editorScene.setRenderMode(editorScene.getRenderMode());   // new objects take the current mode
 }
 
 async function _loadOpenings(model) {

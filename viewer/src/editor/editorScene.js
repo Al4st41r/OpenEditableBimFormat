@@ -6,7 +6,7 @@
  * Exports helpers for switching between 3D and plan view.
  */
 
-import { applyRenderMode } from '../scene/renderMode.js';
+import { applyRenderMode, gridColours } from '../scene/renderMode.js';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
@@ -69,10 +69,15 @@ export function initEditorScene(canvas) {
   orthoControls.update();
 
   // ── Construction grid (visual) ────────────────────────────────────────────
-  const constructionGrid = new THREE.GridHelper(50, 50, 0x333333, 0x2a2a2a);
-  constructionGrid.rotation.x = Math.PI / 2; // XY plane (Z-up)
-  constructionGrid.position.z = 0;
-  scene.add(constructionGrid);
+  // rebuilt when the render mode changes its colours (a GridHelper's colours are fixed when it is made)
+  function makeGrid(mode, z = 0) {
+    const grid = new THREE.GridHelper(50, 50, ...gridColours(mode));
+    grid.rotation.x = Math.PI / 2; // XY plane (Z-up)
+    grid.position.z = z;
+    scene.add(grid);
+    return grid;
+  }
+  let constructionGrid = makeGrid('solid+edges');
 
   // Invisible plane for raycasting
   const constructionPlane = new THREE.Mesh(
@@ -108,13 +113,27 @@ export function initEditorScene(canvas) {
 
   // ── Render mode ───────────────────────────────────────────────────────────
   let _renderMode = 'solid+edges';
+  let _gridMode = 'solid+edges';
+  const _renderModeGroups = [];
 
   function setRenderMode(mode) {
     _renderMode = mode;
     scene.background.setHex(mode === 'lines' ? 0xf5f5f0 : 0x1a1a1a);
 
     applyRenderMode(modelGroup, mode);   // overlays and the construction plane are outside modelGroup
+    for (const g of _renderModeGroups) applyRenderMode(g, mode);
+    if (gridColours(mode)[0] !== gridColours(_gridMode)[0]) {
+      const { z } = constructionGrid.position, visible = constructionGrid.visible;
+      scene.remove(constructionGrid);
+      constructionGrid.geometry.dispose(); constructionGrid.material.dispose();
+      constructionGrid = makeGrid(mode, z);
+      constructionGrid.visible = visible;
+      _gridMode = mode;
+    }
   }
+
+  /** Further groups that follow the render mode, eg the editor's objects (doors, windows) in the overlay group. */
+  function addRenderModeGroup(group) { _renderModeGroups.push(group); applyRenderMode(group, _renderMode); }
 
   function getRenderMode() { return _renderMode; }
 
@@ -171,8 +190,9 @@ export function initEditorScene(canvas) {
 
   return {
     renderer, scene, perspCamera, orthoCamera, controls,
-    constructionPlane, constructionGrid, modelGroup, overlayGroup,
+    constructionPlane, modelGroup, overlayGroup,
+    get constructionGrid() { return constructionGrid; },   // replaced when the render mode changes its colours
     setStoreyZ, getStoreyZ, setPlanView, getActiveCamera,
-    setRenderMode, getRenderMode,
+    setRenderMode, getRenderMode, addRenderModeGroup,
   };
 }

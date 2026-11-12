@@ -107,6 +107,8 @@ export function buildObjectGroup(placement, id, parts, colourOf = () => undefine
     });
     mesh.instanceMatrix.needsUpdate = true;
     mesh.renderOrder = 3;
+    mesh.userData.renderOrder = 3;                     // what the render mode puts back after lines mode
+    mesh.userData.outlined = instances.length === 1;   // only a single instance has an outline to show in lines mode
     mesh.frustumCulled = false;   // the bounding sphere of an instanced mesh is its first instance's
     group.add(mesh);
     if (instances.length === 1) {
@@ -114,6 +116,8 @@ export function buildObjectGroup(placement, id, parts, colourOf = () => undefine
       edges.position.set(instances[0].x, instances[0].y, instances[0].z);
       edges.rotation.z = instances[0].angle;
       edges.renderOrder = 4;
+      edges.name = 'object-edges';
+      edges.userData.colour = 0x3a2a18;
       group.add(edges);
     }
   }
