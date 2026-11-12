@@ -1,0 +1,47 @@
+{
+  "hierarchy": {
+    "type": "Project",
+    "id": "project-root",
+    "description": "Membrane trial",
+    "children": [
+      {
+        "type": "Site",
+        "id": "site-main",
+        "children": [
+          {
+            "type": "Building",
+            "id": "building-main",
+            "children": [
+              {
+                "type": "Storey",
+                "id": "storey-gf",
+                "description": "Ground Floor",
+                "elevation": 0.0,
+                "children": [
+                  "element-wall-timber-frame",
+                  "element-wall-cavity",
+                  "slab-ground",
+                  "slab-dpm"
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "elements": [
+    "element-wall-timber-frame",
+    "element-wall-cavity"
+  ],
+  "slabs": [
+    "slab-ground",
+    "slab-dpm"
+  ],
+  "junctions": [],
+  "grids": [],
+  "arrays": [],
+  "details": [
+    "detail-timber-frame-corner"
+  ]
+}

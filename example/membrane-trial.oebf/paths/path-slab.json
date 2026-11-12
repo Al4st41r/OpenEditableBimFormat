@@ -1,0 +1,61 @@
+{
+  "$schema": "oebf://schema/0.1/path",
+  "id": "path-slab",
+  "type": "Path",
+  "description": "Ground slab boundary (CCW)",
+  "closed": true,
+  "segments": [
+    {
+      "type": "line",
+      "start": {
+        "x": -0.5,
+        "y": -0.5,
+        "z": 0.0
+      },
+      "end": {
+        "x": 4.8,
+        "y": -0.5,
+        "z": 0.0
+      }
+    },
+    {
+      "type": "line",
+      "start": {
+        "x": 4.8,
+        "y": -0.5,
+        "z": 0.0
+      },
+      "end": {
+        "x": 4.8,
+        "y": 3.5,
+        "z": 0.0
+      }
+    },
+    {
+      "type": "line",
+      "start": {
+        "x": 4.8,
+        "y": 3.5,
+        "z": 0.0
+      },
+      "end": {
+        "x": -0.5,
+        "y": 3.5,
+        "z": 0.0
+      }
+    },
+    {
+      "type": "line",
+      "start": {
+        "x": -0.5,
+        "y": 3.5,
+        "z": 0.0
+      },
+      "end": {
+        "x": -0.5,
+        "y": -0.5,
+        "z": 0.0
+      }
+    }
+  ]
+}

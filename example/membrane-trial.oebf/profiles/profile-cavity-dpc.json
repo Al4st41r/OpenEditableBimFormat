@@ -1,0 +1,102 @@
+{
+  "$schema": "oebf://schema/0.1/profile",
+  "id": "profile-cavity-dpc",
+  "type": "Profile",
+  "description": "Cavity wall with a DPC in each leaf 150 mm above its base: brick, clear cavity, PIR, dense block, plaster",
+  "svg_file": "profiles/profile-cavity-dpc.svg",
+  "width": 0.315,
+  "height": null,
+  "origin": {
+    "x": 0.1575,
+    "y": 0.0
+  },
+  "alignment": "center",
+  "profile_type": "wall",
+  "assembly": [
+    {
+      "layer": 1,
+      "name": "Facing brick",
+      "material_id": "mat-brick",
+      "thickness": 0.102,
+      "function": "finish"
+    },
+    {
+      "layer": 2,
+      "name": "Clear cavity",
+      "material_id": "mat-cavity",
+      "thickness": 0.05,
+      "function": "insulation"
+    },
+    {
+      "layer": 3,
+      "name": "PIR board",
+      "material_id": "mat-pir",
+      "thickness": 0.05,
+      "function": "insulation"
+    },
+    {
+      "layer": 4,
+      "name": "Dense block",
+      "material_id": "mat-block",
+      "thickness": 0.1,
+      "function": "structure"
+    },
+    {
+      "layer": 5,
+      "name": "Plaster",
+      "material_id": "mat-plaster",
+      "thickness": 0.013,
+      "function": "finish"
+    },
+    {
+      "layer": 6,
+      "name": "DPC, outer leaf",
+      "material_id": "mat-dpc",
+      "function": "membrane",
+      "type": "region",
+      "vertices": [
+        {
+          "x": 0.0,
+          "y": 0.15
+        },
+        {
+          "x": 0.102,
+          "y": 0.15
+        },
+        {
+          "x": 0.102,
+          "y": 0.1505
+        },
+        {
+          "x": 0.0,
+          "y": 0.1505
+        }
+      ]
+    },
+    {
+      "layer": 7,
+      "name": "DPC, inner leaf",
+      "material_id": "mat-dpc",
+      "function": "membrane",
+      "type": "region",
+      "vertices": [
+        {
+          "x": 0.202,
+          "y": 0.15
+        },
+        {
+          "x": 0.302,
+          "y": 0.15
+        },
+        {
+          "x": 0.302,
+          "y": 0.1505
+        },
+        {
+          "x": 0.202,
+          "y": 0.1505
+        }
+      ]
+    }
+  ]
+}

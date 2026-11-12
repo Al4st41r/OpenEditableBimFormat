@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 0.2352 2.7" width="235.2mm" height="2700mm">
+  <rect x="0.0" y="0" width="0.02" height="2.7" fill="#ffffff" stroke="#888" stroke-width="0.001"/>  <!-- Timber cladding -->
+  <rect x="0.02" y="0" width="0.025" height="2.7" fill="#ffffff" stroke="#888" stroke-width="0.001"/>  <!-- Battens and ventilated cavity -->
+  <rect x="0.045" y="0" width="0.0005" height="2.7" fill="#ffffff" stroke="#888" stroke-width="0.001"/>  <!-- Breather membrane -->
+  <rect x="0.0455" y="0" width="0.012" height="2.7" fill="#ffffff" stroke="#888" stroke-width="0.001"/>  <!-- OSB sheathing -->
+  <rect x="0.0575" y="0" width="0.14" height="2.7" fill="#ffffff" stroke="#888" stroke-width="0.001"/>  <!-- Studs and mineral wool -->
+  <rect x="0.1975" y="0" width="0.0002" height="2.7" fill="#ffffff" stroke="#888" stroke-width="0.001"/>  <!-- Vapour control layer -->
+  <rect x="0.1977" y="0" width="0.025" height="2.7" fill="#ffffff" stroke="#888" stroke-width="0.001"/>  <!-- Service void -->
+  <rect x="0.2227" y="0" width="0.0125" height="2.7" fill="#ffffff" stroke="#888" stroke-width="0.001"/>  <!-- Plasterboard -->
+</svg>

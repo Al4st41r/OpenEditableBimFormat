@@ -1,0 +1,61 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "oebf://schema/0.1/junction",
+  "title": "OEBF Junction",
+  "type": "object",
+  "required": ["$schema", "id", "type", "elements", "rule", "priority"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema":         { "type": "string" },
+    "id":              { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+    "type":            { "type": "string", "const": "Junction" },
+    "description":     { "type": "string" },
+    "elements":        { "type": "array", "minItems": 2, "items": { "type": "string" } },
+    "rule":            { "type": "string", "enum": ["butt", "mitre", "lap", "halving", "notch", "custom"] },
+    "priority":        { "type": "array", "items": { "type": "string" } },
+    "butt_axis":       { "type": "string", "enum": ["x", "y", "z"] },
+    "custom_geometry": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "string", "pattern": "^junction-[a-z0-9][a-z0-9-]*-geometry\\.json$" }
+      ]
+    },
+    "trim_planes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["element_id", "at_end", "plane_normal", "plane_origin"],
+        "properties": {
+          "element_id":   { "type": "string" },
+          "at_end":       { "type": "string", "enum": ["start", "end"] },
+          "plane_normal": { "type": "object", "required": ["x","y","z"] },
+          "plane_origin": { "type": "object", "required": ["x","y","z"] }
+        }
+      }
+    },
+    "detail_id": { "type": "string", "description": "ID of the Detail this junction is an instance of." },
+    "location": {
+      "type": "object",
+      "description": "Where the junction sits: the intersection of two grid axes (one per direction) at a level.",
+      "required": ["grid_id", "axes", "level_id"],
+      "additionalProperties": false,
+      "properties": {
+        "grid_id":        { "type": "string" },
+        "axes":           { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "string" } },
+        "level_id":       { "type": "string" },
+        "level_offset_m": { "type": "number", "default": 0 }
+      }
+    },
+    "detail_mirrored": { "type": "boolean", "default": false, "description": "Use the Detail mirrored across the primary member's axis, so one detail serves both hands of a corner." },
+    "detail_overrides": {
+      "type": "object",
+      "description": "Per-junction values for the Detail's declared parameters, keyed by parameter name.",
+      "additionalProperties": { "type": "number" }
+    },
+    "trim_method": {
+      "type": "string",
+      "enum": ["planar", "csg", "none"],
+      "description": "Method used to compute trim_planes. 'planar': flat clip planes derived from path tangents at the junction endpoint (exact for lines and arcs; analytical control-point tangent for bezier). 'csg': non-planar trim required (spline paths); trim_planes is empty and custom_geometry or a future CSG exporter should be used. 'none': trim planes not yet computed."
+    }
+  }
+}

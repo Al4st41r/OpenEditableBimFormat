@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * sync-schemas.mjs — Copy spec/schema/*.schema.json into each example bundle's
- * schema/ folder (terraced-house and nmb-two-storey) and regenerate the entityTypes list in oebf-schema.json.
+ * schema/ folder (terraced-house, nmb-two-storey and membrane-trial) and regenerate the entityTypes list in oebf-schema.json.
  * spec/schema is the single source of truth (see issue #99).
  *
  * Run:   node scripts/sync-schemas.mjs
@@ -14,7 +14,7 @@ import { fileURLToPath } from 'url';
 
 const root   = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const srcDir = resolve(root, 'spec/schema');
-const dstDirs = ['terraced-house', 'nmb-two-storey'].map(b => resolve(root, `example/${b}.oebf/schema`));
+const dstDirs = ['terraced-house', 'nmb-two-storey', 'membrane-trial'].map(b => resolve(root, `example/${b}.oebf/schema`));
 const check  = process.argv.includes('--check');
 
 const files = readdirSync(srcDir).filter(f => f.endsWith('.schema.json')).sort();

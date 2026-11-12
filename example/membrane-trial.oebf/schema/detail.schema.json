@@ -1,0 +1,319 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "oebf://schema/0.1/detail",
+  "title": "OEBF Detail",
+  "description": "A reusable junction detail. Junctions reference it by detail_id and place it with a location (grid axes plus level). Detail space is a 2D drawing plane: x across the primary member, y up (section) or along the second axis (plan).",
+  "type": "object",
+  "required": ["$schema", "id", "type", "description", "members", "datum"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema":     { "type": "string" },
+    "id":          { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+    "type":        { "type": "string", "const": "Detail" },
+    "description": { "type": "string", "minLength": 1 },
+    "condition": {
+      "type": "object",
+      "description": "Advisory only. Describes the situation this detail is for so the editor can suggest candidate junctions. It never applies a detail automatically.",
+      "additionalProperties": false,
+      "properties": {
+        "rule":         { "type": "string", "enum": ["butt", "mitre", "lap", "halving", "notch", "custom"] },
+        "member_count": { "type": "integer", "minimum": 2 },
+        "member_kinds": { "type": "array", "items": { "$ref": "#/definitions/kind" }, "description": "Multiset of element kinds. A wall-to-wall corner is [\"wall\", \"wall\"]." }
+      }
+    },
+    "members": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "required": ["role", "kind", "profile_id", "placement"],
+        "additionalProperties": false,
+        "properties": {
+          "role":       { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$", "description": "Label, unique within the detail (eg through-wall)." },
+          "kind":       { "$ref": "#/definitions/kind" },
+          "profile_id": { "type": "string" },
+          "extent": { "type": "string", "enum": ["centred", "forward", "backward"], "description": "Drawing aid for the editor canvas, not geometry. How a plan view draws this member relative to its origin along its local x (the direction of travel): centred on it, forward (runs away from it) or backward (arrives at it). Default centred." },
+          "insertion": {
+            "type": "object",
+            "description": "Put the member's insertion point (the origin its placement turns about) on a face or the centre of one layer of its profile, eg the external face of the blockwork. Without it the insertion point is the profile's own origin.",
+            "required": ["layer", "at"],
+            "additionalProperties": false,
+            "properties": {
+              "layer": { "type": "integer", "minimum": 1, "description": "The layer's number in the profile's assembly." },
+              "at":    { "type": "string", "enum": ["left-face", "centre", "right-face"], "description": "Left face is the side where the profile's x is smaller (the first layer's side)." }
+            }
+          },
+          "layer_ends": {
+            "type": "array",
+            "description": "Let particular layers of the member's profile start or finish at different points along the run, for this use only: a cavity wall's brick leaf running on past its blockwork, say. near_m moves the layer's end at the member's origin end and far_m its other end. Positive extends the layer past the member's end, negative shortens it.",
+            "items": {
+              "type": "object",
+              "required": ["layer"],
+              "additionalProperties": false,
+              "properties": {
+                "layer":  { "type": "integer", "minimum": 1, "description": "The layer's number in the profile's assembly." },
+                "near_m": { "type": "number", "description": "Extension at the origin end. Negative shortens." },
+                "far_m":  { "type": "number", "description": "Extension at the far end. Negative shortens." }
+              }
+            }
+          },
+          "layer_units": {
+            "type": "array",
+            "description": "Draw a layer of the member's profile as repeating units instead of one strip: a masonry leaf as bricks, a block wall as blocks. The unit is as thick as the layer; depth_m is its size along the run (the wall's length in plan, its height in section) and repeat_m the pitch, so repeat_m minus depth_m is the joint. For this use only; the profile is not changed.",
+            "items": {
+              "type": "object",
+              "required": ["layer", "depth_m", "repeat_m"],
+              "additionalProperties": false,
+              "properties": {
+                "layer":    { "type": "integer", "minimum": 1, "description": "The layer's number in the profile's assembly. Band layers only." },
+                "depth_m":  { "type": "number", "exclusiveMinimum": 0, "description": "Size of one unit along the run." },
+                "repeat_m": { "type": "number", "exclusiveMinimum": 0, "description": "Pitch of the units along the run. At least depth_m." },
+                "count":    { "type": "integer", "minimum": 1, "description": "How many units. Omit to fill the run." },
+                "start_m":  { "type": "number", "description": "Offset of the first unit from the start of the run. Default 0." },
+                "height_m": { "type": "number", "exclusiveMinimum": 0, "description": "Plan details only: the height of one unit, so the 3D view can build the wall in courses. Needs course_m." },
+                "course_m": { "type": "number", "exclusiveMinimum": 0, "description": "Plan details only: the vertical pitch of the courses, at least height_m. The gap is the bed joint." },
+                "bond":     { "type": "string", "enum": ["stack", "running"], "description": "Plan details only, with course_m: stack puts every unit over the one below; running offsets every second course by half a unit. Default stack. The plan drawing shows the first course." },
+                "material_id":       { "type": "string", "description": "Material of the units. Defaults to the layer's." },
+                "joint_material_id": { "type": "string", "description": "Fills the joints (eg mortar). Without it the joints are empty." }
+              }
+            }
+          },
+          "layer_starts": {
+            "type": "array",
+            "description": "Where particular layers of the member's profile start across its width, for this use only (the profile is not changed). Without an entry a layer starts where the layers before it end. The start is a distance from the profile's left face; a region layer moves so its left edge is there.",
+            "items": {
+              "type": "object",
+              "required": ["layer", "start_m"],
+              "additionalProperties": false,
+              "properties": {
+                "layer":   { "type": "integer", "minimum": 1, "description": "The layer's number in the profile's assembly." },
+                "start_m": { "type": "number" }
+              }
+            }
+          },
+          "placement": {
+            "type": "object",
+            "required": ["offset_x_m", "offset_y_m", "rotation_deg"],
+            "additionalProperties": false,
+            "properties": {
+              "offset_x_m":   { "type": "number" },
+              "offset_y_m":   { "type": "number" },
+              "rotation_deg": { "type": "number" },
+              "reference": {
+                "type": "object",
+                "description": "Measure the insertion point from reference lines. x names an x-axis line (a vertical one), y a y-axis line. The member's position on that axis is the line's offset_m plus offset_x_m (or offset_y_m), so it follows the line when the line moves. Without it the offsets are from the origin.",
+                "additionalProperties": false,
+                "properties": {
+                  "x": { "type": "string", "description": "id of a reference line with axis x." },
+                  "y": { "type": "string", "description": "id of a reference line with axis y." }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "datum": {
+      "type": "object",
+      "description": "Where detail-space y = 0 sits relative to the location's level.",
+      "required": ["kind", "reference"],
+      "additionalProperties": false,
+      "properties": {
+        "kind":      { "type": "string", "enum": ["storey", "grid_elevation"] },
+        "reference": { "type": "string", "enum": ["top", "bottom", "elevation"] }
+      }
+    },
+    "plane": { "type": "string", "enum": ["section", "plan"], "default": "section" },
+    "view_direction": { "type": "string", "enum": ["along_path", "across_path"] },
+    "geometry": {
+      "type": "object",
+      "description": "Extra regions drawn in detail space and extruded into 3D. For a 'plan' detail the extrusion rises from the level (datum) by extrusion_m. For a 'section' detail it runs along the primary member (junction priority[0], else elements[0]), centred on the location.",
+      "required": ["extrusion_m"],
+      "additionalProperties": false,
+      "properties": {
+        "extrusion_m": { "type": "number", "exclusiveMinimum": 0 },
+        "regions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["material_id", "vertices"],
+            "additionalProperties": false,
+            "properties": {
+              "material_id": { "type": "string" },
+              "depth_m":    { "type": "number", "exclusiveMinimum": 0, "description": "The unit's size along its repeat axis (x if repeat_x_m is set, else y), as the author states it. Checked against the drawn vertices to within 1 mm." },
+              "repeat_x_m": { "type": "number", "exclusiveMinimum": 0, "description": "Pitch of repeated units along x, in metres. The vertices draw one unit; the gap between units is empty (a joint or air space). Must be at least the unit's width when count_x is above 1." },
+              "repeat_y_m": { "type": "number", "exclusiveMinimum": 0, "description": "Pitch of repeated units along y, in metres." },
+              "stagger_x_m": { "type": "number", "description": "Shift along x applied to every second row (when count_y is above 1), for a bond. Half of repeat_x_m gives a half-bond." },
+              "count_x":    { "type": "integer", "minimum": 1, "description": "Number of units along x. Needs repeat_x_m. Default 1." },
+              "count_y":    { "type": "integer", "minimum": 1, "description": "Number of units along y. Needs repeat_y_m. Default 1." },
+              "tags":       { "$ref": "#/definitions/classification" },
+              "outline_mm": { "$ref": "#/definitions/pen_mm", "description": "Pen weight of this region's cut outline in the 2D drawings, overriding the weight its material category implies (structure 0.5 down to membrane 0.18)." },
+              "vertices": {
+                "type": "array",
+                "minItems": 3,
+                "items": {
+                  "type": "object",
+                  "required": ["x", "y"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "x": { "$ref": "#/definitions/coordinate" },
+                    "y": { "$ref": "#/definitions/coordinate" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "reference_lines": {
+      "type": "array",
+      "description": "Named lines in detail space that the drawing is set out from: a grid line, the finished floor level, another level or a custom line. They are drawn in the editor, the review drawing and the 3D view, and never extruded or exported to IFC. Without any, the editor shows the origin lines implied by the view (a plan detail sits on a grid intersection, a section on its datum).",
+      "items": {
+        "type": "object",
+        "required": ["kind", "axis", "offset_m"],
+        "additionalProperties": false,
+        "properties": {
+          "id":       { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$", "description": "Identifier a member's placement.reference points at. Defaults to <kind>-<axis> (eg grid-x)." },
+          "kind":     { "type": "string", "enum": ["grid", "ffl", "level", "custom"] },
+          "name":     { "type": "string", "minLength": 1, "description": "Label for the line. Defaults to the kind (GRID, FFL, LEVEL)." },
+          "axis":     { "type": "string", "enum": ["x", "y"], "description": "x: the line sits at x = offset_m (vertical in the drawing). y: it sits at y = offset_m (horizontal)." },
+          "offset_m": { "type": "number" }
+        }
+      }
+    },
+    "clip": {
+      "type": "object",
+      "description": "The part of the detail to show: a box in detail space. Anything outside is cut away in the 3D view and faded in the 2D drawing. Each side is optional; a missing side is not clipped. It is a viewing aid and does not change the geometry.",
+      "additionalProperties": false,
+      "properties": {
+        "x_min_m": { "type": "number" },
+        "x_max_m": { "type": "number" },
+        "y_min_m": { "type": "number" },
+        "y_max_m": { "type": "number" }
+      }
+    },
+    "annotations": {
+      "type": "array",
+      "description": "Drawing marks for the 2D detail only: open lines, arcs, circles, dimensions and notes. They are never extruded into 3D and carry no material. Coordinates are plain metres in detail space.",
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": ["type", "points"],
+            "additionalProperties": false,
+            "properties": {
+              "type":   { "const": "line" },
+              "points": { "type": "array", "minItems": 2, "items": { "$ref": "#/definitions/point" }, "description": "An open polyline." },
+              "style":  { "type": "string", "enum": ["solid", "dashed", "centre"], "default": "solid" }
+            }
+          },
+          {
+            "type": "object",
+            "required": ["type", "centre", "radius_m", "start_deg", "end_deg"],
+            "additionalProperties": false,
+            "properties": {
+              "type":      { "const": "arc" },
+              "centre":    { "$ref": "#/definitions/point" },
+              "radius_m":  { "type": "number", "exclusiveMinimum": 0 },
+              "start_deg": { "type": "number", "description": "Angle of the start, degrees anticlockwise from the +x direction." },
+              "end_deg":   { "type": "number", "description": "Angle of the end. The arc runs anticlockwise from start to end, so it must differ from start_deg by something other than a multiple of 360 (use a circle for that)." },
+              "style":     { "type": "string", "enum": ["solid", "dashed", "centre"], "default": "solid" }
+            }
+          },
+          {
+            "type": "object",
+            "required": ["type", "centre", "radius_m"],
+            "additionalProperties": false,
+            "properties": {
+              "type":     { "const": "circle" },
+              "centre":   { "$ref": "#/definitions/point" },
+              "radius_m": { "type": "number", "exclusiveMinimum": 0 },
+              "style":    { "type": "string", "enum": ["solid", "dashed", "centre"], "default": "solid" }
+            }
+          },
+          {
+            "type": "object",
+            "required": ["type", "from", "to"],
+            "additionalProperties": false,
+            "properties": {
+              "type": { "const": "dimension" },
+              "from": { "$ref": "#/definitions/point" },
+              "to":   { "$ref": "#/definitions/point" },
+              "offset_m": { "type": "number", "description": "How far the dimension line sits to the left of the from-to direction. Default 0.1." }
+            }
+          },
+          {
+            "type": "object",
+            "required": ["type", "at", "text"],
+            "additionalProperties": false,
+            "properties": {
+              "type": { "const": "note" },
+              "at":   { "$ref": "#/definitions/point" },
+              "text": { "type": "string", "minLength": 1 },
+              "leader_to": { "$ref": "#/definitions/point", "description": "Optional point the note's leader line points at." }
+            }
+          }
+        ]
+      }
+    },
+    "parameters": {
+      "type": "object",
+      "description": "Named values a junction may override through detail_overrides. Bounds are checked by the integrity tests and the resolver, not by JSON Schema.",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["default"],
+        "additionalProperties": false,
+        "properties": {
+          "default": { "type": "number" },
+          "min":     { "type": "number" },
+          "max":     { "type": "number" }
+        }
+      }
+    },
+    "tags": { "type": "array", "items": { "type": "string" } }
+  },
+  "definitions": {
+    "pen_mm": {
+      "description": "Line weight in millimetres at print scale. Limited to the pen series so drawings plot predictably and map onto DXF lineweights. The same series as profile.schema.json.",
+      "type": "number",
+      "enum": [0.09, 0.13, 0.18, 0.25, 0.35, 0.5, 0.7]
+    },
+    "point": {
+      "type": "object",
+      "required": ["x", "y"],
+      "additionalProperties": false,
+      "properties": { "x": { "type": "number" }, "y": { "type": "number" } }
+    },
+    "classification": {
+      "description": "Classification used by the detail review overlays. All fields optional. On a material it is the default; the same object under `tags` on an assembly layer or detail region overrides it for that use.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "package":   { "type": "string", "enum": ["groundworks", "concrete", "timber-frame", "cladding", "interiors", "mep", "other"], "description": "Subcontractor package that supplies and fixes the item." },
+        "barrier":   { "type": "array", "uniqueItems": true, "items": { "type": "string", "enum": ["air", "water", "vapour", "breathable"] }, "description": "Which barrier functions the item performs. A layer may perform more than one." },
+        "fire_role": { "type": "string", "enum": ["firestop", "cavity-barrier", "fire-rated"], "description": "Fire strategy role. Reaction class and rating stay in properties.fire." },
+        "sequence":  { "type": "integer", "minimum": 1, "maximum": 99, "description": "Construction sequence: 1 is installed first. On a material it is a default step; on a layer or region `tags` it sets the step for that use. Only the order matters, not the size of the gaps." },
+        "shearing_layer": { "type": "string", "enum": ["site", "structure", "skin", "services", "space-plan", "stuff"], "description": "Brand's shearing layer: how fast the item changes over a building's life. Site, structure, skin, services, space plan (interior finishes and partitions) or stuff (furniture and fittings)." },
+        "sfb": { "type": "string", "pattern": "^\\([0-9]{1,2}\\)$", "description": "CI/SfB element code in brackets, for example (21) external walls, (27) roofs, (43) floor finishes. The SfB overlay groups by the first digit: (1) ground and substructure, (2) structure and primary elements, (3) secondary elements, (4) finishes, (5) and (6) services, (7) fittings, (9) external elements." }
+      }
+    },
+    "coordinate": {
+      "description": "A number in metres, or a parameter expression: value = offset + scale * parameter.",
+      "oneOf": [
+        { "type": "number" },
+        {
+          "type": "object",
+          "required": ["param"],
+          "additionalProperties": false,
+          "properties": {
+            "param":  { "type": "string", "minLength": 1 },
+            "scale":  { "type": "number", "default": 1 },
+            "offset": { "type": "number", "default": 0 }
+          }
+        }
+      ]
+    },
+    "kind": { "type": "string", "enum": ["wall", "slab", "beam", "column", "roof", "other"] }
+  }
+}

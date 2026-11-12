@@ -20,6 +20,7 @@ import { addGuide, getGuides, clearGuides, renderGuidelines, setupGuideDrag } fr
 import { activateRectTool, activatePolygonTool, deactivateTool } from './canvasDrawTools.js';
 import { findUses, renameRefs, matchesSearch } from './profileRefs.js';
 import { PEN_SERIES, HAIRLINE_MM, resolveLineweight } from '../lineweights.js';
+import { membranePenMm } from '../membrane.js';
 import { PX_PER_MM } from '../detail-editor/drawStyle.js';
 import { setUnit, getUnit, toDisplay, fromDisplay, unitLabel } from '../editor/units.js';
 import { ask, confirmDialog, notify, idValidator } from '../ui/dialog.js';
@@ -690,8 +691,9 @@ function _renderCanvas() {
     const mm = thin ? HAIRLINE_MM : resolveLineweight('cut', { profile: { lineweights }, layer: current[i], function: current[i]?.function });
     return Math.max(1, mm * PX_PER_MM);
   };
+  const membranePx = (i) => Math.max(2, membranePenMm({ layer: current[i], thin }) * PX_PER_MM);   // #127
   renderCanvas(profileSvg, current, originX, matMap, selectedLayerIndex,
-               { ffl_m, height_limit_m, stacked: isStackedProfile(profileType, alignment), alignment, planWidth, strokePx });
+               { ffl_m, height_limit_m, stacked: isStackedProfile(profileType, alignment), alignment, planWidth, strokePx, membranePx });
   renderGuidelines(profileSvg, getGuides());
 }
 

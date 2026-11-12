@@ -1,0 +1,13 @@
+{
+  "$schema": "oebf://schema/0.1/slab",
+  "id": "slab-dpm",
+  "type": "Slab",
+  "description": "DPM under the ground slab, 0.3 mm",
+  "ifc_type": "IfcSlab",
+  "boundary_path_id": "path-slab",
+  "thickness_m": 0.0003,
+  "material_id": "mat-dpm",
+  "elevation_m": -0.15,
+  "parent_group_id": "storey-gf",
+  "function": "membrane"
+}

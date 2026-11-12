@@ -10,6 +10,7 @@ import { hatchKindFor, hatchDefs, patternId } from '../detail-review/hatches.js'
 import { tint } from '../detail-review/detailSvg.js';
 import { fill2d } from '../materialFill.js';
 import { resolveLineweight, functionForCategory, HAIRLINE_MM } from '../lineweights.js';
+import { isMembrane, membranePenMm } from '../membrane.js';
 
 export const PX_PER_MM = 4;
 
@@ -18,7 +19,8 @@ const get = (src, id) => (src instanceof Map ? src.get(id) : src?.[id]);
 /**
  * @param {{ id: string, kind: string, materialId?: string }} prim - a canvas model primitive
  * @param {{ doc: object, materials: object|Map, profiles: object|Map, thin?: boolean }} ctx   thin: every line a hairline
- * @returns {{ fill: string, hatchKind: string, hatch: number, cutPx: number }}
+ * @returns {{ fill: string, hatchKind: string, hatch: number, cutPx: number, membranePx?: number }}
+ *   membranePx: set for a membrane or tape (#127), the width of the line drawn over everything else
  */
 export function primitiveStyle(prim, { doc, materials, profiles, thin = false }) {
   const material = get(materials, prim.materialId);
@@ -29,6 +31,7 @@ export function primitiveStyle(prim, { doc, materials, profiles, thin = false })
     hatchKind: hatchKindFor(material?.category),
     hatch: thin ? HAIRLINE_MM : resolveLineweight('hatch', { profile, layer }),
     cutPx: Math.max(1, cut * PX_PER_MM),
+    ...(isMembrane({ function: layer?.function, material }) ? { membranePx: Math.max(2, membranePenMm({ layer, thin }) * PX_PER_MM) } : {}),
   };
 }
 

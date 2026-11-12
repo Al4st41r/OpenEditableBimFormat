@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 0.315 2.7" width="315.0mm" height="2700mm">
+  <rect x="0.0" y="0" width="0.102" height="2.7" fill="#ffffff" stroke="#888" stroke-width="0.001"/>  <!-- Facing brick -->
+  <rect x="0.102" y="0" width="0.05" height="2.7" fill="#ffffff" stroke="#888" stroke-width="0.001"/>  <!-- Clear cavity -->
+  <rect x="0.152" y="0" width="0.05" height="2.7" fill="#ffffff" stroke="#888" stroke-width="0.001"/>  <!-- PIR board -->
+  <rect x="0.202" y="0" width="0.1" height="2.7" fill="#ffffff" stroke="#888" stroke-width="0.001"/>  <!-- Dense block -->
+  <rect x="0.302" y="0" width="0.013" height="2.7" fill="#ffffff" stroke="#888" stroke-width="0.001"/>  <!-- Plaster -->
+  <polygon points="0.0,2.55 0.102,2.55 0.102,2.5495 0.0,2.5495" fill="none" stroke="#1f6b6b" stroke-width="0.004"/>  <!-- DPC, outer leaf -->
+  <polygon points="0.202,2.55 0.302,2.55 0.302,2.5495 0.202,2.5495" fill="none" stroke="#1f6b6b" stroke-width="0.004"/>  <!-- DPC, inner leaf -->
+</svg>

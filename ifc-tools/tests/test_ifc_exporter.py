@@ -308,3 +308,29 @@ def test_an_object_array_exports_one_fastener_per_instance_with_the_parts_and_ma
     assert all(c.Material.Name == "Stainless steel" for c in material.MaterialConstituents)
     assert el.get_material(ties[5]) == material             # shared, not one set per instance
     assert _psets(ties[7])["OEBF_Element"]["Instance"] == 8
+
+
+# ── membranes (#127) ────────────────────────────────────────────────────────────
+
+MEMBRANE_TRIAL = pathlib.Path(__file__).parent.parent.parent / "example" / "membrane-trial.oebf"
+
+
+def test_membrane_trial_exports_membranes_as_ifc_would_have_them(tmp_path):
+    import ifcopenshell.util.element as el
+    out = tmp_path / "membranes.ifc"
+    export_ifc(MEMBRANE_TRIAL, out)
+    ifc = ifcopenshell.open(str(out))
+
+    # a DPM laid as its own sheet is a covering of type MEMBRANE, not a slab
+    coverings = ifc.by_type("IfcCovering")
+    assert [c.PredefinedType for c in coverings] == ["MEMBRANE"]
+    assert len(ifc.by_type("IfcSlab")) == 1
+
+    # membrane layers keep their nominal thickness and are labelled; region layers (the DPCs) are not layers
+    walls = {w.Name: w for w in ifc.by_type("IfcWall")}
+    tf = el.get_material(walls["Timber frame wall with breather membrane and VCL"]).ForLayerSet.MaterialLayers
+    membranes = [(l.Name, l.LayerThickness) for l in tf if l.Category == "Membrane"]
+    assert membranes == [("Breather membrane", 0.0005), ("Vapour control layer", 0.0002)]
+    assert tf[4].Category == "Insulation"
+    cavity = el.get_material(walls["Cavity wall with DPCs"]).ForLayerSet.MaterialLayers
+    assert len(cavity) == 5

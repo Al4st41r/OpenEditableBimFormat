@@ -10,6 +10,7 @@
  */
 
 import { fill2d } from '../materialFill.js';
+import { profileMembraneMarks, MEMBRANE_INK } from '../membrane.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const WALL_HEIGHT = 2.7; // metres — fixed for v0.1
@@ -132,6 +133,8 @@ export function renderCanvas(svgEl, layers, originX, matMap, selectedIndex = nul
     cursor = Math.round(cursor * 1e6) / 1e6; // prevent float drift
   });
 
+  _drawMembranes(svgEl, layers, matMap, selectedIndex, opts, { wallHeight: WALL_HEIGHT });
+
   // Origin marker
   const clampedX = Math.max(0, Math.min(originX, totalWidth));
   const line = document.createElementNS(SVG_NS, 'line');
@@ -216,6 +219,7 @@ function _renderStacked(svgEl, layers, originX, matMap, selectedIndex, opts) {
     svgEl.appendChild(rect);
     cursor = Math.round((cursor + t) * 1e6) / 1e6;
   }
+  _drawMembranes(svgEl, layers, matMap, selectedIndex, opts, { stacked: true, alignment: opts.alignment, planWidth: W });
   const cx = Math.max(0, Math.min(originX, W));
   const cy = opts.alignment === 'bottom-face' ? total : 0;
   const line = document.createElementNS(SVG_NS, 'line');
@@ -229,6 +233,31 @@ function _renderStacked(svgEl, layers, originX, matMap, selectedIndex, opts) {
   circle.setAttribute('data-origin-marker', 'true');
   circle.style.cursor = 'ew-resize';
   svgEl.appendChild(circle);
+}
+
+/**
+ * Membrane layers (#127) as a heavy line over every other layer: along the middle of a band, round the outline of a
+ * region. A band a fraction of a millimetre thick cannot be seen or clicked otherwise, so the line also selects the
+ * layer. opts.membranePx(i) gives the width in screen pixels; without it the line is 4 px.
+ */
+function _drawMembranes(svgEl, layers, matMap, selectedIndex, opts, geom) {
+  for (const mark of profileMembraneMarks(layers, matMap, geom)) {
+    const el = document.createElementNS(SVG_NS, mark.closed ? 'polygon' : 'polyline');
+    el.setAttribute('points', mark.points.map((p) => `${p.x},${p.y}`).join(' '));
+    const ink = mark.index === selectedIndex ? '#0080ff' : MEMBRANE_INK;
+    el.setAttribute('fill', mark.closed ? ink : 'none');
+    el.setAttribute('stroke', ink);
+    el.setAttribute('stroke-width', String(opts?.membranePx?.(mark.index) ?? 4));
+    el.setAttribute('vector-effect', 'non-scaling-stroke');
+    el.setAttribute('stroke-linejoin', 'round');
+    el.setAttribute('pointer-events', 'stroke');
+    el.setAttribute('data-membrane-layer', String(mark.index));
+    el.style.cursor = 'pointer';
+    el.addEventListener('click', () => {
+      svgEl.dispatchEvent(new CustomEvent('layer-selected', { detail: { index: mark.index } }));
+    });
+    svgEl.appendChild(el);
+  }
 }
 
 let _originSnap = null;

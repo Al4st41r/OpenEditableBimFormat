@@ -19,6 +19,7 @@ import { sweepProfile, sweepOptionsFromElement } from '../geometry/sweep.js';
 import { buildSlabMeshData }   from './loadSlab.js';
 import { buildOpeningOutline } from './loadOpening.js';
 import { loadObjectPlacement } from './loadObject.js';
+import { isMembrane }        from '../membrane.js';
 
 // ── Archives ────────────────────────────────────────────────────────────────
 
@@ -131,7 +132,7 @@ export async function loadBundleZstd(file) {
       const sweptMeshes   = sweepProfile(parsedPath.points, profileShapes, sweepOptionsFromElement(element));
       for (const sm of sweptMeshes) {
         const mat = matMap[sm.materialId];
-        meshes.push({ ...sm, elementId, colour: mat?.colour_hex ?? '#888888', opacity: mat?.opacity, description: element.description });
+        meshes.push({ ...sm, elementId, colour: mat?.colour_hex ?? '#888888', opacity: mat?.opacity, membrane: isMembrane({ function: sm.function, material: mat }), description: element.description });
       }
     } catch (err) {
       console.warn(`[OEBF] Skipping element ${elementId}: ${err.message}`);
@@ -147,6 +148,7 @@ export async function loadBundleZstd(file) {
         ...buildSlabMeshData(slab, pathData),
         colour: mat?.colour_hex ?? '#888888',
         opacity: mat?.opacity,
+        membrane: isMembrane({ function: slab.function, material: mat }),
         description: slab.description ?? '',
       });
     } catch (err) {

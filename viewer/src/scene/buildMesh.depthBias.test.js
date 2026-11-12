@@ -20,14 +20,14 @@ describe('depth bias per element (the checkerboard on overlapping walls)', () =>
     expect(depthBiasUnits('wall')).toBe(first);
   });
 
-  it('stays within 1 to 16 units however many elements there are', () => {
+  it('stays within 2 to 17 units however many elements there are (1 is kept for membranes, #127)', () => {
     const units = Array.from({ length: 100 }, (_, i) => depthBiasUnits(`e${i}`));
-    expect(Math.min(...units)).toBe(1);
-    expect(Math.max(...units)).toBe(16);
+    expect(Math.min(...units)).toBe(2);
+    expect(Math.max(...units)).toBe(17);
   });
 
-  it('a mesh with no element id keeps the plain bias of 1', () => {
-    expect(depthBiasUnits(undefined)).toBe(1);
+  it('a mesh with no element id keeps the plain bias of 2', () => {
+    expect(depthBiasUnits(undefined)).toBe(2);
   });
 
   it('builds each element\'s mesh with its own bias', () => {

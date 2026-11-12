@@ -79,9 +79,9 @@
           "layer":       { "type": "integer", "minimum": 1 },
           "name":        { "type": "string" },
           "material_id": { "type": "string" },
-          "thickness":   { "type": "number", "exclusiveMinimum": 0 },
-          "function":    { "type": "string", "enum": ["finish", "structure", "insulation", "membrane", "service"] },
-          "outline_mm":  { "$ref": "#/definitions/pen_mm", "description": "Overrides the profile's cut weight for this layer's outline." },
+          "thickness":   { "type": "number", "exclusiveMinimum": 0, "description": "Layer thickness in metres. A membrane keeps its nominal thickness (for example 0.0005 for a 0.5 mm DPC); it is never zero." },
+          "function":    { "type": "string", "enum": ["finish", "structure", "insulation", "membrane", "service"], "description": "What the layer does. A 'membrane' layer (DPC, vapour control layer, breather membrane, tape), or a layer whose material has the category 'membrane', is drawn on top: as a heavy line in 2D and with priority over coplanar faces in 3D." },
+          "outline_mm":  { "$ref": "#/definitions/pen_mm", "description": "Overrides the profile's cut weight for this layer's outline. On a membrane layer it is the weight of the membrane line (default 0.5)." },
           "type": {
             "type": "string",
             "enum": ["band", "region"]
