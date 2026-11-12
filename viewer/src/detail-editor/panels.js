@@ -17,6 +17,7 @@ import { PEN_SERIES } from '../lineweights.js';
 import { LINE_STYLES } from './annotationOps.js';
 import { REFERENCE_KINDS, AXES, CLIP_SIDES } from './referenceOps.js';
 import { LAYERS, LAYER_LABELS } from './layers.js';
+import { materialOptions } from './materialNames.js';
 
 function h(tag, attrs = {}, ...children) {
   const e = document.createElement(tag);
@@ -34,6 +35,9 @@ function h(tag, attrs = {}, ...children) {
 
 const options = (values, current) => values.map((v) => h('option', { value: v, selected: v === current }, v));
 const select = (values, current, onChange, attrs = {}) => h('select', { ...attrs, onchange: (e) => onChange(e.target.value) }, options(values, current));
+/** A material picker: names shown, ids stored (#163). */
+const materialSelect = (ids, current, materials, onChange) => h('select', { title: current ?? '', onchange: (e) => onChange(e.target.value) },
+  materialOptions(ids, materials).map((o) => h('option', { value: o.value, selected: o.value === current, title: o.value }, o.label)));
 const row = (label, control) => h('div', { class: 'row' }, h('label', {}, label), control);
 const text = (value, onChange, attrs = {}) => h('input', { type: 'text', value, ...attrs, onchange: (e) => onChange(e.target.value) });
 let notify = () => {};   // set by renderPanels: shows a message in the status line
@@ -293,7 +297,7 @@ function regionEditor(r, pm, bundle, a) {
   return [
     h('h3', {}, `Region ${r.index}`),
     r.pickedCount > 1 ? h('div', { class: 'note warn' }, `${r.pickedCount} regions are selected. Changes here apply to region ${r.index} only.`) : null,
-    row('Material', select(bundle.materialIds.includes(r.materialId) ? bundle.materialIds : [r.materialId, ...bundle.materialIds], r.materialId, (v) => a.setRegionMaterial(r.index, v))),
+    row('Material', materialSelect(bundle.materialIds.includes(r.materialId) ? bundle.materialIds : [r.materialId, ...bundle.materialIds], r.materialId, bundle.materials, (v) => a.setRegionMaterial(r.index, v))),
     ...regionTransformEditor(r, a),
     ...regionOffsetEditor(r, pm, a),
     ...regionCornerEditor(r, a),
@@ -452,9 +456,9 @@ function layerDetailFold(m, role, bundle, a) {
   const bands = m.layers.filter((l) => l.type !== 'region');
   if (m.stacked || !bands.length) return null;
   const axis = m.plane === 'plan' ? 'plan' : 'section';
-  const materials = ['', ...bundle.materialIds];
   const matSelect = (current, onChange, blank) => h('select', { onchange: (e) => onChange(e.target.value || undefined) },
-    ...materials.map((id) => h('option', { value: id, selected: id === (current ?? '') }, id === '' ? blank : id)));
+    h('option', { value: '', selected: !current }, blank),
+    ...materialOptions(bundle.materialIds, bundle.materials).map((o) => h('option', { value: o.value, selected: o.value === current, title: o.value }, o.label)));
   const rows = bands.map((l) => {
     const u = l.unit;
     const preset = u ? (UNIT_PRESETS.find((p) => Math.abs(p[axis][0] - u.depth_m) < 1e-9 && Math.abs(p[axis][1] - u.repeat_m) < 1e-9)?.id ?? 'custom') : 'strip';
@@ -602,10 +606,10 @@ function referenceEditor(pm, a) {
   return [h('details', { class: 'fold', open: pm.referenceLines.length > 0 },
     h('summary', {}, 'Reference lines'),
     pm.referenceLines.length ? rows : h('div', { class: 'note' }, `Showing the implied ${pm.impliedLines.join(' and ')} through the origin. Add a line to set your own.`),
-    h('div', { class: 'row' },
-      select(REFERENCE_KINDS, refDraft.kind, (v) => { refDraft.kind = v; }),
-      select(AXES, refDraft.axis, (v) => { refDraft.axis = v; }),
-      num(refDraft.offset, (m) => { refDraft.offset = m; }),
+    h('div', { class: 'refline add' },   // the same columns as the lines above (#163)
+      select(REFERENCE_KINDS, refDraft.kind, (v) => { refDraft.kind = v; }, { title: 'Kind' }),
+      select(AXES, refDraft.axis, (v) => { refDraft.axis = v; }, { title: 'x: a vertical line at that x. y: a horizontal line at that y.' }),
+      num(refDraft.offset, (m) => { refDraft.offset = m; }, { title: 'Position' }),
       h('button', { onclick: () => a.addReferenceLine({ kind: refDraft.kind, axis: refDraft.axis, offset_m: refDraft.offset }) }, 'Add')),
     h('div', { class: 'note' }, `Offsets are in ${unitLabel()}. Lines are drawn only; they do not change the geometry.`))];
 }
@@ -708,12 +712,13 @@ function parameterBox(p, bundle, a) {
 }
 
 function newParameterForm(a) {
-  const name = h('input', { type: 'text', placeholder: 'name_m', style: 'flex:1' });
-  const def = h('input', { type: 'number', step: 'any', placeholder: 'default', style: 'width:70px' });
-  const min = h('input', { type: 'number', step: 'any', placeholder: 'min', style: 'width:60px' });
-  const max = h('input', { type: 'number', step: 'any', placeholder: 'max', style: 'width:60px' });
+  // the name on a line of its own, so no placeholder is cut (#163)
+  const name = h('input', { type: 'text', placeholder: 'new parameter name, eg width_m', title: 'Name: snake_case', class: 'pname' });
+  const def = h('input', { type: 'number', step: 'any', placeholder: 'default', title: 'Default value' });
+  const min = h('input', { type: 'number', step: 'any', placeholder: 'min', title: 'Least value' });
+  const max = h('input', { type: 'number', step: 'any', placeholder: 'max', title: 'Greatest value' });
   const val = (i) => (i.value === '' ? undefined : parseFloat(i.value));
-  return h('div', { class: 'row' }, name, def, min, max, h('button', { onclick: () => a.addParameter(name.value.trim(), { default: val(def), min: val(min), max: val(max) }) }, 'Add'));
+  return h('div', { class: 'paramnew' }, name, def, min, max, h('button', { onclick: () => a.addParameter(name.value.trim(), { default: val(def), min: val(min), max: val(max) }) }, 'Add'));
 }
 
 function conditionEditor(pm, a) {

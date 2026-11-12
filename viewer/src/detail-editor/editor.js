@@ -22,7 +22,8 @@ import { copySelection, parsePayload, pasteInto } from './clipboard.js';
 import { defaultLayers, setLayer, applyLayers, blocked, keepSelection, layerOfSelection, editable, LAYER_LABELS } from './layers.js';
 import { validateDetail } from './detailValidate.js';
 import { createDetail, toJsonText } from './detailSerializer.js';
-import { findCounterpart, counterpartDraft, otherPlane } from './counterpart.js';
+import { findCounterpart, counterpartDraft, counterpartId, otherPlane } from './counterpart.js';
+import { materialOptions, materialLabel } from './materialNames.js';
 import { openObjectMaker } from './objectMakerDialog.js';
 import { loadDetailContext, saveDetail, saveProfileEdit } from './detailStore.js';
 import { snapshotToContext } from './bundleSnapshot.js';
@@ -48,7 +49,7 @@ import { buildTooltip } from '../snap/tooltip.js';
 import { buildSnapScene } from './snapScene.js';
 import { setRegionEdgeLength, setRegionSize } from './dimensionOps.js';
 import { KINDS, PLANES, TOOLS, MARK_TOOLS, PICK_TOOLS, SHORTCUTS } from './detailConstants.js';
-import { confirmDialog } from '../ui/dialog.js';
+import { confirmDialog, ask, idValidator } from '../ui/dialog.js';
 import { tidyToolbarSeparators } from '../ui/toolbar.js';
 import { renderIcons } from '../ui/icons.js';
 
@@ -125,6 +126,9 @@ let thin = localStorage.getItem('oebf-thin') === '1';   // every line a hairline
 function syncThin() { $('thin-btn').classList.toggle('active', thin); }
 $('thin-btn').addEventListener('click', () => { thin = !thin; localStorage.setItem('oebf-thin', thin ? '1' : '0'); syncThin(); paint(); });
 syncThin();
+$('material-select').addEventListener('change', (e) => {
+  if (bundle) e.target.title = `Material for new regions: ${materialLabel(e.target.value, bundle.ctx.materials)}`;
+});
 
 function paint() {
   if (!st) { svg.replaceChildren(); return; }
@@ -140,7 +144,7 @@ function updateViewSwitch() {
   const want = otherPlane(st.doc.plane);
   const pair = findCounterpart(st.doc, bundle.ctx.details);
   btn.disabled = false;
-  lbl.textContent = pair ? `Show ${want}` : `New ${want}`;
+  lbl.textContent = pair ? `Show ${want}` : `New ${want}…`;   // the ellipsis: it asks for a name first
   btn.title = pair ? `Open ${pair.id}, the same junction in ${want}` : `Make a new, empty ${want} detail with the same members and condition`;
 }
 
@@ -155,8 +159,17 @@ $('view-switch-btn').addEventListener('click', async () => {
   if (!await okToDiscard()) return;
   const pair = findCounterpart(st.doc, bundle.ctx.details);
   if (pair) { openDetail(pair.id); updateDetailSelect(); return; }
+  // name it first, so a click never makes a detail (and an unsaved bundle) without the user knowing (#163)
+  const want = otherPlane(st.doc.plane);
+  const id = await ask('Detail id', counterpartId(st.doc), {
+    title: `New ${want} detail`,
+    message: `An empty ${want} detail with the same members and condition as ${st.doc.id}. It is kept when you Save.`,
+    ok: 'Create',
+    validate: idValidator((v) => bundle.ctx.detailIds.includes(v)),
+  });
+  if (!id) return;
   try {
-    const doc = counterpartDraft(st.doc, bundle.ctx.detailIds);
+    const doc = counterpartDraft(st.doc, bundle.ctx.detailIds, id);
     st = { ...createState(doc), saved: null };   // new, so dirty until first save
     display = null; draft = null; controller = createController('select');
     updateDetailSelect(); refresh(); fit();
@@ -645,7 +658,10 @@ function openContext(ctx, adapter, source, activeId = null) {
   $('zip-btn').hidden = source !== 'memory';
 
   const mat = $('material-select');
-  mat.replaceChildren(...ctx.materialIds.map((id) => Object.assign(document.createElement('option'), { value: id, textContent: id })));
+  // names, not ids (#163); the first material in the library stays the default, as before
+  mat.replaceChildren(...materialOptions(ctx.materialIds, ctx.materials).map((o) => Object.assign(document.createElement('option'), { value: o.value, textContent: o.label, title: o.value })));
+  mat.value = ctx.materialIds[0] ?? '';
+  mat.title = `Material for new regions: ${materialLabel(mat.value, ctx.materials)}`;
   mat.disabled = ctx.materialIds.length === 0;
 
   st = null; display = null; draft = null; controller = createController('select');

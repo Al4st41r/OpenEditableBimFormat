@@ -30,6 +30,11 @@ describe('counterpart', () => {
     expect(d.members.map((m) => [m.role, m.profile_id])).toEqual([['wall', 'p-wall'], ['floor', 'p-floor']]);
     expect(d.geometry ?? []).toEqual([]);
   });
+  it('takes the id the user chose', () => {
+    const d = counterpartDraft(plan, ['detail-edge-plan'], 'detail-edge-section-b');
+    expect(d).toMatchObject({ id: 'detail-edge-section-b', plane: 'section' });
+    expect(() => counterpartDraft(plan, ['detail-edge-plan'], 'detail-edge-plan')).toThrow(/already exists/);
+  });
   it('refuses to draft over an existing id', () => {
     expect(() => counterpartDraft(plan, ['detail-edge-section'])).toThrow(/already exists/);
   });

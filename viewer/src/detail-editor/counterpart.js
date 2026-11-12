@@ -35,10 +35,10 @@ export function findCounterpart(doc, details) {
 /**
  * A new, empty detail for the other view with the same members, condition, datum, tags and parameters.
  * Its drawing is left to be made: a plan and a section of one junction do not share geometry.
+ * `id` is the name the user chose (#163); it defaults to the paired name.
  */
-export function counterpartDraft(doc, existingIds = []) {
+export function counterpartDraft(doc, existingIds = [], id = counterpartId(doc)) {
   const want = otherPlane(doc.plane);
-  const id = counterpartId(doc);
   if (existingIds.includes(id)) throw new Error(`"${id}" already exists`);
   const draft = createDetail({
     name: id.replace(/^detail-/, ''),
