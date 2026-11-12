@@ -22,7 +22,7 @@
     .sep { width: 1px; align-self: stretch; background: #333; margin: 0 4px; }
     #project-name { color: #aaa; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     #detail-select { max-width: 110px; }
-    #material-select { max-width: 90px; }
+    #material-select { max-width: 120px; }
     #header .sep { margin: 0 1px; }
     [hidden] { display: none !important; }
     @media (max-width: 1599px) { .short .lbl { display: none; } }   /* secondary commands show only their icon on narrower screens */
@@ -99,8 +99,14 @@
     .layerstart { display: grid; grid-template-columns: 1fr 44px 74px 24px; gap: 3px; align-items: center; margin: 3px 0; font-size: 12px; }
     .layerstart > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .layerstart input { min-width: 0; }
-    .refline { display: grid; grid-template-columns: 62px 38px 1fr 1fr 22px; gap: 3px; margin: 3px 0; }
+    .refline { display: grid; grid-template-columns: 70px 48px 1fr 1fr 24px; gap: 3px; margin: 3px 0; }
     .refline > * { min-width: 0; }
+    .refline select { padding-left: 4px; padding-right: 2px; }
+    .refline.add > button { grid-column: 4 / -1; }
+    .paramnew { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 3px; margin: 3px 0; }
+    .paramnew > * { min-width: 0; }
+    .paramnew > .pname { grid-column: 1 / -1; }
+    #right-panel input[type=number]::placeholder, #right-panel input[type=text]::placeholder { color: #888; }
     #snap-menu { position: relative; }
     #snap-menu summary { cursor: pointer; padding: 4px 10px; background: #333; border: 1px solid #555; border-radius: 3px; list-style: none; }
     #snap-menu-body { position: absolute; z-index: 20; top: 30px; left: 0; background: #262626; border: 1px solid #555; border-radius: 3px; padding: 8px 10px; min-width: 190px; }

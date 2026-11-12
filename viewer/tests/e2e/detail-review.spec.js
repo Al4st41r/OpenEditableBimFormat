@@ -39,3 +39,14 @@ test('detail review: the 2D drawing shows line weights and selection links to th
   await page.selectOption('#overlay-select', '');
   await expect(page.locator('#legend')).toBeEmpty();
 });
+
+test('detail review: the empty 2D pane says what will appear, and the overlay select shows its choice in full (#163)', async ({ page }) => {
+  await page.goto('detail-axo.html');
+  await expect(page.locator('#empty-2d')).toBeVisible();
+  await expect(page.locator('#demo-btn')).toContainText('NMB example');
+  const fits = await page.$eval('#overlay-select', (s) => s.scrollWidth <= s.clientWidth + 1 && s.clientWidth > 100);
+  expect(fits).toBe(true);
+  await page.click('#demo-btn');
+  await page.waitForSelector('#drawing svg polygon[data-item]', { timeout: 30_000 });
+  await expect(page.locator('#empty-2d')).toBeHidden();
+});

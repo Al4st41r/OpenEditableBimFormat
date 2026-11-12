@@ -23,7 +23,6 @@
     [hidden] { display: none !important; }
     @media (max-width: 1599px) { .short .lbl { display: none; } }   /* secondary commands show only their icon on narrower screens */
 
-    #overlay-select { max-width: 130px; }
     #status { margin-left: auto; opacity: 0.8; font-size: 12px; max-width: 40%; text-align: right; }
     #status.error { color: #f88; opacity: 1; }
     #main { display: flex; flex: 1; min-height: 0; }
@@ -45,6 +44,7 @@
     #canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
     #empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #888; font-size: 14px; text-align: center; padding: 24px; pointer-events: none; }
     #empty[hidden] { display: none; }
+    #empty-2d { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #888; font-size: 14px; text-align: center; padding: 24px; pointer-events: none; }
     #caption { position: absolute; left: 12px; bottom: 10px; background: rgba(24,24,24,0.82); color: #fff; padding: 4px 9px; border-radius: 3px; font-size: 12px; pointer-events: none; }
     h3 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: #999; margin: 12px 0 6px; }
     h3:first-child { margin-top: 0; }
@@ -72,7 +72,7 @@
     <span id="project-name"></span>
     <span class="sep"></span>
     <button id="open-btn" title="Open a bundle folder"><i data-icon="open"></i><span class="lbl">Open</span></button>
-    <button id="demo-btn" title="Load the NMB two-storey example" class="short" aria-label="NMB"><i data-icon="example"></i><span class="lbl">NMB</span></button>
+    <button id="demo-btn" title="Load the NMB two-storey example"><i data-icon="example"></i><span class="lbl">NMB example</span></button>
     <span class="sep"></span>
     <button id="pane2d-btn" class="active short" title="Show the 2D drawing beside the 3D view" aria-label="2D"><i data-icon="split"></i><span class="lbl">2D</span></button>
     <select id="scale-select" title="Drawing scale of the 2D pane">
@@ -88,7 +88,7 @@
     <button id="guides-btn" class="active short" title="Show the reference lines (grid, FFL, level) in 3D" aria-label="Lines"><i data-icon="guide"></i><span class="lbl">Lines</span></button>
     <button id="clip-btn" class="active short" title="Cut the 3D view to the detail's clip region" aria-label="Clip"><i data-icon="clip"></i><span class="lbl">Clip</span></button>
     <button id="edges-btn" class="active short" title="Outline each solid" aria-label="Edges"><i data-icon="edges"></i><span class="lbl">Edges</span></button>
-    <button id="fit-btn" title="Fit to view" class="short" aria-label="Fit"><i data-icon="fit"></i><span class="lbl">Fit</span></button>
+    <button id="fit-btn" title="Fit both views (double-click the 2D pane fits it alone)" class="short" aria-label="Fit"><i data-icon="fit"></i><span class="lbl">Fit</span></button>
     <button id="png-btn" title="Save the current view as a PNG" class="short" aria-label="PNG"><i data-icon="image"></i><span class="lbl">PNG</span></button>
     <select id="export-select" title="Export the 2D drawing on a sheet with a title block">
       <option value="">Export</option><option value="svg">SVG sheet</option><option value="pdf">PDF (print)</option><option value="dxf">DXF (mm)</option>
@@ -110,7 +110,7 @@
       <div id="list"></div>
     </div>
     <div id="panes">
-      <div id="pane-2d"><span class="pane-label">2D</span><div id="drawing"></div><span id="zoom-hint">wheel zoom · drag pan · double-click fit</span></div>
+      <div id="pane-2d"><span class="pane-label">2D</span><div id="drawing"></div><div id="empty-2d">The 2D drawing of the detail you pick appears here.</div><span id="zoom-hint">wheel zoom · drag pan · double-click fit</span></div>
       <div id="divider" title="Drag to resize the panes"></div>
       <div id="canvas-wrap">
         <span class="pane-label">3D</span>

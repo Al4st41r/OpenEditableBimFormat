@@ -4,12 +4,21 @@ test.describe('Profile Editor', () => {
   test('page loads with correct initial state', async ({ page }) => {
     await page.goto('profile-editor.html');
 
-    // Key UI elements present
-    await expect(page.locator('#profile-svg')).toBeVisible();
+    // Key UI elements present; with no profile open the canvas shows a prompt (#162)
+    await expect(page.locator('#profile-svg')).toBeHidden();
+    await expect(page.locator('#canvas-prompt')).toHaveText(/Open a bundle/);
     await expect(page.locator('#open-btn')).toBeVisible();
     await expect(page.locator('#save-btn')).toBeDisabled();
     await expect(page.locator('#profile-select')).toBeDisabled();
     await expect(page.locator('#project-name')).toHaveText('No bundle open');
+  });
+
+  test('a served bundle opens on its first profile (#162)', async ({ page }) => {
+    await page.goto('profile-editor.html?bundle=terraced-house.oebf');
+    await expect(page.locator('#profile-svg')).toBeVisible();
+    await expect(page.locator('#canvas-prompt')).toBeHidden();
+    await expect(page.locator('#profile-select')).not.toHaveValue('');
+    await expect(page.locator('#layer-list input').first()).toBeVisible();
   });
 
   test('buildJson produces correct profile structure', async ({ page }) => {
