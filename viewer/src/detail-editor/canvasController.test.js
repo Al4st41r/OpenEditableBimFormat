@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest';
-import { createController, setControllerTool, handleEvent } from './canvasController.js';
+import { createController, setControllerTool, handleEvent, startPick } from './canvasController.js';
 import { buildCanvasModel } from './canvasModel.js';
 import { addRect } from './detailDocument.js';
 import { addAnnotation } from './annotationOps.js';
@@ -914,5 +914,71 @@ describe('layer end handles', () => {
     r = handleEvent(r.state, ev('move', h.x, h.y - 0.1), ctxFor(doc, sel));
     r = handleEvent(r.state, ev('up', h.x, h.y - 0.1), ctxFor(doc, sel));
     expect(lastDoc(r).doc.members.find((m) => m.role === 'butting-wall').layer_ends[0]).toMatchObject({ layer: 3, far_m: expect.closeTo(0.1, 2) });
+  });
+});
+
+describe('trim and extend tools', () => {
+  // marks well away from the example's walls: a horizontal line crossed by a vertical one at x = 5.5
+  const withMarks = () => {
+    let doc = addAnnotation(exampleDetail(), { type: 'line', points: [{ x: 5, y: 5 }, { x: 6, y: 5 }] });
+    doc = addAnnotation(doc, { type: 'line', points: [{ x: 5.5, y: 4 }, { x: 5.5, y: 6 }] });
+    return doc;
+  };
+  const idx = (doc) => doc.annotations.length - 2;   // the horizontal line
+
+  test('trim cuts the clicked piece back to the crossing, as one step', () => {
+    const doc = withMarks();
+    const r = handleEvent(createController('trim'), ev('down', 5.8, 5), ctxFor(doc));
+    const d = lastDoc(r);
+    expect(d.transient).toBe(false);
+    expect(d.doc.annotations[idx(doc)].points).toEqual([{ x: 5, y: 5 }, { x: 5.5, y: 5 }]);
+    expect(of(r, 'select')[0].selection).toBeNull();
+  });
+
+  test('extend runs the nearer end to the next thing in its way', () => {
+    let doc = addAnnotation(exampleDetail(), { type: 'line', points: [{ x: 5, y: 5 }, { x: 5.2, y: 5 }] });
+    doc = addAnnotation(doc, { type: 'line', points: [{ x: 5.5, y: 4 }, { x: 5.5, y: 6 }] });
+    const r = handleEvent(createController('extend'), ev('down', 5.19, 5), ctxFor(doc));
+    expect(lastDoc(r).doc.annotations[idx(doc)].points[1]).toEqual({ x: 5.5, y: 5 });
+  });
+
+  test('clicking nothing, or a mark with nothing to meet, gives a message and no change', () => {
+    const doc = withMarks();
+    const miss = handleEvent(createController('trim'), ev('down', 9, 9), ctxFor(doc));
+    expect(of(miss, 'doc')).toHaveLength(0);
+    expect(of(miss, 'message')[0].text).toMatch(/line, arc or circle/);
+    const none = handleEvent(createController('extend'), ev('down', 5.5, 5.99), ctxFor(doc));
+    expect(of(none, 'doc')).toHaveLength(0);
+    expect(of(none, 'message')[0].text).toMatch(/Nothing lies ahead/);
+  });
+});
+
+describe('picking points on the canvas', () => {
+  test('one point: a click gives the snapped point and leaves the tool and selection alone', () => {
+    const sel = { type: 'region', index: 0 };
+    const s = startPick(createController('select'), 1);
+    const r = handleEvent(s, ev('down', 1.234, 2.001), ctxFor(exampleDetail(), sel));
+    expect(of(r, 'picked')[0].points).toEqual([{ x: 1.235, y: 2 }]);   // the 5 mm step
+    expect(of(r, 'select')).toHaveLength(0);
+    expect(r.state.pick).toBeNull();
+    expect(r.state.tool).toBe('select');
+  });
+
+  test('two points: a rubber band follows from the first, the second ends the pick', () => {
+    const ctx = ctxFor(exampleDetail());
+    let r = handleEvent(startPick(createController(), 2), ev('down', 1, 1), ctx);
+    expect(of(r, 'picked')).toHaveLength(0);
+    r = handleEvent(r.state, ev('move', 2, 1), ctx);
+    expect(of(r, 'draft')[0].draft).toMatchObject({ kind: 'measure', a: { x: 1, y: 1 }, b: { x: 2, y: 1 } });
+    r = handleEvent(r.state, ev('down', 2, 1.5), ctx);
+    expect(of(r, 'picked')[0].points).toEqual([{ x: 1, y: 1 }, { x: 2, y: 1.5 }]);
+    expect(of(r, 'draft').at(-1).draft).toBeNull();
+  });
+
+  test('Escape cancels with no points', () => {
+    const r = handleEvent(startPick(createController('rect'), 2), key('Escape'), ctxFor(exampleDetail()));
+    expect(of(r, 'picked')[0].points).toBeNull();
+    expect(r.state.tool).toBe('rect');
+    expect(() => startPick(createController(), 3)).toThrow();
   });
 });

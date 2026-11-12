@@ -20,6 +20,8 @@ Buttons carry words, with an icon where one exists. Undo, Redo and Help are icon
 - Building-specific icons stay our own drawings in `viewer/public/icons/` (sources in `docs/assets/`): the layer functions (structure, insulation, membrane, service, finish), the vertical and horizontal planes (3D and Plan), storey, the logo and the favicon. The arc mark tool is our own drawing kept in Lucide's form inside `icons.js`, so it takes the button colour like the rest.
 - Every toolbar command has an icon, on all four editing pages (3D editor, profile editor, detail editor, detail review). The label sits in `<span class="lbl">`; script that changes a label changes that span, so the icon stays.
 - Below 1600 px wide, secondary commands (class `short`: view toggles, Fit, Thin, Library, IFC, the render modes) show only their icon, with an `aria-label` and tooltip, so each toolbar fits one row at 1400 px. Primary commands (file, undo, the drawing tools, Snap) keep their words.
+- The detail editor's Marks menu holds the mark tools (Line, Arc, Circle, Dim, Note) and, below a rule, Trim and Extend, which edit lines, arcs and circles; the menu keeps the toolbar to one row.
+- Commands that need a point on the canvas (the base point for rotate and mirror, the two points of a move) pick it with the next click, snapped, and accept a typed point; Esc cancels. They live in the panel beside the typed fields, not on the toolbar.
 - The launch page has no script, so its card icons are inline Lucide SVG markup.
 
 | Role | Name | Lucide | Role | Name | Lucide |
@@ -47,6 +49,7 @@ Buttons carry words, with an icon where one exists. Undo, Redo and Help are icon
 | Marks | `marks` | pen-tool | Line, Circle | `line`, `circle` | minus, circle |
 | Arc | `arc` | (our own) | Dimension, Note | `dimension`, `note` | move-horizontal, message-square-text |
 | 3D model | `model` | box | Save to folder | `save-folder` | folder-down |
+| Trim | `trim` | scissors | Extend | `extend` | arrow-right-to-line |
 
 ## Names
 

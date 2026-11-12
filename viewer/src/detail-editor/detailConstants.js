@@ -17,10 +17,13 @@ export const PARAM_NAME = /^[a-z][a-z0-9_]*$/;
 export const DEFAULT_EXTRUSION_M = 1;
 
 /** The canvas tools. One list, used by the controller and the page state. */
-export const TOOLS = ['select', 'rect', 'polygon', 'measure', 'line', 'arc', 'circle', 'dim', 'note'];
+export const TOOLS = ['select', 'rect', 'polygon', 'measure', 'line', 'arc', 'circle', 'dim', 'note', 'trim', 'extend'];
 
-/** The tools that draw annotations; the editor groups them under one Marks menu. */
-export const MARK_TOOLS = ['line', 'arc', 'circle', 'dim', 'note'];
+/** The tools that draw or edit annotations; the editor groups them under one Marks menu. */
+export const MARK_TOOLS = ['line', 'arc', 'circle', 'dim', 'note', 'trim', 'extend'];
+
+/** Tools that act on what is clicked rather than placing points, so typing a coordinate does not apply to them. */
+export const PICK_TOOLS = ['select', 'trim', 'extend'];
 
 /**
  * Ready-made units for "draw this layer as units". The size along the run depends on the view: in plan the units run
@@ -35,7 +38,7 @@ export const UNIT_PRESETS = [
 
 /** The keyboard and mouse shortcuts, for the help dialog. Groups of [keys, what it does]. */
 export const SHORTCUTS = [
-  ['Tools', [['V', 'Select'], ['R', 'Rectangle region'], ['P', 'Polygon region'], ['M', 'Measure'], ['L', 'Line'], ['A', 'Arc'], ['C', 'Circle'], ['D', 'Dimension'], ['N', 'Note']]],
+  ['Tools', [['V', 'Select'], ['R', 'Rectangle region'], ['P', 'Polygon region'], ['M', 'Measure'], ['L', 'Line'], ['A', 'Arc'], ['C', 'Circle'], ['D', 'Dimension'], ['N', 'Note'], ['T', 'Trim a line, arc or circle at the next crossing'], ['E', 'Extend a line or arc to the next thing in its way']]],
   ['Selecting', [['Click', 'Pick; click the same spot again to pick what is underneath'], ['Shift+click', 'Add to or remove from the selection'], ['Shift+drag', 'Box select: left to right takes what is inside, right to left what it touches'], ['Ctrl+A', 'Select all regions']]],
   ['Editing', [['Arrows', 'Nudge the selection by the snap step (Shift: ten times)'], ['Ctrl+D', 'Duplicate'], ['Ctrl+C / X / V', 'Copy, cut, paste (between details too)'], ['Delete', 'Delete the selection'], ['[ and ]', 'Send a region back or forward'], ['Ctrl+Z / Ctrl+Y', 'Undo and redo'], ['Ctrl+S', 'Save']]],
   ['Drawing', [['Digits, - @ .', 'Type a point: 2400,1200  @300,0  500<45  or a distance'], ['Enter', 'Finish a polygon or line'], ['Backspace', 'Remove the last point'], ['Esc', 'Cancel'], ['Alt (hold)', 'Suspend snapping'], ['S', 'Snap on or off']]],
