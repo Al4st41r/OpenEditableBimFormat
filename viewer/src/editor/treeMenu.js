@@ -55,3 +55,15 @@ export function makeRemoveButton(onRemove) {
   btn.addEventListener('click', (e) => { e.stopPropagation(); onRemove(); });
   return btn;
 }
+
+/**
+ * The measurement after a row's name, eg "(0 mm)", in a span of its own: set a little apart and dimmed, since in Barlow
+ * a plain space before "(" all but disappears ("Ground Floor(0 mm)"). The caller keeps a space before it in the text.
+ * @param {string} text
+ */
+export function treeItemMeta(text) {
+  const span = document.createElement('span');
+  span.className = 'tree-item-meta';
+  span.textContent = text;
+  return span;
+}
