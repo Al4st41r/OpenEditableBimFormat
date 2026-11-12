@@ -24,9 +24,9 @@ import { validateDetail } from './detailValidate.js';
 import { createDetail, toJsonText } from './detailSerializer.js';
 import { findCounterpart, counterpartDraft, otherPlane } from './counterpart.js';
 import { openObjectMaker } from './objectMakerDialog.js';
-import { loadDetailContext, saveDetail } from './detailStore.js';
+import { loadDetailContext, saveDetail, saveProfileEdit } from './detailStore.js';
 import { snapshotToContext } from './bundleSnapshot.js';
-import { readyMessage, parseIncoming, savedMessage, focusMessage } from './messages.js';
+import { readyMessage, parseIncoming, savedMessage, focusMessage, profileSavedMessage } from './messages.js';
 import { buildBuildingReference } from './buildingReference.js';
 import { DETAIL_FIELDS, applyJunctionFields, validateJunctionFields, junctionMessage } from './junctionFields.js';
 import { assignDetail, unassignDetail, setOverride, setMirrored, setLocation, suggestLocation, validateLocation } from './junctionAssign.js';
@@ -887,6 +887,17 @@ function profileToEdit() {
   return member?.profile_id ?? bundle.ctx.profileIds[0];
 }
 
+/** Write a profile edit into the bundle: JSON, SVG and new materials; a snapshot hands it to the 3D editor. */
+async function persistProfile(saved) {
+  if (bundle.source === 'snapshot') {
+    if (!window.opener || window.opener.closed) throw new Error('the editor window that opened this page has been closed');
+    window.opener.postMessage(profileSavedMessage(saved), window.location.origin);
+    return;
+  }
+  if (!bundle.adapter) throw new Error('no bundle to write to');
+  await saveProfileEdit(bundle.adapter, saved);
+}
+
 $('profile-btn').addEventListener('click', () => {
   if (!bundle || !st) { status('Open a detail first.', true); return; }
   const active = profileToEdit();
@@ -911,9 +922,11 @@ $('profile-btn').addEventListener('click', () => {
       if (remap.changed) st = commit(st, remap.doc);
       if (!bundle.ctx.profileIds.includes(id)) bundle.ctx.profileIds.push(id);
       editedProfiles.set(id, json);
-      Promise.resolve(bundle.adapter?.writeJson?.(`profiles/${id}.json`, json)).catch(() => {});
       refresh();
-      status(remap.changed ? `Profile ${id} updated. Layer settings moved with their layers${remap.dropped ? `; ${remap.dropped} for removed layers dropped` : ''}.` : `Profile ${id} updated from the profile editor.`);
+      const done = remap.changed ? `Profile ${id} updated. Layer settings moved with their layers${remap.dropped ? `; ${remap.dropped} for removed layers dropped` : ''}.` : `Profile ${id} updated from the profile editor.`;
+      // into the bundle: written here when this page can write it, or by the 3D editor for a snapshot (#143)
+      persistProfile({ id, json, svg, newMaterials })
+        .then(() => status(done), (err) => status(`Profile ${id} was not saved to the bundle: ${err.message}`, true));
     }
   };
   window.addEventListener('message', send);

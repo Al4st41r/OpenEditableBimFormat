@@ -1,5 +1,7 @@
 import { describe, test, expect } from 'vitest';
-import { loadDetailContext, saveDetail, DetailSaveError } from './detailStore.js';
+import { loadDetailContext, saveDetail, DetailSaveError, saveProfileEdit } from './detailStore.js';
+import { profileSavedMessage } from './messages.js';
+import { ServerAdapter, MemoryAdapter } from '../editor/storageAdapter.js';
 import { makeFsAdapter, makeMemoryAdapter, exampleDetail } from './testUtils.js';
 import { validateDetail } from './detailValidate.js';
 import { serializeDetail, normaliseDetail } from './detailSerializer.js';
@@ -155,5 +157,47 @@ describe('saveDetail', () => {
     const c = await loadDetailContext(adapter);
     const doc = exampleDetail(); doc.members[0].profile_id = 'ghost-profile';
     await expect(saveDetail(adapter, doc, ctxFor(c))).rejects.toThrow(/ghost-profile|profile/i);
+  });
+});
+
+describe('saveProfileEdit: a profile from the profile editor reaches the bundle whole (#143)', () => {
+  const json = { id: 'profile-cavity-250', type: 'Profile', svg_file: 'profiles/profile-cavity-250.svg', assembly: [] };
+  const air = { id: 'mat-air', name: 'Air', colour_hex: '#ffffff', category: 'gas' };
+
+  test('a writable bundle gets the JSON, the SVG and the new materials merged into its library', async () => {
+    const a = await makeMemoryAdapter();
+    const before = (await a.readJson('materials/library.json')).materials;
+    await saveProfileEdit(a, { id: 'profile-cavity-250', json, svg: '<svg/>', newMaterials: [air, before[0]] });
+    expect(await a.readJson('profiles/profile-cavity-250.json')).toEqual(json);
+    expect(await a.readRaw('profiles/profile-cavity-250.svg')).toBe('<svg/>');
+    const after = (await a.readJson('materials/library.json')).materials;
+    expect(after).toEqual([...before, air]);   // existing kept as they were, the new one added once
+  });
+
+  test('a bundle with no library gets one holding the new materials', async () => {
+    const a = new MemoryAdapter(new Map(), 'b');
+    await saveProfileEdit(a, { id: 'p', json, svg: '<svg/>', newMaterials: [air] });
+    expect((await a.readJson('materials/library.json')).materials).toEqual([air]);
+  });
+
+  test('a library that cannot be read (502) is an error, not replaced by the new materials alone', async () => {
+    const files = new Map([['materials/library.json', '{"materials":[{"id":"mat-brick"}]}']]);
+    const fetchFn = async (url, opts = {}) => {
+      const rel = decodeURIComponent(url.replace(/^.*\/files\//, ''));
+      if (opts.method === 'PUT') { files.set(rel, opts.body); return new Response(null, { status: 204 }); }
+      return new Response('', { status: 502 });
+    };
+    const a = new ServerAdapter('/oebf-live/api/', 'live', fetchFn);
+    await expect(saveProfileEdit(a, { id: 'p', json, svg: '<svg/>', newMaterials: [air] })).rejects.toThrow(/502/);
+    expect(files.get('materials/library.json')).toBe('{"materials":[{"id":"mat-brick"}]}');
+  });
+
+  test('for a snapshot, the forwarded message carries the JSON, SVG and materials the 3D editor writes', async () => {
+    const msg = profileSavedMessage({ id: 'p', json, svg: '<svg/>', newMaterials: [air] });
+    expect(msg).toEqual({ type: 'profile-saved', id: 'p', json, svg: '<svg/>', newMaterials: [air] });
+    const opener = new MemoryAdapter(new Map(), 'b');   // the 3D editor writes it with the same function
+    await saveProfileEdit(opener, structuredClone(msg));
+    expect(await opener.readRaw('profiles/p.svg')).toBe('<svg/>');
+    expect((await opener.readJson('materials/library.json')).materials).toEqual([air]);
   });
 });

@@ -26,7 +26,7 @@ import { loadDetails } from '../detail/loadDetails.js';
 import { junctionPoint } from '../detail/junctionPosition.js';
 import { withStoreyGroups, loadStoreyGroups } from '../detail/levelResolver.js';
 import { parsePath } from '../loader/loadPath.js';
-import { loadDetailContext } from '../detail-editor/detailStore.js';
+import { loadDetailContext, saveProfileEdit } from '../detail-editor/detailStore.js';
 import { buildSnapshot } from '../detail-editor/bundleSnapshot.js';
 import { isTrustedReady, buildOpenerReply, parseSaved, parseFocus } from '../detail-editor/messages.js';
 import { parseJunctionMessage } from '../detail-editor/junctionFields.js';
@@ -1758,21 +1758,15 @@ async function _changeElementProfile(elementId, newProfileId) {
   }
 }
 
-// ── Profile-saved message from profile editor tab (memory mode) ───────────────
+// ── Profile-saved message from a profile editor tab, or forwarded by a detail editor on a snapshot (#143) ──
 window.addEventListener('message', async (e) => {
   if (e.origin !== window.location.origin) return;
   if (e.data?.type !== 'profile-saved') return;
   if (!adapter) return;
   const { id, json, svg, newMaterials = [] } = e.data;
   try {
-    await adapter.writeJson(`profiles/${id}.json`, json);
-    if (adapter.writeRaw) await adapter.writeRaw(`profiles/${id}.svg`, svg);
-    if (newMaterials.length) {   // materials the profile editor added (new, or from the library) go into the bundle
-      const lib = await readJsonOr(adapter, 'materials/library.json', { $schema: 'oebf://schema/0.1/materials', materials: [] });
-      const have = new Set((lib.materials ?? []).map((m) => m.id));
-      lib.materials = [...(lib.materials ?? []), ...newMaterials.filter((m) => !have.has(m.id))];
-      await adapter.writeJson('materials/library.json', lib);
-    }
+    // the JSON, the SVG and the materials the profile editor added (new, or from the library)
+    await saveProfileEdit(adapter, { id, json, svg, newMaterials });
     await _writeModelJson();   // what this session added is in the files before the reload
     await _loadAndRenderBundle(adapter, { keepView: true });   // walls and slabs on this profile redraw
     statusBar.textContent = `Profile saved: ${id}`;

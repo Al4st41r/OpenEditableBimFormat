@@ -10,6 +10,7 @@ import { validateDetail } from './detailValidate.js';
 import { serializeDetail } from './detailSerializer.js';
 import { listLevels, withStoreyGroups, loadStoreyGroups } from '../detail/levelResolver.js';
 import { parsePath } from '../loader/loadPath.js';
+import { readJsonOr } from '../editor/storageAdapter.js';
 
 export class DetailSaveError extends Error {
   constructor(messages) {
@@ -107,4 +108,23 @@ export async function saveDetail(adapter, doc, validationCtx) {
     modelUpdated = true;
   }
   return { path, modelUpdated };
+}
+
+/**
+ * Write a profile saved in the profile editor into a bundle: its JSON, its SVG, and the materials it added merged
+ * into materials/library.json (materials already there are kept as they are). Used by the 3D editor and by the detail
+ * editor for a bundle it can write (#143). A library that cannot be read is an error, never a fresh library.
+ *
+ * @param {object} adapter - FsaAdapter, MemoryAdapter or ServerAdapter
+ * @param {{ id: string, json: object, svg?: string, newMaterials?: object[] }} saved
+ */
+export async function saveProfileEdit(adapter, { id, json, svg, newMaterials = [] }) {
+  await adapter.writeJson(`profiles/${id}.json`, json);
+  if (svg && adapter.writeRaw) await adapter.writeRaw(`profiles/${id}.svg`, svg);
+  if (newMaterials.length) {
+    const lib = await readJsonOr(adapter, 'materials/library.json', { $schema: 'oebf://schema/0.1/materials', materials: [] });
+    const have = new Set((lib.materials ?? []).map((m) => m.id));
+    lib.materials = [...(lib.materials ?? []), ...newMaterials.filter((m) => !have.has(m.id))];
+    await adapter.writeJson('materials/library.json', lib);
+  }
 }
