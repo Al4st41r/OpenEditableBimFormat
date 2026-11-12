@@ -1,9 +1,6 @@
 // Properties panel checks (issue #83, #98): element fields, path nodes, storey, offsets re-render. Run in the editor
 // page with the demo bundle; writes PASS/FAIL lines to an on-screen <pre id="rep"> ending in DONE.
-//   shot-scraper "http://localhost:5199/oebf/editor.html?demo=1" -o out.png --wait 6000 \
-//     --javascript "$(cat tests/e2e/main-editor-properties.checks.js)" \
-//     --wait-for "document.getElementById('rep')?.textContent.includes('DONE')" -b chromium \
-//     --browser-arg=--enable-webgl --browser-arg=--ignore-gpu-blocklist --browser-arg=--use-gl=swiftshader
+// Run by tests/e2e/main-editor-checks.spec.js.
 (() => {
   const log = [];
   const show = () => { let pre = document.getElementById('rep'); if (!pre) { pre = document.createElement('pre'); pre.id = 'rep'; pre.style.cssText = 'position:fixed;left:8px;bottom:8px;z-index:99;background:#000d;color:#9f9;font:12px monospace;padding:8px;white-space:pre-wrap;max-width:900px;margin:0'; document.body.appendChild(pre); } pre.textContent = log.join('\n'); };
@@ -60,17 +57,20 @@
       await set('field-material_id', other);
       note(file(`slabs/${slabId}.json`).material_id === other, 'slab material written to the slab file', { other });
 
-      // storey (the demo has none, so add two)
-      E.storeys()._addStorey('storey-test-gf', 'Test ground', 0, true);
-      E.storeys()._addStorey('storey-test-first', 'Test first', 3, true);
-      document.querySelector('#storeys-list .tree-item-name').click();
+      // storey: the demo has one ('Ground Floor'); add a storey 3 m above it so its height is derived
+      const demoStoreys = E.storeys().getAll();
+      note(demoStoreys.length >= 1, 'the demo has a storey', demoStoreys.map((s) => s.name));
+      const gf = [...demoStoreys].sort((a, b) => b.z_m - a.z_m)[0];   // the top one, so the new storey is next above it
+      E.storeys()._addStorey('storey-test-above', 'Test above', gf.z_m + 3, true);
+      const gfIndex = E.storeys().getAll().findIndex((s) => s.id === gf.id);
+      document.querySelectorAll('#storeys-list .tree-item-name')[gfIndex].click();
       await sleep(300);
       await until(() => document.querySelector('#props-content h3')?.textContent === 'Storey');
       note(!!document.getElementById('field-name') && !!document.getElementById('field-z_m'), 'storey name and elevation shown');
       note([...document.querySelectorAll('#props-content .prop-row')].some((r) => /Height/.test(r.textContent) && /3000/.test(r.querySelector('input').value)), 'storey height is derived from the next storey');
       await set('field-name', 'Ground renamed');
-      const storeyFile = [...E.adapter()._map.keys()].find((k) => k.startsWith('groups/storey') && JSON.parse(E.adapter()._map.get(k)).name === 'Ground renamed');
-      note(!!storeyFile, 'storey name written to its group file', storeyFile);
+      const storeyFile = [...E.adapter()._map.keys()].find((k) => k.startsWith('groups/') && JSON.parse(E.adapter()._map.get(k)).name === 'Ground renamed');
+      note(storeyFile === `groups/${gf.id}.json`, 'storey name written to its group file', storeyFile);
     } catch (e) { note(false, 'script error', String(e)); }
     log.push('DONE'); show();
   })();
