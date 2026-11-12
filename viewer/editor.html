@@ -123,6 +123,7 @@
     }
     .tree-section-add:hover { opacity: 1; }
     .tree-items { padding: 0; }
+    #scene-tree-body.loaded .tree-items:empty::after { content: attr(data-empty); display: block; padding: 2px 10px 6px 20px; font-size: 11px; color: #888; font-style: italic; }
     .tree-item {
       display: flex; align-items: center; gap: 6px;
       padding: 3px 10px 3px 20px; cursor: pointer; font-size: 12px;
@@ -289,7 +290,7 @@
           Storeys
           <button class="tree-section-add" id="add-storey-btn" title="Add storey" aria-label="Add storey"><i data-icon="add" data-size="14"></i></button>
         </div>
-        <div class="tree-items" id="storeys-list"></div>
+        <div class="tree-items" id="storeys-list" data-empty="No storeys yet. Use + to add one."></div>
 
         <div class="tree-section-header">
           Reference Grids
@@ -297,43 +298,43 @@
           <button class="tree-section-add" id="grid-planes-btn" title="Show or hide the translucent grid planes in 3D (the dashed lines stay)" aria-label="Show or hide the translucent grid planes in 3D (the dashed lines stay)"><i data-icon="planes" data-size="14"></i></button>
           <button class="tree-section-add" id="add-gridset-btn" disabled title="Start another grid, eg a secondary grid of mid-bay lines. Click a grid name to make it the active one." aria-label="Start another grid, eg a secondary grid of mid-bay lines. Click a grid name to make it the active one."><i data-icon="grid" data-size="14"></i></button>
         </div>
-        <div class="tree-items" id="grids-list"></div>
+        <div class="tree-items" id="grids-list" data-empty="No grid yet. Use + to add an axis."></div>
 
         <div class="tree-section-header">
           Reference Guides
           <button class="tree-section-add" id="add-guide-btn" disabled title="Add vertical guide" aria-label="Add vertical guide"><i data-icon="add" data-size="14"></i></button>
           <button class="tree-section-add" id="add-height-guide-btn" disabled title="Add horizontal height guide" aria-label="Add horizontal height guide"><i data-icon="h-guide" data-size="14"></i></button>
         </div>
-        <div class="tree-items" id="guides-list"></div>
+        <div class="tree-items" id="guides-list" data-empty="No guides yet. Use + for a vertical guide, or the next button for a height guide."></div>
 
         <div class="tree-section-header">
           Elements
         </div>
-        <div class="tree-items" id="elements-list"></div>
+        <div class="tree-items" id="elements-list" data-empty="No elements yet. Draw a wall (W) or a floor (F)."></div>
 
         <div class="tree-section-header">
           Junctions
           <button class="tree-section-add" id="add-junction-btn" disabled title="Make a junction: pick elements, a place on a grid and a detail" aria-label="Make a junction: pick elements, a place on a grid and a detail"><i data-icon="add" data-size="14"></i></button>
         </div>
-        <div class="tree-items" id="junctions-list"></div>
+        <div class="tree-items" id="junctions-list" data-empty="No junctions yet. Use + to make one."></div>
 
         <div class="tree-section-header">
           Details
           <button class="tree-section-add" id="add-detail-btn" disabled title="Open the detail editor" aria-label="Open the detail editor"><i data-icon="add" data-size="14"></i></button>
         </div>
-        <div class="tree-items" id="details-list"></div>
+        <div class="tree-items" id="details-list" data-empty="No details yet. Use + to open the detail editor."></div>
 
         <div class="tree-section-header">
           Sub-assembly profiles
           <button class="tree-section-add" id="add-subassembly-btn" disabled title="Add sub-assembly profile" aria-label="Add sub-assembly profile"><i data-icon="add" data-size="14"></i></button>
         </div>
-        <div class="tree-items" id="subassemblies-list"></div>
+        <div class="tree-items" id="subassemblies-list" data-empty="No sub-assembly profiles yet. Use + to add one."></div>
 
         <div class="tree-section-header">
           Materials
           <button class="tree-section-add" id="add-material-btn" disabled title="Add material" aria-label="Add material"><i data-icon="add" data-size="14"></i></button>
         </div>
-        <div class="tree-items" id="materials-list"></div>
+        <div class="tree-items" id="materials-list" data-empty="No materials yet. Use + or the Library."></div>
       </div>
       <div id="scene-tree-footer">
         <div id="scene-tree-filename">No bundle open</div>

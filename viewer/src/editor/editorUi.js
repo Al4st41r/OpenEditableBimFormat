@@ -50,3 +50,45 @@ export function shortcutFor(e, { typing = false, drawing = false } = {}) {
   if (drawing) return null;
   return PLAIN[key] ?? null;
 }
+
+/**
+ * Whether the properties panel offers a profile for this kind of entity. A slab is a boundary, a thickness and a
+ * material; it has no profile_id, so a profile picker would only show its first option and could write an invalid
+ * field (issue #151).
+ *
+ * @param {'element'|'slab'|string} kind
+ */
+export function hasProfilePicker(kind) {
+  return kind !== 'slab';
+}
+
+/**
+ * The options of the profile picker: the bundle's profiles, with the current one selected. An element with no
+ * profile, or with one the bundle does not hold, gets a first option saying so, so the picker never claims a profile
+ * the element does not have.
+ *
+ * @param {string[]} ids - the bundle's (non-detail) profile ids
+ * @param {string|null|undefined} current - the element's profile_id
+ * @returns {{ value: string, label: string, selected: boolean, disabled?: boolean }[]}
+ */
+export function profileOptions(ids, current) {
+  const opts = ids.map((id) => ({ value: id, label: id, selected: id === current }));
+  if (!current) return [{ value: '', label: '— none —', selected: true, disabled: true }, ...opts];
+  if (!ids.includes(current)) return [{ value: current, label: `${current} (missing)`, selected: true, disabled: true }, ...opts];
+  return opts;
+}
+
+/**
+ * The items of an element's right-click menu in the scene tree (issue #165). Labels only and the action names; the
+ * editor wires the actions.
+ *
+ * @param {{ kind: 'element'|'slab'|string, hasProfile: boolean, hasPath: boolean }} reg
+ * @returns {{ label: string, action: 'select'|'editPath'|'editProfile'|'copyId' }[]}
+ */
+export function elementMenuItems({ kind, hasProfile, hasPath }) {
+  const items = [{ label: 'Select', action: 'select' }];
+  if (hasPath) items.push({ label: kind === 'slab' ? 'Edit boundary' : 'Edit path', action: 'editPath' });
+  if (hasProfile && kind !== 'slab') items.push({ label: 'Edit profile', action: 'editProfile' });
+  items.push({ label: 'Copy id', action: 'copyId' });
+  return items;
+}

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { elementLabel, shortcutFor, SHORTCUTS } from './editorUi.js';
+import { elementLabel, shortcutFor, SHORTCUTS, hasProfilePicker, profileOptions, elementMenuItems } from './editorUi.js';
 
 describe('elementLabel', () => {
   it('uses the description the author wrote', () => {
@@ -43,5 +43,38 @@ describe('shortcutFor', () => {
   });
   it('every action the help lists is a real key', () => {
     expect(SHORTCUTS.flatMap(([, rows]) => rows).length).toBeGreaterThan(12);
+  });
+});
+
+describe('profile picker (#151)', () => {
+  it('is offered for elements and not for slabs', () => {
+    expect(hasProfilePicker('element')).toBe(true);
+    expect(hasProfilePicker('slab')).toBe(false);
+  });
+  it('selects the element profile among the bundle profiles', () => {
+    const opts = profileOptions(['profile-a', 'profile-b'], 'profile-b');
+    expect(opts.map((o) => o.value)).toEqual(['profile-a', 'profile-b']);
+    expect(opts.filter((o) => o.selected).map((o) => o.value)).toEqual(['profile-b']);
+  });
+  it('never shows the first profile as chosen for an element with none', () => {
+    const opts = profileOptions(['profile-a'], null);
+    expect(opts[0]).toMatchObject({ value: '', selected: true, disabled: true });
+    expect(opts[1].selected).toBe(false);
+  });
+  it('names a profile the bundle does not hold rather than hiding it', () => {
+    const opts = profileOptions(['profile-a'], 'profile-gone');
+    expect(opts[0]).toMatchObject({ value: 'profile-gone', label: 'profile-gone (missing)', selected: true });
+  });
+});
+
+describe('elementMenuItems (#165)', () => {
+  it('offers select, edit path, edit profile and copy id for a wall', () => {
+    expect(elementMenuItems({ kind: 'element', hasProfile: true, hasPath: true }).map((i) => i.action))
+      .toEqual(['select', 'editPath', 'editProfile', 'copyId']);
+  });
+  it('offers no profile for a slab and calls its path a boundary', () => {
+    const items = elementMenuItems({ kind: 'slab', hasProfile: false, hasPath: true });
+    expect(items.map((i) => i.action)).toEqual(['select', 'editPath', 'copyId']);
+    expect(items[1].label).toBe('Edit boundary');
   });
 });
