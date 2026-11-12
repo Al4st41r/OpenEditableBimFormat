@@ -6,7 +6,8 @@
  * Exports helpers for switching between 3D and plan view.
  */
 
-import { applyRenderMode, gridColours } from '../scene/renderMode.js';
+import { applyRenderMode, gridColours, gridDrop } from '../scene/renderMode.js';
+import { fitPerspective, fitPlan } from '../scene/fitCamera.js';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
@@ -73,7 +74,7 @@ export function initEditorScene(canvas) {
   function makeGrid(mode, z = 0) {
     const grid = new THREE.GridHelper(50, 50, ...gridColours(mode));
     grid.rotation.x = Math.PI / 2; // XY plane (Z-up)
-    grid.position.z = z;
+    grid.position.z = z - gridDrop();   // just under a floor at this level, not in it (#152); see animate
     scene.add(grid);
     return grid;
   }
@@ -103,7 +104,7 @@ export function initEditorScene(canvas) {
 
   function setStoreyZ(z) {
     activeStoreyZ = z;
-    constructionGrid.position.z = z;
+    constructionGrid.position.z = z - gridDrop();
     constructionPlane.position.z = z;
   }
 
@@ -123,10 +124,10 @@ export function initEditorScene(canvas) {
     applyRenderMode(modelGroup, mode);   // overlays and the construction plane are outside modelGroup
     for (const g of _renderModeGroups) applyRenderMode(g, mode);
     if (gridColours(mode)[0] !== gridColours(_gridMode)[0]) {
-      const { z } = constructionGrid.position, visible = constructionGrid.visible;
+      const visible = constructionGrid.visible;
       scene.remove(constructionGrid);
       constructionGrid.geometry.dispose(); constructionGrid.material.dispose();
-      constructionGrid = makeGrid(mode, z);
+      constructionGrid = makeGrid(mode, activeStoreyZ);
       constructionGrid.visible = visible;
       _gridMode = mode;
     }
@@ -145,6 +146,24 @@ export function initEditorScene(canvas) {
 
   function getActiveCamera() {
     return isPlanView ? orthoCamera : perspCamera;
+  }
+
+  /**
+   * Frame the model (#159). `plan` picks the camera (the active one by default); with `keepDirection` the 3D view keeps
+   * the angle it is seen from, otherwise it looks from the south-east. Returns false when there is nothing to frame.
+   */
+  function fitView({ plan = isPlanView, keepDirection = false } = {}) {
+    const box = new THREE.Box3().setFromObject(modelGroup);
+    if (box.isEmpty()) return false;
+    if (plan) {
+      fitPlan(orthoCamera, orthoControls.target, box);
+      orthoControls.update();
+    } else {
+      const direction = keepDirection ? perspCamera.position.clone().sub(controls.target) : undefined;
+      fitPerspective(perspCamera, controls.target, box.getBoundingSphere(new THREE.Sphere()), direction);
+      controls.update();
+    }
+    return true;
   }
 
   // ── Resize ────────────────────────────────────────────────────────────────
@@ -184,6 +203,8 @@ export function initEditorScene(canvas) {
     lastFrame = now;
     controls.update();
     orthoControls.update();
+    // the further off the camera, the further under the floor the grid must be to stay hidden by it (#152)
+    constructionGrid.position.z = activeStoreyZ - gridDrop(isPlanView ? 0 : perspCamera.position.distanceTo(controls.target));
     renderer.render(scene, getActiveCamera());
   }
   animate();
@@ -192,7 +213,7 @@ export function initEditorScene(canvas) {
     renderer, scene, perspCamera, orthoCamera, controls,
     constructionPlane, modelGroup, overlayGroup,
     get constructionGrid() { return constructionGrid; },   // replaced when the render mode changes its colours
-    setStoreyZ, getStoreyZ, setPlanView, getActiveCamera,
+    setStoreyZ, getStoreyZ, setPlanView, getActiveCamera, fitView,
     setRenderMode, getRenderMode, addRenderModeGroup,
   };
 }

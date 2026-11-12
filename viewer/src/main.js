@@ -21,11 +21,14 @@ import { applyJunctionClipping, buildCustomJunctionMesh, buildJunctionDetailMesh
 import { ensureDetailMaterials } from './detail/detailMaterials.js';
 import { applyCsgJunctions } from './junction-csg.js';
 import { buildObjectGroup, colourLookup } from './loader/loadObject.js';
-import { cutOpenings } from './geometry/openingCut.js';
+import { cutOpenings, openingFaces } from './geometry/openingCut.js';
+import { buildOpeningOutline } from './loader/loadOpening.js';
 import { buildArrayGroup }       from './array/arrayRenderer.js';
 import { buildSymbolGeometries, symbolMaterials } from './loader/loadSymbol.js';
 import { buildGridLineSegments } from './loader/loadGrid.js';
 import { renderIcons } from './ui/icons.js';
+import { gridDrop } from './scene/renderMode.js';
+import { fitPerspective } from './scene/fitCamera.js';
 
 renderIcons();
 
@@ -79,6 +82,7 @@ _handleResize(); // ensure correct size on first frame
 function animate() {
   requestAnimationFrame(animate);
   controls.update();
+  grid.position.z = -gridDrop(camera.position.distanceTo(controls.target));   // under the ground slab's top face (#152)
   renderer.render(scene, camera);
 }
 animate();
@@ -162,8 +166,13 @@ function _buildScene(meshes, manifest, junctions, arrays, grids, openings = [], 
     currentGroup.add(lines);
   }
 
-  // Render opening outlines (yellow, v0.1 — boolean cut deferred to v0.2)
-  for (const { positions, openingId } of openings) {
+  // doors and windows are holes in their walls
+  cutOpenings(currentGroup, openings.filter((o) => o.opening).map(({ opening, pathData }) => ({ opening, pathData })));
+
+  // Opening outlines (yellow), drawn on the wall faces round the hole now it is cut (#153)
+  for (const { positions: onPath, openingId, opening, pathData } of openings) {
+    const faces = opening ? openingFaces(currentGroup, opening, pathData) : null;
+    const positions = faces ? buildOpeningOutline(opening, pathData, faces).positions : onPath;
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
     const lines = new THREE.LineSegments(
@@ -174,22 +183,17 @@ function _buildScene(meshes, manifest, junctions, arrays, grids, openings = [], 
     currentGroup.add(lines);
   }
 
-  // doors and windows are holes in their walls
-  cutOpenings(currentGroup, openings.filter((o) => o.opening).map(({ opening, pathData }) => ({ opening, pathData })));
-
   const objectColour = colourLookup(materials);
   for (const { object, placement, parts } of objects) currentGroup.add(buildObjectGroup(placement, object.id, parts, objectColour));
 
   scene.add(currentGroup);
 
-  // Fit camera to loaded geometry
-  const box    = new THREE.Box3().setFromObject(currentGroup);
-  const centre = box.getCenter(new THREE.Vector3());
-  const size   = box.getSize(new THREE.Vector3());
-  const maxDim = Math.max(size.x, size.y, size.z);
-  camera.position.copy(centre).add(new THREE.Vector3(maxDim, -maxDim, maxDim * 0.8));
-  controls.target.copy(centre);
-  controls.update();
+  // Frame the whole model (#159)
+  const box = new THREE.Box3().setFromObject(currentGroup);
+  if (!box.isEmpty()) {
+    fitPerspective(camera, controls.target, box.getBoundingSphere(new THREE.Sphere()));
+    controls.update();
+  }
 
   statusEl.textContent = `${manifest.project_name} — ${meshes.length} mesh(es) loaded`;
 }

@@ -55,7 +55,7 @@ import { mergeStoreyGroups, syncHierarchyStoreys } from '../detail/levelResolver
 import { buildOpeningOutline } from '../loader/loadOpening.js';
 import { objectPlacement, buildObjectGroup, colourLookup } from '../loader/loadObject.js';
 import { symbolParts } from '../loader/symbolParts.js';
-import { cutOpenings } from '../geometry/openingCut.js';
+import { cutOpenings, openingFaces } from '../geometry/openingCut.js';
 import { nextObjectId, newObject, normaliseArray, placementProblems, instanceCount, withObjectRegistered, withObjectUnregistered } from './objectModel.js';
 import {
   openingFieldSpecs, nextOpeningId, newOpening, openingProblems, openingsOf, overlappingOpenings,
@@ -368,14 +368,17 @@ function _showIfcMenu() {
 }
 
 // ── View toggle ───────────────────────────────────────────────────────────────
+// each switch frames the model in the view switched to (#159); the 3D view keeps its angle
 view3dBtn.addEventListener('click', () => {
   editorScene.setPlanView(false);
+  editorScene.fitView({ plan: false, keepDirection: true });
   view3dBtn.classList.add('active');
   viewPlanBtn.classList.remove('active');
 });
 
 viewPlanBtn.addEventListener('click', () => {
   editorScene.setPlanView(true);
+  editorScene.fitView({ plan: true });
   viewPlanBtn.classList.add('active');
   view3dBtn.classList.remove('active');
 });
@@ -942,17 +945,10 @@ async function _loadAndRenderBundleInner(adapter, keepView) {
   junctionEditor.onOpenDetail = (detailId) => _openDetailEditor(detailId);
   junctionEditor.onFocusJunction = (id) => _focusJunction(id);
 
-  // Fit camera to loaded geometry (not after an undo: the view stays where the user left it)
-  const box = new THREE.Box3().setFromObject(editorScene.modelGroup);
-  if (!keepView && !box.isEmpty()) {
-    const centre = box.getCenter(new THREE.Vector3());
-    const size   = box.getSize(new THREE.Vector3());
-    const maxDim = Math.max(size.x, size.y, size.z);
-    editorScene.perspCamera.position.copy(centre).add(
-      new THREE.Vector3(maxDim, -maxDim, maxDim * 0.8)
-    );
-    editorScene.controls.target.copy(centre);
-    editorScene.controls.update();
+  // Frame the loaded model in both views (#159), but not after an undo: the view stays where the user left it
+  if (!keepView) {
+    editorScene.fitView({ plan: false });
+    editorScene.fitView({ plan: true });
   }
 }
 
@@ -2472,6 +2468,7 @@ function _cutOpenings(hostIds) {
     .map(({ entity }) => ({ opening: entity, pathData: _elementRegistry.get(entity.host_element_id)?.pathData }))
     .filter((c) => c.pathData);
   cutOpenings(editorScene.modelGroup, cuts);
+  for (const { opening } of cuts) _drawOpening(opening);   // now the hole is there, frame it on the wall faces (#153)
 }
 
 /** Rebuild a wall's meshes without its holes, then cut them again: after an opening is added, moved, resized or removed. */
@@ -2487,7 +2484,7 @@ function _drawOpening(entity) {
   let object = null;
   if (reg?.pathData) {
     try {
-      const { positions } = buildOpeningOutline(entity, reg.pathData);
+      const { positions } = buildOpeningOutline(entity, reg.pathData, openingFaces(editorScene.modelGroup, entity, reg.pathData));
       const geometry = new THREE.BufferGeometry();
       geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
       object = new THREE.LineSegments(geometry, new THREE.LineBasicMaterial({ color: 0xffb000, depthTest: false }));
