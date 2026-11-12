@@ -89,4 +89,17 @@ describe('buildOpeningOutline', () => {
     expect(positions[3]).toBeCloseTo(3);
     expect(positions[4]).toBeCloseTo(0.5);
   });
+
+  test('with the wall faces, draws the rectangle on both faces, joined at the corners (#153)', () => {
+    const { positions } = buildOpeningOutline(doorOpening, southWallPath, { near: -0.145, far: 0.145 });
+    expect(positions.length).toBe(12 * 6);
+    const ys = new Set(); for (let i = 1; i < positions.length; i += 3) ys.add(Math.round(positions[i] * 1000));
+    expect([...ys].sort((a, b) => a - b)).toEqual([-145, 145]);
+    // the path runs west, so its left-hand normal points south: near (-0.145) is the north face
+    expect(positions[1]).toBeCloseTo(0.145);
+    // x and z are those of the plain outline
+    const plain = buildOpeningOutline(doorOpening, southWallPath).positions;
+    expect(positions[0]).toBeCloseTo(plain[0]);
+    expect(positions[2]).toBeCloseTo(plain[2]);
+  });
 });

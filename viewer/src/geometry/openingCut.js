@@ -10,6 +10,7 @@ import * as THREE from 'three';
 import { Brush, Evaluator, SUBTRACTION } from 'three-bvh-csg';
 import { parsePath } from '../loader/loadPath.js';
 import { frameAlong } from '../loader/loadObject.js';
+import { featureEdges } from './featureEdges.js';
 
 /** How far the cutter reaches across the wall, metres: past any build-up in the examples, centred on the path. */
 export const CUT_DEPTH_M = 1.5;
@@ -65,7 +66,7 @@ export function cutOpenings(root, cuts) {
         mesh.geometry = result.geometry;
         old.dispose();
         const edges = mesh.getObjectByName('edges');
-        if (edges) { edges.geometry.dispose(); edges.geometry = new THREE.EdgesGeometry(mesh.geometry, 15); }
+        if (edges) { edges.geometry.dispose(); edges.geometry = featureEdges(mesh.geometry, 15); }   // no cut-face diagonals (#153)
         cut++;
       } catch (err) {
         console.warn(`[OEBF] opening ${opening.id} not cut through ${mesh.userData.elementId}: ${err.message}`);
@@ -73,4 +74,34 @@ export function cutOpenings(root, cuts) {
     }
   }
   return cut;
+}
+
+/**
+ * Where the host wall's faces are across the opening, after the cut (#153): the least and greatest offset of the
+ * host's vertices at the hole, measured along the wall's left-hand normal (the cutter's depth axis) from the path.
+ * The outline is drawn on those faces rather than on the path, which may run down the middle of a cavity.
+ *
+ * @returns {{ near: number, far: number } | null} null when the host has no vertex at the hole
+ */
+export function openingFaces(root, opening, pathData) {
+  let box;
+  try { box = openingBox(opening, pathData); } catch { return null; }
+  const along = new THREE.Vector3(Math.cos(box.angle), Math.sin(box.angle), 0);
+  const across = new THREE.Vector3(-Math.sin(box.angle), Math.cos(box.angle), 0);
+  const centre = new THREE.Vector3(box.x, box.y, box.z);
+  const v = new THREE.Vector3();
+  let near = Infinity, far = -Infinity;
+  root.traverse((o) => {
+    if (!o.isMesh || o.userData?.elementId !== opening.host_element_id) return;
+    o.updateWorldMatrix(true, false);
+    const pos = o.geometry.getAttribute('position');
+    for (let i = 0; i < pos.count; i++) {
+      v.fromBufferAttribute(pos, i).applyMatrix4(o.matrixWorld).sub(centre);
+      if (Math.abs(v.dot(along)) > box.width / 2 + 1e-3 || Math.abs(v.z) > box.height / 2 + 1e-3) continue;
+      const d = v.dot(across);
+      if (Math.abs(d) > box.depth / 2) continue;
+      near = Math.min(near, d); far = Math.max(far, d);
+    }
+  });
+  return near < far ? { near, far } : null;
 }

@@ -6,7 +6,8 @@
  * Exports helpers for switching between 3D and plan view.
  */
 
-import { applyRenderMode, gridColours } from '../scene/renderMode.js';
+import { applyRenderMode, gridColours, gridDrop } from '../scene/renderMode.js';
+import { fitPerspective, fitPlan } from '../scene/fitCamera.js';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
@@ -74,7 +75,7 @@ export function initEditorScene(canvas) {
   function makeGrid(mode, z = 0) {
     const grid = new THREE.GridHelper(50, 50, ...gridColours(mode));
     grid.rotation.x = Math.PI / 2; // XY plane (Z-up)
-    grid.position.z = z;
+    grid.position.z = z - gridDrop();   // just under a floor at this level, not in it (#152); see the render loop
     scene.add(grid);
     return grid;
   }
@@ -104,7 +105,7 @@ export function initEditorScene(canvas) {
 
   function setStoreyZ(z) {
     activeStoreyZ = z;
-    constructionGrid.position.z = z;
+    constructionGrid.position.z = z - gridDrop();
     constructionPlane.position.z = z;
   }
 
@@ -124,10 +125,10 @@ export function initEditorScene(canvas) {
     applyRenderMode(modelGroup, mode);   // overlays and the construction plane are outside modelGroup
     for (const g of _renderModeGroups) applyRenderMode(g, mode);
     if (gridColours(mode)[0] !== gridColours(_gridMode)[0]) {
-      const { z } = constructionGrid.position, visible = constructionGrid.visible;
+      const visible = constructionGrid.visible;
       scene.remove(constructionGrid);
       constructionGrid.geometry.dispose(); constructionGrid.material.dispose();
-      constructionGrid = makeGrid(mode, z);
+      constructionGrid = makeGrid(mode, activeStoreyZ);
       constructionGrid.visible = visible;
       _gridMode = mode;
     }
@@ -146,6 +147,24 @@ export function initEditorScene(canvas) {
 
   function getActiveCamera() {
     return isPlanView ? orthoCamera : perspCamera;
+  }
+
+  /**
+   * Frame the model (#159). `plan` picks the camera (the active one by default); with `keepDirection` the 3D view keeps
+   * the angle it is seen from, otherwise it looks from the south-east. Returns false when there is nothing to frame.
+   */
+  function fitView({ plan = isPlanView, keepDirection = false } = {}) {
+    const box = new THREE.Box3().setFromObject(modelGroup);
+    if (box.isEmpty()) return false;
+    if (plan) {
+      fitPlan(orthoCamera, orthoControls.target, box);
+      orthoControls.update();
+    } else {
+      const direction = keepDirection ? perspCamera.position.clone().sub(controls.target) : undefined;
+      fitPerspective(perspCamera, controls.target, box.getBoundingSphere(new THREE.Sphere()), direction);
+      controls.update();
+    }
+    return true;
   }
 
   // ── Resize ────────────────────────────────────────────────────────────────
@@ -175,7 +194,11 @@ export function initEditorScene(canvas) {
   // Frames are asked for by camera moves, input (with one trailing frame for work an input awaits), resizes, objects
   // added or removed anywhere in the scene, render-mode, storey and view switches, and requestRender() for anything
   // else that changes the scene in place without input.
-  const scheduler = createRenderScheduler(() => renderer.render(scene, getActiveCamera()));
+  const scheduler = createRenderScheduler(() => {
+    // the further off the camera, the further under the floor the grid must be to stay hidden by it (#152)
+    constructionGrid.position.z = activeStoreyZ - gridDrop(isPlanView ? 0 : perspCamera.position.distanceTo(controls.target));
+    renderer.render(scene, getActiveCamera());
+  });
   const requestRender = scheduler.request;
   controls.addEventListener('change', requestRender);
   orthoControls.addEventListener('change', requestRender);
@@ -191,7 +214,7 @@ export function initEditorScene(canvas) {
     renderer, scene, perspCamera, orthoCamera, controls,
     constructionPlane, modelGroup, overlayGroup,
     get constructionGrid() { return constructionGrid; },   // replaced when the render mode changes its colours
-    setStoreyZ: andRender(setStoreyZ), getStoreyZ, setPlanView: andRender(setPlanView), getActiveCamera,
+    setStoreyZ: andRender(setStoreyZ), getStoreyZ, setPlanView: andRender(setPlanView), getActiveCamera, fitView: andRender(fitView),
     setRenderMode: andRender(setRenderMode), getRenderMode, addRenderModeGroup: andRender(addRenderModeGroup),
     requestRender,
     get renderFrames() { return scheduler.frames; },   // frames drawn so far, for headless checks

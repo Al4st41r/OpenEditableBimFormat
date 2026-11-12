@@ -55,19 +55,21 @@ describe('applyRenderMode', () => {
 });
 
 describe('objects in lines mode (#139)', () => {
-  it('a single object draws as its outline; a part placed many times keeps its colour', async () => {
+  it('an object draws as its outline, and so does a part placed many times (#154)', async () => {
     const { buildObjectGroup } = await import('../loader/loadObject.js');
     const part = { shape: 'box', size_m: { x: 0.9, y: 0.05, z: 2.1 }, offset_m: { x: 0, y: 0, z: 0 }, material_id: 'mat-x' };
     const one = buildObjectGroup({ inOpening: true, instances: [{ x: 0, y: 0, z: 0, angle: 0 }] }, 'door', [part]);
     const many = buildObjectGroup({ inOpening: false, instances: [{ x: 0, y: 0, z: 0, angle: 0 }, { x: 1, y: 0, z: 0, angle: 0 }] }, 'ties', [part]);
     const group = new THREE.Group(); group.add(one, many);
     applyRenderMode(group, 'lines');
-    const [doorMesh, doorEdges] = one.children, [tieMesh] = many.children;
+    const [doorMesh, doorEdges] = one.children, [tieMesh, tieEdges] = many.children;
     expect(doorMesh.material.colorWrite).toBe(false);
     expect(doorMesh.renderOrder).toBe(-1);
     expect(doorEdges.visible).toBe(true);
     expect(doorEdges.material.color.getHex()).toBe(0x222222);
-    expect(tieMesh.material.colorWrite).toBe(true);
+    expect(tieMesh.material.colorWrite).toBe(false);
+    expect(tieEdges.name).toBe('object-edges');
+    expect(tieEdges.geometry.getAttribute('position').count).toBe(2 * doorEdges.geometry.getAttribute('position').count);
     applyRenderMode(group, 'solid');
     expect(doorMesh.material.colorWrite).toBe(true);
     expect(doorMesh.renderOrder).toBe(3);
@@ -122,5 +124,15 @@ describe('junction detail meshes (#146)', () => {
     expect(drawn(edges)).toBe(false);   // a refreshed group starts solid
     applyRenderMode(scene, 'lines');
     expect(drawn(edges)).toBe(true);
+  });
+});
+
+describe('gridDrop (#152)', () => {
+  it('lowers the grid a centimetre close to, more from further off', async () => {
+    const { gridDrop } = await import('./renderMode.js');
+    expect(gridDrop()).toBeCloseTo(0.01);
+    expect(gridDrop(20)).toBeCloseTo(0.05);
+    expect(gridDrop(40)).toBeGreaterThan(gridDrop(20));
+    expect(gridDrop(-5)).toBeCloseTo(0.01);
   });
 });

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
-import { cutOpenings, openingBox } from './openingCut.js';
+import { cutOpenings, openingBox, openingFaces } from './openingCut.js';
 
 const path = { id: 'p', segments: [{ type: 'line', start: { x: 0, y: 0, z: 0 }, end: { x: 10, y: 0, z: 0 } }] };
 const opening = { id: 'o', host_element_id: 'wall', path_id: 'p', path_position: 4, width_m: 1, height_m: 2, sill_height_m: 0 };
@@ -68,5 +68,38 @@ describe('cutOpenings', () => {
     const before = edges.geometry.getAttribute('position').count;
     cutOpenings(root, [{ opening, pathData: path }]);
     expect(wall.getObjectByName('edges').geometry.getAttribute('position').count).toBeGreaterThan(before);
+  });
+
+  it('draws no triangle diagonals across the cut faces (#153)', () => {
+    const root = new THREE.Group(); const wall = wallMesh();
+    const edges = new THREE.LineSegments(new THREE.EdgesGeometry(wall.geometry, 15)); edges.name = 'edges'; wall.add(edges);
+    root.add(wall);
+    cutOpenings(root, [{ opening, pathData: path }]);
+    const a = wall.getObjectByName('edges').geometry.getAttribute('position').array;
+    for (let i = 0; i < a.length; i += 6) {
+      const changes = [0, 1, 2].filter((k) => Math.abs(a[i + k] - a[i + 3 + k]) > 1e-6).length;
+      expect(changes).toBe(1);   // every edge of a box with a box-shaped hole runs along one axis
+    }
+    // the hole is outlined: its head runs along x at z = 2 on the wall face
+    const head = (y) => { for (let i = 0; i < a.length; i += 6) if (Math.abs(a[i + 1] - y) < 1e-6 && Math.abs(a[i + 4] - y) < 1e-6 && Math.abs(a[i + 2] - 2) < 1e-6 && Math.abs(a[i + 5] - 2) < 1e-6) return true; return false; };
+    expect(head(-0.15)).toBe(true);
+    expect(head(0.15)).toBe(true);
+  });
+});
+
+describe('openingFaces (#153)', () => {
+  it('finds the wall faces either side of the path at the hole', () => {
+    const root = new THREE.Group(); root.add(wallMesh());
+    const g = new THREE.BoxGeometry(10, 0.1, 3); g.translate(5, 0.25, 1.5); g.deleteAttribute('uv');   // an outer leaf, off the path
+    const leaf = new THREE.Mesh(g); leaf.userData.elementId = 'wall'; root.add(leaf);
+    cutOpenings(root, [{ opening, pathData: path }]);
+    const faces = openingFaces(root, opening, path);
+    expect(faces.near).toBeCloseTo(-0.15);
+    expect(faces.far).toBeCloseTo(0.3);
+  });
+
+  it('is null where the host has nothing at the opening', () => {
+    const root = new THREE.Group(); root.add(wallMesh('other'));
+    expect(openingFaces(root, opening, path)).toBeNull();
   });
 });

@@ -5,12 +5,13 @@
  * `parameter_overrides` on top). If it names an Opening it fills that opening: it is centred
  * on it and rests on its sill. Otherwise `path_position` is its centre along the host path.
  *
- * The wall is not cut yet, so the box is drawn over the wall (no depth test) rather than hidden inside it.
+ * An object in an opening is depth-tested (the wall is cut); one inside a wall (a tie) is drawn over it.
  */
 
 import * as THREE from 'three';
 import { parsePath } from './loadPath.js';
 import { symbolParts, partsExtent } from './symbolParts.js';
+import { instancedEdgesGeometry } from '../scene/instancedEdges.js';
 
 const MAX_INSTANCES = 500;
 
@@ -82,7 +83,7 @@ function partGeometry(part) {
 
 /**
  * Every instance of an object as one InstancedMesh per part (so a grid of wall ties is a handful of draw calls).
- * A single instance also gets edge lines. Drawn over the wall, which is not cut yet.
+ * Every instance gets edge lines, merged into one LineSegments (#154). Drawn over the wall unless it fills an opening.
  *
  * @param {object} placement - from objectPlacement
  * @param {string} id
@@ -92,7 +93,7 @@ function partGeometry(part) {
 export function buildObjectGroup(placement, id, parts, colourOf = () => undefined) {
   const group = new THREE.Group();
   const { instances } = placement;
-  const m = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 0, 1);
+  const q = new THREE.Quaternion(), up = new THREE.Vector3(0, 0, 1);
   for (const part of parts) {
     const geometry = partGeometry(part);
     // Standard, as the walls are: the editor lights by its environment map, which a Lambert material ignores,
@@ -104,20 +105,19 @@ export function buildObjectGroup(placement, id, parts, colourOf = () => undefine
       color: colourOf(part.material_id) ?? DEFAULT_COLOUR, transparent: !placement.inOpening, opacity: placement.inOpening ? 1 : 0.85, depthTest: !!placement.inOpening, side: THREE.DoubleSide,
     });
     const mesh = new THREE.InstancedMesh(geometry, material, instances.length);
-    instances.forEach((inst, i) => {
-      q.setFromAxisAngle(up, inst.angle);
-      mesh.setMatrixAt(i, m.compose(new THREE.Vector3(inst.x, inst.y, inst.z), q, new THREE.Vector3(1, 1, 1)));
-    });
+    const matrices = instances.map((inst) => new THREE.Matrix4().compose(
+      new THREE.Vector3(inst.x, inst.y, inst.z), q.setFromAxisAngle(up, inst.angle), new THREE.Vector3(1, 1, 1)));
+    matrices.forEach((matrix, i) => mesh.setMatrixAt(i, matrix));
     mesh.instanceMatrix.needsUpdate = true;
     mesh.renderOrder = 3;
     mesh.userData.renderOrder = 3;                     // what the render mode puts back after lines mode
-    mesh.userData.outlined = instances.length === 1;   // only a single instance has an outline to show in lines mode
     mesh.frustumCulled = false;   // the bounding sphere of an instanced mesh is its first instance's
     group.add(mesh);
-    if (instances.length === 1) {
-      const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geometry), new THREE.LineBasicMaterial({ color: 0x3a2a18, depthTest: !!placement.inOpening }));
-      edges.position.set(instances[0].x, instances[0].y, instances[0].z);
-      edges.rotation.z = instances[0].angle;
+    // every instance's outline as one line set (#154); a grid too big to outline keeps its colour in lines mode
+    const edgeGeometry = instancedEdgesGeometry(geometry, matrices, 1);
+    mesh.userData.outlined = !!edgeGeometry;
+    if (edgeGeometry) {
+      const edges = new THREE.LineSegments(edgeGeometry, new THREE.LineBasicMaterial({ color: 0x3a2a18, depthTest: !!placement.inOpening }));
       edges.renderOrder = 4;
       edges.name = 'object-edges';
       edges.userData.colour = 0x3a2a18;
