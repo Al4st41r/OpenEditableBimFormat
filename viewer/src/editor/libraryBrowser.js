@@ -7,7 +7,6 @@
  */
 
 import { writeEntity } from './bundleWriter.js';
-import { notify } from '../ui/dialog.js';
 import { libraryMaterialToBundle, bundleMaterialId } from '../loader/loadProfile.js';
 import { libraryProfileToBundle } from '../loader/loadProfile.js';
 
@@ -29,16 +28,20 @@ export function setAdapter(a) {
   _onMaterialImported = null;
 }
 
-/** Open the library browser modal. */
+/**
+ * Open the library browser modal. It opens at once, saying 'Loading library…' until the library has been fetched
+ * (issue #155); Esc, the close button or a click on the backdrop closes it.
+ */
 export async function openLibraryBrowser({ onMaterialImported } = {}) {
   _onMaterialImported = onMaterialImported ?? null;
+  const shell = _openShell();
   if (!_library) {
     try {
       const res  = await fetch('/oebf/library/materials/library.json');
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       _library   = await res.json();
     } catch (e) {
-      await notify(`Could not load the material library: ${e.message}`, { title: 'Library not loaded' });
+      shell.showMessage(`Could not load the material library: ${e.message}`);
       return;
     }
   }
@@ -52,7 +55,8 @@ export async function openLibraryBrowser({ onMaterialImported } = {}) {
     }
     _profiles = loaded;
   }
-  _renderModal(_library, _profiles);
+  if (!shell.isOpen()) return;   // closed while loading
+  await _renderModal(shell, _library, _profiles);
 }
 
 /** Return the material IDs referenced by a profile's layers. Exported for unit testing. */
@@ -92,12 +96,18 @@ async function _loadInProject() {
 
 // ── Modal ────────────────────────────────────────────────────────────────────
 
-async function _renderModal(library, profiles) {
-  // Remove existing modal
+/**
+ * The modal's frame: backdrop, panel and header with a close button, shown at once with a loading line in its body.
+ * Esc closes it; a later call replaces it.
+ */
+function _openShell() {
   document.getElementById('lib-modal')?.remove();
 
   const modal = document.createElement('div');
   modal.id = 'lib-modal';
+  modal.setAttribute('role', 'dialog');
+  modal.setAttribute('aria-modal', 'true');
+  modal.setAttribute('aria-label', 'Library');
   modal.style.cssText = [
     'position:fixed', 'inset:0', 'z-index:500', 'display:flex',
     'align-items:center', 'justify-content:center',
@@ -107,11 +117,10 @@ async function _renderModal(library, profiles) {
   const panel = document.createElement('div');
   panel.style.cssText = [
     'background:#1e1e1e', 'border:1px solid #444', 'border-radius:6px',
-    'width:520px', 'max-height:80vh', 'display:flex', 'flex-direction:column',
+    'width:520px', 'max-width:calc(100vw - 32px)', 'max-height:80vh', 'display:flex', 'flex-direction:column',
     'overflow:hidden',
   ].join(';');
 
-  // Header
   const header = document.createElement('div');
   header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #333;flex-shrink:0';
   const title = document.createElement('span');
@@ -119,9 +128,46 @@ async function _renderModal(library, profiles) {
   title.style.cssText = 'font-size:13px;font-weight:bold;color:#ddd;';
   const closeBtn = document.createElement('button');
   closeBtn.textContent = '×';
+  closeBtn.title = 'Close (Esc)';
+  closeBtn.setAttribute('aria-label', 'Close');
   closeBtn.style.cssText = 'background:none;border:none;color:#888;font-size:18px;cursor:pointer;padding:0 4px;';
-  closeBtn.addEventListener('click', () => modal.remove());
   header.appendChild(title); header.appendChild(closeBtn);
+
+  const message = document.createElement('div');
+  message.id = 'lib-loading';
+  message.setAttribute('role', 'status');
+  message.textContent = 'Loading library…';
+  message.style.cssText = 'padding:16px 14px;color:#aaa;font-size:12px;';
+
+  panel.appendChild(header);
+  panel.appendChild(message);
+  modal.appendChild(panel);
+  document.body.appendChild(modal);
+
+  const onKey = (e) => {
+    if (e.key !== 'Escape' || !modal.isConnected) return;
+    if (document.querySelector('dialog[open]')) return;   // a dialog opened over the library takes its own Esc first
+    e.preventDefault(); e.stopPropagation();
+    close();
+  };
+  function close() {
+    modal.remove();
+    document.removeEventListener('keydown', onKey, true);
+  }
+  document.addEventListener('keydown', onKey, true);
+  closeBtn.addEventListener('click', close);
+  modal.addEventListener('click', e => { if (e.target === modal) close(); });
+  closeBtn.focus();
+
+  return {
+    modal, panel, message,
+    isOpen: () => modal.isConnected,
+    showMessage: (text) => { message.textContent = text; message.style.color = '#e88'; },
+  };
+}
+
+async function _renderModal(shell, library, profiles) {
+  const { modal, panel, message } = shell;
 
   // Tab switcher
   const tabs = document.createElement('div');
@@ -293,6 +339,7 @@ async function _renderModal(library, profiles) {
 
   // Load inProject once; shared across both tabs and all re-renders.
   const inProject = await _loadInProject();
+  if (!modal.isConnected) return;   // closed while reading the bundle
 
   function _switchTab(tab) {
     activeTab = tab;
@@ -312,17 +359,13 @@ async function _renderModal(library, profiles) {
   searchInp.addEventListener('input', () => _renderMaterialList(inProject));
   catSel.addEventListener('change', () => _renderMaterialList(inProject));
 
-  panel.appendChild(header);
+  message.remove();
   panel.appendChild(tabs);
   panel.appendChild(controls);
   panel.appendChild(list);
-  modal.appendChild(panel);
-  document.body.appendChild(modal);
-
-  // Close on backdrop click
-  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
 
   _renderMaterialList(inProject);
+  searchInp.focus();
 }
 
 async function _importMaterial(mat) {

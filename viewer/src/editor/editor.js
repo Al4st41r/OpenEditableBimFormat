@@ -39,7 +39,8 @@ import { StoreyManager } from './storeyManager.js';
 import { GridOverlayManager } from './gridOverlayManager.js';
 import { STARTERS, starterFor } from './starters.js';
 import { createJournal, journalled, pathOnlyRefresh } from './editJournal.js';
-import { elementLabel, SHORTCUTS, shortcutFor } from './editorUi.js';
+import { elementLabel, SHORTCUTS, shortcutFor, hasProfilePicker, profileOptions, elementMenuItems } from './editorUi.js';
+import { showTreeMenu } from './treeMenu.js';
 import { GuideManager } from './guideManager.js';
 import { readEntity, writeEntity } from './bundleWriter.js';
 import { WallTool } from './wallTool.js';
@@ -656,6 +657,7 @@ async function _loadAndRenderBundle(adapter, { keepView = false } = {}) {
     journal.setSuspended(false);
     _loading = false;
     _syncJournalUi();
+    editorScene.requestRender();
   }
 }
 
@@ -1060,6 +1062,7 @@ function _enableEditorTools() {
   document.getElementById('add-material-btn').disabled = false;
   document.getElementById('default-wall-profile').disabled = false;
   document.getElementById('default-slab-profile').disabled = false;
+  document.getElementById('scene-tree-body').classList.add('loaded');   // empty sections show their hints
 }
 
 // ── Default profile creation ───────────────────────────────────────────────────
@@ -1356,19 +1359,48 @@ canvas.addEventListener('click', (e) => {
 
 // ── Element tree and properties ───────────────────────────────────────────────
 
-/** A row in the Elements list: the element's description when it has one, else its kind and id. The id is the tooltip. */
+/**
+ * A row in the Elements list: the element's description when it has one, else its kind and id. The tooltip holds the
+ * full name (a long one is cut off in the row) and the id; right-click offers the element's actions (issue #165).
+ */
 function _addElementToTree(id, label) {
   const el = document.createElement('div');
   el.className = 'tree-item';
   el.dataset.elementId = id;
-  el.title = id;
+  const name = elementLabel(id, label, _elementRegistry.get(id)?.description);
+  el.title = name === id ? id : `${name}\n${id}`;
   const span = document.createElement('span');
   span.className = 'tree-item-name';
-  span.textContent = elementLabel(id, label, _elementRegistry.get(id)?.description);
+  span.textContent = name;
+  span.title = el.title;
   el.appendChild(span);
   el.addEventListener('click', () => _selectElement(id));
+  el.addEventListener('contextmenu', (e) => _showElementMenu(e, id));
   document.getElementById('elements-list').appendChild(el);
 }
+
+function _showElementMenu(e, id) {
+  const reg = _elementRegistry.get(id);
+  if (!reg) return;
+  const actions = {
+    select:      () => _selectElement(id),
+    editPath:    () => { _selectElement(id); document.getElementById('tool-path-edit').click(); },
+    editProfile: () => _openDetailInProfileEditor(reg.profileId),
+    copyId:      async () => {
+      try { await navigator.clipboard.writeText(id); statusBar.textContent = `Copied ${id}`; }
+      catch { statusBar.textContent = `Could not copy; the id is ${id}`; }
+    },
+  };
+  const items = elementMenuItems({ kind: reg.kind, hasProfile: !!reg.profileId, hasPath: !!reg.pathData?.id });
+  showTreeMenu(e, items.map(({ label, action }) => ({ label, action: actions[action] })));
+}
+
+// A name cut off in any tree row shows in full as a tooltip on the name (issue #165).
+document.getElementById('scene-tree-body').addEventListener('mouseover', (e) => {
+  const name = e.target.closest?.('.tree-item-name');
+  if (!name || name.title) return;
+  if (name.scrollWidth > name.clientWidth) name.title = name.textContent;
+});
 
 function _addMaterialToTree(mat) {
   document.getElementById('materials-list').appendChild(buildMaterialTreeItem(mat));
@@ -1410,6 +1442,7 @@ function _setElementEdgeHighlight(elementId, selected) {
     const edges = child.getObjectByName('edges');
     if (selected && edges) { edges.visible = true; edges.material.color.setHex(0x6fc0ff); }
   });
+  editorScene.requestRender();
 }
 
 function _onPathNodeSelected(nodeInfo) {
@@ -1555,27 +1588,30 @@ async function _showElementProps(id) {
   // ID (read-only)
   _propRow(panel, 'ID', id, true);
 
-  // Profile picker
-  const profileSel = document.createElement('select');
-  profileSel.style.cssText = 'background:#2a2a2a;color:#ddd;border:1px solid #444;padding:4px 8px;border-radius:3px;font-size:12px;width:100%';
-  try {
-    const profileNames = await adapter.listDir('profiles');
-    for (const name of profileNames) {
-      if (!name.endsWith('.json')) continue;
-      const pid = name.replace('.json', '');
-      try {
-        const data = await readEntity(adapter, `profiles/${pid}.json`);
-        if (data.detail) continue;
-        const opt = document.createElement('option');
-        opt.value = pid; opt.textContent = pid;
-        if (pid === reg.profileId) opt.selected = true;
-        profileSel.appendChild(opt);
-      } catch { /* skip */ }
+  // Profile picker: elements only, a slab has no profile (issue #151)
+  if (hasProfilePicker(reg.kind)) {
+    const profileSel = document.createElement('select');
+    profileSel.id = 'prop-profile';
+    profileSel.style.cssText = 'background:#2a2a2a;color:#ddd;border:1px solid #444;padding:4px 8px;border-radius:3px;font-size:12px;width:100%';
+    const ids = [];
+    try {
+      const profileNames = await adapter.listDir('profiles');
+      for (const name of profileNames) {
+        if (!name.endsWith('.json')) continue;
+        const pid = name.replace('.json', '');
+        try {
+          const data = await readEntity(adapter, `profiles/${pid}.json`);
+          if (!data.detail) ids.push(pid);
+        } catch { /* skip */ }
+      }
+    } catch { /* no profiles dir */ }
+    if (gen !== _propsGen) return;
+    for (const o of profileOptions(ids, reg.profileId)) {
+      profileSel.append(Object.assign(document.createElement('option'), { value: o.value, textContent: o.label, selected: o.selected, disabled: !!o.disabled }));
     }
-  } catch { /* no profiles dir */ }
-  if (gen !== _propsGen) return;
-  profileSel.addEventListener('change', () => _changeElementProfile(id, profileSel.value));
-  _propRowWidget(panel, 'Profile', profileSel);
+    profileSel.addEventListener('change', () => _changeElementProfile(id, profileSel.value));
+    _propRowWidget(panel, 'Profile', profileSel);
+  }
 
   // Entity fields (IFC type, description, sweep mode, caps, offsets; slab material), written back on change
   const entityPath = reg.kind === 'slab' ? `slabs/${id}.json` : `elements/${id}.json`;
@@ -1884,6 +1920,7 @@ async function _undoRedo(kind) {
     editorScene.orthoCamera.position.copy(view.orthoPosition);
     editorScene.orthoCamera.zoom = view.orthoZoom;
     editorScene.orthoCamera.updateProjectionMatrix();
+    editorScene.requestRender();
     if (selected && _elementRegistry.has(selected)) _selectElement(selected);
     else document.getElementById('props-content').innerHTML = '<p id="props-empty">Select an element to see properties.</p>';
     statusBar.textContent = done;
@@ -2157,6 +2194,7 @@ window.__editor = {
   cameraTarget: () => ({ x: editorScene.controls.target.x, y: editorScene.controls.target.y, z: editorScene.controls.target.z }),
   showJunction: (id) => { const j = junctionEditor?._junctions.find((x) => x.id === id); if (j) junctionEditor._showProps(j.id, j.elementIds, j.rule); return !!j; },
   status: () => statusBar.textContent,
+  renderFrames: () => editorScene.renderFrames,
   lookAt: (eye, target) => { editorScene.perspCamera.position.set(...eye); editorScene.controls.target.set(...target); editorScene.controls.update(); },   // for headless checks
   registryPaths: () => [..._elementRegistry.values()].map((r) => r.pathData).filter(Boolean),
   planSnap: _planSnap,
@@ -2490,7 +2528,9 @@ function _drawOpening(entity) {
       const { positions } = buildOpeningOutline(entity, reg.pathData);
       const geometry = new THREE.BufferGeometry();
       geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-      object = new THREE.LineSegments(geometry, new THREE.LineBasicMaterial({ color: 0xffb000, depthTest: false }));
+      // depth-tested: drawn over everything, the outline of an opening in a far wall showed on a near wall that has no
+      // hole there (#165)
+      object = new THREE.LineSegments(geometry, new THREE.LineBasicMaterial({ color: 0xffb000 }));
       object.renderOrder = 2;
       object.userData.openingId = entity.id;
       _openingGroup.add(object);

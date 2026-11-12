@@ -10,6 +10,7 @@ import { applyRenderMode, gridColours } from '../scene/renderMode.js';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { createRenderScheduler, watchSceneGraph } from './renderScheduler.js';
 
 export function initEditorScene(canvas) {
   // ── Renderer ──────────────────────────────────────────────────────────────
@@ -170,29 +171,29 @@ export function initEditorScene(canvas) {
   handleResize(); // ensure correct size on first frame
 
   // ── Render loop ───────────────────────────────────────────────────────────
-  // Draw every frame while the user is doing something, and a few times a second otherwise: an idle editor should
-  // not keep the GPU and the fan busy. Anything that changes the scene without input shows within IDLE_FRAME_MS.
-  const ACTIVE_FOR_MS = 1500, IDLE_FRAME_MS = 250;
-  let lastActivity = performance.now(), lastFrame = 0;
-  const touch = () => { lastActivity = performance.now(); };
-  for (const type of ['pointerdown', 'pointermove', 'pointerup', 'wheel', 'keydown', 'keyup', 'resize', 'focus']) {
-    window.addEventListener(type, touch, { passive: true, capture: true });
+  // Draw only when something changes (issue #165): an idle editor draws nothing, which matters on software GL.
+  // Frames are asked for by camera moves, input (with one trailing frame for work an input awaits), resizes, objects
+  // added or removed anywhere in the scene, render-mode, storey and view switches, and requestRender() for anything
+  // else that changes the scene in place without input.
+  const scheduler = createRenderScheduler(() => renderer.render(scene, getActiveCamera()));
+  const requestRender = scheduler.request;
+  controls.addEventListener('change', requestRender);
+  orthoControls.addEventListener('change', requestRender);
+  for (const type of ['pointerdown', 'pointermove', 'pointerup', 'wheel', 'keydown', 'keyup', 'focus', 'message']) {
+    window.addEventListener(type, scheduler.afterInput, { passive: true, capture: true });
   }
-  function animate(now = performance.now()) {
-    requestAnimationFrame(animate);
-    if (now - lastActivity > ACTIVE_FOR_MS && now - lastFrame < IDLE_FRAME_MS) return;
-    lastFrame = now;
-    controls.update();
-    orthoControls.update();
-    renderer.render(scene, getActiveCamera());
-  }
-  animate();
+  new ResizeObserver(requestRender).observe(viewport);   // after handleResize's observer, so the new size is drawn
+  watchSceneGraph(scene, requestRender);
+  const andRender = (fn) => (...args) => { const r = fn(...args); requestRender(); return r; };
+  requestRender();
 
   return {
     renderer, scene, perspCamera, orthoCamera, controls,
     constructionPlane, modelGroup, overlayGroup,
     get constructionGrid() { return constructionGrid; },   // replaced when the render mode changes its colours
-    setStoreyZ, getStoreyZ, setPlanView, getActiveCamera,
-    setRenderMode, getRenderMode, addRenderModeGroup,
+    setStoreyZ: andRender(setStoreyZ), getStoreyZ, setPlanView: andRender(setPlanView), getActiveCamera,
+    setRenderMode: andRender(setRenderMode), getRenderMode, addRenderModeGroup: andRender(addRenderModeGroup),
+    requestRender,
+    get renderFrames() { return scheduler.frames; },   // frames drawn so far, for headless checks
   };
 }
