@@ -4,7 +4,7 @@ The 3D editor (`editor.html`), the profile editor (`profile-editor.html`) and th
 
 ## Toolbar order
 
-Left to right, with a separator between groups:
+Every toolbar, and the viewer's, starts with an icon-only home link (`<a class="home-link">`, with a title and an `aria-label`) back to the applications page, `launch.html`. Then, left to right, with a separator between groups:
 
 1. Project name.
 2. File: New, Open (the detail editor gathers open, import, export and publish in one File menu), Save, Undo, Redo, and the unsaved marker (●).
@@ -50,6 +50,11 @@ Buttons carry words, with an icon where one exists. Undo, Redo and Help are icon
 | Arc | `arc` | (our own) | Dimension, Note | `dimension`, `note` | move-horizontal, message-square-text |
 | 3D model | `model` | box | Save to folder | `save-folder` | folder-down |
 | Trim | `trim` | scissors | Extend | `extend` | arrow-right-to-line |
+| Home | `home` | house | | | |
+
+## Controls
+
+Every app page links `viewer/src/ui/ui.css` after `fonts/barlow.css`. It gives buttons, selects and inputs the page font (Barlow, not the system sans-serif) and gives a button the page has not styled the plain dark look, with a wider padding in dialogs. Its rules sit in `:where()`, so a page's own rules always win. `src/ui/pages.test.js` checks that each app links it and has the home link, that the launch page has a card for each app, and that every page in `viewer/` is a Vite input.
 
 ## Names
 
