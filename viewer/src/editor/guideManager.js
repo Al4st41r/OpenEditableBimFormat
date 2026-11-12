@@ -9,7 +9,7 @@ import * as THREE from 'three';
 import { writeEntity } from './bundleWriter.js';
 import { fatSegments } from './fatLine.js';
 import { toDisplay, unitLabel, fromDisplay } from './units.js';
-import { wireRow, makeRemoveButton } from './treeMenu.js';
+import { wireRow, makeRemoveButton, treeItemMeta } from './treeMenu.js';
 import { askForm, confirmDialog } from '../ui/dialog.js';
 
 const GUIDE_COLOUR       = 0x7090e8;
@@ -177,9 +177,8 @@ export class GuideManager {
 
       const nameSpan = document.createElement('span');
       nameSpan.className = 'tree-item-name';
-      nameSpan.textContent = g.isZGuide
-        ? `${g.name} (Z=${toDisplay(g.z_m)} ${unitLabel()})`
-        : g.name;
+      if (g.isZGuide) nameSpan.append(`${g.name} `, treeItemMeta(`(Z=${toDisplay(g.z_m)} ${unitLabel()})`));
+      else nameSpan.textContent = g.name;
 
       const eyeBtn = document.createElement('button');
       eyeBtn.className = 'tree-item-eye';

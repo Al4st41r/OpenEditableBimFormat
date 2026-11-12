@@ -1,0 +1,29 @@
+/*
+ * ui.css — Control styles shared by every app page (viewer, editor, profile editor, detail editor, detail review).
+ *
+ * Linked from each page's <head> as /src/ui/ui.css, so Vite bundles it. Every rule sits in :where(), which has no
+ * specificity: a page's own rules always win, and these only fill in what a page leaves to the browser default.
+ */
+
+/* Controls use the page font (Barlow), not the browser's system sans-serif. */
+:where(button, select, input, textarea) { font: inherit; }
+
+/* The plain dark button, as the detail apps and the dialogs draw it. */
+:where(button) {
+  padding: 4px 8px; cursor: pointer;
+  background: #333; color: #ddd; border: 1px solid #555; border-radius: 3px;
+}
+:where(button:hover:not(:disabled)) { background: #444; }
+:where(button:disabled) { opacity: 0.4; cursor: default; }
+:where(button:focus-visible) { outline: 2px solid #6fc0ff; outline-offset: 1px; }
+
+/* A dialog's buttons are a little wider. */
+:where(dialog button) { padding: 5px 14px; }
+
+/* The link back to the applications page, first in each toolbar: icon only, with a title and an aria-label. */
+:where(a.home-link) {
+  display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+  width: 26px; height: 26px; border-radius: 3px; color: #aaa; text-decoration: none;
+}
+:where(a.home-link:hover) { color: #fff; background: #333; }
+:where(a.home-link:focus-visible) { outline: 2px solid #6fc0ff; outline-offset: 1px; }

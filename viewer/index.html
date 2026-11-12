@@ -58,7 +58,6 @@
       font-size: 20px;
       letter-spacing: 0.05em;
     }
-    .logo img { width: 32px; height: 32px; }
 
     nav { display: flex; gap: 32px; font-size: 14px; font-weight: 500; }
     nav a { color: var(--fg-muted); }
@@ -145,6 +144,7 @@
       font-size: 13px;
       line-height: 1.5;
       color: #aaa;
+      white-space: pre;
       overflow-x: auto;
     }
     .code-block .key { color: #88c0d0; }
@@ -192,10 +192,7 @@
 
   <div class="container">
     <header>
-      <div class="logo">
-        <img src="icons/logo.svg" alt="OEBF Logo">
-        <span>OEBF</span>
-      </div>
+      <div class="logo">OEBF</div>
       <nav>
         <a href="#what">What is OEBF</a>
         <a href="#why">Why use it</a>
@@ -267,8 +264,7 @@
           </ul>
         </div>
         <div class="split-visual">
-          <div class="code-block">
-<span class="key">"id"</span>: <span class="string">"element-wall-south-gf"</span>,
+          <div class="code-block"><span class="key">"id"</span>: <span class="string">"element-wall-south-gf"</span>,
 <span class="key">"type"</span>: <span class="string">"Element"</span>,
 <span class="key">"ifc_type"</span>: <span class="string">"IfcWall"</span>,
 <span class="key">"path_id"</span>: <span class="string">"path-wall-south-gf"</span>,
@@ -353,8 +349,7 @@
           </p>
         </div>
         <div class="split-visual">
-          <div class="code-block">
-<span style="color:#555;"># Setup (Python 3.12+ and uv required)</span>
+          <div class="code-block"><span style="color:#555;"># Setup (Python 3.12+ and uv required)</span>
 cd ifc-tools
 uv sync
 
@@ -403,10 +398,7 @@ uv run pytest</div>
     </section>
 
     <footer class="border-top">
-      <div class="logo">
-        <img src="icons/logo.svg" alt="OEBF Logo">
-        <span>OEBF</span>
-      </div>
+      <div class="logo">OEBF</div>
       <div>
         <span>v0.2-alpha</span>
         <span style="margin: 0 16px;">·</span>

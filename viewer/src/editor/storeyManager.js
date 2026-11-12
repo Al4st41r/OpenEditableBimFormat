@@ -6,6 +6,7 @@ import * as THREE from 'three';
 import { writeEntity } from './bundleWriter.js';
 import { toDisplay, unitLabel, fromDisplay } from './units.js';
 import { askForm } from '../ui/dialog.js';
+import { treeItemMeta } from './treeMenu.js';
 
 const STOREY_PLANE_SIZE    = 60;
 const STOREY_PLANE_OPACITY = 0.08;
@@ -145,7 +146,7 @@ export class StoreyManager {
 
       const nameSpan = document.createElement('span');
       nameSpan.className = 'tree-item-name';
-      nameSpan.textContent = `${s.name} (${toDisplay(s.z_m)} ${unitLabel()})`;
+      nameSpan.append(`${s.name} `, treeItemMeta(`(${toDisplay(s.z_m)} ${unitLabel()})`));
 
       const eyeBtn = document.createElement('button');
       eyeBtn.className = 'tree-item-eye';

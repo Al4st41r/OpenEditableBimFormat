@@ -6,6 +6,7 @@
   <title>OEBF Profile Editor</title>
   <link rel="icon" href="/oebf/icons/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/oebf/fonts/barlow.css">
+  <link rel="stylesheet" href="/src/ui/ui.css">
   <style>
     [hidden] { display: none !important; }
     @media (max-width: 1599px) { .short .lbl { display: none; } }   /* secondary commands show only their icon on narrower screens */
@@ -54,6 +55,7 @@
 </head>
 <body>
   <div id="header">
+    <a href="launch.html" class="home-link" title="All OEBF applications" aria-label="All OEBF applications"><i data-icon="home"></i></a>
     <span id="project-name" style="color:#aaa">No bundle open</span>
     <span class="sep"></span>
     <button id="new-btn" class="secondary icon-btn" disabled title="New profile"><i data-icon="new"></i><span class="lbl">New</span></button>

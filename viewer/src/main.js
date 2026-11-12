@@ -91,6 +91,10 @@ statusEl.textContent = 'Viewer ready — open a .oebf folder to begin';
 
 let currentGroup = null;
 let currentDirHandle = null;
+/** True while the demo is shown: View profiles then opens the same bundle, served beside the app, by URL. */
+let demoLoaded = false;
+const DEMO_BUNDLE = 'terraced-house.oebf';
+const editProfilesBtn = document.getElementById('edit-profiles-btn');
 
 function _clearScene() {
   if (!currentGroup) return;
@@ -203,7 +207,8 @@ document.getElementById('open-dir-btn').addEventListener('click', async () => {
   try {
     const dirHandle = await window.showDirectoryPicker({ mode: 'read' });
     currentDirHandle = dirHandle;
-    document.getElementById('edit-profiles-btn').disabled = false;
+    demoLoaded = false;
+    editProfilesBtn.disabled = false;
     statusEl.textContent = 'Loading…';
     const { meshes, manifest, junctions, arrays, grids, openings, objects, materials } = await loadBundle(dirHandle);
     _buildScene(meshes, manifest, junctions, arrays, grids, openings, materials, objects);
@@ -226,6 +231,9 @@ document.getElementById('load-demo-btn').addEventListener('click', async () => {
     const file = new File([blob], 'terraced-house.oebfz');
     const result = await loadBundleZstd(file);
     _buildScene(result.meshes, result.manifest, result.junctions, result.arrays, result.grids, result.openings, result.materials, result.objects);
+    currentDirHandle = null;
+    demoLoaded = true;
+    editProfilesBtn.disabled = false;
   } catch (err) {
     statusEl.textContent = `Error: ${err.message}`;
     console.error(err);
@@ -244,7 +252,8 @@ document.getElementById('open-file-btn').addEventListener('click', () => {
       const result = await loadBundleZstd(file);
       _buildScene(result.meshes, result.manifest, result.junctions, result.arrays, result.grids, result.openings, result.materials, result.objects);
       currentDirHandle = null;
-      document.getElementById('edit-profiles-btn').disabled = true;
+      demoLoaded = false;
+      editProfilesBtn.disabled = true;
     } catch (err) {
       statusEl.textContent = `Error: ${err.message}`;
       console.error(err);
@@ -253,7 +262,12 @@ document.getElementById('open-file-btn').addEventListener('click', () => {
   input.click();
 });
 
-document.getElementById('edit-profiles-btn').addEventListener('click', () => {
+editProfilesBtn.addEventListener('click', () => {
+  if (demoLoaded) {
+    // without an opener, the profile editor reads ?bundle= itself (and Save downloads the profile)
+    window.open(`${import.meta.env.BASE_URL}profile-editor.html?bundle=${DEMO_BUNDLE}`, '_blank', 'noopener');
+    return;
+  }
   if (!currentDirHandle) {
     statusEl.textContent = 'Profile editor requires an .oebf folder — not available for .oebfz files.';
     return;

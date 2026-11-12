@@ -9,7 +9,7 @@
 import * as THREE from 'three';
 import { writeEntity } from './bundleWriter.js';
 import { toDisplay, unitLabel, fromDisplay } from './units.js';
-import { wireRow, makeRemoveButton } from './treeMenu.js';
+import { wireRow, makeRemoveButton, treeItemMeta } from './treeMenu.js';
 import { askForm, ask, confirmDialog, notify } from '../ui/dialog.js';
 import { fatSegments } from './fatLine.js';
 import { axisEndpoints, axisPlaneGeometry, axisPlaneExtent, axisLabel } from '../grid/gridAxis.js';
@@ -270,7 +270,7 @@ export class GridOverlayManager {
         const nameSpan = document.createElement('span');
         nameSpan.className = 'tree-item-name';
         const { coord, value } = axisLabel(a.direction, a.offset_m);
-        nameSpan.textContent = `${a.label} (${coord}=${toDisplay(value)} ${unitLabel()})`;
+        nameSpan.append(`${a.label} `, treeItemMeta(`(${coord}=${toDisplay(value)} ${unitLabel()})`));
 
         const eyeBtn = document.createElement('button');
         eyeBtn.className = 'tree-item-eye';

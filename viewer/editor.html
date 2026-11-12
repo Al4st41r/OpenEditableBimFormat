@@ -6,6 +6,7 @@
   <title>OEBF Editor</title>
   <link rel="icon" href="/oebf/icons/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/oebf/fonts/barlow.css">
+  <link rel="stylesheet" href="/src/ui/ui.css">
   <style>
     [hidden] { display: none !important; }
     @media (max-width: 1599px) {
@@ -134,6 +135,7 @@
     .tree-item-eye { background: none; border: none; color: #aaa; cursor: pointer; font-size: 12px; margin-left: auto; padding: 0 2px; }
     .tree-item-eye:hover { color: #ddd; }
     .tree-item-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .tree-item-meta { margin-left: 2px; color: #aaa; }
 
     #viewport { flex: 1; position: relative; overflow: hidden; }
     #canvas { display: block; width: 100%; height: 100%; }
@@ -241,6 +243,7 @@
   </div>
   <dialog id="object-dialog"></dialog>
   <div id="toolbar">
+    <a href="launch.html" class="home-link" title="All OEBF applications" aria-label="All OEBF applications"><i data-icon="home"></i></a>
     <button id="new-btn" aria-label="New bundle" title="New project"><i data-icon="new"></i><span class="lbl">New</span></button>
     <button id="open-btn" aria-label="Open bundle">
       <i data-icon="open"></i><span class="lbl">Open</span></button>
