@@ -23,7 +23,7 @@ import { applyCsgJunctions } from './junction-csg.js';
 import { buildObjectGroup, colourLookup } from './loader/loadObject.js';
 import { cutOpenings } from './geometry/openingCut.js';
 import { buildArrayGroup }       from './array/arrayRenderer.js';
-import { buildSymbolGeometries } from './loader/loadSymbol.js';
+import { buildSymbolGeometries, symbolMaterials } from './loader/loadSymbol.js';
 import { buildGridLineSegments } from './loader/loadGrid.js';
 import { renderIcons } from './ui/icons.js';
 
@@ -141,7 +141,7 @@ function _buildScene(meshes, manifest, junctions, arrays, grids, openings = [], 
   // Render arrays (InstancedMesh per symbol layer)
   for (const { arrayDef, pathPoints, symbolDef } of arrays) {
     try {
-      const symMatMap = new Map();
+      const symMatMap = symbolMaterials(symbolDef, materials);
       const sourceGeometries = buildSymbolGeometries(symbolDef, symMatMap);
       const arrayGroup = buildArrayGroup(arrayDef, pathPoints, sourceGeometries);
       currentGroup.add(arrayGroup);

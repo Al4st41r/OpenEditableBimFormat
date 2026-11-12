@@ -32,7 +32,7 @@ import { isTrustedReady, buildOpenerReply, parseSaved, parseFocus } from '../det
 import { parseJunctionMessage } from '../detail-editor/junctionFields.js';
 import { applySavedDetail, applyJunctionUpdate, refreshDetail, groupsForDetail } from './detailIntegration.js';
 import { buildArrayGroup }    from '../array/arrayRenderer.js';
-import { buildSymbolGeometries } from '../loader/loadSymbol.js';
+import { buildSymbolGeometries, symbolMaterials } from '../loader/loadSymbol.js';
 import { buildGridLineSegments } from '../loader/loadGrid.js';
 import { StoreyManager } from './storeyManager.js';
 import { GridOverlayManager } from './gridOverlayManager.js';
@@ -719,7 +719,7 @@ async function _loadAndRenderBundleInner(adapter, keepView) {
   _bundleCtx = { junctions, grids, libraryMaterials, detailMatMap };
   for (const { arrayDef, pathPoints, symbolDef } of arrays) {
     try {
-      const symMat = new Map();
+      const symMat = symbolMaterials(symbolDef, libraryMaterials);
       const sourceGeoms = buildSymbolGeometries(symbolDef, symMat);
       editorScene.modelGroup.add(buildArrayGroup(arrayDef, pathPoints, sourceGeoms));
     } catch { /* skip */ }

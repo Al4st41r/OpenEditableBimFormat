@@ -90,6 +90,32 @@
       "properties": {
         "density_kg_m3": 7900
       }
+    },
+    {
+      "id": "mat-timber-hardwood",
+      "type": "Material",
+      "name": "Hardwood Timber (Sawn)",
+      "category": "timber",
+      "colour_hex": "#A0785A",
+      "ifc_material_name": "Hardwood",
+      "properties": {
+        "density_kg_m3": 720,
+        "thermal_conductivity_W_mK": 0.18
+      },
+      "interactions": {}
+    },
+    {
+      "id": "mat-timber-treated",
+      "type": "Material",
+      "name": "Treated Softwood Timber",
+      "category": "timber",
+      "colour_hex": "#9C7E52",
+      "ifc_material_name": "Treated Softwood",
+      "properties": {
+        "density_kg_m3": 510,
+        "thermal_conductivity_W_mK": 0.13
+      },
+      "interactions": {}
     }
   ]
 }

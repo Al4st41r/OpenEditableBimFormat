@@ -8,7 +8,8 @@
   "parameters": {
     "width_m":  0.9,
     "depth_m":  0.045,
-    "height_m": 2.1
+    "height_m": 2.1,
+    "material": "mat-timber-hardwood"
   },
   "geometry_definition": "box"
 }

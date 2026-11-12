@@ -34,3 +34,18 @@ describe('buildSymbolGeometries — box', () => {
     expect(() => buildSymbolGeometries(bad, MAT_MAP)).toThrow(/unsupported/i);
   });
 });
+
+describe('symbolMaterials', () => {
+  test('colours the symbol from the bundle materials, lit like the walls', async () => {
+    const { symbolMaterials } = await import('./loadSymbol.js');
+    const map = symbolMaterials(BOX_SYMBOL, [{ id: 'mat-timber', colour_hex: '#9C7E52' }]);
+    const [{ material }] = buildSymbolGeometries(BOX_SYMBOL, map);
+    expect(material.color.getHexString()).toBe('9c7e52');
+    expect(material.isMeshStandardMaterial).toBe(true);
+  });
+
+  test('a material missing from the bundle falls back to grey', async () => {
+    const { symbolMaterials } = await import('./loadSymbol.js');
+    expect(symbolMaterials(BOX_SYMBOL, []).size).toBe(0);
+  });
+});

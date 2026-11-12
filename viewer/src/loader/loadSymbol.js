@@ -20,10 +20,33 @@ export function buildSymbolGeometries(symbolDef, matMap) {
     const geometry = new THREE.BoxGeometry(width_m, depth_m, height_m);
     // Translate so base of box sits at Z=0 (origin at bottom centre)
     geometry.translate(0, 0, height_m / 2);
-    const mat = matMap.get(material)
-      ?? new THREE.MeshLambertMaterial({ color: 0x888888, side: THREE.DoubleSide });
+    const mat = matMap.get(material) ?? litMaterial('#888888');
     return [{ geometry, material: mat }];
   }
 
   throw new Error(`buildSymbolGeometries: unsupported geometry_definition "${geometry_definition}"`);
+}
+
+/**
+ * A material lit like the walls: Standard, because the editor lights by an environment map that a
+ * Lambert material ignores (a face turned from the one direct light went black).
+ */
+function litMaterial(hex) {
+  return new THREE.MeshStandardMaterial({ color: new THREE.Color(hex), roughness: 0.8, metalness: 0, side: THREE.DoubleSide });
+}
+
+/**
+ * The material map buildSymbolGeometries needs for a symbol: its parameters.material coloured from the
+ * bundle's materials (materials/library.json), so a fence post is drawn in its timber colour.
+ *
+ * @param {object} symbolDef
+ * @param {Array<{ id: string, colour_hex?: string }>} materials
+ * @returns {Map<string, THREE.Material>}
+ */
+export function symbolMaterials(symbolDef, materials = []) {
+  const map = new Map();
+  const id = symbolDef.parameters?.material;
+  const hex = id && materials.find((m) => m.id === id)?.colour_hex;
+  if (hex) map.set(id, litMaterial(hex));
+  return map;
 }

@@ -95,7 +95,10 @@ export function buildObjectGroup(placement, id, parts, colourOf = () => undefine
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 0, 1);
   for (const part of parts) {
     const geometry = partGeometry(part);
-    const material = new THREE.MeshLambertMaterial({
+    // Standard, as the walls are: the editor lights by its environment map, which a Lambert material ignores,
+    // so a face turned from the one direct light (a south-facing door) went black
+    const material = new THREE.MeshStandardMaterial({
+      roughness: 0.8, metalness: 0,
       // in an opening the wall is cut, so the object is seen through the hole like anything else; otherwise it is
       // drawn over the wall (a tie inside the wall would be hidden by it)
       color: colourOf(part.material_id) ?? DEFAULT_COLOUR, transparent: !placement.inOpening, opacity: placement.inOpening ? 1 : 0.85, depthTest: !!placement.inOpening, side: THREE.DoubleSide,
