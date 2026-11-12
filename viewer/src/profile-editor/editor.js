@@ -19,6 +19,7 @@ import { buildJson, buildSvg, isStackedProfile } from './profileSerializer.js';
 import { addGuide, getGuides, clearGuides, renderGuidelines, setupGuideDrag } from './profileGuidelines.js';
 import { activateRectTool, activatePolygonTool, deactivateTool } from './canvasDrawTools.js';
 import { findUses, renameRefs, matchesSearch } from './profileRefs.js';
+import { initialProfileId, emptyCanvasPrompt } from './profileChoice.js';
 import { PEN_SERIES, HAIRLINE_MM, resolveLineweight } from '../lineweights.js';
 import { membranePenMm } from '../membrane.js';
 import { PX_PER_MM } from '../detail-editor/drawStyle.js';
@@ -43,6 +44,7 @@ const unitsSelect   = document.getElementById('units-select');
 const undoBtn       = document.getElementById('undo-btn');
 const redoBtn       = document.getElementById('redo-btn');
 const dirtyEl       = document.getElementById('dirty');
+const canvasPrompt  = document.getElementById('canvas-prompt');
 
 // ── Units initialisation ──────────────────────────────────────────────────────
 {
@@ -335,6 +337,19 @@ async function _loadBundle(handle) {
   profileSelect.disabled = false;
   newBtn.disabled        = false;
   addLayerBtn.disabled   = false;
+  _openInitialProfile(null);
+}
+
+/** Open the requested profile, or the first one, so a freshly loaded bundle does not show a blank canvas (#162). */
+function _openInitialProfile(requested) {
+  const ids = [...profileSelect.options].map(o => o.value).filter(Boolean);
+  const id = initialProfileId(ids, requested);
+  if (id) {
+    profileSelect.value = id;
+    profileSelect.dispatchEvent(new Event('change'));
+  } else {
+    _renderCanvas();
+  }
 }
 
 async function _listProfiles() {
@@ -685,7 +700,17 @@ function _refreshUnitLabels() {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function _renderCanvas() {
+  // with no profile open, a prompt in place of the blank sheet (#162)
   const current = getLayers(layerList);
+  const empty = !currentId && current.length === 0;
+  profileSvg.style.display = empty ? 'none' : '';   // an svg element has no hidden property
+  canvasPrompt.hidden = !empty;
+  if (empty) {
+    canvasPrompt.textContent = emptyCanvasPrompt({
+      bundleOpen: !profileSelect.disabled,
+      profileCount: [...profileSelect.options].filter(o => o.value).length,
+    });
+  }
   // each layer's outline at its pen weight, in screen pixels, so it reads the same at any zoom
   const strokePx = (i) => {
     const mm = thin ? HAIRLINE_MM : resolveLineweight('cut', { profile: { lineweights }, layer: current[i], function: current[i]?.function });
@@ -747,10 +772,7 @@ function _openMemoryBundle({ profiles, matMap: incomingMatMap, activeProfileId, 
   newBtn.disabled        = false;
   addLayerBtn.disabled   = false;
 
-  if (activeProfileId && _memoryProfiles[activeProfileId]) {
-    profileSelect.value = activeProfileId;
-    profileSelect.dispatchEvent(new Event('change'));
-  }
+  _openInitialProfile(activeProfileId);
 }
 
 // ── ?bundle=terraced-house.oebf&profile=profile-cavity-250 ──────────────────────────
@@ -797,4 +819,5 @@ if (window.opener) {
 }
 
 renderIcons();
+_renderCanvas();
 tidyToolbarSeparators(document.getElementById('header'));
