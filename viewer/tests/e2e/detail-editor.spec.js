@@ -44,3 +44,28 @@ test('detail editor: a new paired view is named first, and material pickers show
   await expect(page.locator('#dirty')).toBeVisible();
   expect((await dialogLog(page)).map((l) => l.kind)).toEqual(['form', 'form']);
 });
+
+test('detail editor: trim and extend with reference lines and region outlines, move and copy by 2 points (#166)', async ({ page }) => {
+  await page.goto('detail-editor.html?demo=1');
+  await page.waitForFunction(() => window.__detailEditor?.state());
+  const report = await page.evaluate(fs.readFileSync(new URL('./detail-editor-trim.checks.js', import.meta.url), 'utf8'));
+  expect(report.filter((line) => !line.startsWith('PASS')), report.join('\n')).toEqual([]);
+});
+
+test('detail editor: DXF import reads bulged polyline segments as arcs (#166)', async ({ page }) => {
+  await page.goto('detail-editor.html?demo=1');
+  await page.waitForFunction(() => window.__detailEditor?.state());
+  const marks = () => page.evaluate(() => window.__detailEditor.state().doc.annotations ?? []);
+  const before = (await marks()).length;
+  // an open LWPOLYLINE in millimetres: straight, a half circle (bulge 1), straight
+  const pairs = [[0, 'SECTION'], [2, 'HEADER'], [9, '$INSUNITS'], [70, 4], [0, 'ENDSEC'], [0, 'SECTION'], [2, 'ENTITIES'],
+    [0, 'LWPOLYLINE'], [8, '0'], [90, 4], [70, 0], [10, 0], [20, 0], [10, 1000], [20, 0], [42, 1], [10, 2000], [20, 0], [10, 3000], [20, 0],
+    [0, 'ENDSEC'], [0, 'EOF']];
+  const text = pairs.map(([c, v]) => `${c}\n${v}\n`).join('');
+  await page.setInputFiles('#dxf-input', { name: 'bulge.dxf', mimeType: 'application/dxf', buffer: Buffer.from(text) });
+  await expect.poll(async () => (await marks()).length).toBe(before + 3);
+  const added = (await marks()).slice(before);
+  expect(added.map((a) => a.type)).toEqual(['line', 'arc', 'line']);
+  expect(added[1]).toEqual({ type: 'arc', centre: { x: 1.5, y: 0 }, radius_m: 0.5, start_deg: 180, end_deg: 0 });
+  await expect(page.locator('#status')).toContainText('read as arcs');
+});
