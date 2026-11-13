@@ -207,8 +207,11 @@ class IfcGen {
     const place3d  = this.axis2place3d(originPt, zAxis, refDir);
     const lp       = this.localPlace(place3d);
 
-    // Rectangle profile in local YZ plane (perpendicular to wall length)
-    const yOff      = -(originX - totalWidth / 2);
+    // Rectangle profile in local YZ plane (perpendicular to wall length): the solid's Position turns its Z (the
+    // extrusion) along local X and its X (profile x) along local Y, to the left of the path. OEBF profile x runs to
+    // the right, so the band's centre sits at originX - totalWidth / 2 along local Y. (Before #169 the Position was
+    // left unturned and the section was extruded within its own plane: a flat wall.)
+    const yOff      = originX - totalWidth / 2;
     const profOrigin = this.pt2(yOff, wallHeight / 2);
     const profPlace  = this.axis2place2d(profOrigin);
     const rectProf   = this._emit(this._id(), 'IFCRECTANGLEPROFILEDEF',
@@ -216,8 +219,8 @@ class IfcGen {
 
     // Extruded solid along local X (wall length)
     const solidOrigin = this.pt3(0, 0, 0);
-    const solidPlace  = this.axis2place3d(solidOrigin);
-    const extrudeDir  = this.dir3(1, 0, 0);
+    const solidPlace  = this.axis2place3d(solidOrigin, this.dir3(1, 0, 0), this.dir3(0, 1, 0));
+    const extrudeDir  = this.dir3(0, 0, 1);
     const solid = this._emit(this._id(), 'IFCEXTRUDEDAREASOLID',
       this._ref(rectProf), this._ref(solidPlace), this._ref(extrudeDir), `${_f(length)}`);
 

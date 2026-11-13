@@ -174,12 +174,13 @@ def _assign_body_geometry(ifc, entity, context,
         ifc, product=entity, matrix=matrix
     )
 
-    # Profile cross-section in the YZ plane (perpendicular to wall length).
-    # The solid's Position uses identity axes relative to ObjectPlacement, so:
-    #   profile X → ObjectPlacement Y (across wall thickness)
-    #   profile Y → ObjectPlacement Z (height / up)
-    # Extrusion is along ObjectPlacement X (wall length direction), Depth = path_length.
-    y_offset = -(origin_x - total_width / 2)  # offset from centreline in profile X (across)
+    # Profile cross-section in the YZ plane (perpendicular to wall length). The solid's Position turns it there:
+    #   Axis (its Z, the extrusion) along ObjectPlacement X (the wall's length), Depth = path_length;
+    #   RefDirection (profile X) along ObjectPlacement Y (across, to the left of the path); profile Y up.
+    # (Before #169 the Position was left unturned, so the section was extruded within its own plane: a flat wall.)
+    # OEBF profile x runs to the right of the path (ifc_shapes.section_frame), so the band's centre, at
+    # total_width / 2 - origin_x in profile x, is at origin_x - total_width / 2 along ObjectPlacement Y.
+    y_offset = origin_x - total_width / 2
     reach = abs(y_offset) + total_width / 2   # the furthest face from the path
     extra = {end: reach * abs(math.tan(math.radians(a))) for end, a in angles.items()}
     x0 = -extra.get("start", 0.0)
@@ -202,8 +203,10 @@ def _assign_body_geometry(ifc, entity, context,
         Position=ifc.create_entity(
             "IfcAxis2Placement3D",
             Location=ifc.create_entity("IfcCartesianPoint", Coordinates=[x0, 0.0, 0.0]),
+            Axis=ifc.create_entity("IfcDirection", DirectionRatios=[1.0, 0.0, 0.0]),
+            RefDirection=ifc.create_entity("IfcDirection", DirectionRatios=[0.0, 1.0, 0.0]),
         ),
-        ExtrudedDirection=ifc.create_entity("IfcDirection", DirectionRatios=[1.0, 0.0, 0.0]),
+        ExtrudedDirection=ifc.create_entity("IfcDirection", DirectionRatios=[0.0, 0.0, 1.0]),
         Depth=path_length + extra.get("start", 0.0) + extra.get("end", 0.0),
     )
     body = solid

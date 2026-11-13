@@ -178,6 +178,17 @@ def test_an_angled_end_exports_as_a_clip_and_comes_back(tmp_path):
     _valid(second)
 
 
+def test_an_exported_wall_stands_up_in_the_geometry_engine(tmp_path):
+    from pathlib import Path
+    out = tmp_path / "th.ifc"
+    export_ifc(Path(__file__).resolve().parents[2] / "example" / "terraced-house.oebf", out)
+    settings = ifcopenshell.geom.settings()
+    settings.set("use-world-coords", True)
+    wall = ifcopenshell.open(str(out)).by_type("IfcWall")[0]
+    v = np.array(ifcopenshell.geom.create_shape(settings, wall).geometry.verts, dtype=float).reshape(-1, 3)
+    assert v[:, 2].max() - v[:, 2].min() > 2.0   # before #169 the section was extruded in its own plane: a flat sheet
+
+
 def test_a_walls_height_exports_and_comes_back(tmp_path):
     ifc, context, _, storey = _file()
     wall = _product(ifc, storey, context, "IfcWall", [_extrusion(ifc, _rect(ifc, 4.0, 0.2, (2.0, 0)), 3.15)])
