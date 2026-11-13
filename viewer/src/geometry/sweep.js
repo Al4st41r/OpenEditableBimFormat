@@ -43,9 +43,13 @@ import { polygonTriangles } from './polygonTriangles.js';
  *   the path at twistPerMetre.
  * @property {'flat'|'angled'|'open'|'junction'} [capStart='flat']
  * @property {'flat'|'angled'|'open'|'junction'} [capEnd='flat']
- *   open leaves the end uncapped. angled and junction are capped flat here:
- *   angled has no angle field yet, and junction ends are trimmed afterwards
- *   by the junction renderer.
+ *   open leaves the end uncapped. angled is cut at capStartAngleDeg / capEndAngleDeg
+ *   (square when the angle is absent or 0). junction is capped flat here; junction
+ *   ends are trimmed afterwards by the junction renderer.
+ * @property {number} [capStartAngleDeg=0] - angle of an angled start, degrees from square:
+ *   seen from above, the anticlockwise turn from the path's outward direction at that end
+ *   to the outward normal of the end face, which pivots on the path (element schema)
+ * @property {number} [capEndAngleDeg=0] - angle of an angled end, measured the same way
  * @property {number} [startOffset=0] - metres removed from the start (negative extends)
  * @property {number} [endOffset=0]   - metres removed from the end (negative extends)
  * @property {number} [twistPerMetre=0] - degrees per metre, twisted mode only
@@ -61,6 +65,8 @@ export function sweepOptionsFromElement(element) {
     startOffset:   e.start_offset ?? 0,
     endOffset:     e.end_offset ?? 0,
     twistPerMetre: e.twist_per_metre ?? 0,
+    capStartAngleDeg: e.cap_start_angle_deg ?? 0,
+    capEndAngleDeg:   e.cap_end_angle_deg ?? 0,
   };
 }
 
@@ -123,9 +129,11 @@ export function sweepProfile(pathPoints, profileShapes, options = {}) {
   const {
     sweepMode = 'perpendicular', capStart = 'flat', capEnd = 'flat',
     startOffset = 0, endOffset = 0, twistPerMetre = 0,
+    capStartAngleDeg = 0, capEndAngleDeg = 0,
   } = options;
   const points = offsetPolyline(pathPoints, startOffset, endOffset);
-  const frames = _applyMode(_computeFrames(points), sweepMode, twistPerMetre);
+  const frames = _angleEnds(_applyMode(_computeFrames(points), sweepMode, twistPerMetre),
+    capStart === 'angled' ? capStartAngleDeg : 0, capEnd === 'angled' ? capEndAngleDeg : 0);
   const caps = { start: capStart !== 'open', end: capEnd !== 'open' };
   // the layer function travels with the mesh, so the renderer can tell a membrane (#127)
   return profileShapes.map(shape => {
@@ -155,6 +163,31 @@ function _applyMode(frames, mode, twistPerMetre) {
     });
   }
   return frames;
+}
+
+/** Largest angle drawn, degrees. The schema keeps angles inside ±90; nearer to along the path the face would run off to infinity. */
+export const MAX_CAP_ANGLE_DEG = 85;
+
+/** The skew of an end cut `deg` from square: a point x across the wall moves x times this along the path. */
+export function capSkew(deg) {
+  if (typeof deg !== 'number' || !Number.isFinite(deg) || !deg) return 0;
+  const d = Math.max(-MAX_CAP_ANGLE_DEG, Math.min(MAX_CAP_ANGLE_DEG, deg));
+  return Math.tan(d * Math.PI / 180);
+}
+
+/**
+ * Angle the first and last frames. Seen from above, a face turned anticlockwise by a from square has
+ * outward normal cos(a)·out + sin(a)·(Z × out). Profile x runs along the binormal (tangent × Z), so a
+ * point x across the wall lies on the face when moved x·tan(a) along the tangent, at either end. The
+ * frame keeps its axes and carries the skew; _place applies it.
+ */
+function _angleEnds(frames, startDeg, endDeg) {
+  const s = capSkew(startDeg), e = capSkew(endDeg);
+  if (!s && !e) return frames;
+  const out = frames.slice();
+  if (s) out[0] = { ...out[0], skew: s };
+  if (e) out[out.length - 1] = { ...out[out.length - 1], skew: e };
+  return out;
 }
 
 // ─── Frame computation ───────────────────────────────────────────────────────
@@ -202,13 +235,17 @@ function _computeFrames(points) {
 
 // ─── Shape sweep ────────────────────────────────────────────────────────────
 
-/** World position of profile point p in a frame. Profile y is world Z unless the frame has its own up. */
+/**
+ * World position of profile point p in a frame. Profile y is world Z unless the frame has its own up.
+ * An angled end frame (frame.skew, see _angleEnds) moves the point p.x · skew along the tangent.
+ */
 function _place(frame, p) {
   const up = frame.up;
+  const k = frame.skew ? p.x * frame.skew : 0;
   return [
-    frame.origin.x + p.x * frame.binormal.x + (up ? p.y * up.x : 0),
-    frame.origin.y + p.x * frame.binormal.y + (up ? p.y * up.y : 0),
-    frame.origin.z + p.x * frame.binormal.z + (up ? p.y * up.z : p.y),
+    frame.origin.x + p.x * frame.binormal.x + (up ? p.y * up.x : 0) + k * frame.tangent.x,
+    frame.origin.y + p.x * frame.binormal.y + (up ? p.y * up.y : 0) + k * frame.tangent.y,
+    frame.origin.z + p.x * frame.binormal.z + (up ? p.y * up.z : p.y) + k * frame.tangent.z,
   ];
 }
 
@@ -265,14 +302,17 @@ function _sweepShape(frames, profilePoints, materialId, caps = { start: true, en
 function _addCap(positions, normals, indices, frame, profilePoints, flip) {
   const capBase = positions.length / 3;
   const sign = flip ? 1 : -1;
+  // outward normal of the end face: the tangent, turned for an angled end (sign·(T − skew·B), normalised)
+  const k = frame.skew ?? 0;
+  const n = _normalize({
+    x: sign * (frame.tangent.x - k * frame.binormal.x),
+    y: sign * (frame.tangent.y - k * frame.binormal.y),
+    z: sign * (frame.tangent.z - k * frame.binormal.z),
+  });
 
   for (const p of profilePoints) {
     positions.push(..._place(frame, p));
-    normals.push(
-      frame.tangent.x * sign,
-      frame.tangent.y * sign,
-      frame.tangent.z * sign,
-    );
+    normals.push(n.x, n.y, n.z);
   }
 
   for (const [a, b, c] of polygonTriangles(profilePoints)) {

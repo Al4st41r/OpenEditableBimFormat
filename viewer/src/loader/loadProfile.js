@@ -87,15 +87,28 @@ export function normaliseProfile(profileData) {
   throw new Error(`Profile "${profileData?.id}" has neither assembly nor layers, so it cannot be swept`);
 }
 
+/** The height of a wall's band layers when the profile gives none (OEBF-GUIDE, "Profile height"). */
+export const DEFAULT_WALL_HEIGHT_M = 2.7;
+
+/**
+ * How tall a profile's band layers are swept, in metres above the path: the profile's `height_limit_m` when it is
+ * above zero (an IFC import puts the wall's height there; the NMB parapet is 0.66 m), else DEFAULT_WALL_HEIGHT_M.
+ */
+export function profileSweepHeight(profileData) {
+  const h = profileData?.height_limit_m;
+  return typeof h === 'number' && Number.isFinite(h) && h > 0 ? h : DEFAULT_WALL_HEIGHT_M;
+}
+
 /**
  * Build an array of 2D layer shapes from a profile's assembly definition.
  *
  * @param {object} profileData - OEBF profile JSON.
- * @param {number} [wallHeight=2.7] - Element height in metres (used for band layers).
+ * @param {number} [wallHeight] - Height of the band layers in metres; by default profileSweepHeight(profileData).
  * @returns {Array<{ points: Array<{x,y}>, materialId: string, width: number, function: string }>}
  */
-export function buildProfileShape(profileData, wallHeight = 2.7) {
+export function buildProfileShape(profileData, wallHeight) {
   profileData = normaliseProfile(profileData);
+  if (wallHeight === undefined) wallHeight = profileSweepHeight(profileData);
   const shapes = [];
   const originX = profileData.origin?.x ?? (profileData.width / 2);
   let cursor = 0; // running X position from the left face (before origin offset)
