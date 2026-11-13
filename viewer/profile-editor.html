@@ -20,6 +20,8 @@
       flex-shrink: 0;
     }
     #header select, #header input { background: #333; color: #ddd; border: 1px solid #555; padding: 4px 8px; border-radius: 3px; }
+    /* a long profile id must not widen the toolbar onto a second row (#158, #167); the open list shows the full ids */
+    #profile-select { max-width: 9rem; text-overflow: ellipsis; }
     #header button { padding: 4px 10px; font-size: 12px; cursor: pointer; background: #2a4a2a; color: #8f8; border: 1px solid #555; border-radius: 3px; }
     #header button:hover { background: #3a5a3a; }
     #header button.secondary { background: #333; color: #ddd; }
