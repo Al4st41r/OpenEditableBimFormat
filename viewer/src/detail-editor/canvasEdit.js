@@ -8,8 +8,10 @@
  * unbind them first. Locked axes are reported so the UI can say why.
  */
 
-import { moveVertex, moveMember, rotateMember, DetailEditError } from './detailDocument.js';
+import { moveVertex, moveMember, rotateMember, duplicateMember, duplicateRegions, DetailEditError } from './detailDocument.js';
 import { offsetsForOrigin, resolvePlacement } from './referenceOps.js';
+import { moveAnnotation } from './annotationOps.js';
+import { regionIndices, selectionOfRegions } from './pageState.js';
 
 const tidy = (x) => Math.round(x * 1e9) / 1e9 + 0;
 
@@ -99,6 +101,45 @@ export function translateRegions(doc, indices, dx, dy) {
     locked.push(...r.locked.map((l) => ({ ...l, region: i })));
   }
   return { doc: d, locked };
+}
+
+/**
+ * Move or copy whatever is selected by (dx, dy): regions (all those picked), a mark, or a member. A copy is added at
+ * the end and becomes the selection. Bound region coordinates stay put on a move and keep their binding on a copy.
+ *
+ * @returns {{ doc: object, selection: object, locked: Array<object>, what: string } | null} null when nothing movable is selected
+ */
+export function moveSelection(doc, selection, dx, dy, { copy = false } = {}) {
+  if (!Number.isFinite(dx) || !Number.isFinite(dy)) throw new DetailEditError('The distance must be finite numbers');
+  if (selection?.type === 'region') {
+    const picked = regionIndices(selection);
+    if (copy) {
+      const n = doc.geometry.regions.length;
+      return { doc: duplicateRegions(doc, picked, dx, dy), selection: selectionOfRegions(picked.map((_, k) => n + k)), locked: [], what: `${picked.length} region(s)` };
+    }
+    const r = translateRegions(doc, picked, dx, dy);
+    return { doc: r.doc, selection, locked: r.locked, what: `${picked.length} region(s)` };
+  }
+  if (selection?.type === 'annotation') {
+    const i = selection.index;
+    if (!doc.annotations?.[i]) throw new DetailEditError(`No mark at index ${i}`);
+    if (!copy) return { doc: moveAnnotation(doc, i, dx, dy), selection, locked: [], what: 'the mark' };
+    const d = structuredClone(doc);
+    d.annotations.push(structuredClone(d.annotations[i]));
+    return { doc: moveAnnotation(d, d.annotations.length - 1, dx, dy), selection: { type: 'annotation', index: d.annotations.length - 1 }, locked: [], what: 'the mark' };
+  }
+  if (selection?.type === 'member') {
+    const m = doc.members?.find((x) => x.role === selection.role);
+    if (!m) throw new DetailEditError(`No member with role "${selection.role}"`);
+    if (copy) {
+      const d = duplicateMember(doc, m.role, dx, dy);
+      return { doc: d, selection: { type: 'member', role: d.members.at(-1).role }, locked: [], what: `member ${m.role}` };
+    }
+    // the stored offsets are measured from the member's reference lines, if any, so a shift adds to them either way
+    const p = m.placement ?? {};
+    return { doc: moveMember(doc, m.role, { offset_x_m: tidy((p.offset_x_m ?? 0) + dx), offset_y_m: tidy((p.offset_y_m ?? 0) + dy) }), selection, locked: [], what: `member ${m.role}` };
+  }
+  return null;
 }
 
 /** Bounding box of a region's plain-number vertices, or null when none are numeric. */

@@ -1,8 +1,9 @@
 // Interaction checks for the detail editor page, run in the browser by
 // tests/e2e/detail-editor.spec.js. Plain JS (no imports) so it can also be
 // pasted into `shot-scraper --javascript` on a machine without Playwright.
-// Returns an array of "PASS ..." / "FAIL ..." lines.
-(() => {
+// Returns (a promise of) an array of "PASS ..." / "FAIL ..." lines. Checks that follow an action wait for the state
+// they expect (until(), up to a few seconds) rather than reading it straight after the events.
+(async () => {
   const R = [];
   const ok = (name, cond, extra) => R.push(`${cond ? 'PASS' : 'FAIL'} ${name}${extra !== undefined ? ' ' + JSON.stringify(extra) : ''}`);
   const E = window.__detailEditor, svg = document.getElementById('canvas');
@@ -13,6 +14,10 @@
   const click = (el) => el.dispatchEvent(new MouseEvent('click', { bubbles: true }));
   const items = (panel) => [...document.querySelectorAll(`#${panel} .item`)];
   const doc = () => E.state().doc;
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  /** Poll until cond() holds; true when it did, false after `ms`. Never throws, so a check still reports FAIL. */
+  const until = async (cond, ms = 4000) => { const t0 = Date.now(); while (!cond()) { if (Date.now() - t0 > ms) return false; await sleep(50); } return true; };
+  const saveOn = () => document.getElementById('save-btn').disabled === false && document.getElementById('dirty').hidden === false;
 
   try {
     ok('a. loaded detail', doc().id === 'detail-corner-cavity-butt' && doc().members.length === 2, doc().id);
@@ -22,40 +27,45 @@
     click(items('left-panel').find((i) => i.textContent.includes('Region 0')));
     ok('b. region selected', E.state().selection?.type === 'region');
 
-    // c. drag vertex 0 by +30 px
+    // c. drag vertex 0 by +20 mm. The distance is in metres, not pixels: region 0 is 50 mm wide, and 30 px dragged the
+    // vertex past its neighbour (a self-crossing region, so Save stayed off) whenever the canvas fitted at a smaller
+    // scale (#177).
     const v0 = doc().geometry.regions[0].vertices[0];
-    ptr('pointerdown', v0.x, v0.y); ptr('pointermove', v0.x + 30 / E.view().scale, v0.y); ptr('pointerup', v0.x + 30 / E.view().scale, v0.y);
+    ptr('pointerdown', v0.x, v0.y); ptr('pointermove', v0.x + 0.02, v0.y); ptr('pointerup', v0.x + 0.02, v0.y);
+    await until(() => doc().geometry.regions[0].vertices[0].x > v0.x);
     const moved = doc().geometry.regions[0].vertices[0];
-    ok('c. vertex moved', moved.x > v0.x, { from: v0.x, to: moved.x });
-    ok('c. dirty and save enabled', document.getElementById('save-btn').disabled === false && document.getElementById('dirty').hidden === false);
+    ok('c. vertex moved', moved.x > v0.x && moved.x < 0.05, { from: v0.x, to: moved.x });
+    ok('c. dirty and save enabled', await until(saveOn), { save: document.getElementById('save-btn').disabled, dirty: !document.getElementById('dirty').hidden, status: E.status() });
 
     // d. undo / redo
     key('z', { ctrlKey: true });
-    ok('d. undo restores', doc().geometry.regions[0].vertices[0].x === v0.x);
-    ok('d. clean again', document.getElementById('save-btn').disabled === true);
+    ok('d. undo restores', await until(() => doc().geometry.regions[0].vertices[0].x === v0.x));
+    ok('d. clean again', await until(() => document.getElementById('save-btn').disabled === true));
     key('y', { ctrlKey: true });
-    ok('d. redo reapplies', doc().geometry.regions[0].vertices[0].x === moved.x);
+    ok('d. redo reapplies', await until(() => doc().geometry.regions[0].vertices[0].x === moved.x));
     key('z', { ctrlKey: true });
+    await until(() => doc().geometry.regions[0].vertices[0].x === v0.x);
 
     // e. rectangle tool
     click(document.getElementById('tool-rect'));
-    ok('e. rect tool active', E.state().tool === 'rect');
+    ok('e. rect tool active', await until(() => E.state().tool === 'rect'));
     ptr('pointerdown', 0.2, 0.25); ptr('pointermove', 0.3, 0.3); ptr('pointerup', 0.3, 0.3);
-    ok('e. rectangle added', doc().geometry.regions.length === 2, doc().geometry.regions.at(-1));
+    ok('e. rectangle added', await until(() => doc().geometry.regions.length === 2), doc().geometry.regions.at(-1));
 
     // f. polygon tool
     click(document.getElementById('tool-polygon'));
     ptr('pointerdown', 0.35, 0.2); ptr('pointerdown', 0.45, 0.2); ptr('pointerdown', 0.45, 0.3);
     svg.dispatchEvent(new MouseEvent('dblclick', { ...px(0.45, 0.3), bubbles: true }));
-    ok('f. polygon added', doc().geometry.regions.length === 3);
+    ok('f. polygon added', await until(() => doc().geometry.regions.length === 3));
     click(document.getElementById('tool-select'));
 
     // g. select a member (opens the Properties tab), edit its insertion x through the panel input
     click(items('left-panel').find((i) => i.textContent.includes('butting-wall')));
-    const offsetInput = [...document.querySelectorAll('#right-panel .row')].find((r) => r.textContent.startsWith('Insert x'))?.querySelector('input');
-    ok('g. member editor shown', !!offsetInput);
+    const insertX = () => [...document.querySelectorAll('#right-panel .row')].find((r) => r.textContent.startsWith('Insert x'))?.querySelector('input');
+    ok('g. member editor shown', await until(() => !!insertX()));
+    const offsetInput = insertX();
     offsetInput.value = '10'; offsetInput.dispatchEvent(new Event('change', { bubbles: true }));
-    ok('g. offset edited (mm to m)', Math.abs(doc().members[1].placement.offset_x_m - 0.01) < 1e-9, doc().members[1].placement);
+    ok('g. offset edited (mm to m)', await until(() => Math.abs(doc().members[1].placement.offset_x_m - 0.01) < 1e-9), doc().members[1].placement);
 
     // h. wheel zoom
     const s0 = E.view().scale;
@@ -66,14 +76,15 @@
     // i. parameter preview slider moves the drawing, not the document
     const before = JSON.stringify(doc());
     click([...document.querySelectorAll('#right-panel .tab')].find((b) => b.textContent.startsWith('Detail')));   // parameters are on the Detail tab
+    await until(() => !!document.querySelector('#right-panel input[type=range]'));
     const slider = document.querySelector('#right-panel input[type=range]');
     slider.value = slider.max; slider.dispatchEvent(new Event('input', { bubbles: true }));
-    ok('i. preview does not touch the document', JSON.stringify(doc()) === before && E.state().preview?.cavity_closer_width_m > 0.05, E.state().preview);
+    ok('i. preview does not touch the document', await until(() => E.state().preview?.cavity_closer_width_m > 0.05) && JSON.stringify(doc()) === before, E.state().preview);
 
     // j. save to memory bundle
     click(document.getElementById('save-btn'));
-    const stored = E.adapter()._map.get('details/detail-corner-cavity-butt.json');
-    ok('j. saved to the bundle', !!stored && JSON.parse(stored).geometry.regions.length === 3, E.status());
+    const stored = () => E.adapter()._map.get('details/detail-corner-cavity-butt.json');
+    ok('j. saved to the bundle', await until(() => !!stored() && JSON.parse(stored()).geometry.regions.length === 3), E.status());
 
     // k. errors
     ok('k. no page errors', window.__errors.length === 0, window.__errors);

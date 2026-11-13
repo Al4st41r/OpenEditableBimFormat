@@ -121,6 +121,22 @@ export function removeMember(doc, role) {
   return syncCondition(d);
 }
 
+/**
+ * Copy a member, shifted by (dx, dy) metres, under a new role (the old one with -2, -3 ...). Its profile, layer
+ * settings and references come with it; a reference keeps measuring from the same line. The copy is the last member.
+ */
+export function duplicateMember(doc, role, dx = 0, dy = 0) {
+  if (!isNum(dx) || !isNum(dy)) throw new DetailEditError('Offsets must be finite numbers');
+  const d = clone(doc);
+  const copy = clone(d.members[memberIndex(d, role)]);
+  copy.role = uniqueRole(d.members, role);
+  copy.placement ??= { offset_x_m: 0, offset_y_m: 0, rotation_deg: 0 };
+  copy.placement.offset_x_m = Math.round(((copy.placement.offset_x_m ?? 0) + dx) * 1e6) / 1e6;
+  copy.placement.offset_y_m = Math.round(((copy.placement.offset_y_m ?? 0) + dy) * 1e6) / 1e6;
+  d.members.push(copy);
+  return syncCondition(d);
+}
+
 export function moveMember(doc, role, { offset_x_m, offset_y_m } = {}) {
   for (const v of [offset_x_m, offset_y_m]) {
     if (v !== undefined && !isNum(v)) throw new DetailEditError('Offsets must be finite numbers');

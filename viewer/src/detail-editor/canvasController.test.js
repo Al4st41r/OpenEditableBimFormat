@@ -946,10 +946,39 @@ describe('trim and extend tools', () => {
     const doc = withMarks();
     const miss = handleEvent(createController('trim'), ev('down', 9, 9), ctxFor(doc));
     expect(of(miss, 'doc')).toHaveLength(0);
-    expect(of(miss, 'message')[0].text).toMatch(/line, arc or circle/);
+    expect(of(miss, 'message')[0].text).toMatch(/line, arc, circle or region outline/);
     const none = handleEvent(createController('extend'), ev('down', 5.5, 5.99), ctxFor(doc));
     expect(of(none, 'doc')).toHaveLength(0);
     expect(of(none, 'message')[0].text).toMatch(/Nothing lies ahead/);
+  });
+
+  test('a reference line is a cutting edge (#166)', () => {
+    const doc = { ...addAnnotation(exampleDetail(), { type: 'line', points: [{ x: 5, y: 5 }, { x: 6, y: 5 }] }), reference_lines: [{ kind: 'custom', axis: 'x', offset_m: 5.7 }] };
+    const r = handleEvent(createController('trim'), ev('down', 5.9, 5), ctxFor(doc));
+    expect(lastDoc(r).doc.annotations.at(-1).points).toEqual([{ x: 5, y: 5 }, { x: 5.7, y: 5 }]);
+  });
+
+  test('extend runs on to an edge carried on past its end, and says so without an error (#166)', () => {
+    let doc = addAnnotation(exampleDetail(), { type: 'line', points: [{ x: 5, y: 5 }, { x: 5.2, y: 5 }] });
+    doc = addAnnotation(doc, { type: 'line', points: [{ x: 5.5, y: 5.5 }, { x: 5.5, y: 6 }] });   // stops short of y = 5
+    const r = handleEvent(createController('extend'), ev('down', 5.19, 5), ctxFor(doc));
+    expect(lastDoc(r).doc.annotations[idx(doc)].points[1]).toEqual({ x: 5.5, y: 5 });
+    expect(of(r, 'message')[0]).toMatchObject({ info: true, text: expect.stringMatching(/carried on/) });
+  });
+
+  test('trim cuts a region outline where a line crosses it, keeping its material (#166)', () => {
+    let doc = addRect(exampleDetail(), 'mat-pir-insulation', { x: 5, y: 5 }, { x: 6, y: 6 });
+    doc = addAnnotation(doc, { type: 'line', points: [{ x: 5.5, y: 4 }, { x: 5.5, y: 7 }] });
+    const r = doc.geometry.regions.length - 1;
+    const res = handleEvent(createController('trim'), ev('down', 6.005, 5.5), ctxFor(doc));   // just outside the right edge
+    const region = lastDoc(res).doc.geometry.regions[r];
+    expect(region.material_id).toBe('mat-pir-insulation');
+    expect(region.vertices).toEqual([{ x: 5.5, y: 6 }, { x: 5, y: 6 }, { x: 5, y: 5 }, { x: 5.5, y: 5 }]);
+    // clicking inside, away from the outline, is not a trim of the region
+    const inside = handleEvent(createController('trim'), ev('down', 5.8, 5.5), ctxFor(doc));
+    expect(of(inside, 'doc')).toHaveLength(0);
+    // extend does not take regions
+    expect(of(handleEvent(createController('extend'), ev('down', 6, 5.5), ctxFor(doc)), 'doc')).toHaveLength(0);
   });
 });
 

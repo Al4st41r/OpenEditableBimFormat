@@ -40,10 +40,11 @@
       // edit the extrusion (Detail tab) and save from the popup: expect detail-saved back
       const d = w.document;
       [...d.querySelectorAll('#right-panel .tab')].find((b) => b.textContent.startsWith('Detail')).click();
-      await sleep(200);
+      await until(() => [...d.querySelectorAll('#right-panel .row')].some((r) => r.textContent.startsWith('Extrusion')));
       const ext = [...d.querySelectorAll('#right-panel .row')].find((r) => r.textContent.startsWith('Extrusion')).querySelector('input');
       ext.value = '3000'; ext.dispatchEvent(new w.Event('change', { bubbles: true }));
-      await sleep(200);
+      // wait for the state rather than a fixed pause (#177)
+      await until(() => !d.getElementById('dirty').hidden && !d.getElementById('save-btn').disabled, 5000).catch(() => {});
       note(!d.getElementById('dirty').hidden && !d.getElementById('save-btn').disabled, 'popup is dirty and Save is enabled after the edit');
       d.getElementById('save-btn').click();
       await until(() => saved);

@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest';
-import { readPairs, parseDxf, dxfToDetail, scaleFromUnits } from './dxfImport.js';
+import { readPairs, parseDxf, dxfToDetail, scaleFromUnits, bulgeArc } from './dxfImport.js';
 import { detailToDxf } from './dxfExport.js';
 import { signedArea } from '../detail/regionGeometry.js';
 import { addAnnotation } from './annotationOps.js';
@@ -74,6 +74,64 @@ describe('converting', () => {
   test('MTEXT formatting codes and paragraph breaks are cleaned', () => {
     const r = run(dxf(ent('MTEXT', [[10, 0], [20, 0], [1, '{\\fArial|b1;Cavity\\Ptray}']])));
     expect(r.annotations[0].text).toBe('Cavity tray');
+  });
+});
+
+describe('bulged polyline segments are read as arcs (#166)', () => {
+  const T = Math.tan(Math.PI / 8);   // the bulge of a quarter circle
+  const lw = (flag, pts) => ent('LWPOLYLINE', [[90, pts.length], [70, flag], ...pts.flatMap(([x, y, b]) => [[10, x], [20, y], ...(b ? [[42, b]] : [])])]);
+
+  test('bulgeArc finds the centre, radius and direction', () => {
+    const half = bulgeArc({ x: 0, y: 0 }, { x: 2, y: 0 }, 1);   // anticlockwise half circle, bowing below the chord
+    expect(half.centre.x).toBeCloseTo(1); expect(half.centre.y).toBeCloseTo(0);
+    expect(half.radius).toBeCloseTo(1);
+    expect([half.from, half.to, half.ccw]).toEqual([180, 0, true]);
+    const q = bulgeArc({ x: 1, y: 0 }, { x: 0, y: 1 }, T);
+    expect(q.centre.x).toBeCloseTo(0); expect(q.centre.y).toBeCloseTo(0); expect(q.radius).toBeCloseTo(1);
+    const cw = bulgeArc({ x: 0, y: 1 }, { x: 1, y: 0 }, -T);
+    expect(cw.centre.x).toBeCloseTo(0); expect(cw.centre.y).toBeCloseTo(0); expect(cw.ccw).toBe(false);
+    expect(bulgeArc({ x: 0, y: 0 }, { x: 1, y: 0 }, 0)).toBeNull();
+    expect(bulgeArc({ x: 0, y: 0 }, { x: 0, y: 0 }, 1)).toBeNull();
+  });
+
+  test('an open polyline becomes lines for its straight runs and an arc for each curve', () => {
+    const r = run(dxf(lw(0, [[0, 0], [1000, 0, 1], [2000, 0], [3000, 0]])));
+    expect(r.annotations.map((a) => a.type)).toEqual(['line', 'arc', 'line']);
+    expect(r.annotations[0].points).toEqual([{ x: 0, y: 0 }, { x: 1, y: 0 }]);
+    expect(r.annotations[1]).toEqual({ type: 'arc', centre: { x: 1.5, y: 0 }, radius_m: 0.5, start_deg: 180, end_deg: 0 });
+    expect(r.annotations[2].points).toEqual([{ x: 2, y: 0 }, { x: 3, y: 0 }]);
+    expect(r.notes).toEqual(['1 curved polyline segment(s) were read as arcs.']);
+  });
+
+  test('a clockwise bulge gives the arc the other way round, stored anticlockwise', () => {
+    const r = run(dxf(lw(0, [[0, 1000, -T], [1000, 0]])));
+    expect(r.annotations).toEqual([{ type: 'arc', centre: { x: 0, y: 0 }, radius_m: 1, start_deg: 0, end_deg: 90 }]);
+  });
+
+  test('POLYLINE vertices carry their bulges too', () => {
+    const t = dxf(ent('POLYLINE', [[66, 1], [70, 0]]) + ent('VERTEX', [[10, 1000], [20, 0], [42, T]]) + ent('VERTEX', [[10, 0], [20, 1000]]) + ent('SEQEND', []));
+    expect(run(t).annotations).toEqual([{ type: 'arc', centre: { x: 0, y: 0 }, radius_m: 1, start_deg: 0, end_deg: 90 }]);
+  });
+
+  test('a closed polyline with a curve is a region with the curve drawn as short straight segments', () => {
+    // a square whose right side bows out in a half circle through (1.5, 0.5)
+    const r = run(dxf(lw(1, [[0, 0], [1000, 0, 1], [1000, 1000], [0, 1000]])));
+    expect(r.regions).toHaveLength(1);
+    const v = r.regions[0].vertices;
+    expect(v.length).toBe(4 + 35);                                   // 180 degrees in 5 degree steps
+    expect(signedArea(v)).toBeGreaterThan(1);                          // more than the square
+    expect(v.some((p) => Math.abs(p.x - 1.5) < 1e-6 && Math.abs(p.y - 0.5) < 1e-6)).toBe(true);
+    for (const p of v.filter((q) => q.x > 1)) expect(Math.hypot(p.x - 1, p.y - 0.5)).toBeCloseTo(0.5, 5);
+    expect(r.notes[0]).toMatch(/1 curved segment\(s\) of closed polylines were drawn as short straight segments/);
+  });
+
+  test('a closed polyline that cannot be a region becomes lines and arcs, closing back to the start', () => {
+    // a bow tie, one side curved: the outline crosses itself
+    const r = run(dxf(lw(1, [[0, 0], [1000, 1000, 0.3], [1000, 0], [0, 1000]])));
+    expect(r.regions).toHaveLength(0);
+    expect(r.annotations.map((a) => a.type)).toEqual(['line', 'arc', 'line']);
+    expect(r.annotations[2].points).toEqual([{ x: 1, y: 0 }, { x: 0, y: 1 }, { x: 0, y: 0 }]);
+    expect(r.notes).toEqual(['1 curved polyline segment(s) were read as arcs.']);
   });
 });
 

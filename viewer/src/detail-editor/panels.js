@@ -284,6 +284,7 @@ function memberEditor(m, bundle, a) {
     layerStartsFold(m, role, a),
     layerEndsFold(m, role, a),
     layerDetailFold(m, role, bundle, a),
+    moveCopyFold(a, 'the member (its insertion point; a copy gets a new role)'),
     h('div', { class: 'row' }, h('button', { onclick: () => a.removeMember(role) }, 'Remove member')),
   ];
 }
@@ -336,7 +337,7 @@ function regionOffsetEditor(r, pm, a) {
       h('button', { title: 'Cut away the part of this region that the other covers (rectangles only)', onclick: () => a.trimBy(by) }, 'Trim'),
       select(['left', 'right', 'bottom', 'top'], offsetDraft.side, (v) => { offsetDraft.side = v; }, { title: 'Side to extend' }),
       h('button', { title: 'Run that side out to the nearest face of the other region (rectangles only)', onclick: () => a.extendTo(offsetDraft.side, by) }, 'Extend to')) : null,
-    h('div', { class: 'note' }, 'Offset and trim need plain-number vertices. Trim and extend here work on rectangles; for lines, arcs and circles use Trim and Extend in the Marks menu.'))];
+    h('div', { class: 'note' }, 'Offset and trim need plain-number vertices. Trim and extend here work on rectangles; for lines, arcs and circles use Trim and Extend in the Marks menu, and Trim there also cuts the outline of any region along a straight edge.'))];
 }
 
 /** Round or chamfer corners of the selected region. The corner defaults to the selected vertex. */
@@ -357,7 +358,7 @@ function regionCornerEditor(r, a) {
 
 /**
  * Move, copy, rotate and mirror, typed or picked on the canvas. Acts on every selected region; rotate and mirror turn
- * about the selection's centre, the origin, or a base point typed or clicked.
+ * about the selection's centre, the origin, or a base point typed or clicked. Marks and members have moveCopyFold.
  */
 const transformDraft = { dx: 0, dy: 0, deg: 90, about: 'centre', ax: 0, ay: 0 };
 const aboutOf = () => (transformDraft.about === 'origin' ? { x: 0, y: 0 } : transformDraft.about === 'point' ? { x: transformDraft.ax, y: transformDraft.ay } : undefined);
@@ -387,6 +388,21 @@ function regionTransformEditor(r, a) {
       h('button', { onclick: () => a.transform({ mirror: 'x', about: aboutOf() }) }, 'Mirror left-right'),
       h('button', { onclick: () => a.transform({ mirror: 'y', about: aboutOf() }) }, 'Mirror top-bottom')),
     h('div', { class: 'note' }, `Applies to ${scope}. Rotate and mirror turn about the centre of the selection, the drawing's origin, or a point you type or pick on the canvas (the mirror line passes through it).`))];
+}
+
+/** Move or copy a mark or a member, typed or by two points picked on the canvas (#166). Shares the region fold's draft. */
+function moveCopyFold(a, what) {
+  return h('details', { class: 'fold' },
+    h('summary', {}, 'Move or copy'),
+    row(`Move x (${unitLabel()})`, num(transformDraft.dx, (m) => { transformDraft.dx = m; })),
+    row(`Move y (${unitLabel()})`, num(transformDraft.dy, (m) => { transformDraft.dy = m; })),
+    h('div', { class: 'row' },
+      h('button', { onclick: () => a.moveBy(transformDraft.dx, transformDraft.dy, false) }, 'Move'),
+      h('button', { onclick: () => a.moveBy(transformDraft.dx, transformDraft.dy, true) }, 'Copy')),
+    h('div', { class: 'row' },
+      h('button', { title: 'Click a base point on the canvas, then where it goes', onclick: () => pickMove(a, false) }, 'Move by 2 points'),
+      h('button', { title: 'Click a base point on the canvas, then where the copy goes', onclick: () => pickMove(a, true) }, 'Copy by 2 points')),
+    h('div', { class: 'note' }, `Moves ${what}, or adds a copy and selects it.`));
 }
 
 /** Click the base point for rotate and mirror on the canvas. */
@@ -649,6 +665,7 @@ function annotationEditor(n, a) {
     out.push(row('Text', text(n.text, (v) => a.updateAnnotation(n.index, { text: v }))),
       n.hasLeader ? row('Leader', h('button', { onclick: () => a.updateAnnotation(n.index, { leader_to: undefined }) }, 'Remove leader')) : null);
   }
+  out.push(moveCopyFold(a, `the ${title.toLowerCase()}`));
   out.push(h('button', { class: 'danger', onclick: () => a.removeAnnotation(n.index) }, `Delete ${title.toLowerCase()}`));
   return out;
 }
