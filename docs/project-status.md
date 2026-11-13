@@ -2,7 +2,7 @@
 
 **Date:** 2026-11-13
 **Branch:** main
-**Tests:** 2269 JS (Vitest, 146 test files) + 460 Python (445 ifc-tools, 15 live-server) + 37 Playwright e2e
+**Tests:** 2270 JS (Vitest, 146 test files) + 460 Python (445 ifc-tools, 15 live-server) + 60 Playwright e2e
 
 ---
 
@@ -109,15 +109,14 @@ Plan: `docs/plans/2026-10-08-junction-detail-system.md`. Delivered: `detail.sche
 
 ## Open Issues (2026-11-12)
 
-The open issue list is the plan: `gh issue list --state open`. On 2026-11-12, #133, #134, #135 and #137 were closed, along with #138-#149 from a code review. A code review and a screenshot review of every app then opened #150-#171; #151-#157, #159 and #161-#165 were fixed the same day and #172-#176 filed from what was left.
+The open issue list is the plan: `gh issue list --state open`. On 2026-11-12, #133, #134, #135 and #137 were closed, along with #138-#149 from a code review. A code review and a screenshot review of every app then opened #150-#171. The rest of #151-#165 and the leftovers #172-#176 were fixed on 2026-11-12 and 2026-11-13.
 
 | # | Title | Phase |
 |---|---|---|
 | #127 | Membranes and tapes: round 1 delivered (design note, rendering, `membrane-trial.oebf`); awaiting the user's answers | 8 |
 | #114 | NMB example: placed-detail floor regions can flicker (awaiting a check on a real GPU) | 8 |
-| #158, #160 | Screenshot review leftovers: toolbars wrap at 1400 px; phone widths (#151-#157, #159, #161-#165 fixed 2026-11-12) | 8 |
 | #166-#171 | Leftovers from #133, #134, #135 and #141 (detail editor tools, seen lines, SfB check, IFC shapes, non-convex region caps, storey read errors) | 8 |
-| #172-#176 | Leftovers from the screenshot fixes: x-ray display of hidden objects, reference grid over the slab, UI polish, dev-server font path, a stale editor check | 8 |
+| #177, #178 | Flaky detail-editor e2e check (Save button read before it updates); editor Material selects show ids | 8 |
 | #150 | Live copy on its own subdomain | Backlog |
 | #117 | Quantities and embodied carbon panel | Backlog |
 | #128 | Research: compare OEBF with IFC (tokens, readability, schema and CLI completeness) | Backlog |
