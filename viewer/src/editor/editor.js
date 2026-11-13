@@ -162,6 +162,7 @@ const gridManager = new GridOverlayManager(
   },
 );
 
+editorScene.onBeforeRender((view) => gridManager.placeLines(view));   // axis lines under the ground slab in 3D (#173)
 document.getElementById('add-gridset-btn').addEventListener('click', () => gridManager.addGrid());
 {
   const planesBtn = document.getElementById('grid-planes-btn');

@@ -63,6 +63,8 @@ window.__viewer = { camera, controls, scene: () => currentGroup };
 const grid = new THREE.GridHelper(20, 20, 0x444444, 0x333333);
 grid.rotation.x = Math.PI / 2;
 scene.add(grid);
+/** The bundle's grid axes, at Z 0: lowered under the ground slab each frame, as the ground grid is (#173). */
+let referenceGrid = null;
 
 // --- Resize ---
 // ResizeObserver prevents the WebGL drawArraysInstanced viewport warning
@@ -82,7 +84,9 @@ _handleResize(); // ensure correct size on first frame
 function animate() {
   requestAnimationFrame(animate);
   controls.update();
-  grid.position.z = -gridDrop(camera.position.distanceTo(controls.target));   // under the ground slab's top face (#152)
+  const drop = gridDrop(camera.position.distanceTo(controls.target));
+  grid.position.z = -drop;   // under the ground slab's top face (#152)
+  if (referenceGrid) referenceGrid.position.z = -drop;   // the bundle's grid axes too (#173)
   renderer.render(scene, camera);
 }
 animate();
@@ -159,6 +163,9 @@ function _buildScene(meshes, manifest, junctions, arrays, grids, openings = [], 
   }
 
   // Render structural grids as subtle line segments
+  referenceGrid = new THREE.Group();
+  referenceGrid.name = 'reference-grid';
+  currentGroup.add(referenceGrid);
   for (const grid of grids) {
     const { positions } = buildGridLineSegments(grid);
     if (positions.length === 0) continue;
@@ -167,7 +174,7 @@ function _buildScene(meshes, manifest, junctions, arrays, grids, openings = [], 
     const material = new THREE.LineBasicMaterial({ color: 0x555555, opacity: 0.5, transparent: true });
     const lines = new THREE.LineSegments(geometry, material);
     lines.userData.gridId = grid.id;
-    currentGroup.add(lines);
+    referenceGrid.add(lines);
   }
 
   // doors and windows are holes in their walls

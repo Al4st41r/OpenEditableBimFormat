@@ -199,9 +199,14 @@ export function initEditorScene(canvas) {
   // Frames are asked for by camera moves, input (with one trailing frame for work an input awaits), resizes, objects
   // added or removed anywhere in the scene, render-mode, storey and view switches, and requestRender() for anything
   // else that changes the scene in place without input.
+  const _beforeRender = [];
+  /** Run `fn({ plan, drop })` before each frame: `drop` is how far under its level a grid sits for this view (#173). */
+  function onBeforeRender(fn) { _beforeRender.push(fn); }
   const scheduler = createRenderScheduler(() => {
     // the further off the camera, the further under the floor the grid must be to stay hidden by it (#152)
-    constructionGrid.position.z = activeStoreyZ - gridDrop(isPlanView ? 0 : perspCamera.position.distanceTo(controls.target));
+    const drop = gridDrop(isPlanView ? 0 : perspCamera.position.distanceTo(controls.target));
+    constructionGrid.position.z = activeStoreyZ - drop;
+    for (const fn of _beforeRender) fn({ plan: isPlanView, drop });
     renderer.render(scene, getActiveCamera());
   });
   const requestRender = scheduler.request;
@@ -220,7 +225,7 @@ export function initEditorScene(canvas) {
     constructionPlane, modelGroup, overlayGroup,
     get constructionGrid() { return constructionGrid; },   // replaced when the render mode changes its colours
     setStoreyZ: andRender(setStoreyZ), getStoreyZ, setPlanView: andRender(setPlanView), getActiveCamera, fitView: andRender(fitView),
-    setRenderMode: andRender(setRenderMode), getRenderMode, setXray: andRender(setXray), getXray, addRenderModeGroup: andRender(addRenderModeGroup),
+    setRenderMode: andRender(setRenderMode), getRenderMode, setXray: andRender(setXray), getXray, onBeforeRender: andRender(onBeforeRender), addRenderModeGroup: andRender(addRenderModeGroup),
     requestRender,
     get renderFrames() { return scheduler.frames; },   // frames drawn so far, for headless checks
   };
