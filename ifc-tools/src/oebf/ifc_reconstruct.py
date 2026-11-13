@@ -125,7 +125,8 @@ def wall_axis(entity):
 
     A footprint (rectangle) extruded upwards gives the centreline along the rectangle's long side (X), the thickness
     from its other side and the height from the depth. A section extruded along the wall (the way OEBF exports) gives
-    the start and end from the extrusion, and the thickness from the section's width."""
+    the start and end from the extrusion, and the thickness from the section's width. `upright` marks the first kind,
+    whose centreline is the middle of the wall rather than its reference line."""
     try:
         scale = unit_scale(entity)
         for item, world, _ in body_items(entity):
@@ -143,7 +144,7 @@ def wall_axis(entity):
                 cx, cy, xdim, ydim = rect
                 a, b = at @ np.array([cx - xdim / 2, cy, 0, 1]), at @ np.array([cx + xdim / 2, cy, 0, 1])
                 return {"start": tuple(float(v) for v in a[:3]), "end": tuple(float(v) for v in b[:3]),
-                        "thickness": ydim, "height": depth}
+                        "thickness": ydim, "height": depth, "upright": True}
             a = solid @ np.array([0, 0, 0, 1])
             end = a[:3] + direction * depth
             return {"start": tuple(float(v) for v in a[:3]), "end": tuple(float(v) for v in end),
@@ -171,7 +172,14 @@ def layer_function(name: str) -> str:
 
 
 def layer_profile(entity):
-    """{name, layers: [{name, material_name, thickness}], offset} from the entity's layer set, else None."""
+    """{name, layers: [{name, material_name, thickness}], origin} from the entity's layer set, else None.
+
+    The layers come in OEBF order, from the left of the wall's run to its right (#180), and `origin` is how far the
+    reference line lies from the left face (OEBF's profile origin x), or None without a layer set usage (centred).
+    IFC puts the layer set's base (MlsBase) at OffsetFromReferenceLine along the wall's local Y, which is to the left
+    of its run, and stacks the layers from there towards +Y (DirectionSense POSITIVE) or -Y (NEGATIVE). So a NEGATIVE
+    set runs left to right as it stands, with its first layer's left face at the offset; a POSITIVE one runs right to
+    left and is turned round, its last layer's left face at the offset plus the set's thickness."""
     try:
         material = ifc_element.get_material(entity)
     except Exception:
@@ -179,9 +187,10 @@ def layer_profile(entity):
     if material is None:
         return None
     scale = unit_scale(entity)
-    offset = None
+    offset, sense = None, "POSITIVE"
     if material.is_a("IfcMaterialLayerSetUsage"):
         offset = None if material.OffsetFromReferenceLine is None else float(material.OffsetFromReferenceLine) * scale
+        sense = material.DirectionSense or "POSITIVE"
         material = material.ForLayerSet
     if not material.is_a("IfcMaterialLayerSet"):
         return None
@@ -194,7 +203,15 @@ def layer_profile(entity):
         layers.append({"name": name, "material_name": layer.Material.Name, "thickness": round(thickness, 6)})
     if not layers:
         return None
-    return {"name": getattr(material, "LayerSetName", None) or "", "layers": layers, "offset": offset}
+    origin = None
+    if offset is not None:
+        width = sum(layer["thickness"] for layer in layers)
+        if sense == "POSITIVE":
+            layers.reverse()
+            origin = offset + width
+        else:
+            origin = offset
+    return {"name": getattr(material, "LayerSetName", None) or "", "layers": layers, "origin": origin}
 
 
 def _material_of(entity):
@@ -263,7 +280,7 @@ def constituent_profile(entity, thickness):
         return None
     layers = [{"name": c.Name or c.Material.Name, "material_name": c.Material.Name,
                "thickness": round(float(thickness) * float(c.Fraction) / total, 6)} for c in parts if float(c.Fraction) > 0]
-    return {"name": material.Name or "", "layers": layers, "offset": None}
+    return {"name": material.Name or "", "layers": layers, "origin": None}
 
 
 def material_kind(entity) -> str | None:
@@ -278,10 +295,11 @@ def material_kind(entity) -> str | None:
 
 
 def profile_origin_x(profile: dict) -> float:
-    """Where the reference line sits across the build-up: at the centre unless the IFC puts it elsewhere."""
+    """Where the reference line sits across the build-up, from its left face: at the centre unless the layer set
+    usage puts it elsewhere (see layer_profile), kept within the build-up."""
     width = sum(layer["thickness"] for layer in profile["layers"])
-    offset = profile.get("offset")
-    return round(width / 2 if offset is None else min(max(-float(offset), 0.0), width), 6)
+    origin = profile.get("origin")
+    return round(width / 2 if origin is None else min(max(float(origin), 0.0), width), 6)
 
 
 def profile_signature(profile: dict) -> str:

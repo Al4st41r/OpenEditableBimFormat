@@ -15,7 +15,7 @@ import ifcopenshell.api.material
 import numpy as np
 from . import ifc_mapping
 from . import ifc_openings
-from .ifc_shapes import arc_points, section_frame
+from .ifc_shapes import _circle_through, arc_points, section_frame
 import ifcopenshell.api.pset
 
 # Default wall height when the profile has no explicit height field
@@ -39,6 +39,10 @@ def export_ifc(oebf_dir: Path, ifc_path: Path) -> None:
         ifc, context_type="Model", context_identifier="Body",
         target_view="MODEL_VIEW",
     )
+    # the reference line of a wall whose path is not one straight line (#180)
+    axis_context = ifcopenshell.api.context.add_context(
+        ifc, context_type="Model", context_identifier="Axis", target_view="GRAPH_VIEW",
+    )
 
     site = ifcopenshell.api.root.create_entity(ifc, ifc_class="IfcSite", name="Site")
     building = ifcopenshell.api.root.create_entity(ifc, ifc_class="IfcBuilding", name="Building")
@@ -51,7 +55,7 @@ def export_ifc(oebf_dir: Path, ifc_path: Path) -> None:
 
     exported = {}   # OEBF id -> IFC entity, for the property sets that refer back to elements
     for element_id in model_data.get("elements", []):
-        entity = _export_element(ifc, oebf_dir, element_id, storey, body_context, mat_by_id, mapping)
+        entity = _export_element(ifc, oebf_dir, element_id, storey, body_context, mat_by_id, mapping, axis_context)
         if entity is not None:
             exported[element_id] = entity
 
@@ -67,7 +71,7 @@ def export_ifc(oebf_dir: Path, ifc_path: Path) -> None:
     ifc.write(str(ifc_path))
 
 
-def _export_element(ifc, oebf_dir, element_id, storey, body_context, mat_by_id, mapping):
+def _export_element(ifc, oebf_dir, element_id, storey, body_context, mat_by_id, mapping, axis_context=None):
     try:
         elem = json.loads((oebf_dir / "elements" / f"{element_id}.json").read_text())
         path_data = json.loads((oebf_dir / "paths" / f"{elem['path_id']}.json").read_text())
@@ -100,10 +104,15 @@ def _export_element(ifc, oebf_dir, element_id, storey, body_context, mat_by_id, 
     else:
         total_width = sum(layer["thickness"] for layer in _band_layers(profile_data["assembly"]))
         origin_x = profile_data.get("origin", {}).get("x", total_width / 2)
-        _assign_body_geometry(ifc, entity, body_context,
-                              start, tangent, path_length, total_width, origin_x, _wall_height(profile_data),
-                              _end_angles(elem))
-        _assign_material_layers(ifc, entity, profile_data["assembly"], mat_by_id, mapping)
+        pieces = _plan_pieces(path_data)
+        if len(pieces) == 1 and pieces[0]["type"] == "line":
+            _assign_body_geometry(ifc, entity, body_context,
+                                  start, tangent, path_length, total_width, origin_x, _wall_height(profile_data),
+                                  _end_angles(elem))
+        else:
+            _assign_footprint_body(ifc, entity, body_context, axis_context or body_context, element_id, path_data,
+                                   pieces, total_width, origin_x, _wall_height(profile_data), _end_angles(elem))
+        _assign_material_layers(ifc, entity, profile_data["assembly"], mat_by_id, mapping, origin_x)
     _assign_property_set(ifc, entity, elem.get("properties", {}), mapping)
 
     ifcopenshell.api.spatial.assign_container(ifc, relating_structure=storey, products=[entity])
@@ -209,20 +218,9 @@ def _assign_body_geometry(ifc, entity, context,
         ExtrudedDirection=ifc.create_entity("IfcDirection", DirectionRatios=[0.0, 0.0, 1.0]),
         Depth=path_length + extra.get("start", 0.0) + extra.get("end", 0.0),
     )
-    body = solid
-    for end, angle in angles.items():
-        # outward along the path at this end, turned anticlockwise by the angle: the outward normal of the end face
-        out_x = 1.0 if end == "end" else -1.0
-        a = math.radians(angle)
-        normal = [out_x * math.cos(a), out_x * math.sin(a), 0.0]
-        plane = ifc.create_entity("IfcPlane", Position=ifc.create_entity(
-            "IfcAxis2Placement3D",
-            Location=ifc.create_entity("IfcCartesianPoint", Coordinates=[path_length if end == "end" else 0.0, 0.0, 0.0]),
-            Axis=ifc.create_entity("IfcDirection", DirectionRatios=normal),
-            RefDirection=ifc.create_entity("IfcDirection", DirectionRatios=[0.0, 0.0, 1.0])))
-        # AgreementFlag FALSE: the half-space is on the side the normal points to, beyond the end, and is removed
-        half = ifc.create_entity("IfcHalfSpaceSolid", BaseSurface=plane, AgreementFlag=False)
-        body = ifc.create_entity("IfcBooleanClippingResult", Operator="DIFFERENCE", FirstOperand=body, SecondOperand=half)
+    ends = {end: ((path_length, 0.0) if end == "end" else (0.0, 0.0), (1.0, 0.0) if end == "end" else (-1.0, 0.0), angle)
+            for end, angle in angles.items()}
+    body = _clip_ends(ifc, solid, ends)
 
     shape_rep = ifc.create_entity(
         "IfcShapeRepresentation",
@@ -234,6 +232,175 @@ def _assign_body_geometry(ifc, entity, context,
     entity.Representation = ifc.create_entity(
         "IfcProductDefinitionShape", Representations=[shape_rep]
     )
+
+
+def _clip_ends(ifc, body, ends):
+    """The body cut at each angled end by a vertical half-space (IfcBooleanClippingResult). `ends` maps "start"/"end"
+    to (the path's end point and its outward direction, both in plan in the element's frame, and the angle in
+    degrees): the cut face's outward normal is the outward direction turned anticlockwise by the angle."""
+    for end, (point, out, angle) in ends.items():
+        a = math.radians(angle)
+        normal = [out[0] * math.cos(a) - out[1] * math.sin(a), out[0] * math.sin(a) + out[1] * math.cos(a), 0.0]
+        plane = ifc.create_entity("IfcPlane", Position=ifc.create_entity(
+            "IfcAxis2Placement3D",
+            Location=ifc.create_entity("IfcCartesianPoint", Coordinates=[float(point[0]), float(point[1]), 0.0]),
+            Axis=ifc.create_entity("IfcDirection", DirectionRatios=normal),
+            RefDirection=ifc.create_entity("IfcDirection", DirectionRatios=[0.0, 0.0, 1.0])))
+        # AgreementFlag FALSE: the half-space is on the side the normal points to, beyond the end, and is removed
+        half = ifc.create_entity("IfcHalfSpaceSolid", BaseSurface=plane, AgreementFlag=False)
+        body = ifc.create_entity("IfcBooleanClippingResult", Operator="DIFFERENCE", FirstOperand=body, SecondOperand=half)
+    return body
+
+
+# ── walls on a path that is not one straight line (#180) ─────────────────────
+
+def _plan_pieces(path_data):
+    """The path in plan as [{type: line|arc, start, end, mid?}] (3-tuples): lines and arcs as they are, a spline as
+    lines through its points. Pieces of no length are left out."""
+    pt = lambda p: (float(p["x"]), float(p["y"]), float(p.get("z", 0.0)))
+    out = []
+    for seg in path_data.get("segments", []):
+        if seg.get("type") == "arc" and seg.get("mid") and _circle_through(pt(seg["start"])[:2], pt(seg["mid"])[:2], pt(seg["end"])[:2]):
+            out.append({"type": "arc", "start": pt(seg["start"]), "mid": pt(seg["mid"]), "end": pt(seg["end"])})
+            continue
+        pts = [pt(p) for p in seg["points"]] if seg.get("points") else [pt(seg["start"]), pt(seg["end"])]
+        out += [{"type": "line", "start": a, "end": b} for a, b in zip(pts, pts[1:]) if math.dist(a[:2], b[:2]) > 1e-9]
+    return out
+
+
+def _unit2(v):
+    n = math.hypot(v[0], v[1])
+    return (v[0] / n, v[1] / n) if n > 1e-12 else (1.0, 0.0)
+
+
+def _left(t):
+    return (-t[1], t[0])
+
+
+def _arc_ccw(piece):
+    a, m, b = piece["start"][:2], piece["mid"][:2], piece["end"][:2]
+    return (m[0] - a[0]) * (b[1] - a[1]) - (m[1] - a[1]) * (b[0] - a[0]) > 0
+
+
+def _tangent(piece, key):
+    """The unit plan tangent of a piece at its start, mid or end, in the direction of travel."""
+    if piece["type"] == "line":
+        return _unit2((piece["end"][0] - piece["start"][0], piece["end"][1] - piece["start"][1]))
+    (cx, cy), _ = _circle_through(piece["start"][:2], piece["mid"][:2], piece["end"][:2])
+    p = piece[key]
+    radial = (p[0] - cx, p[1] - cy)
+    t = _left(_unit2(radial))
+    return t if _arc_ccw(piece) else (-t[0], -t[1])
+
+
+def _offset_chain(pieces, d, extend):
+    """The pieces moved d to the left of travel (negative: to the right), as [{type, start, end, mid?}] in plan.
+    Corners are mitred; `extend` ("start"/"end" -> metres) runs a line's end on along its direction first."""
+    def joint(p, t_in, t_out):
+        n_in, n_out = _left(t_in), _left(t_out)
+        m = (n_in[0] + n_out[0], n_in[1] + n_out[1])
+        if math.hypot(*m) < 1e-6:
+            m = n_in
+        m = _unit2(m)
+        k = d / max(m[0] * n_in[0] + m[1] * n_in[1], 0.1)   # a mitre no longer than ten times the offset
+        return (p[0] + m[0] * k, p[1] + m[1] * k)
+
+    out = []
+    for i, piece in enumerate(pieces):
+        t0, t1 = _tangent(piece, "start"), _tangent(piece, "end")
+        a, b = piece["start"][:2], piece["end"][:2]
+        if i == 0:
+            e = extend.get("start", 0.0)
+            a = (a[0] - t0[0] * e, a[1] - t0[1] * e)
+            start = (a[0] + _left(t0)[0] * d, a[1] + _left(t0)[1] * d)
+        else:
+            start = joint(a, _tangent(pieces[i - 1], "end"), t0)
+        if i == len(pieces) - 1:
+            e = extend.get("end", 0.0)
+            b = (b[0] + t1[0] * e, b[1] + t1[1] * e)
+            end = (b[0] + _left(t1)[0] * d, b[1] + _left(t1)[1] * d)
+        else:
+            end = joint(b, t1, _tangent(pieces[i + 1], "start"))
+        seg = {"type": piece["type"], "start": start, "end": end}
+        if piece["type"] == "arc":
+            tm = _left(_tangent(piece, "mid"))
+            seg["mid"] = (piece["mid"][0] + tm[0] * d, piece["mid"][1] + tm[1] * d)
+        out.append(seg)
+    return out
+
+
+def _curve(ifc, segments, closed=False):
+    """2D segments as an IfcPolyline when they are all lines, else an IfcIndexedPolyCurve with arc segments."""
+    pts = [segments[0]["start"]]
+    index = []
+    for seg in segments:
+        if seg["type"] == "arc":
+            pts += [seg["mid"], seg["end"]]
+            index.append(("arc", [len(pts) - 2, len(pts) - 1, len(pts)]))
+        else:
+            pts.append(seg["end"])
+            index.append(("line", [len(pts) - 1, len(pts)]))
+    if closed:
+        pts.pop()
+        last = index[-1][1]
+        last[-1] = 1
+    if all(kind == "line" for kind, _ in index):
+        ring = [ifc.create_entity("IfcCartesianPoint", Coordinates=[float(x), float(y)]) for x, y in pts]
+        return ifc.create_entity("IfcPolyline", Points=ring + ([ring[0]] if closed else []))
+    plist = ifc.create_entity("IfcCartesianPointList2D", CoordList=[[float(x), float(y)] for x, y in pts])
+    segs = [ifc.create_entity("IfcArcIndex" if kind == "arc" else "IfcLineIndex", idx) for kind, idx in index]
+    return ifc.create_entity("IfcIndexedPolyCurve", Points=plist, Segments=segs, SelfIntersect=False)
+
+
+def _assign_footprint_body(ifc, entity, context, axis_context, element_id, path_data, pieces, total_width, origin_x,
+                           height, angles=None):
+    """A wall on a path of several segments, or a curve: its plan outline (the path's two faces, mitred at each
+    corner, an arc's faces as concentric arcs) extruded up by the wall's height, as other tools write walls, plus an
+    Axis representation holding the path itself, the wall's reference line. The element is placed at the path's start
+    with its X along the first segment. Angled ends are cut by half-spaces as on a straight wall (a curved end segment
+    keeps a square end). A path that is not level is laid at the height of its start."""
+    angles = dict(angles or {})
+    for end, piece in (("start", pieces[0]), ("end", pieces[-1])):
+        if end in angles and piece["type"] != "line":
+            print(f"  Warning: {element_id}: the angle of its {end} was left out: that end is curved")
+            angles.pop(end)
+    zs = [p[key][2] for p in pieces for key in ("start", "end")]
+    if max(zs) - min(zs) > 1e-6:
+        print(f"  Warning: {element_id}: its path is not level; the wall was laid at the height of its start")
+    p0 = pieces[0]["start"]
+    tx, ty = _tangent(pieces[0], "start")
+    to_local = lambda p: ((p[0] - p0[0]) * tx + (p[1] - p0[1]) * ty, -(p[0] - p0[0]) * ty + (p[1] - p0[1]) * tx, 0.0)
+    local = [{**pc, **{k: to_local(pc[k]) for k in ("start", "mid", "end") if k in pc}} for pc in pieces]
+    ifcopenshell.api.geometry.edit_object_placement(ifc, product=entity, matrix=[
+        [tx, -ty, 0.0, p0[0]], [ty, tx, 0.0, p0[1]], [0.0, 0.0, 1.0, p0[2]]])
+
+    reach = max(abs(origin_x), abs(total_width - origin_x))
+    extend = {end: reach * abs(math.tan(math.radians(a))) for end, a in angles.items()}
+    # profile x runs to the right of the path, so the left face is origin_x to the left and the right face the rest
+    left = _offset_chain(local, origin_x, extend)
+    right = _offset_chain(local, origin_x - total_width, extend)
+    back = [{**seg, "start": seg["end"], "end": seg["start"]} for seg in reversed(right)]
+    outline = (left + [{"type": "line", "start": left[-1]["end"], "end": back[0]["start"]}] + back
+               + [{"type": "line", "start": back[-1]["end"], "end": left[0]["start"]}])
+    profile = ifc.create_entity("IfcArbitraryClosedProfileDef", ProfileType="AREA", OuterCurve=_curve(ifc, outline, closed=True))
+    solid = ifc.create_entity(
+        "IfcExtrudedAreaSolid", SweptArea=profile,
+        Position=ifc.create_entity("IfcAxis2Placement3D", Location=ifc.create_entity("IfcCartesianPoint", Coordinates=[0.0, 0.0, 0.0])),
+        ExtrudedDirection=ifc.create_entity("IfcDirection", DirectionRatios=[0.0, 0.0, 1.0]), Depth=height)
+    ends = {}
+    for end, angle in angles.items():
+        piece = local[0] if end == "start" else local[-1]
+        t = _tangent(piece, end)
+        ends[end] = (piece[end][:2], (-t[0], -t[1]) if end == "start" else t, angle)
+    body = _clip_ends(ifc, solid, ends)
+    axis_curve = _curve(ifc, [{**pc, **{k: pc[k][:2] for k in ("start", "mid", "end") if k in pc}} for pc in local])
+    reps = [
+        ifc.create_entity("IfcShapeRepresentation", ContextOfItems=context, RepresentationIdentifier="Body",
+                          RepresentationType="Clipping" if angles else "SweptSolid", Items=[body]),
+        ifc.create_entity("IfcShapeRepresentation", ContextOfItems=axis_context, RepresentationIdentifier="Axis",
+                          RepresentationType="Curve2D", Items=[axis_curve]),
+    ]
+    entity.Representation = ifc.create_entity("IfcProductDefinitionShape", Representations=reps)
 
 
 # IfcMaterialLayer.Category for each OEBF layer function. IFC4 recommends LoadBearing, Insulation and Finish;
@@ -344,8 +511,13 @@ def _assign_profile_set(ifc, entity, name, made, mat_by_id, mapping):
     ifc.create_entity("IfcRelAssociatesMaterial", GlobalId=ifcopenshell.guid.new(), RelatedObjects=[entity], RelatingMaterial=usage)
 
 
-def _assign_material_layers(ifc, entity, assembly, mat_by_id, mapping):
-    """Create an IfcMaterialLayerSet from the profile assembly and assign it."""
+def _assign_material_layers(ifc, entity, assembly, mat_by_id, mapping, origin_x=None):
+    """Create an IfcMaterialLayerSet from the profile assembly and assign it.
+
+    OEBF's layers run from the left of the path to its right, the first layer's left face origin_x from the path.
+    IFC's wall Y axis points to the left of its run, so the usage puts the layer set's base (MlsBase) origin_x along
+    +Y and stacks the layers from there towards -Y (DirectionSense NEGATIVE): the layers keep their order and side
+    (#180). Before, the usage said POSITIVE with no offset, which put the whole build-up on the left, turned round."""
     ifc_layers = []
     for layer in _band_layers(assembly):
         mat_info = mat_by_id.get(layer["material_id"], {})
@@ -366,8 +538,8 @@ def _assign_material_layers(ifc, entity, assembly, mat_by_id, mapping):
         "IfcMaterialLayerSetUsage",
         ForLayerSet=layer_set,
         LayerSetDirection="AXIS2",
-        DirectionSense="POSITIVE",
-        OffsetFromReferenceLine=0.0,
+        DirectionSense="NEGATIVE",
+        OffsetFromReferenceLine=float(origin_x if origin_x is not None else sum(l["thickness"] for l in _band_layers(assembly)) / 2),
     )
     ifc.create_entity(
         "IfcRelAssociatesMaterial",

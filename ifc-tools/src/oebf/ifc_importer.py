@@ -242,28 +242,30 @@ class Rebuilt:
             out[key] = value
         return out
 
-    def profile_for(self, entity, thickness=None, height=None) -> str:
+    def profile_for(self, entity, thickness=None, height=None, centred=False) -> str:
         """The id of a profile for this entity: its layer set, else one layer of its material, else the placeholder.
         A wall's height, when the IFC gives it, goes on the profile as height_limit_m (walls of other heights get
-        profiles of their own)."""
+        profiles of their own). `centred`: the path is the middle of the wall, so the build-up is centred on it."""
         lp = rebuild.layer_profile(entity) or rebuild.constituent_profile(entity, thickness)
+        if lp is not None and centred:
+            lp = {**lp, "origin": None}
         if lp is None and thickness:
             name = rebuild.primary_material(entity)
             if name:
                 kind = rebuild.material_kind(entity)
                 if kind not in ("IfcMaterial", "IfcMaterialLayerSet"):
                     print(f"  Warning: {_label(entity)}: its {kind} gives no layer thicknesses; {name!r} was used for the whole thickness")
-                lp = {"name": name, "layers": [{"name": name, "material_name": name, "thickness": round(float(thickness), 6)}], "offset": None}
+                lp = {"name": name, "layers": [{"name": name, "material_name": name, "thickness": round(float(thickness), 6)}], "origin": None}
         if lp is None and thickness and height:
             # no material: the placeholder material, but at the wall's own thickness and height
             self.placeholder_material_used = True
-            lp = {"name": "unknown-material", "offset": None,
+            lp = {"name": "unknown-material", "origin": None,
                   "layers": [{"name": "Imported", "material_name": "Imported", "thickness": round(float(thickness), 6)}]}
         if lp is None:
             self.placeholder_used = True
             return PLACEHOLDER_PROFILE
         height = round(float(height), 4) if height and height > 0 else None
-        sig = rebuild.profile_signature(lp) + (f"|h{height}" if height else "")
+        sig = rebuild.profile_signature(lp) + f"|o{rebuild.profile_origin_x(lp)}" + (f"|h{height}" if height else "")
         if sig not in self._by_signature:
             base = f"profile-imported-{rebuild.slugify(lp['name']) or rebuild.slugify(lp['layers'][0]['material_name']) or 'layers'}"
             pid, n = base, 1
@@ -403,17 +405,21 @@ def _element_shape(entity):
         return {"segments": [_line(a, b) for a, b in section["segments"]], "regions": section["regions"],
                 "sources": section.get("sources"), "note": section["note"]}
     axis = rebuild.wall_axis(entity)
-    drawn = rebuild.axis_path(entity)
+    drawn = rebuild.axis_path(entity) or shapes.axis_curve(entity)
     footprint = None if axis else shapes.footprint_axis(entity)
     thickness = (axis or footprint or {}).get("thickness")
     height = (axis or footprint or {}).get("height")
     segments = drawn or ([_line(axis["start"], axis["end"])] if axis else None) or (footprint or {}).get("segments")
+    # A path read from the middle of the body (not an Axis representation, nor the run of a section swept along the
+    # wall) is the wall's centreline, so its build-up is centred on it whatever the layer set's offset says.
+    centred = not drawn and (bool(axis and axis.get("upright")) or (not axis and segments is not None))
     items = rebuild.body_items(entity)
     solids = [i for i, _, _ in items if i.is_a("IfcExtrudedAreaSolid")]
     if items and (segments is None or (thickness is None and not solids)):
         outline = shapes.mesh_axis(entity) if segments is None else None
         if outline:
             segments = outline["segments"]
+            centred = True
             thickness, height = outline["thickness"], outline["height"]
             print(f"  Warning: {_label(entity)}: its body ({items[0][0].is_a()}) was read from the outline of its base")
         else:
@@ -422,6 +428,7 @@ def _element_shape(entity):
             if box:
                 if segments is None:
                     segments = [_line(box["start"], box["end"])]
+                    centred = True
                     print(f"  Warning: {_label(entity)}: its body ({items[0][0].is_a()}) was read as its plan bounding box")
                 thickness = thickness or box["thickness"]
                 height = height or box["height"]
@@ -430,7 +437,7 @@ def _element_shape(entity):
             print(f"  Warning: {_label(entity)}: its shape could not be read; it was given a 1 m placeholder path")
         stub = _extract_path_segment(entity)
         return {"segments": [_line(tuple(stub["start"].values()), tuple(stub["end"].values()))], "thickness": thickness, "stub": True}
-    return {"segments": segments, "thickness": thickness, "height": height}
+    return {"segments": segments, "thickness": thickness, "height": height, "centred": centred}
 
 
 def _format_segment(seg) -> dict:
@@ -464,7 +471,7 @@ def _process_element(entity, element_id, oebf_type, group_id, out_dir, rebuilt, 
         if shape.get("regions"):
             profile_id = rebuilt.region_profile_for(entity, shape["regions"], shape.get("note"), shape.get("sources"))
         else:
-            profile_id = rebuilt.profile_for(entity, shape.get("thickness"), height)
+            profile_id = rebuilt.profile_for(entity, shape.get("thickness"), height, shape.get("centred", False))
         elem_data = {
             "$schema": "oebf://schema/0.1/element",
             "id": element_id,
