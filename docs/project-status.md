@@ -2,7 +2,7 @@
 
 **Date:** 2026-11-12
 **Branch:** main
-**Tests:** 2261 JS (Vitest, 145 test files) + 460 Python (445 ifc-tools, 15 live-server) + 36 Playwright e2e
+**Tests:** 2269 JS (Vitest, 146 test files) + 460 Python (445 ifc-tools, 15 live-server) + 37 Playwright e2e
 
 ---
 
