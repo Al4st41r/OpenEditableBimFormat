@@ -35,6 +35,8 @@
 
       const before = xSpan(id);
       await set('field-start_offset', '1000');
+      // the re-render removes the wall's meshes before it rebuilds them; on a cold dev server that takes over 700 ms
+      await until(() => Math.abs(xSpan(id) - (before - 1)) < 0.01).catch(() => {});
       note(file(`elements/${id}.json`).start_offset === 1 && Math.abs(xSpan(id) - (before - 1)) < 0.01, 'start offset 1000 mm shortens the wall by 1 m', { before, after: xSpan(id) });
 
       await set('field-sweep_mode', 'twisted');
