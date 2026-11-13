@@ -997,10 +997,20 @@ describe('trim and extend tools', () => {
     let doc = addRect(exampleDetail(), 'mat-pir-insulation', { x: 5, y: 5 }, { x: 6, y: 6 });
     doc = addAnnotation(doc, { type: 'line', points: [{ x: 7, y: 4 }, { x: 7, y: 7 }] });
     const r = doc.geometry.regions.length - 1;
-    const res = handleEvent(createController('extend'), ev('down', 5.95, 5), ctxFor(doc));   // the bottom edge, near its right end
+    const res = handleEvent(createController('extend'), ev('down', 5.95, 5), ctxFor(doc, null, { extendStretch: false }));   // the bottom edge, near its right end
     const vs = lastDoc(res).doc.geometry.regions[r].vertices;
     expect(vs).toContainEqual({ x: 7, y: 5 });
     expect(vs).not.toContainEqual({ x: 6, y: 5 });
+  });
+
+  test('extend stretches a region edge by default, keeping a rectangle a rectangle (#192)', () => {
+    let doc = addRect(exampleDetail(), 'mat-pir-insulation', { x: 5, y: 5 }, { x: 6, y: 6 });
+    doc = addAnnotation(doc, { type: 'line', points: [{ x: 4, y: 7 }, { x: 8, y: 7 }] });
+    const r = doc.geometry.regions.length - 1;
+    const res = handleEvent(createController('extend'), ev('down', 5.5, 6), ctxFor(doc));   // the top edge
+    const vs = lastDoc(res).doc.geometry.regions[r].vertices;
+    expect(vs.map((v) => v.y).sort()).toEqual([5, 5, 7, 7]);
+    expect(vs.map((v) => v.x).sort()).toEqual([5, 5, 6, 6]);
   });
 
   test('with the setting on, extend takes a nearer edge carried on over something real further ahead (#185)', () => {

@@ -95,3 +95,22 @@ test('a height limit is drawn measured up from the base, and a region drawn near
   expect(Math.min(...ys)).toBeCloseTo(0.1, 1);
   expect(Math.max(...ys)).toBeCloseTo(0.3, 1);
 });
+
+test('the height-limit label keeps its screen size when zoomed in (#188)', async ({ page }) => {
+  await open(page, 'terraced-house.oebf', 'profile-cavity-250');
+  await page.locator('#units-select').selectOption('mm');
+  await page.locator('#height-limit-input').fill('2400');
+  await page.locator('#height-limit-input').dispatchEvent('change');
+  const label = page.locator('#profile-svg text');
+  await expect(label).toHaveCount(1);
+  const px = () => page.evaluate(() => {
+    const svg = document.getElementById('profile-svg');
+    return Number(svg.querySelector('text').getAttribute('font-size')) * svg.getScreenCTM().a;
+  });
+  const before = await px();
+  const box = await page.locator('#profile-svg').boundingBox();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  for (let i = 0; i < 4; i++) await page.mouse.wheel(0, -100);
+  await expect.poll(async () => Math.abs((await px()) - before) < 0.01 && (await page.evaluate(() => document.getElementById('profile-svg').viewBox.baseVal.height)) < 2).toBe(true);
+  expect(before).toBeCloseTo(12, 1);
+});

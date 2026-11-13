@@ -606,7 +606,7 @@ function arcTool(state, event, ctx) {
 // Click a line, arc or circle. Trim cuts away the piece under the click, back to the nearest crossings with anything
 // else drawn or a reference line; extend runs the end nearer the click on to the next thing in its way, or to an edge
 // carried on past its end. Trim also takes a region's outline where a straight edge crosses it twice: click the
-// outline of the part to cut away; extend also takes a region's edge, moving the vertex nearer the click on along it.
+// outline of the part to cut away; extend also takes a region's edge: stretching the whole edge (ctx.extendStretch, default) or moving the vertex nearer the click on along it.
 // ctx.extendCarried (a snap setting): extend always considers edges carried on past their ends. Each click is one
 // undo step.
 
@@ -628,7 +628,7 @@ function trimExtendTool(state, event, ctx, op) {
   if (!hit && region === null) {
     return done(state, [msg(op === trimMark ? 'Click the part of a line, arc, circle or region outline to cut away.' : 'Click a line, arc or region edge near the end to extend.')]);
   }
-  const opts = op === extendMark ? { always: !!ctx.extendCarried } : {};
+  const opts = op === extendMark ? { always: !!ctx.extendCarried, stretch: ctx.extendStretch !== false } : {};
   let res;
   try {
     res = hit
