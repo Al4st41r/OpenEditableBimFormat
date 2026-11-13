@@ -15,6 +15,7 @@ import { withTag, tagsToSave } from './layerTags.js';
 import { PEN_SERIES } from '../lineweights.js';
 import { toDisplay, fromDisplay, unitLabel } from '../editor/units.js';
 import { icon } from '../ui/icons.js';
+import { repeatLabel } from './profileCanvas.js';
 
 const ICON_BASE = import.meta.env.BASE_URL + 'icons/';
 
@@ -247,7 +248,19 @@ function _appendRow(formEl, layer, index) {
       _numField('Off X (m)',  'rp-offset-x', layer.offset_x_m),
       _numField('Off Y (m)',  'rp-offset-y', layer.offset_y_m),
     );
+    // What the fields add up to, in words: the canvas shows the rows, but a section cannot show units along the run.
+    const summary = document.createElement('div');
+    summary.className = 'rp-summary';
+    summary.style.cssText = 'flex-basis:100%;font-size:10px;color:#888;';
+    const _summarise = () => {
+      const v = (cls) => parseFloat(props.querySelector(`.${cls}`)?.value);
+      const text = repeatLabel({ depth_m: v('rp-depth'), repeat_x_m: v('rp-repeat-x'), repeat_y_m: v('rp-repeat-y'), offset_x_m: v('rp-offset-x') });
+      summary.textContent = text ? `Repeats (mm): ${text}` : '';
+    };
+    props.addEventListener('input', _summarise);
+    props.append(summary);
     formEl.appendChild(props);
+    _summarise();
   }
 }
 
