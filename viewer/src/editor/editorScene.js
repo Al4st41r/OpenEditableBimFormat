@@ -116,14 +116,15 @@ export function initEditorScene(canvas) {
   // ── Render mode ───────────────────────────────────────────────────────────
   let _renderMode = 'solid+edges';
   let _gridMode = 'solid+edges';
+  let _xray = false;   // objects inside walls drawn over them (#172)
   const _renderModeGroups = [];
 
   function setRenderMode(mode) {
     _renderMode = mode;
     scene.background.setHex(mode === 'lines' ? 0xf5f5f0 : 0x1a1a1a);
 
-    applyRenderMode(modelGroup, mode);   // overlays and the construction plane are outside modelGroup
-    for (const g of _renderModeGroups) applyRenderMode(g, mode);
+    applyRenderMode(modelGroup, mode, { xray: _xray });   // overlays and the construction plane are outside modelGroup
+    for (const g of _renderModeGroups) applyRenderMode(g, mode, { xray: _xray });
     if (gridColours(mode)[0] !== gridColours(_gridMode)[0]) {
       const visible = constructionGrid.visible;
       scene.remove(constructionGrid);
@@ -135,7 +136,11 @@ export function initEditorScene(canvas) {
   }
 
   /** Further groups that follow the render mode, eg the editor's objects (doors, windows) in the overlay group. */
-  function addRenderModeGroup(group) { _renderModeGroups.push(group); applyRenderMode(group, _renderMode); }
+  function addRenderModeGroup(group) { _renderModeGroups.push(group); applyRenderMode(group, _renderMode, { xray: _xray }); }
+
+  /** X-ray (#172): show objects hidden inside walls (ties, doors with no opening) through them. */
+  function setXray(on) { _xray = !!on; setRenderMode(_renderMode); }
+  function getXray() { return _xray; }
 
   function getRenderMode() { return _renderMode; }
 
@@ -215,7 +220,7 @@ export function initEditorScene(canvas) {
     constructionPlane, modelGroup, overlayGroup,
     get constructionGrid() { return constructionGrid; },   // replaced when the render mode changes its colours
     setStoreyZ: andRender(setStoreyZ), getStoreyZ, setPlanView: andRender(setPlanView), getActiveCamera, fitView: andRender(fitView),
-    setRenderMode: andRender(setRenderMode), getRenderMode, addRenderModeGroup: andRender(addRenderModeGroup),
+    setRenderMode: andRender(setRenderMode), getRenderMode, setXray: andRender(setXray), getXray, addRenderModeGroup: andRender(addRenderModeGroup),
     requestRender,
     get renderFrames() { return scheduler.frames; },   // frames drawn so far, for headless checks
   };

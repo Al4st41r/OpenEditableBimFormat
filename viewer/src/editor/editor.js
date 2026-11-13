@@ -95,6 +95,7 @@ const viewPlanBtn       = document.getElementById('view-plan');
 const renderSolidBtn      = document.getElementById('render-solid');
 const renderLinesBtn      = document.getElementById('render-lines');
 const renderSolidEdgesBtn = document.getElementById('render-solid-edges');
+const xrayBtn             = document.getElementById('xray-toggle');
 const unitsSelect = document.getElementById('units-select');
 
 // ── Welcome dialogue ──────────────────────────────────────────────────────────
@@ -401,6 +402,18 @@ _setRenderMode(_validModes.includes(_storedMode) ? _storedMode : 'solid+edges');
 renderSolidBtn     .addEventListener('click', () => _setRenderMode('solid'));
 renderLinesBtn     .addEventListener('click', () => _setRenderMode('lines'));
 renderSolidEdgesBtn.addEventListener('click', () => _setRenderMode('solid+edges'));
+
+// X-ray (#172): objects inside walls (ties, doors with no opening) shown through them; off by default, kept per browser
+function _setXray(on) {
+  editorScene.setXray(on);
+  xrayBtn.classList.toggle('active', on);
+  xrayBtn.setAttribute('aria-pressed', String(on));
+  try { localStorage.setItem('oebf-xray', on ? '1' : '0'); } catch { /* storage blocked: not remembered */ }
+}
+let _storedXray = null;
+try { _storedXray = localStorage.getItem('oebf-xray'); } catch { /* storage blocked */ }
+_setXray(_storedXray === '1');
+xrayBtn.addEventListener('click', () => _setXray(!editorScene.getXray()));
 
 // ── Units selector ────────────────────────────────────────────────────────────
 unitsSelect.addEventListener('change', () => {
@@ -2200,6 +2213,12 @@ window.__editor = {
   setLength: (elementId, segIndex, text) => _applySegmentLength(elementId, segIndex, { value: text }, ''),   // for headless checks
   openJunctionDialog: _openJunctionDialog,
   openings: () => [..._openings.values()].map((o) => ({ ...o.entity, drawn: !!o.object })),
+  /** X-ray state (#172): how many object parts and outlines sit inside walls, and how many draw through them. */
+  xray: () => {
+    const parts = [];
+    _objectGroup.traverse((c) => { if (c.userData.xrayable) parts.push(c); });
+    return { on: editorScene.getXray(), inWalls: parts.length, throughWalls: parts.filter((c) => !c.material.depthTest).length };
+  },
   worldToScreen: (x, y, z = 0) => {
     const r = canvas.getBoundingClientRect();
     const v = new THREE.Vector3(x, y, z).project(editorScene.getActiveCamera());
