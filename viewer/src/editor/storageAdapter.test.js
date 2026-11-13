@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest';
-import { MemoryAdapter, ServerAdapter, LIVE_BASE, isNotFound, readJsonOr, newBundleFolder, bundleFolderBase } from './storageAdapter.js';
+import { MemoryAdapter, ServerAdapter, LIVE_BASE, isNotFound, readJsonOr, readJsonSkippingMissing, newBundleFolder, bundleFolderBase } from './storageAdapter.js';
 import { writeEntity, readEntity, writeModelJson } from './bundleWriter.js';
 
 describe('MemoryAdapter', () => {
@@ -143,6 +143,33 @@ describe('not found versus other failures (#141, #142)', () => {
     await expect(readJsonOr(answering(502), 'materials/library.json', { materials: [] })).rejects.toThrow(/502/);
     await expect(readJsonOr(new MemoryAdapter(new Map([['model.json', '{oops']]), 'b'), 'model.json', {})).rejects.toThrow();
     expect(await readJsonOr(new MemoryAdapter(new Map([['model.json', '{"a":1}']]), 'b'), 'model.json', {})).toEqual({ a: 1 });
+  });
+});
+
+describe('readJsonSkippingMissing: storey group files (#171)', () => {
+  const groups = new Map([
+    ['groups/storey-gf.json', '{"id":"storey-gf"}'],
+    ['groups/storey-ff.json', '{"id":"storey-ff"}'],
+  ]);
+
+  test('a group file that is not there is left out; the others are read in order', async () => {
+    const a = new MemoryAdapter(groups, 'b');
+    const got = await readJsonSkippingMissing(a, ['groups/storey-gf.json', 'groups/storey-gone.json', 'groups/storey-ff.json']);
+    expect(got.map((g) => g.id)).toEqual(['storey-gf', 'storey-ff']);
+  });
+
+  test('a group file that does not parse is thrown, naming the file', async () => {
+    const a = new MemoryAdapter(new Map([...groups, ['groups/storey-bad.json', '{oops']]), 'b');
+    await expect(readJsonSkippingMissing(a, ['groups/storey-gf.json', 'groups/storey-bad.json']))
+      .rejects.toThrow(/groups\/storey-bad\.json could not be read/);
+  });
+
+  test('a server error is thrown, not taken as a missing file', async () => {
+    const server = (status) => new ServerAdapter(LIVE_BASE, 'x', async () => new Response('', { status }));
+    expect(await readJsonSkippingMissing(server(404), ['groups/storey-gf.json'])).toEqual([]);
+    const err = await readJsonSkippingMissing(server(502), ['groups/storey-gf.json']).catch((e) => e);
+    expect(err.message).toMatch(/groups\/storey-gf\.json could not be read: .*502/);
+    expect(isNotFound(err)).toBe(false);
   });
 });
 

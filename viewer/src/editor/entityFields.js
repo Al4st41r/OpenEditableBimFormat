@@ -3,12 +3,13 @@
  * with parsing, validation and the path / storey helpers the properties panel
  * needs (#83). No DOM, so it is unit-testable.
  *
- * A spec is { key, label, kind, options?, hint? } where kind is one of:
+ * A spec is { key, label, kind, options?, labels?, hint? } where kind is one of:
  *   'text' | 'ifc' | 'enum' | 'length' | 'number' | 'name'
  */
 
 import { parseDimension } from '../snap/dimension.js';
 import { parsePath } from '../loader/loadPath.js';
+import { materialOptions } from '../ui/materialNames.js';
 
 export const IFC_ELEMENT_TYPES = [
   'IfcWall', 'IfcWallStandardCase', 'IfcSlab', 'IfcBeam', 'IfcColumn', 'IfcMember',
@@ -46,6 +47,20 @@ export function slabFieldSpecs() {
     { key: 'thickness_m', label: 'Thickness',   kind: 'length', positive: true, hint: 'Metres, measured down from the top face' },
     { key: 'elevation_m', label: 'Top face Z',  kind: 'length', hint: 'Height of the slab top face; defaults to the storey level' },
   ];
+}
+
+/**
+ * The specs with material_id offered from the project's materials: by name, in name order, with the id as the value
+ * (#178). `labels` maps an option value to the text shown; a value with no label shows as itself.
+ *
+ * @param {object[]} specs
+ * @param {Object<string, { name?: string }>} materials - by id
+ */
+export function withMaterialOptions(specs, materials = {}) {
+  const opts = materialOptions(Object.keys(materials), materials);
+  return specs.map((s) => (s.key === 'material_id'
+    ? { ...s, options: opts.map((o) => o.value), labels: Object.fromEntries(opts.map((o) => [o.value, o.label])) }
+    : s));
 }
 
 export function storeyFieldSpecs() {

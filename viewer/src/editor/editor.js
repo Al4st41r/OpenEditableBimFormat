@@ -19,7 +19,7 @@ import { buildThreeMesh, resetDepthBias } from '../scene/buildMesh.js';
 import { applyJunctionClipping, buildCustomJunctionMesh, buildJunctionDetailMeshes } from '../junction-renderer.js';
 import { sweepOptionsFromElement } from '../geometry/sweep.js';
 import {
-  elementFieldSpecs, slabFieldSpecs, storeyFieldSpecs, parseFieldValue, applyFieldValue,
+  elementFieldSpecs, slabFieldSpecs, withMaterialOptions, storeyFieldSpecs, parseFieldValue, applyFieldValue,
   pathSummary, storeyHeights, IFC_ELEMENT_TYPES,
 } from './entityFields.js';
 import { ensureDetailMaterials } from '../detail/detailMaterials.js';
@@ -48,10 +48,11 @@ import { FloorTool } from './floorTool.js';
 import { JunctionEditor } from './junctionEditor.js';
 import { DrawingTool } from './drawingTool.js';
 import { PathEditTool } from './pathEditTool.js';
-import { FsaAdapter, MemoryAdapter, ServerAdapter, LIVE_BASE, readJsonOr, newBundleFolder } from './storageAdapter.js';
+import { FsaAdapter, MemoryAdapter, ServerAdapter, LIVE_BASE, readJsonOr, readJsonSkippingMissing, newBundleFolder } from './storageAdapter.js';
 import { ARCHIVE_ACCEPT } from '../loader/loadBundleZstd.js';
 import { bundleMessage, isMessage, AXO_READY } from '../detail-axo/editorHandoff.js';
 import { icon } from '../ui/icons.js';
+import { materialLabel } from '../ui/materialNames.js';
 import { mergeStoreyGroups, syncHierarchyStoreys } from '../detail/levelResolver.js';
 import { buildOpeningOutline } from '../loader/loadOpening.js';
 import { objectPlacement, buildObjectGroup, colourLookup } from '../loader/loadObject.js';
@@ -779,13 +780,10 @@ async function _loadAndRenderBundleInner(adapter, keepView) {
   // Load storeys
   storeyManager.setAdapter(adapter);
   setLibraryAdapter(adapter);
+  // Only a missing group file is skipped. Any other failure stops the load, as a failed model.json read does: the
+  // storey would otherwise be left out here and its id dropped by the next model.json sync (#171).
+  const storeyGroups = await readJsonSkippingMissing(adapter, (model.storeys ?? []).map(id => `groups/${id}.json`));
   try {
-    const storeyIds = model.storeys ?? [];
-    const storeyGroups = [];
-    for (const id of storeyIds) {
-      try { storeyGroups.push(await readEntity(adapter, `groups/${id}.json`)); }
-      catch { /* skip missing */ }
-    }
     // Bundles that describe their levels in model.hierarchy (the examples) have no group files: take them from there.
     storeyManager.loadFromBundle(mergeStoreyGroups(model, storeyGroups));
   } catch { /* ignore */ }
@@ -1631,7 +1629,7 @@ async function _showElementProps(id) {
   if (gen !== _propsGen) return;
   if (entity) {
     const specs = reg.kind === 'slab'
-      ? slabFieldSpecs().map((s) => (s.key === 'material_id' ? { ...s, options: Object.keys(activeProfileMap) } : s))
+      ? withMaterialOptions(slabFieldSpecs(), activeProfileMap)   // names in name order, the id stored (#178)
       : elementFieldSpecs(entity);
     _fieldRows(panel, specs, entity, (key, value) => _commitEntityField(id, reg, entityPath, key, value));
   }
@@ -2845,7 +2843,7 @@ function _fieldRows(panel, specs, entity, commit, idPrefix = '') {
       widget = document.createElement('select');
       const options = [...(spec.options ?? [])];
       if (current && !options.includes(current)) options.unshift(current);
-      for (const o of options) widget.append(Object.assign(document.createElement('option'), { value: o, textContent: o, selected: o === current }));
+      for (const o of options) widget.append(Object.assign(document.createElement('option'), { value: o, textContent: spec.labels?.[o] ?? o, selected: o === current }));
     } else {
       widget = document.createElement('input');
       widget.type = 'text';
@@ -2887,7 +2885,7 @@ async function _commitEntityField(id, reg, entityPath, key, value) {
         await _reRenderElement(id, reg.pathData);
       }
     }
-    statusBar.textContent = `${key.replace(/_/g, ' ')} set to ${value}`;
+    statusBar.textContent = key === 'material_id' ? `Material set to ${materialLabel(value, activeProfileMap)}` : `${key.replace(/_/g, ' ')} set to ${value}`;
     if (key === 'sweep_mode') await _showElementProps(id);   // the twist rate row appears or goes
   } catch (e) {
     statusBar.textContent = `Not saved: ${e.message}`;
