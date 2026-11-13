@@ -58,6 +58,8 @@ def test_a_shared_fixture_imports_as_expected(tmp_path, name):
         flat = lambda ss: [v for s in ss for p in s for v in p]
         options = [want["segments"]] + ([_reversed(want["segments"])] if want.get("either_direction") else [])
         assert any(len(flat(segs)) == len(flat(o)) and all(abs(a - b) <= 1e-3 for a, b in zip(flat(segs), flat(o))) for o in options), segs
+        if "closed" in want:
+            assert path["closed"] is want["closed"]
         if "segment_types" in want:
             types = [s["type"] for s in path["segments"]]
             assert types == want["segment_types"] or (want.get("either_direction") and types[::-1] == want["segment_types"])

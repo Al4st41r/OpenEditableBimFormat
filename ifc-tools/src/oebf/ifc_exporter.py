@@ -166,17 +166,19 @@ def _assign_body_geometry(ifc, entity, context,
     (IfcBooleanClippingResult): the way other tools clip a wall's end, and what the importer reads back.
     """
     angles = angles or {}
-    tx, ty = tangent["x"], tangent["y"]
+    # The path may rise or fall: the section stays upright and is swept along the sloping line (a sheared extrusion,
+    # which IFC allows), so the wall's base follows the path as it does in the viewer (#190). The element's frame is
+    # in plan: X along the path's plan direction, Z up. `path_length` is the length in 3D, `length` the plan length.
+    plan = math.hypot(tangent["x"], tangent["y"])
+    tx, ty = tangent["x"] / plan, tangent["y"] / plan
+    length = path_length * plan
+    slope = tangent.get("z", 0.0) / plan   # rise per metre in plan
+    stretch = path_length / length         # distance along the path per metre in plan
 
-    # Wall normal: rotate tangent 90° CCW → (-ty, tx)
-    ny, nx_n = tx, -ty  # normal X component, normal Y component
-    # Actually: rotate (tx,ty) by 90° CCW → (-ty, tx)
-    nnx, nny = -ty, tx
-
-    # ObjectPlacement: origin at path start, X along tangent, Z up
+    # ObjectPlacement: origin at path start, X along the plan tangent, Y its left (turned 90 degrees CCW), Z up
     matrix = [
-        [tx,   nnx,  0.0, start["x"]],
-        [ty,   nny,  0.0, start["y"]],
+        [tx,   -ty,  0.0, start["x"]],
+        [ty,   tx,   0.0, start["y"]],
         [0.0,  0.0,  1.0, start.get("z", 0.0)],
     ]
     ifcopenshell.api.geometry.edit_object_placement(
@@ -211,14 +213,15 @@ def _assign_body_geometry(ifc, entity, context,
         SweptArea=profile,
         Position=ifc.create_entity(
             "IfcAxis2Placement3D",
-            Location=ifc.create_entity("IfcCartesianPoint", Coordinates=[x0, 0.0, 0.0]),
+            Location=ifc.create_entity("IfcCartesianPoint", Coordinates=[x0, 0.0, x0 * slope]),
             Axis=ifc.create_entity("IfcDirection", DirectionRatios=[1.0, 0.0, 0.0]),
             RefDirection=ifc.create_entity("IfcDirection", DirectionRatios=[0.0, 1.0, 0.0]),
         ),
-        ExtrudedDirection=ifc.create_entity("IfcDirection", DirectionRatios=[0.0, 0.0, 1.0]),
-        Depth=path_length + extra.get("start", 0.0) + extra.get("end", 0.0),
+        # in the solid's frame (Z along the wall, Y up): along the plan direction, rising by the slope
+        ExtrudedDirection=ifc.create_entity("IfcDirection", DirectionRatios=[0.0, slope / stretch, 1.0 / stretch]),
+        Depth=(length + extra.get("start", 0.0) + extra.get("end", 0.0)) * stretch,
     )
-    ends = {end: ((path_length, 0.0) if end == "end" else (0.0, 0.0), (1.0, 0.0) if end == "end" else (-1.0, 0.0), angle)
+    ends = {end: ((length, 0.0) if end == "end" else (0.0, 0.0), (1.0, 0.0) if end == "end" else (-1.0, 0.0), angle)
             for end, angle in angles.items()}
     body = _clip_ends(ifc, solid, ends)
 
@@ -293,9 +296,10 @@ def _tangent(piece, key):
     return t if _arc_ccw(piece) else (-t[0], -t[1])
 
 
-def _offset_chain(pieces, d, extend):
+def _offset_chain(pieces, d, extend, closed=False):
     """The pieces moved d to the left of travel (negative: to the right), as [{type, start, end, mid?}] in plan.
-    Corners are mitred; `extend` ("start"/"end" -> metres) runs a line's end on along its direction first."""
+    Corners are mitred; `extend` ("start"/"end" -> metres) runs a line's end on along its direction first. A closed
+    chain (the last piece ends where the first starts) is mitred at that corner too."""
     def joint(p, t_in, t_out):
         n_in, n_out = _left(t_in), _left(t_out)
         m = (n_in[0] + n_out[0], n_in[1] + n_out[1])
@@ -309,13 +313,17 @@ def _offset_chain(pieces, d, extend):
     for i, piece in enumerate(pieces):
         t0, t1 = _tangent(piece, "start"), _tangent(piece, "end")
         a, b = piece["start"][:2], piece["end"][:2]
-        if i == 0:
+        if closed and i == 0:
+            start = joint(a, _tangent(pieces[-1], "end"), t0)
+        elif i == 0:
             e = extend.get("start", 0.0)
             a = (a[0] - t0[0] * e, a[1] - t0[1] * e)
             start = (a[0] + _left(t0)[0] * d, a[1] + _left(t0)[1] * d)
         else:
             start = joint(a, _tangent(pieces[i - 1], "end"), t0)
-        if i == len(pieces) - 1:
+        if closed and i == len(pieces) - 1:
+            end = joint(b, t1, _tangent(pieces[0], "start"))
+        elif i == len(pieces) - 1:
             e = extend.get("end", 0.0)
             b = (b[0] + t1[0] * e, b[1] + t1[1] * e)
             end = (b[0] + _left(t1)[0] * d, b[1] + _left(t1)[1] * d)
@@ -352,18 +360,32 @@ def _curve(ifc, segments, closed=False):
     return ifc.create_entity("IfcIndexedPolyCurve", Points=plist, Segments=segs, SelfIntersect=False)
 
 
+def _ring_area(segments):
+    """The signed plan area of a closed chain of segments (an arc's middle point stands in for its curve)."""
+    pts = [p for seg in segments for p in ((seg["start"], seg["mid"]) if seg["type"] == "arc" else (seg["start"],))]
+    return sum(a[0] * b[1] - b[0] * a[1] for a, b in zip(pts, pts[1:] + pts[:1])) / 2
+
+
 def _assign_footprint_body(ifc, entity, context, axis_context, element_id, path_data, pieces, total_width, origin_x,
                            height, angles=None):
     """A wall on a path of several segments, or a curve: its plan outline (the path's two faces, mitred at each
     corner, an arc's faces as concentric arcs) extruded up by the wall's height, as other tools write walls, plus an
     Axis representation holding the path itself, the wall's reference line. The element is placed at the path's start
-    with its X along the first segment. Angled ends are cut by half-spaces as on a straight wall (a curved end segment
-    keeps a square end). A path that is not level is laid at the height of its start."""
+    with its X along the first segment. Angled ends are cut by half-spaces as on a straight wall; a curved end is
+    cut on its end tangent, its faces run on along that tangent to reach the cut (#190). A closed path (a loop) is
+    an outline with a hole: the outer face and the inner one, mitred at every corner, and has no ends to angle. A path
+    that is not level is laid at the height of its start (a sloping straight wall is swept along its slope instead,
+    in _assign_body_geometry: a plan outline cannot follow a slope across several pieces)."""
     angles = dict(angles or {})
-    for end, piece in (("start", pieces[0]), ("end", pieces[-1])):
-        if end in angles and piece["type"] != "line":
-            print(f"  Warning: {element_id}: the angle of its {end} was left out: that end is curved")
-            angles.pop(end)
+    pieces = list(pieces)
+    meets = math.dist(pieces[0]["start"][:2], pieces[-1]["end"][:2]) < 1e-9
+    closed = (bool(path_data.get("closed")) and len(pieces) >= 2) or (meets and len(pieces) >= 3)
+    if closed:
+        if not meets:
+            pieces.append({"type": "line", "start": pieces[-1]["end"], "end": pieces[0]["start"]})
+        if angles:
+            print(f"  Warning: {element_id}: the angled ends were left out: its path is a closed loop")
+            angles = {}
     zs = [p[key][2] for p in pieces for key in ("start", "end")]
     if max(zs) - min(zs) > 1e-6:
         print(f"  Warning: {element_id}: its path is not level; the wall was laid at the height of its start")
@@ -375,14 +397,34 @@ def _assign_footprint_body(ifc, entity, context, axis_context, element_id, path_
         [tx, -ty, 0.0, p0[0]], [ty, tx, 0.0, p0[1]], [0.0, 0.0, 1.0, p0[2]]])
 
     reach = max(abs(origin_x), abs(total_width - origin_x))
-    extend = {end: reach * abs(math.tan(math.radians(a))) for end, a in angles.items()}
+    run = {end: reach * abs(math.tan(math.radians(a))) for end, a in angles.items()}
+    # a line's end runs on along itself; a curved end gets a straight piece along its end tangent for the faces to follow
+    chain, extend = list(local), {}
+    for end, e in run.items():
+        piece = local[0] if end == "start" else local[-1]
+        if piece["type"] == "line":
+            extend[end] = e
+            continue
+        t = _tangent(piece, end)
+        p = piece[end]
+        if end == "start":
+            chain.insert(0, {"type": "line", "start": (p[0] - t[0] * e, p[1] - t[1] * e, 0.0), "end": p})
+        else:
+            chain.append({"type": "line", "start": p, "end": (p[0] + t[0] * e, p[1] + t[1] * e, 0.0)})
     # profile x runs to the right of the path, so the left face is origin_x to the left and the right face the rest
-    left = _offset_chain(local, origin_x, extend)
-    right = _offset_chain(local, origin_x - total_width, extend)
-    back = [{**seg, "start": seg["end"], "end": seg["start"]} for seg in reversed(right)]
-    outline = (left + [{"type": "line", "start": left[-1]["end"], "end": back[0]["start"]}] + back
-               + [{"type": "line", "start": back[-1]["end"], "end": left[0]["start"]}])
-    profile = ifc.create_entity("IfcArbitraryClosedProfileDef", ProfileType="AREA", OuterCurve=_curve(ifc, outline, closed=True))
+    left = _offset_chain(chain, origin_x, extend, closed)
+    right = _offset_chain(chain, origin_x - total_width, extend, closed)
+    if closed:
+        # the larger ring is the outline, the other the hole
+        rings = sorted((left, right), key=lambda r: -abs(_ring_area(r)))
+        profile = ifc.create_entity("IfcArbitraryProfileDefWithVoids", ProfileType="AREA",
+                                    OuterCurve=_curve(ifc, rings[0], closed=True),
+                                    InnerCurves=[_curve(ifc, rings[1], closed=True)])
+    else:
+        back = [{**seg, "start": seg["end"], "end": seg["start"]} for seg in reversed(right)]
+        outline = (left + [{"type": "line", "start": left[-1]["end"], "end": back[0]["start"]}] + back
+                   + [{"type": "line", "start": back[-1]["end"], "end": left[0]["start"]}])
+        profile = ifc.create_entity("IfcArbitraryClosedProfileDef", ProfileType="AREA", OuterCurve=_curve(ifc, outline, closed=True))
     solid = ifc.create_entity(
         "IfcExtrudedAreaSolid", SweptArea=profile,
         Position=ifc.create_entity("IfcAxis2Placement3D", Location=ifc.create_entity("IfcCartesianPoint", Coordinates=[0.0, 0.0, 0.0])),
@@ -393,7 +435,7 @@ def _assign_footprint_body(ifc, entity, context, axis_context, element_id, path_
         t = _tangent(piece, end)
         ends[end] = (piece[end][:2], (-t[0], -t[1]) if end == "start" else t, angle)
     body = _clip_ends(ifc, solid, ends)
-    axis_curve = _curve(ifc, [{**pc, **{k: pc[k][:2] for k in ("start", "mid", "end") if k in pc}} for pc in local])
+    axis_curve = _curve(ifc, [{**pc, **{k: pc[k][:2] for k in ("start", "mid", "end") if k in pc}} for pc in local], closed=closed)
     reps = [
         ifc.create_entity("IfcShapeRepresentation", ContextOfItems=context, RepresentationIdentifier="Body",
                           RepresentationType="Clipping" if angles else "SweptSolid", Items=[body]),

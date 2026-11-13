@@ -61,6 +61,7 @@ describe('the viewer imports the shared IFC fixtures as expected.json says', () 
         const got = path.segments.flatMap(s => [s.start, s.end]).flatMap(p => [p.x, p.y, p.z]);
         const options = [want.segments, ...(want.either_direction ? [reversedSegments(want.segments)] : [])].map(o => o.flat(2));
         expect(options.some(exp => exp.length === got.length && got.every((v, k) => close(v, exp[k], 1e-3))), `segments ${got}`).toBe(true);
+        if ('closed' in want) expect(path.closed).toBe(want.closed);
         if (want.segment_types) {
           const types = path.segments.map(s => s.type);
           expect(JSON.stringify(types) === JSON.stringify(want.segment_types)

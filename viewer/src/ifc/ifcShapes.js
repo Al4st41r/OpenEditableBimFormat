@@ -1051,7 +1051,9 @@ export function clipPath(reader, items, segments, height, thickness = null) {
   const angles = {};
   const notes = [];
   const boxes = [];
-  for (const { operator, operand, m } of items[0]?.cuts ?? []) {
+  // the body's own cuts: not those of an Axis curve that comes first
+  const body = items.find(i => !/CURVE$|^IFCPOLYLINE$/.test(i.item.type)) ?? items[0];
+  for (const { operator, operand, m } of body?.cuts ?? []) {
     if (operator !== 'DIFFERENCE') { notes.push(`a boolean ${String(operator).toLowerCase()} was left out`); continue; }
     if (operand?.type !== 'IFCHALFSPACESOLID' && operand?.type !== 'IFCPOLYGONALBOUNDEDHALFSPACE') {
       const pts = extrusionPoints(reader, operand, m);
@@ -1102,7 +1104,18 @@ function trimEnd(segments, point, removed, angles, inside, thickness, height) {
   const side = (p) => dot(sub(p, point), removed);
   for (const end of ['end', 'start']) {
     const seg = end === 'end' ? segments.at(-1) : segments[0];
-    if (seg.type !== 'line') continue;
+    if (seg.type !== 'line') {
+      // an arc ends on the cut (OEBF's own export, #190): the angle is that of the cut to the end tangent
+      const circle = circleThrough(seg.start.slice(0, 2), seg.mid.slice(0, 2), seg.end.slice(0, 2));
+      if (!circle || Math.abs(side(seg[end])) > 1e-6) continue;
+      const radial = unit([seg[end][0] - circle.c[0], seg[end][1] - circle.c[1], 0]);
+      const turn = [-radial[1], radial[0]];
+      const ccw = (seg.mid[0] - seg.start[0]) * (seg.end[1] - seg.start[1]) - (seg.mid[1] - seg.start[1]) * (seg.end[0] - seg.start[0]) > 0;
+      let outward = ccw ? turn : [-turn[0], -turn[1]];   // the direction of travel at the end
+      if (end === 'start') outward = [-outward[0], -outward[1]];
+      if (Math.abs(outward[0] * removed[0] + outward[1] * removed[1]) < 0.9998) angles[end] = endAngle(outward, removed);
+      return true;
+    }
     const [a, b] = end === 'end' ? [seg.start, seg.end] : [seg.end, seg.start];
     if (side(b) < -1e-6 || side(a) >= -1e-9) continue;   // an end on the plane (an Axis stopping at the cut) counts
     const t = side(a) / (side(a) - side(b));

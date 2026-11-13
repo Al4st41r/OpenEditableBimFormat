@@ -140,7 +140,9 @@ export async function importIfcText(text, adapter) {
     }
     if (!profileId) profileId = await profiles.placeholder(addMaterial);
 
-    if (segments) await _writePath(adapter, pathId, name, segments);
+    // a wall whose axis comes back to where it began is a loop (#190)
+    const loop = !!segments && !shape?.regions && segments.length >= 2 && Math.hypot(...segments[0].start.map((v, k) => v - segments.at(-1).end[k])) < 1e-4;
+    if (segments) await _writePath(adapter, pathId, name, segments, loop);
     else await _writePath(adapter, pathId, name, null, false, _extractPathSegment(entities, repRef));
     await adapter.writeJson(`elements/${elemId}.json`, {
       $schema:        'oebf://schema/0.1/element',

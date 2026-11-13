@@ -762,7 +762,9 @@ def clip_path(entity, segments, height=None, thickness=None):
         items = body_items(entity)
     except Exception:
         return segments, angled, boxes, notes, height
-    cuts = items[0][2] if items else []
+    # the body's own cuts: not those of an Axis curve that comes first
+    body = [i for i in items if not i[0].is_a("IfcCurve")] or items
+    cuts = body[0][2] if body else []
     for operator, operand, m in cuts:
         if operator != "DIFFERENCE":
             notes.append(f"a boolean {operator.lower()} was left out")
@@ -836,7 +838,22 @@ def _trim(segments, point, removed, angled, inside=None, thickness=None, height=
     for end in ("end", "start"):
         seg = segments[-1] if end == "end" else segments[0]
         if seg["type"] != "line":
-            continue
+            # an arc ends on the cut (OEBF's own export, #190): the angle is that of the cut to the end tangent
+            tip = np.array(seg[end])
+            circle = _circle_through(seg["start"][:2], seg["mid"][:2], seg["end"][:2])
+            if circle is None or abs(side(tip)) > 1e-6:
+                continue
+            (cx, cy), _ = circle
+            radial = np.array([tip[0] - cx, tip[1] - cy]) / max(math.hypot(tip[0] - cx, tip[1] - cy), 1e-12)
+            turn = np.array([-radial[1], radial[0]])
+            ccw = ((seg["mid"][0] - seg["start"][0]) * (seg["end"][1] - seg["start"][1])
+                   - (seg["mid"][1] - seg["start"][1]) * (seg["end"][0] - seg["start"][0])) > 0
+            outward = turn if ccw else -turn   # the direction of travel at the end
+            if end == "start":
+                outward = -outward
+            if abs(float(outward @ removed[:2])) < 0.9998:
+                angled[end] = end_angle(outward, removed[:2])
+            return True
         a, b = (np.array(seg["start"]), np.array(seg["end"])) if end == "end" else (np.array(seg["end"]), np.array(seg["start"]))
         if side(b) < -1e-6 or side(a) >= -1e-9:   # an end on the plane (an Axis that stops at the cut) counts
             continue
