@@ -1,0 +1,85 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "oebf://schema/0.1/path",
+  "title": "OEBF Path",
+  "type": "object",
+  "required": ["$schema", "id", "type", "closed", "segments"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "id":          { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+    "type":        { "type": "string", "const": "Path" },
+    "description": { "type": "string" },
+    "closed":      { "type": "boolean" },
+    "guide":       { "type": "boolean" },
+    "guide_axis":  { "type": "string", "enum": ["z"], "description": "When 'z', this path is a horizontal reference plane at a fixed Z height. Use z_m to specify the height." },
+    "z_m":         { "type": "number", "description": "Z height in metres for horizontal (guide_axis='z') guide planes." },
+    "tags":        { "type": "array", "items": { "type": "string" } },
+    "segments": {
+      "type": "array",
+      "minItems": 0,
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": ["type", "start", "end"],
+            "properties": {
+              "type":  { "type": "string", "const": "line" },
+              "start": { "$ref": "#/definitions/point3" },
+              "end":   { "$ref": "#/definitions/point3" }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": ["type", "start", "mid", "end"],
+            "properties": {
+              "type":  { "type": "string", "const": "arc" },
+              "start": { "$ref": "#/definitions/point3" },
+              "mid":   { "$ref": "#/definitions/point3" },
+              "end":   { "$ref": "#/definitions/point3" }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": ["type", "start", "cp1", "cp2", "end"],
+            "properties": {
+              "type":  { "type": "string", "const": "bezier" },
+              "start": { "$ref": "#/definitions/point3" },
+              "cp1":   { "$ref": "#/definitions/point3" },
+              "cp2":   { "$ref": "#/definitions/point3" },
+              "end":   { "$ref": "#/definitions/point3" }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": ["type", "points"],
+            "properties": {
+              "type":   { "type": "string", "const": "spline" },
+              "points": {
+                "type": "array",
+                "minItems": 2,
+                "items": { "$ref": "#/definitions/point3" }
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "point3": {
+      "type": "object",
+      "required": ["x", "y", "z"],
+      "additionalProperties": false,
+      "properties": {
+        "x": { "type": "number" },
+        "y": { "type": "number" },
+        "z": { "type": "number" }
+      }
+    }
+  }
+}

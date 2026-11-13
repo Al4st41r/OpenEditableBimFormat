@@ -18,6 +18,8 @@
  *                  advanced (region layers are positioned absolutely).
  */
 
+import { layerRepeat } from '../detail-editor/memberShapes.js';
+
 const round6 = (x) => Math.round(x * 1e6) / 1e6;
 const UNSET_MATERIAL = 'mat-unset';
 
@@ -118,12 +120,15 @@ export function buildProfileShape(profileData, wallHeight) {
       // Region layer: arbitrary polygon with explicit vertices in profile space.
       // Must have at least 3 vertices to form a valid polygon.
       if (!Array.isArray(layer.vertices) || layer.vertices.length < 3) continue;
+      // a region that repeats (#182) is swept as units in courses up to the profile height (sweep.js)
+      const repeat = layerRepeat(layer);
       shapes.push({
         materialId: layer.material_id,
         function:   layer.function,
         width:      0,
         // Apply origin offset so region coordinates align with band layers.
         points: layer.vertices.map(v => ({ x: v.x - originX, y: v.y })),
+        ...(repeat ? { repeat, rowTop: wallHeight } : {}),
       });
     } else {
       // Band layer: rectangular strip of given thickness.

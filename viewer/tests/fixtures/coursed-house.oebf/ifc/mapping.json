@@ -1,0 +1,13 @@
+{
+  "$schema": "oebf://schema/0.1/ifc-mapping",
+  "type": "IfcMapping",
+  "description": "IFC export mapping: wall properties go to Pset_WallCommon, the rest to OEBF_Properties",
+  "classes": {},
+  "property_sets": {
+    "fire_rating":        { "pset": "Pset_WallCommon", "name": "FireRating" },
+    "acoustic_rating_Rw": { "pset": "Pset_WallCommon", "name": "AcousticRating" },
+    "load_bearing":       { "pset": "Pset_WallCommon", "name": "LoadBearing" },
+    "u_value_W_m2K":      { "pset": "Pset_WallCommon", "name": "ThermalTransmittance" }
+  },
+  "materials": {}
+}

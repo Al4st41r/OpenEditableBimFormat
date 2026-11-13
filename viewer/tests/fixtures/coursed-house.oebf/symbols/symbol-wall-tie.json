@@ -1,0 +1,52 @@
+{
+  "$schema": "oebf://schema/0.1/symbol",
+  "id": "symbol-wall-tie",
+  "type": "Symbol",
+  "description": "Stainless steel cavity wall tie: a 4 mm bar across the wall with a drip bend and a retaining disc",
+  "ifc_type": "IfcMechanicalFastener",
+  "geometry_definition": "parts",
+  "parameters": {},
+  "parts": [
+    {
+      "name": "Bar",
+      "shape": "cylinder",
+      "axis": "y",
+      "radius_m": 0.002,
+      "length_m": 0.2,
+      "material_id": "mat-stainless-steel",
+      "offset_m": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      }
+    },
+    {
+      "name": "Drip",
+      "shape": "box",
+      "size_m": {
+        "x": 0.004,
+        "y": 0.03,
+        "z": 0.025
+      },
+      "material_id": "mat-stainless-steel",
+      "offset_m": {
+        "x": 0,
+        "y": 0,
+        "z": -0.0125
+      }
+    },
+    {
+      "name": "Disc",
+      "shape": "cylinder",
+      "axis": "y",
+      "radius_m": 0.015,
+      "length_m": 0.002,
+      "material_id": "mat-stainless-steel",
+      "offset_m": {
+        "x": 0,
+        "y": -0.05,
+        "z": 0
+      }
+    }
+  ]
+}

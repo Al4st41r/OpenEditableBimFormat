@@ -32,6 +32,7 @@
  * See: docs/decisions/2026-03-02-junction-trim-algorithm.md
  */
 import { polygonTriangles } from './polygonTriangles.js';
+import { repeatRunSpans } from '../detail-editor/memberShapes.js';
 
 /**
  * Sweep options, taken from an element's fields (see sweepOptionsFromElement).
@@ -137,9 +138,91 @@ export function sweepProfile(pathPoints, profileShapes, options = {}) {
   const caps = { start: capStart !== 'open', end: capEnd !== 'open' };
   // the layer function travels with the mesh, so the renderer can tell a membrane (#127)
   return profileShapes.map(shape => {
-    const swept = _sweepShape(frames, shape.points, shape.materialId, caps);
+    const coursed = shape.repeat && sweepMode === 'perpendicular' ? _sweepCourses(points, frames, shape, caps) : null;
+    const swept = coursed ?? _sweepShape(frames, shape.points, shape.materialId, caps);
     return shape.function ? { ...swept, function: shape.function } : swept;
   });
+}
+
+/** The most units (pieces) one layer is drawn as; a layer that would need more is swept whole, with a warning. */
+export const MAX_COURSE_UNITS = 20000;
+
+const EPS = 1e-9;
+
+/**
+ * A region layer that repeats (#182; profile schema depth_m, repeat_x_m, repeat_y_m, offset_x_m, offset_y_m), drawn
+ * as units in courses along the path, all in one mesh. shape.repeat is layerRepeat(layer) (detail-editor/memberShapes.js)
+ * and shape.rowTop the profile height: rows go up while a whole row fits under it, as in the detail editor's 3D view.
+ *
+ * Along the run the first unit of row 0 starts at the path start and odd rows are shifted by offset_x_m, so a
+ * half-bond starts every second course with a part unit; units are cut at the path ends. A unit that crosses a
+ * path vertex is split there, both parts ending on the vertex's mitre frame (the frame the whole-layer sweep uses).
+ * The end units take the angled-end skew of the first and last frames. Openings and junction trims then cut the
+ * mesh like any other, so units are cut through, not skipped.
+ *
+ * @returns {object|null} mesh data, or null to sweep the layer whole (a vertical path, or too many units)
+ */
+function _sweepCourses(points, frames, shape, caps) {
+  const rep = shape.repeat;
+  const n = points.length;
+  if (n < 2 || frames.some(f => f.up)) return null;
+  const dist = [0];
+  for (let i = 1; i < n; i++) dist.push(dist[i - 1] + _len(_sub(points[i], points[i - 1])));
+  const L = dist[n - 1];
+  if (!(L > EPS)) return null;
+
+  // rows up the profile
+  const ys = shape.points.map(p => p.y);
+  const yhi = Math.max(...ys);
+  const rows = [];
+  for (let r = 0; rows.length <= MAX_COURSE_UNITS; r++) {
+    const dy = rep.rise + (rep.up ? r * rep.pitchUp : 0);
+    if (r > 0 && (!rep.up || !(shape.rowTop > 0) || yhi + dy > shape.rowTop + EPS)) break;
+    rows.push(dy);
+  }
+  const perRow = (rep.alongRun ? Math.ceil(L / rep.pitchRun) + 1 : 1) + (n - 2);
+  if (rows.length * perRow > MAX_COURSE_UNITS) {
+    console.warn(`[OEBF] layer ${shape.materialId}: about ${rows.length * perRow} units, more than ${MAX_COURSE_UNITS}; drawn as one sweep`);
+    return null;
+  }
+
+  // a square frame on each segment, for unit ends that fall between vertices
+  const worldUp = { x: 0, y: 0, z: 1 };
+  const seg = [];
+  for (let j = 0; j < n - 1; j++) {
+    const tangent = _normalize(_sub(points[j + 1], points[j]));
+    const binormal = _normalize(_cross(tangent, worldUp));
+    if (_len(binormal) < 1e-6) return null;
+    seg.push({ tangent, binormal, normal: _normalize(_cross(binormal, tangent)) });
+  }
+  const frameAt = (s, j) => {
+    if (Math.abs(s - dist[j]) < EPS) return frames[j];
+    if (Math.abs(s - dist[j + 1]) < EPS) return frames[j + 1];
+    const t = (s - dist[j]) / (dist[j + 1] - dist[j]);
+    const a = points[j], b = points[j + 1];
+    return { ...seg[j], origin: { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, z: a.z + (b.z - a.z) * t } };
+  };
+
+  const out = { positions: [], normals: [], indices: [] };
+  const tris = polygonTriangles(shape.points);
+  rows.forEach((dy, r) => {
+    const pts = shape.points.map(p => ({ x: p.x, y: p.y + dy }));
+    const spans = rep.alongRun ? repeatRunSpans(rep, [0, L], 0, r % 2 ? rep.stagger : 0) : [[0, L]];
+    let j = 0;
+    for (let [a, b] of spans) {
+      while (j < n - 2 && a >= dist[j + 1] - EPS) j++;
+      while (b - a > EPS) {
+        const e = Math.min(b, dist[j + 1]);
+        if (e - a > EPS) {
+          _appendSweep(out, [frameAt(a, j), frameAt(e, j)], pts, { start: a > EPS || caps.start, end: e < L - EPS || caps.end }, tris);
+        }
+        a = e;
+        if (a >= dist[j + 1] - EPS && j < n - 2) j++;
+        else if (a >= dist[j + 1] - EPS) break;
+      }
+    }
+  });
+  return _meshOf(out, shape.materialId);
 }
 
 /** Adjust the frames for the sweep mode. perpendicular leaves them alone. */
@@ -250,12 +333,26 @@ function _place(frame, p) {
 }
 
 function _sweepShape(frames, profilePoints, materialId, caps = { start: true, end: true }) {
+  const out = { positions: [], normals: [], indices: [] };
+  _appendSweep(out, frames, profilePoints, caps, polygonTriangles(profilePoints));
+  return _meshOf(out, materialId);
+}
+
+function _meshOf({ positions, normals, indices }, materialId) {
+  return {
+    materialId,
+    vertices: new Float32Array(positions),
+    normals:  new Float32Array(normals),
+    indices:  new Uint32Array(indices),
+  };
+}
+
+/** Append one sweep of profilePoints through frames to `out` ({ positions, normals, indices }). `capTris` triangulates the profile. */
+function _appendSweep(out, frames, profilePoints, caps, capTris) {
+  const { positions, normals, indices } = out;
+  const base    = positions.length / 3;
   const nFrames = frames.length;
   const nVerts  = profilePoints.length;
-
-  const positions = [];
-  const normals   = [];
-  const indices   = [];
 
   // Tube grid: nFrames × nVerts vertices
   for (const frame of frames) {
@@ -269,24 +366,17 @@ function _sweepShape(frames, profilePoints, materialId, caps = { start: true, en
   for (let fi = 0; fi < nFrames - 1; fi++) {
     for (let vi = 0; vi < nVerts; vi++) {
       const next = (vi + 1) % nVerts;
-      const a = fi       * nVerts + vi;
-      const b = fi       * nVerts + next;
-      const c = (fi + 1) * nVerts + next;
-      const d = (fi + 1) * nVerts + vi;
+      const a = base + fi       * nVerts + vi;
+      const b = base + fi       * nVerts + next;
+      const c = base + (fi + 1) * nVerts + next;
+      const d = base + (fi + 1) * nVerts + vi;
       indices.push(a, b, c, a, c, d);
     }
   }
 
   // End caps (separate vertices to allow independent normals)
-  if (caps.start) _addCap(positions, normals, indices, frames[0],           profilePoints, false);
-  if (caps.end)   _addCap(positions, normals, indices, frames[nFrames - 1], profilePoints, true);
-
-  return {
-    materialId,
-    vertices: new Float32Array(positions),
-    normals:  new Float32Array(normals),
-    indices:  new Uint32Array(indices),
-  };
+  if (caps.start) _addCap(positions, normals, indices, frames[0],           profilePoints, false, capTris);
+  if (caps.end)   _addCap(positions, normals, indices, frames[nFrames - 1], profilePoints, true,  capTris);
 }
 
 /**
@@ -298,8 +388,9 @@ function _sweepShape(frames, profilePoints, materialId, caps = { start: true, en
  * @param {object}   frame     - Frame at the cap position.
  * @param {Array}    profilePoints - Profile polygon vertices.
  * @param {boolean}  flip      - true = end cap (reversed winding).
+ * @param {Array<[number, number, number]>} capTris - polygonTriangles(profilePoints)
  */
-function _addCap(positions, normals, indices, frame, profilePoints, flip) {
+function _addCap(positions, normals, indices, frame, profilePoints, flip, capTris) {
   const capBase = positions.length / 3;
   const sign = flip ? 1 : -1;
   // outward normal of the end face: the tangent, turned for an angled end (sign·(T − skew·B), normalised)
@@ -315,7 +406,7 @@ function _addCap(positions, normals, indices, frame, profilePoints, flip) {
     normals.push(n.x, n.y, n.z);
   }
 
-  for (const [a, b, c] of polygonTriangles(profilePoints)) {
+  for (const [a, b, c] of capTris) {
     if (flip) indices.push(capBase + a, capBase + c, capBase + b);
     else      indices.push(capBase + a, capBase + b, capBase + c);
   }

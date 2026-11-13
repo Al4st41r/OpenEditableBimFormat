@@ -1,0 +1,17 @@
+{
+  "$schema": "oebf://schema/0.1/slab",
+  "id": "slab-gf",
+  "type": "Slab",
+  "description": "Ground floor concrete slab — 150 mm, sits on ground",
+  "ifc_type": "IfcSlab",
+  "boundary_path_id": "path-slab-gf",
+  "thickness_m": 0.15,
+  "material_id": "mat-dense-aggregate",
+  "elevation_m": 0.0,
+  "parent_group_id": "storey-gf",
+  "properties": {
+    "slab_type": "GROUND",
+    "load_bearing": true
+  },
+  "tags": ["slab", "ground-floor"]
+}

@@ -1,0 +1,17 @@
+{
+  "$schema": "oebf://schema/0.1/profile",
+  "id": "profile-cavity-250",
+  "type": "Profile",
+  "description": "250mm cavity wall: 102 brick / 75 cavity+PIR / 100 dense block / 13 plaster",
+  "svg_file": "profiles/profile-cavity-250.svg",
+  "width": 0.290,
+  "height": null,
+  "origin": { "x": 0.145, "y": 0.0 },
+  "alignment": "center",
+  "assembly": [
+    { "layer": 1, "name": "External Brick Leaf",  "material_id": "mat-brick-common",    "thickness": 0.102, "function": "finish"     },
+    { "layer": 2, "name": "Cavity + PIR",          "material_id": "mat-pir-insulation",  "thickness": 0.075, "function": "insulation" },
+    { "layer": 3, "name": "Dense Aggregate Block", "material_id": "mat-dense-aggregate", "thickness": 0.100, "function": "structure"  },
+    { "layer": 4, "name": "Gypsum Plaster Skim",   "material_id": "mat-gypsum-plaster",  "thickness": 0.013, "function": "finish"     }
+  ]
+}
