@@ -736,7 +736,12 @@ $('open-btn').addEventListener('click', openFolder);
 $('open-file-btn').addEventListener('click', () => $('oebfz-input').click());
 $('oebfz-input').addEventListener('change', (e) => { const f = e.target.files[0]; if (f) openMemory(f); e.target.value = ''; });
 $('demo-btn').addEventListener('click', openDemo);
-$('zip-btn').addEventListener('click', () => bundle?.adapter?.downloadZip?.());
+$('zip-btn').addEventListener('click', async () => {
+  try {
+    const how = await bundle?.adapter?.saveOebfz?.();
+    if (how) status(how === 'cancelled' ? 'Download cancelled' : how === 'picker' ? 'Saved the .oebfz' : 'Downloaded the .oebfz');
+  } catch (err) { status(`Download failed: ${err.message}`, true); }
+});
 
 // ── object maker: multi-part symbols (screws, ties, trays) kept in the bundle ─
 $('objects-btn').addEventListener('click', () => {
@@ -878,7 +883,7 @@ async function save() {
     const at = bundle.ctx.details.findIndex((d) => d.id === saved.id);
     if (at >= 0) bundle.ctx.details[at] = saved; else { bundle.ctx.details.push(saved); bundle.ctx.detailIds.push(saved.id); }
     st = markSaved(st);
-    status(bundle.source === 'memory' ? 'Saved in memory. Use Zip to keep it.' : bundle.source === 'http' ? 'Saved in this page only. Export, Detail JSON keeps it.' : 'Saved');
+    status(bundle.source === 'memory' ? 'Saved in memory. Use Download .oebfz to keep it.' : bundle.source === 'http' ? 'Saved in this page only. Export, Detail JSON keeps it.' : 'Saved');
     refresh();
   } catch (err) { status(`Save failed: ${err.message}`, true); }
 }

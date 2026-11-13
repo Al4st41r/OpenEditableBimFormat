@@ -6,7 +6,7 @@
  *
  * Storage backends:
  *   FsaAdapter    — FileSystemDirectoryHandle (Chrome/Edge, read/write to disk)
- *   MemoryAdapter — in-memory Map loaded from .oebfz or .oebf.zip (all browsers, save = zip download)
+ *   MemoryAdapter — in-memory Map loaded from .oebfz or .oebf.zip (all browsers, save = .oebfz file)
  *   ServerAdapter — the private live copy on the server (?live); every write is stored as it is made
  */
 
@@ -115,7 +115,7 @@ function _setBundleOpen(name, memoryMode = false) {
   document.getElementById('status-mode').textContent = adapter?.type === 'server'
     ? 'Live copy on the server: changes are stored as you make them'
     : memoryMode
-      ? 'In memory: Save downloads the bundle as a zip, or Save to folder keeps working on it as files'
+      ? 'In memory: Save writes the bundle as a .oebfz file, or Save to folder keeps working on it as files'
       : 'Folder open: changes are written to it as you make them';
   // a bundle in memory can become a folder (Chromium browsers only)
   document.getElementById('save-folder-btn').hidden = !(adapter?.type === 'memory' && window.showDirectoryPicker);
@@ -1869,15 +1869,18 @@ saveBtn.addEventListener('click', async () => {
   try {
     await _writeModelJson();
 
+    let how = null;
     if (adapter.type === 'memory') {
-      adapter.downloadZip();
+      how = await adapter.saveOebfz();
+      if (how === 'cancelled') { statusBar.textContent = 'Save cancelled'; return; }   // nothing saved: the changes stay unsaved
     }
 
     journal.markSaved();
     const now = new Date();
-    statusBar.textContent = adapter.type === 'memory'
-      ? `Downloaded ${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`
-      : `Saved ${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`;
+    const clock = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`;
+    statusBar.textContent = how === 'download' ? `Downloaded ${adapter.name}.oebfz ${clock}`
+      : how === 'picker' ? `Saved ${adapter.name}.oebfz ${clock}`
+      : `Saved ${clock}`;
   } catch (e) {
     _reportError(`Save failed: ${e.message}`);
   } finally {
@@ -2230,7 +2233,7 @@ window.__editor = {
 // ── Starter models (#118): the welcome overlay lists them; ?demo opens the default, ?demo=<id> another ─────
 // Choosing one copies it to the user's machine and opens that copy, so the edits are theirs to keep:
 // in Chromium browsers into a new <id>.oebf folder in a folder they pick (saved as they edit); elsewhere
-// it downloads as <id>.oebf.zip and opens in memory (Save downloads the updated zip).
+// it downloads as <id>.oebfz and opens in memory (Save writes the updated .oebfz).
 async function _fetchStarter(starter) {
   const resp = await fetch(import.meta.env.BASE_URL + starter.file);
   if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
@@ -2281,16 +2284,18 @@ async function _downloadAndOpenStarter(starter) {
     } else {
       statusBar.textContent = `Downloading ${starter.title}…`;
       const memory = await _fetchStarter(starter);
-      memory.downloadZip();
+      const how = await memory.saveOebfz();
       await _openStarterInMemory(memory);
-      statusBar.textContent = `Downloaded ${memory.name}.oebf.zip and opened it. Save downloads the updated zip; open it again with Open.`;
+      statusBar.textContent = how === 'cancelled'
+        ? `Opened ${memory.name} in memory. Save writes it as a .oebfz file.`
+        : `${how === 'picker' ? 'Saved' : 'Downloaded'} ${memory.name}.oebfz and opened it. Save writes the updated .oebfz; open it again with Open.`;
     }
   } catch (e) { _reportError(`The example did not open: ${e.message}`); }
 }
 
 document.getElementById('welcome-starters-note').textContent = window.showDirectoryPicker
   ? 'Choose a folder: a copy of the example is made in it and opened, and your changes are saved there.'
-  : 'The example downloads as a zip and opens. Save downloads your updated copy.';
+  : 'The example downloads as a .oebfz file and opens. Save writes your updated copy as a .oebfz.';
 for (const starter of STARTERS) {
   const btn = document.createElement('button');
   btn.className = 'welcome-starter';

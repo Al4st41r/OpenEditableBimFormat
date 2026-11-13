@@ -65,11 +65,11 @@ describe('extractFilesFromTar', () => {
   });
 });
 
-describe('readArchiveFiles: the .oebf.zip that Save downloads opens again', () => {
+describe('readArchiveFiles: the .oebf.zip that earlier versions saved opens again', () => {
   const bundle = { 'model.json': '{"elements":[]}', 'manifest.json': '{"project_name":"T"}', 'profiles/p.svg': '<svg/>' };
   const zip = (files) => zipSync(Object.fromEntries(Object.entries(files).map(([p, t]) => [p, strToU8(t)])));
 
-  test('a zip with the bundle at its root, as Save writes it', () => {
+  test('a zip with the bundle at its root, as earlier versions wrote it', () => {
     const files = readArchiveFiles(zip(bundle));
     expect(Object.fromEntries(files)).toEqual(bundle);
   });
@@ -89,20 +89,6 @@ describe('readArchiveFiles: the .oebf.zip that Save downloads opens again', () =
     expect(archiveName('terraced-house.oebfz')).toBe('terraced-house');
     expect(archiveName('terraced-house.zip')).toBe('terraced-house');
     expect(ARCHIVE_ACCEPT.split(',')).toEqual(['.oebfz', '.zip']);
-  });
-
-  test('a project saved from memory reopens with the same files', async () => {
-    const saved = new MemoryAdapter(new Map(Object.entries(bundle)), 'terraced-house');
-    let blob;
-    const realCreate = URL.createObjectURL, realRevoke = URL.revokeObjectURL, realDoc = globalThis.document;
-    URL.createObjectURL = (b) => { blob = b; return 'blob:x'; };
-    URL.revokeObjectURL = () => {};
-    globalThis.document = { createElement: () => ({ click() {} }) };
-    try { saved.downloadZip(); } finally { URL.createObjectURL = realCreate; URL.revokeObjectURL = realRevoke; globalThis.document = realDoc; }
-    const reopened = await MemoryAdapter.fromFile(new File([await blob.arrayBuffer()], 'terraced-house.oebf.zip'));
-    expect(reopened.name).toBe('terraced-house');
-    expect(await reopened.readJson('manifest.json')).toEqual({ project_name: 'T' });
-    expect(await reopened.readRaw('profiles/p.svg')).toBe('<svg/>');
   });
 });
 
