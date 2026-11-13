@@ -275,7 +275,7 @@ def test_a_door_object_fills_its_opening_in_the_wall(tmp_path):
     assert _psets(door)["OEBF_Element"]["OebfId"] == "object-door-south-gf"
 
 
-def test_a_wall_on_a_spline_path_is_exported_as_its_chord_not_a_crash(tmp_path):
+def test_a_wall_on_a_spline_path_is_exported_through_its_points_not_a_crash(tmp_path):
     import shutil, pathlib
     src = pathlib.Path(__file__).resolve().parents[2] / "example" / "terraced-house.oebf"
     bundle = tmp_path / "b.oebf"
@@ -287,7 +287,10 @@ def test_a_wall_on_a_spline_path_is_exported_as_its_chord_not_a_crash(tmp_path):
     out = tmp_path / "o.ifc"
     export_ifc(bundle, out)
     wall = next(w for w in ifcopenshell.open(str(out)).by_type("IfcWall") if "South external" in (w.Name or ""))
-    assert wall.Representation.Representations[0].Items[0].Depth == 5.4
+    # a spline is laid as lines through its points (#180; before, the wall ran along its chord)
+    body, axis = wall.Representation.Representations
+    assert axis.RepresentationIdentifier == "Axis" and len(axis.Items[0].Points) == 3
+    assert body.Items[0].ExtrudedDirection.DirectionRatios == (0.0, 0.0, 1.0)
 
 
 def test_an_object_array_exports_one_fastener_per_instance_with_the_parts_and_materials(tmp_path):

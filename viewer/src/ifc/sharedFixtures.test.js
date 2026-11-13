@@ -1,6 +1,6 @@
 /**
  * sharedFixtures.test.js — the viewer's IFC importer against the IFC fixtures it shares with the Python importer
- * (fixtures/ifc/, #169). ifc-tools/tests/test_shared_ifc_fixtures.py checks the Python importer against the same
+ * (fixtures/ifc/, #169, #181). ifc-tools/tests/test_shared_ifc_fixtures.py checks the Python importer against the same
  * files and the same expected.json, so the two importers stay in step.
  */
 
@@ -28,11 +28,25 @@ function memoryAdapter() {
 
 const close = (a, b, tol) => Math.abs(a - b) <= tol;
 
+const reversedSegments = (segs) => [...segs].reverse().map(([a, b]) => [b, a]);
+
+/** Two closed outlines are the same: equal points from some start, one way round or the other. */
+function sameRing(got, want) {
+  if (got.length !== want.length) return false;
+  for (const ring of [want, [...want].reverse()]) {
+    for (let k = 0; k < ring.length; k++) {
+      const turned = ring.slice(k).concat(ring.slice(0, k));
+      if (got.every((p, i) => Math.hypot(p[0] - turned[i][0], p[1] - turned[i][1]) < 1e-3)) return true;
+    }
+  }
+  return false;
+}
+
 describe('the viewer imports the shared IFC fixtures as expected.json says', () => {
-  for (const [name, { elements: expected }] of Object.entries(EXPECTED)) {
+  for (const [name, { elements: expected, slabs: wantSlabs = [] }] of Object.entries(EXPECTED)) {
     it(name, async () => {
       const adapter = memoryAdapter();
-      const { elementIds, materials } = await importIfcText(readFileSync(`${DIR}${name}`, 'utf8'), adapter);
+      const { elementIds, slabIds, openingIds, materials } = await importIfcText(readFileSync(`${DIR}${name}`, 'utf8'), adapter);
       expect(elementIds).toHaveLength(expected.length);
       const rows = elementIds.map((id) => {
         const element = JSON.parse(adapter.store.get(`elements/${id}.json`));
@@ -45,12 +59,24 @@ describe('the viewer imports the shared IFC fixtures as expected.json says', () 
         const want = wants[i];
         expect(element.ifc_type).toBe(want.ifc_type);
         const got = path.segments.flatMap(s => [s.start, s.end]).flatMap(p => [p.x, p.y, p.z]);
-        const exp = want.segments.flat(2);
-        expect(got).toHaveLength(exp.length);
-        got.forEach((v, k) => expect(close(v, exp[k], 1e-3), `segment value ${k}: ${v} vs ${exp[k]}`).toBe(true));
+        const options = [want.segments, ...(want.either_direction ? [reversedSegments(want.segments)] : [])].map(o => o.flat(2));
+        expect(options.some(exp => exp.length === got.length && got.every((v, k) => close(v, exp[k], 1e-3))), `segments ${got}`).toBe(true);
+        if (want.segment_types) {
+          const types = path.segments.map(s => s.type);
+          expect(JSON.stringify(types) === JSON.stringify(want.segment_types)
+            || (want.either_direction && JSON.stringify([...types].reverse()) === JSON.stringify(want.segment_types))).toBe(true);
+        }
+        if (want.arc_radius) {
+          for (const s of path.segments.filter(s => s.type === 'arc')) {
+            for (const key of ['start', 'mid', 'end']) expect(close(Math.hypot(s[key].x, s[key].y), want.arc_radius, 1e-3)).toBe(true);
+          }
+        }
         for (const key of ['width', 'height_limit_m']) {
           if (key in want) expect(close(profile[key], want[key], 1e-4), `${key}: ${profile[key]} vs ${want[key]}`).toBe(true);
         }
+        if ('origin_x' in want) expect(close(profile.origin.x, want.origin_x, 1e-4), `origin ${profile.origin.x}`).toBe(true);
+        if (want.layers) expect(profile.assembly.map(l => l.name)).toEqual(want.layers);
+        if (want.layer_thicknesses) profile.assembly.forEach((l, k) => expect(close(l.thickness, want.layer_thicknesses[k], 1e-6)).toBe(true));
         for (const key of ['cap_start', 'cap_end']) if (key in want) expect(element[key]).toBe(want[key]);
         if ('cap_end_angle_deg' in want) expect(close(element.cap_end_angle_deg, want.cap_end_angle_deg, 1e-3)).toBe(true);
         if (want.regions) {
@@ -60,18 +86,38 @@ describe('the viewer imports the shared IFC fixtures as expected.json says', () 
           expect(Math.abs(total - want.regions.area) / want.regions.area).toBeLessThan(0.02);
           const xs = regions.flat().map(p => p[0]), ys = regions.flat().map(p => p[1]);
           [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)]
-            .forEach((v, k) => expect(close(v, want.regions.bounds[k], 1e-4)).toBe(true));
+            .forEach((v, k) => expect(close(v, want.regions.bounds[k], 1e-4), `bound ${k}: ${v}`).toBe(true));
         }
         expect([...new Set(profile.assembly.map(l => l.material_id))].sort()).toEqual(want.materials);
         for (const id of want.materials) expect(materials.map(m => m.id)).toContain(id);
         expect(adapter.store.has(profile.svg_file)).toBe(true);
+        if (want.openings) {
+          const openings = openingIds.map(id => JSON.parse(adapter.store.get(`openings/${id}.json`)))
+            .filter(o => o.host_element_id === element.id).sort((a, b) => a.path_position - b.path_position);
+          expect(openings).toHaveLength(want.openings.length);
+          openings.forEach((o, k) => {
+            for (const key of ['path_position', 'width_m', 'height_m', 'sill_height_m']) expect(close(o[key], want.openings[k][key], 1e-3), `${key}: ${o[key]}`).toBe(true);
+            expect(o.path_id).toBe(element.path_id);
+          });
+        }
+      });
+      expect(slabIds).toHaveLength(wantSlabs.length);
+      slabIds.forEach((id, k) => {
+        const slab = JSON.parse(adapter.store.get(`slabs/${id}.json`));
+        const want = wantSlabs[k];
+        const path = JSON.parse(adapter.store.get(`paths/${slab.boundary_path_id}.json`));
+        expect(path.closed).toBe(true);
+        expect(sameRing(path.segments.map(s => [s.start.x, s.start.y]), want.points)).toBe(true);
+        expect(close(slab.thickness_m, want.thickness_m, 1e-4)).toBe(true);
+        expect(close(slab.elevation_m, want.elevation_m, 1e-4)).toBe(true);
+        expect(slab.material_id).toBe(want.material_id);
       });
     });
   }
 });
 
 describe('a wall exported by the viewer comes back through its importer', () => {
-  it('keeps its path, thickness, height and materials', async () => {
+  it('keeps its path, thickness, height and materials, and its layers in order on the same side (#180)', async () => {
     const out = memoryAdapter();
     const files = {
       'manifest.json': { project_name: 'Round trip' },
@@ -79,7 +125,7 @@ describe('a wall exported by the viewer comes back through its importer', () => 
       'materials/library.json': { materials: [{ id: 'mat-brick', name: 'Brick' }, { id: 'mat-block', name: 'Block' }] },
       'elements/w1.json': { id: 'w1', type: 'Element', description: 'W', ifc_type: 'IfcWall', path_id: 'p1', profile_id: 'pr1', cap_start: 'flat', cap_end: 'flat' },
       'paths/p1.json': { id: 'p1', type: 'Path', segments: [{ type: 'line', start: { x: 1, y: 2, z: 0 }, end: { x: 1, y: 6, z: 0 } }] },
-      'profiles/pr1.json': { id: 'pr1', type: 'Profile', width: 0.3, origin: { x: 0.15, y: 0 }, height_limit_m: 3.1,
+      'profiles/pr1.json': { id: 'pr1', type: 'Profile', width: 0.3, origin: { x: 0.1, y: 0 }, height_limit_m: 3.1,
         assembly: [{ layer: 1, name: 'Brick', material_id: 'mat-brick', thickness: 0.1, function: 'finish' },
           { layer: 2, name: 'Block', material_id: 'mat-block', thickness: 0.2, function: 'structure' }] },
     };
@@ -95,6 +141,9 @@ describe('a wall exported by the viewer comes back through its importer', () => 
     expect(profile.width).toBeCloseTo(0.3, 6);
     expect(profile.height_limit_m).toBeCloseTo(3.1, 6);
     expect(profile.assembly.map(l => l.material_id)).toEqual(['mat-brick', 'mat-block']);
+    // the brick leaf on the left of the path, its face 0.1 m from it: the usage says so and the import reads it back
+    expect(text).toMatch(/IFCMATERIALLAYERSETUSAGE\(#\d+,\.AXIS2\.,\.NEGATIVE\.,0\.1\)/);
+    expect(profile.origin.x).toBeCloseTo(0.1, 6);
   });
 });
 

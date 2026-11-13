@@ -126,6 +126,31 @@ def _polygon(segments):
     return pts
 
 
+def axis_curve(entity):
+    """The wall's Axis representation as OEBF segments in world metres when it is an indexed poly curve or a composite
+    curve (lines and arcs; ifc_reconstruct.axis_path reads a polyline or a single trimmed circle). None otherwise."""
+    try:
+        scale = unit_scale(entity)
+        angle_unit = _angle_scale(entity)
+        from .ifc_reconstruct import _matrix
+        matrix = _matrix(entity.ObjectPlacement, scale)
+        for rep in entity.Representation.Representations:
+            if rep.RepresentationIdentifier != "Axis":
+                continue
+            for item in rep.Items:
+                if not (item.is_a("IfcIndexedPolyCurve") or item.is_a("IfcCompositeCurve")):
+                    continue
+                segs = curve_segments(item, scale, angle_unit)
+                if not segs:
+                    continue
+                w = lambda p: tuple(float(v) for v in (matrix @ np.array([p[0], p[1], 0.0, 1.0]))[:3])
+                return [{"type": seg["type"], **{k: w(seg[k]) for k in ("start", "mid", "end") if k in seg}}
+                        for seg in segs if seg["type"] == "arc" or math.dist(seg["start"], seg["end"]) > 1e-9] or None
+    except Exception:
+        pass
+    return None
+
+
 # ── sections ─────────────────────────────────────────────────────────────────
 
 def _rect(x0, y0, x1, y1):
@@ -813,7 +838,7 @@ def _trim(segments, point, removed, angled, inside=None, thickness=None, height=
         if seg["type"] != "line":
             continue
         a, b = (np.array(seg["start"]), np.array(seg["end"])) if end == "end" else (np.array(seg["end"]), np.array(seg["start"]))
-        if side(b) <= 1e-9 or side(a) >= -1e-9:
+        if side(b) < -1e-6 or side(a) >= -1e-9:   # an end on the plane (an Axis that stops at the cut) counts
             continue
         t = side(a) / (side(a) - side(b))
         cut = a + (b - a) * t
