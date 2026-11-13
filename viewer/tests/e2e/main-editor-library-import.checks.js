@@ -9,15 +9,17 @@
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const until = async (cond, ms = 10000) => { const t0 = Date.now(); while (!cond()) { if (Date.now() - t0 > ms) throw new Error('timeout ' + cond); await sleep(100); } };
   const lib = () => JSON.parse(E.adapter()._map.get('materials/library.json')).materials;
+  // wait for the state a check expects instead of a fixed pause (#186); on a timeout the check after it reports FAIL
+  const wait = (cond, ms) => until(() => { try { return cond(); } catch { return false; } }, ms).catch(() => {});
   (async () => {
     await until(() => E.junctions().length > 0);
-    await sleep(500);
+    await until(() => !document.getElementById('lib-btn').disabled);
     const before = lib().length;
     document.getElementById('lib-btn').click();
     await until(() => document.querySelectorAll('#lib-modal button').length > 3, 8000);
     const use = [...document.querySelectorAll('#lib-modal button')].find((b) => b.textContent === 'Use');
     note(!!use, 'the library browser lists materials with a Use button');
-    use.click(); await sleep(800);
+    use.click(); await wait(() => lib().length === before + 1);
     const added = lib().at(-1);
     note(lib().length === before + 1, 'one material was added', lib().length);
     note(/^mat-[a-z0-9-]+$/.test(added.id) && added.type === 'Material', 'it has a prefixed id and a type', added.id);

@@ -9,7 +9,9 @@
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const until = async (cond, ms = 10000) => { const t0 = Date.now(); while (!cond()) { if (Date.now() - t0 > ms) throw new Error('timeout ' + cond); await sleep(100); } };
   const file = (p) => JSON.parse(E.adapter()._map.get(p));
-  const set = async (id, v) => { const el = document.getElementById(id); el.value = v; el.dispatchEvent(new Event('change', { bubbles: true })); await sleep(700); };
+  // wait for the state a check expects instead of a fixed pause (#186); on a timeout the check after it reports FAIL
+  const wait = (cond, ms) => until(() => { try { return cond(); } catch { return false; } }, ms).catch(() => {});
+  const set = async (id, v, done) => { const el = document.getElementById(id); el.value = v; el.dispatchEvent(new Event('change', { bubbles: true })); await wait(done); };
   const xSpan = (elementId) => {
     let lo = Infinity, hi = -Infinity;
     E.scene().traverse((o) => { if (o.isMesh && o.userData?.elementId === elementId) { const a = o.geometry.attributes.position; for (let i = 0; i < a.count; i++) { lo = Math.min(lo, a.getX(i)); hi = Math.max(hi, a.getX(i)); } } });
@@ -18,7 +20,7 @@
   (async () => {
     try {
       await until(() => E.junctions().length > 0);
-      await sleep(500);
+      await until(() => document.querySelector('#elements-list .tree-item[data-element-id="element-wall-south-gf"]'));
       const id = 'element-wall-south-gf';
       document.querySelector('#elements-list .tree-item[data-element-id="element-wall-south-gf"]').click();
       await until(() => document.getElementById('field-ifc_type'));
@@ -26,28 +28,28 @@
       note(['field-ifc_type', 'field-description', 'field-sweep_mode', 'field-cap_start', 'field-cap_end', 'field-start_offset', 'field-end_offset'].every((f) => document.getElementById(f)), 'element field rows are shown');
       note(document.getElementById('field-twist_per_metre') === null, 'twist rate hidden for perpendicular sweeps');
 
-      await set('field-description', 'South wall edited');
+      await set('field-description', 'South wall edited', () => file(`elements/${id}.json`).description === 'South wall edited');
       note(file(`elements/${id}.json`).description === 'South wall edited', 'description is written to the element file');
-      await set('field-ifc_type', 'Wall');
+      await set('field-ifc_type', 'Wall', () => /IFC type starts with/.test(E.status()));
       note(/IFC type starts with/.test(E.status()) && file(`elements/${id}.json`).ifc_type === 'IfcWall', 'invalid IFC type refused', E.status());
-      await set('field-ifc_type', 'IfcWallStandardCase');
+      await set('field-ifc_type', 'IfcWallStandardCase', () => file(`elements/${id}.json`).ifc_type === 'IfcWallStandardCase');
       note(file(`elements/${id}.json`).ifc_type === 'IfcWallStandardCase', 'IFC type written');
 
       const before = xSpan(id);
-      await set('field-start_offset', '1000');
-      // the re-render removes the wall's meshes before it rebuilds them; on a cold dev server that takes over 700 ms
-      await until(() => Math.abs(xSpan(id) - (before - 1)) < 0.01).catch(() => {});
+      // the re-render removes the wall's meshes before it rebuilds them, so wait for the rebuilt span
+      await set('field-start_offset', '1000', () => file(`elements/${id}.json`).start_offset === 1 && Math.abs(xSpan(id) - (before - 1)) < 0.01);
       note(file(`elements/${id}.json`).start_offset === 1 && Math.abs(xSpan(id) - (before - 1)) < 0.01, 'start offset 1000 mm shortens the wall by 1 m', { before, after: xSpan(id) });
 
-      await set('field-sweep_mode', 'twisted');
+      await set('field-sweep_mode', 'twisted', () => !!document.getElementById('field-twist_per_metre'));
       note(!!document.getElementById('field-twist_per_metre'), 'twisted sweep shows the twist rate');
-      await set('field-sweep_mode', 'perpendicular');
+      await set('field-sweep_mode', 'perpendicular', () => file(`elements/${id}.json`).sweep_mode === 'perpendicular'
+        && !document.getElementById('field-twist_per_metre') && document.getElementById('node-1-x'));
 
       // path section
       note(document.getElementById('node-0-x') && document.getElementById('node-1-y'), 'path nodes are listed');
       const path = file('paths/path-wall-south-gf.json');
       const endX = path.segments[0].end.x;
-      await set('node-1-x', '0.5m');
+      await set('node-1-x', '0.5m', () => Math.abs(file('paths/path-wall-south-gf.json').segments[0].end.x - 0.5) < 1e-9);
       note(Math.abs(file('paths/path-wall-south-gf.json').segments[0].end.x - 0.5) < 1e-9 && endX !== 0.5, 'node coordinate edit is written to the path file');
 
       // slab material
@@ -60,7 +62,7 @@
       note(shown.every((t, i) => i === 0 || shown[i - 1].localeCompare(t, 'en', { sensitivity: 'base' }) <= 0), 'slab materials are in name order', shown);
       note([...mat.options].some((o) => o.value.startsWith('mat-') && o.textContent !== o.value), 'slab materials show names, not ids', shown);
       const other = [...mat.options].map((o) => o.value).find((v) => v !== mat.value);
-      await set('field-material_id', other);
+      await set('field-material_id', other, () => file(`slabs/${slabId}.json`).material_id === other);
       note(file(`slabs/${slabId}.json`).material_id === other, 'slab material written to the slab file', { other });
 
       // storey: the demo has one ('Ground Floor'); add a storey 3 m above it so its height is derived
@@ -70,12 +72,12 @@
       E.storeys()._addStorey('storey-test-above', 'Test above', gf.z_m + 3, true);
       const gfIndex = E.storeys().getAll().findIndex((s) => s.id === gf.id);
       document.querySelectorAll('#storeys-list .tree-item-name')[gfIndex].click();
-      await sleep(300);
-      await until(() => document.querySelector('#props-content h3')?.textContent === 'Storey');
+      await until(() => document.querySelector('#props-content h3')?.textContent === 'Storey' && document.getElementById('field-z_m'));
       note(!!document.getElementById('field-name') && !!document.getElementById('field-z_m'), 'storey name and elevation shown');
       note([...document.querySelectorAll('#props-content .prop-row')].some((r) => /Height/.test(r.textContent) && /3000/.test(r.querySelector('input').value)), 'storey height is derived from the next storey');
-      await set('field-name', 'Ground renamed');
-      const storeyFile = [...E.adapter()._map.keys()].find((k) => k.startsWith('groups/') && JSON.parse(E.adapter()._map.get(k)).name === 'Ground renamed');
+      const renamed = () => [...E.adapter()._map.keys()].find((k) => k.startsWith('groups/') && JSON.parse(E.adapter()._map.get(k)).name === 'Ground renamed');
+      await set('field-name', 'Ground renamed', renamed);
+      const storeyFile = renamed();
       note(storeyFile === `groups/${gf.id}.json`, 'storey name written to its group file', storeyFile);
     } catch (e) { note(false, 'script error', String(e)); }
     log.push('DONE'); show();
