@@ -87,8 +87,33 @@
     const nl = marks().length;
     tool('line'); click(9.5, 4.8); click(9.5, 5.4); key('Enter');
     await until(() => marks().length === nl + 1);
+    // #192: the vertex mode is a setting now; stretching is the default
+    const sb = () => document.getElementById('extend-stretch');
+    ok('e. Extend region edges by stretching: on by default', await until(() => sb() && sb().checked === true && E.snapState().extendStretch === true));
+    sb().click();
+    ok('e. off, and remembered', await until(() => E.snapState().extendStretch === false && JSON.parse(localStorage.getItem('oebf-detail-snap')).extendStretch === false));
     tool('extend'); click(9.19, 5);
     ok('e. the bottom edge runs on to the line', await until(() => regions()[nr].vertices.some((v) => Math.abs(v.x - 9.5) < 1e-6 && Math.abs(v.y - 5) < 1e-6)), regions()[nr].vertices);
+
+    // ── #192: stretching keeps a rectangle a rectangle ──
+    sb().click();
+    ok('e2. stretching on again', await until(() => E.snapState().extendStretch === true && JSON.parse(localStorage.getItem('oebf-detail-snap')).extendStretch === true));
+    const ns = regions().length;
+    tool('rect');
+    ptr('pointerdown', 8.6, 5.6); ptr('pointermove', 8.8, 5.8); ptr('pointerup', 8.8, 5.8);
+    ok('e2. rectangle drawn', await until(() => regions().length === ns + 1));
+    const nk = marks().length;
+    tool('line'); click(8.4, 6.1); click(9, 6.1); key('Enter');
+    await until(() => marks().length === nk + 1);
+    tool('extend'); click(8.7, 5.8);
+    const near = (a, b) => Math.abs(a - b) < 1e-6;
+    ok('e2. the whole top edge moves up to the line, so it stays a rectangle', await until(() => {
+      const vs = regions()[ns].vertices;
+      return vs.length === 4 && vs.filter((v) => near(v.y, 6.1)).length === 2 && vs.filter((v) => near(v.y, 5.6)).length === 2
+        && vs.every((v) => near(v.x, 8.6) || near(v.x, 8.8));
+    }), regions()[ns].vertices);
+    undo();
+    ok('e2. one undo puts it back', await until(() => regions()[ns].vertices.every((v) => near(v.y, 5.6) || near(v.y, 5.8))));
 
     // ── #185 c. the setting, off by default, remembered ──
     document.getElementById('snap-menu').open = true;

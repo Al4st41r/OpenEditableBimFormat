@@ -135,31 +135,55 @@ export function buildJson({ layers, originX, id, description, profileType, align
  */
 export function buildSvg({ layers, originX, matMap, profileType, alignment, planWidth }) {
   if (isStackedProfile(profileType, alignment)) return buildStackedSvg({ layers, originX, matMap, alignment, planWidth });
-  const totalWidth = Math.round(layers.reduce((s, l) => s + (l.thickness ?? 0), 0) * 1e6) / 1e6;
-  const HEIGHT = 2.700;
-  const heightStr = HEIGHT.toFixed(3);
+  const regions = layers.filter((l) => l.type === 'region' && Array.isArray(l.vertices) && l.vertices.length >= 3);
+  const regionTop = regions.length ? Math.max(...regions.flatMap((l) => l.vertices.map((v) => v.y))) : 0;
+  // Band profiles are 2.7 m tall. A profile drawn only as regions (a coursed leaf, #184) is as tall as they are.
+  const hasBands = layers.some((l) => l.type !== 'region');
+  const HEIGHT = hasBands || !(regionTop > 0) ? 2.7 : r6(regionTop);
+  const totalWidth = wallWidth(layers);
 
   let rects = '';
   let cursor = 0;
   for (let i = 0; i < layers.length; i++) {
     const l = layers[i];
     const colour = fill2d(matMap[l.material_id], matMap[l.material_id]?.colour_hex ?? '#888888');
+    if (l.type === 'region') {
+      if (regions.includes(l)) rects += `  <!-- Layer ${i + 1}: ${l.name} -->\n  ${regionShape(l, colour, HEIGHT)}\n`;
+      continue;
+    }
     const x = Math.round(cursor * 1e6) / 1e6;
     const w = Math.round((l.thickness ?? 0) * 1e6) / 1e6;
     rects += `  <!-- Layer ${i + 1}: ${l.name} -->\n`;
-    rects += `  <rect x="${x}" y="0" width="${w}" height="${heightStr}" fill="${colour}" stroke="#888" stroke-width="0.002"/>\n`;
+    rects += `  <rect x="${x}" y="0" width="${w}" height="${HEIGHT.toFixed(3)}" fill="${colour}" stroke="#888" stroke-width="0.002"/>\n`;
     cursor += (l.thickness ?? 0);
     cursor = Math.round(cursor * 1e6) / 1e6; // prevent float drift
   }
 
   const roundedOrigin = Math.round(originX * 1e6) / 1e6;
+  const tick = hasBands
+    ? `  <line x1="${roundedOrigin}" y1="-0.020" x2="${roundedOrigin}" y2="0.020" stroke="red" stroke-width="0.002"/>\n`
+    : '';
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg"
-     viewBox="0 0 ${totalWidth} ${heightStr}"
-     width="${totalWidth * 1000}mm" height="${HEIGHT * 1000}mm">
+     viewBox="0 0 ${totalWidth} ${hasBands ? HEIGHT.toFixed(3) : HEIGHT}"
+     width="${r6(totalWidth * 1000)}mm" height="${r6(HEIGHT * 1000)}mm">
 ${rects}  <circle cx="${roundedOrigin}" cy="0" r="0.005" fill="red"/>
-  <line x1="${roundedOrigin}" y1="-0.020" x2="${roundedOrigin}" y2="0.020" stroke="red" stroke-width="0.002"/>
-</svg>`;
+${tick}</svg>`;
+}
+
+/**
+ * A region layer as an SVG shape. Region y is up from the base (#184) and SVG y is down, so a point (x, y) is drawn at
+ * (x, height - y). An axis-aligned rectangle is written as a rect, anything else as a polygon.
+ */
+function regionShape(l, colour, height) {
+  const vs = l.vertices;
+  const xs = vs.map((v) => v.x), ys = vs.map((v) => v.y);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+  const rectLike = vs.length === 4 && new Set(vs.map((v) => `${v.x},${v.y}`)).size === 4
+    && vs.every((v) => (v.x === x0 || v.x === x1) && (v.y === y0 || v.y === y1));
+  const paint = `fill="${colour}" stroke="#888" stroke-width="0.002"`;
+  if (rectLike) return `<rect x="${r6(x0)}" y="${r6(height - y1)}" width="${r6(x1 - x0)}" height="${r6(y1 - y0)}" ${paint}/>`;
+  return `<polygon points="${vs.map((v) => `${r6(v.x)},${r6(height - v.y)}`).join(' ')}" ${paint}/>`;
 }
 
 /** Layers as horizontal bands: layer 1 at the top for top-face, at the bottom for bottom-face. */

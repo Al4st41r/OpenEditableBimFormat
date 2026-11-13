@@ -73,12 +73,13 @@ const SNAP_LABELS = {
   angle: 'Angle', 'grid-axis': 'Drawing origin axes', alignment: 'Alignment', 'on-line': 'On line', step: 'Ruler step',
 };
 // extendCarried: Extend always considers edges carried on past their ends, CAD-style (#185); off by default
-const snapState = { on: true, kinds: new Set(SNAP_KINDS), angleStep: 45, extendCarried: false };
+// extendStretch: Extend on a region edge moves the whole edge parallel to itself, so a rectangle stays one (#192); on by default
+const snapState = { on: true, kinds: new Set(SNAP_KINDS), angleStep: 45, extendCarried: false, extendStretch: true };
 try {
   const saved = JSON.parse(localStorage.getItem('oebf-detail-snap') ?? 'null');
-  if (saved) { snapState.on = saved.on !== false; snapState.kinds = new Set(saved.kinds ?? SNAP_KINDS); snapState.angleStep = saved.angleStep ?? 45; snapState.extendCarried = saved.extendCarried === true; }
+  if (saved) { snapState.on = saved.on !== false; snapState.kinds = new Set(saved.kinds ?? SNAP_KINDS); snapState.angleStep = saved.angleStep ?? 45; snapState.extendCarried = saved.extendCarried === true; snapState.extendStretch = saved.extendStretch !== false; }
 } catch { /* defaults */ }
-const saveSnapState = () => { try { localStorage.setItem('oebf-detail-snap', JSON.stringify({ on: snapState.on, kinds: [...snapState.kinds], angleStep: snapState.angleStep, extendCarried: snapState.extendCarried })); } catch { /* optional */ } };
+const saveSnapState = () => { try { localStorage.setItem('oebf-detail-snap', JSON.stringify({ on: snapState.on, kinds: [...snapState.kinds], angleStep: snapState.angleStep, extendCarried: snapState.extendCarried, extendStretch: snapState.extendStretch })); } catch { /* optional */ } };
 let hint = null;            // { snap, lastPoint } from the controller
 let pointer = { x: 0, y: 0, alt: false };
 const anchors = { edge: 'start', rect: 'bottom-left' };   // what stays put when a typed length or size is applied
@@ -410,6 +411,7 @@ function controllerContext() {
   return {
     blocked: blocked(layers), doc: st.doc, selection: st.selection, snap: step, angleStep: 5, tolerance: 9 / view.scale,
     extendCarried: snapState.extendCarried,
+    extendStretch: snapState.extendStretch,
     material: $('material-select').value || null,
     suspendSnap: pointer.alt,
     // The smart cursor: named snaps against everything drawn, in pixels converted to metres at this zoom.
@@ -652,6 +654,12 @@ function refreshSnapControls() {
   ccb.addEventListener('change', () => { snapState.extendCarried = ccb.checked; saveSnapState(); });
   carried.append(ccb, 'Extend to edges carried on');
   body.append(carried);
+  const stretch = document.createElement('label');
+  stretch.title = 'Extend on a region edge moves the whole edge parallel to itself until it meets the cutting edge, so both neighbouring edges lengthen and a rectangle stays a rectangle. Off: only the end nearer the click moves, along the edge.';
+  const scb = Object.assign(document.createElement('input'), { type: 'checkbox', id: 'extend-stretch', checked: snapState.extendStretch });
+  scb.addEventListener('change', () => { snapState.extendStretch = scb.checked; saveSnapState(); });
+  stretch.append(scb, 'Extend region edges by stretching');
+  body.append(stretch);
 }
 function toggleSnap() { snapState.on = !snapState.on; saveSnapState(); hint = null; refreshSnapControls(); paint(); status(snapState.on ? 'Snapping on' : 'Snapping off'); }
 $('snap-btn').addEventListener('click', toggleSnap);

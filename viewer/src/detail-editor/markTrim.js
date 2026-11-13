@@ -441,6 +441,73 @@ export function extendRegionEdge(points, pick, boundaries, opts = {}) {
   return { points: out, vertex, carried: res.carried };
 }
 
+/**
+ * Extend by stretching (#192): the edge nearest `pick` moves outwards, parallel to itself, until it meets the next
+ * boundary, and both neighbouring edges are carried on with it (each end slides along its neighbour's line), so a
+ * rectangle stays a rectangle. The edge stops where it first touches a boundary: an end reaching one, or the end of a
+ * boundary segment entering the edge. As with extendLine, edges carried on past their ends count when nothing real
+ * is ahead (or, with opts.always, whenever nearer; carried: true).
+ * Refused with a reason where a neighbouring edge is parallel to the edge, nothing lies ahead, or the outline would
+ * cross itself or lose its area.
+ * @returns {{ points: Array<{x, y}>, vertices: [number, number], carried: boolean } | { error: string }}
+ */
+export function stretchRegionEdge(points, pick, boundaries, { always = false } = {}) {
+  const n = points.length;
+  if (n < 3) return { error: 'The region needs at least three vertices.' };
+  let best = null;
+  for (let m = 0; m < n; m++) {
+    const a = points[m], b = points[(m + 1) % n];
+    const cum = [0, dist(a, b)];
+    if (cum[1] < EPS) continue;
+    const d = dist(pick, pointAtStation([a, b], cum, stationOf([a, b], cum, pick)));
+    if (!best || d < best.d) best = { d, k: m };
+  }
+  if (!best) return { error: 'The region has no length.' };
+  const i = best.k, j = (best.k + 1) % n;
+  const h = points[(i + n - 1) % n], k = points[(j + 1) % n];
+  const A = points[i], B = points[j];
+  const len = dist(A, B);
+  const e = { x: (B.x - A.x) / len, y: (B.y - A.y) / len };
+  // the outward normal: for an anticlockwise outline the interior is on the left of each edge, so outwards is the right
+  const nrm = signedArea(points) >= 0 ? { x: e.y, y: -e.x } : { x: -e.y, y: e.x };
+  const unit = (p, q) => { const l = dist(p, q); return l < EPS ? null : { x: (q.x - p.x) / l, y: (q.y - p.y) / l }; };
+  // the directions the two ends move in: on past their vertices along the neighbouring edges
+  const dA = unit(h, A), dB = unit(k, B);
+  if (!dA || !dB) return { error: 'A neighbouring edge has no length.' };
+  const cA = dA.x * nrm.x + dA.y * nrm.y, cB = dB.x * nrm.x + dB.y * nrm.y;
+  if (Math.abs(cA) < 1e-9 || Math.abs(cB) < 1e-9) return { error: 'A neighbouring edge runs parallel to this one, so it cannot follow when the edge moves.' };
+  const lenA = dist(h, A), lenB = dist(k, B);
+  // where the ends are when the edge has moved a distance g outwards
+  const endsAt = (g) => [{ x: A.x + dA.x * (g / cA), y: A.y + dA.y * (g / cA) }, { x: B.x + dB.x * (g / cB), y: B.y + dB.y * (g / cB) }];
+  const firstAhead = (bs) => {
+    const gs = [];
+    // an end meets a boundary: its distance along the neighbour's line, as a distance moved outwards
+    for (const [P, d, c, l] of [[A, dA, cA, lenA], [B, dB, cB, lenB]]) {
+      for (const t of hitsOnLine(P, d, bs)) if (t * c > 1e-7 && t > -l + 1e-7) gs.push(t * c);
+    }
+    // the end of a boundary segment enters the moving edge
+    for (const b of bs) {
+      if (b.kind !== 'seg') continue;
+      for (const q of [b.a, b.b]) {
+        const g = (q.x - A.x) * nrm.x + (q.y - A.y) * nrm.y;
+        if (g <= 1e-7) continue;
+        const [pa, pb] = endsAt(g);
+        const u = (q.x - pa.x) * e.x + (q.y - pa.y) * e.y, w = (pb.x - pa.x) * e.x + (pb.y - pa.y) * e.y;
+        if (w > EPS && u >= -1e-7 && u <= w + 1e-7) gs.push(g);
+      }
+    }
+    return gs.sort((x, y) => x - y)[0];
+  };
+  const r = reach(firstAhead, boundaries, always);
+  if (!r) return { error: 'Nothing lies ahead of that edge to extend it to.' };
+  const [pa, pb] = endsAt(r.at);
+  if ((pb.x - pa.x) * e.x + (pb.y - pa.y) * e.y < 1e-7) return { error: 'The neighbouring edges would meet or cross before the edge reaches that boundary.' };
+  const out = points.map((p, m) => (m === i ? rp(pa) : m === j ? rp(pb) : rp(p)));
+  if (Math.abs(signedArea(out)) < 1e-12) return { error: 'Extending that edge would leave the region with no area.' };
+  if (isSelfIntersecting(out)) return { error: 'Extending that edge would make the region cross itself.' };
+  return { points: out, vertices: [i, j], carried: r.carried };
+}
+
 // ── document operations ─────────────────────────────────────────────────────
 
 function markAt(doc, index) {
@@ -521,11 +588,19 @@ export function extendRegionMark(doc, index, pick, boundaries, opts = {}) {
   const region = doc.geometry?.regions?.[index];
   if (!region) throw new DetailEditError(`No region at index ${index}`);
   if (!region.vertices.every((v) => typeof v.x === 'number' && typeof v.y === 'number')) {
-    throw new DetailEditError('Extending a region edge needs plain-number vertices: unbind its parameters first.');
+    throw new DetailEditError(opts.stretch
+      ? 'Stretching a region edge moves it and its neighbours, which needs plain-number vertices: unbind the parameters first, or switch the snap menu to extend along the edge.'
+      : 'Extending a region edge needs plain-number vertices: unbind its parameters first.');
+  }
+  const d = structuredClone(doc);
+  if (opts.stretch) {
+    const st = stretchRegionEdge(region.vertices, pick, boundaries, opts);
+    if (st.error) throw new DetailEditError(st.error);
+    d.geometry.regions[index].vertices = st.points;
+    return { doc: d, carried: st.carried };
   }
   const res = extendRegionEdge(region.vertices, pick, boundaries, opts);
   if (res.error) throw new DetailEditError(res.error);
-  const d = structuredClone(doc);
   d.geometry.regions[index].vertices[res.vertex] = res.points[res.vertex];
   return { doc: d, carried: res.carried };
 }

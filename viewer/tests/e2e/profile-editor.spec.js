@@ -99,6 +99,9 @@ test('a stacked slab profile opens in the profile editor, draws as bands and sav
   await expect(popup.locator('#profile-alignment-select')).toBeEnabled();
   expect(await popup.locator('#profile-svg').getAttribute('viewBox')).toBe('0 0 1 0.2');
   expect(await popup.locator('#profile-svg rect').count()).toBe(2);
+  // regions have no defined frame on a stacked slab, so the tools to draw them are off (#188)
+  await expect(popup.locator('#tool-rect-btn')).toBeDisabled();
+  await expect(popup.locator('#tool-poly-btn')).toBeDisabled();
   await popup.locator('#save-btn').click();
   await expect.poll(() => page.evaluate(() => window.__saved?.json?.alignment)).toBe('top-face');
   const saved = await page.evaluate(() => window.__saved);
