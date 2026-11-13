@@ -462,7 +462,8 @@ export function sectionProfile(reader, product, items) {
 
 /**
  * {start, end, thickness, height} of a wall swept from a rectangle: extruded up from a footprint (the centreline
- * along the rectangle's X side), or swept along from a section (an OEBF export). null otherwise.
+ * along the rectangle's X side; `upright` is set, as that line is the wall's middle, not its reference line), or swept
+ * along from a section (an OEBF export). null otherwise.
  */
 export function wallAxis(reader, items) {
   for (const { item, m } of items) {
@@ -473,7 +474,7 @@ export function wallAxis(reader, items) {
     const at = matMul(solid, axis2Matrix(reader, profile?.attrs[2]));
     if (Math.abs(d[2]) >= VERTICAL) {
       if (!r) continue;
-      return { start: apply(at, [r.cx - r.x / 2, r.cy, 0]), end: apply(at, [r.cx + r.x / 2, r.cy, 0]), thickness: r.y, height: depth };
+      return { start: apply(at, [r.cx - r.x / 2, r.cy, 0]), end: apply(at, [r.cx + r.x / 2, r.cy, 0]), thickness: r.y, height: depth, upright: true };
     }
     const a = apply(solid, [0, 0, 0]);
     return { start: a, end: add(a, mul(d, depth)), thickness: r ? r.x : null, height: r ? r.y : null };
@@ -546,7 +547,7 @@ export function clipPath(reader, items, segments, height) {
     for (const end of ['end', 'start']) {
       const seg = end === 'end' ? segments.at(-1) : segments[0];
       const [a, b] = end === 'end' ? [seg[0], seg[1]] : [seg[1], seg[0]];
-      if (side(b) <= 1e-9 || side(a) >= -1e-9) continue;
+      if (side(b) < -1e-6 || side(a) >= -1e-9) continue;   // an end on the plane (an Axis stopping at the cut) counts
       const t = side(a) / (side(a) - side(b));
       const at = add(a, mul(sub(b, a), t));
       if (end === 'end') seg[1] = at; else seg[0] = at;
@@ -583,7 +584,12 @@ function _usage(reader, product) {
   return { usage: null, set: mat };
 }
 
-/** {name, layers: [{name, material_name, thickness}], offset} from the product's layer set, else null. */
+/**
+ * {name, layers: [{name, material_name, thickness}], origin} from the product's layer set, else null, as
+ * ifc_reconstruct.layer_profile: the layers from the left of the wall's run to its right, and `origin` how far the
+ * reference line is from the left face (null without a usage). IFC puts the set's base at OffsetFromReferenceLine
+ * along the wall's Y (to its left) and stacks the layers towards +Y (POSITIVE: turned round here) or -Y (NEGATIVE).
+ */
 export function layerProfile(reader, product) {
   const { usage, set } = _usage(reader, product);
   if (set?.type !== 'IFCMATERIALLAYERSET') return null;
@@ -597,7 +603,13 @@ export function layerProfile(reader, product) {
   }
   if (!layers.length) return null;
   const offset = usage && typeof usage.attrs[3] === 'number' ? usage.attrs[3] * reader.scale : null;
-  return { name: (typeof set.attrs[1] === 'string' && set.attrs[1]) || '', layers, offset };
+  let origin = null;
+  if (offset != null) {
+    const width = layers.reduce((s, l) => s + l.thickness, 0);
+    if (usage.attrs[2]?.value === 'NEGATIVE') origin = offset;
+    else { layers.reverse(); origin = offset + width; }
+  }
+  return { name: (typeof set.attrs[1] === 'string' && set.attrs[1]) || '', layers, origin };
 }
 
 /** The name of the material that stands for the whole product (as ifc_reconstruct.primary_material), or null. */

@@ -248,8 +248,10 @@ class IfcGen {
       });
       const layerSet = this._emit(this._id(), 'IFCMATERIALLAYERSET',
         this._refs(layerIds), `'${_esc(elem.description || 'Wall')}'`, '$');
+      // OEBF layers run from the left of the path to its right, the first one's left face originX from the path;
+      // the wall's local Y points left, so the set's base sits originX along +Y and the layers stack towards -Y (#180).
       const usage = this._emit(this._id(), 'IFCMATERIALLAYERSETUSAGE',
-        this._ref(layerSet), '.AXIS2.', '.POSITIVE.', '0.');
+        this._ref(layerSet), '.AXIS2.', '.NEGATIVE.', `${_f(originX)}`);
       this._emit(this._id(), 'IFCRELASSOCIATESMATERIAL',
         `'${_guid()}'`, '$', '$', '$',
         `(${this._ref(wallId)})`, this._ref(usage));

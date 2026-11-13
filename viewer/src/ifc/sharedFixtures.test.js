@@ -71,7 +71,7 @@ describe('the viewer imports the shared IFC fixtures as expected.json says', () 
 });
 
 describe('a wall exported by the viewer comes back through its importer', () => {
-  it('keeps its path, thickness, height and materials', async () => {
+  it('keeps its path, thickness, height and materials, and its layers in order on the same side (#180)', async () => {
     const out = memoryAdapter();
     const files = {
       'manifest.json': { project_name: 'Round trip' },
@@ -79,7 +79,7 @@ describe('a wall exported by the viewer comes back through its importer', () => 
       'materials/library.json': { materials: [{ id: 'mat-brick', name: 'Brick' }, { id: 'mat-block', name: 'Block' }] },
       'elements/w1.json': { id: 'w1', type: 'Element', description: 'W', ifc_type: 'IfcWall', path_id: 'p1', profile_id: 'pr1', cap_start: 'flat', cap_end: 'flat' },
       'paths/p1.json': { id: 'p1', type: 'Path', segments: [{ type: 'line', start: { x: 1, y: 2, z: 0 }, end: { x: 1, y: 6, z: 0 } }] },
-      'profiles/pr1.json': { id: 'pr1', type: 'Profile', width: 0.3, origin: { x: 0.15, y: 0 }, height_limit_m: 3.1,
+      'profiles/pr1.json': { id: 'pr1', type: 'Profile', width: 0.3, origin: { x: 0.1, y: 0 }, height_limit_m: 3.1,
         assembly: [{ layer: 1, name: 'Brick', material_id: 'mat-brick', thickness: 0.1, function: 'finish' },
           { layer: 2, name: 'Block', material_id: 'mat-block', thickness: 0.2, function: 'structure' }] },
     };
@@ -95,6 +95,9 @@ describe('a wall exported by the viewer comes back through its importer', () => 
     expect(profile.width).toBeCloseTo(0.3, 6);
     expect(profile.height_limit_m).toBeCloseTo(3.1, 6);
     expect(profile.assembly.map(l => l.material_id)).toEqual(['mat-brick', 'mat-block']);
+    // the brick leaf on the left of the path, its face 0.1 m from it: the usage says so and the import reads it back
+    expect(text).toMatch(/IFCMATERIALLAYERSETUSAGE\(#\d+,\.AXIS2\.,\.NEGATIVE\.,0\.1\)/);
+    expect(profile.origin.x).toBeCloseTo(0.1, 6);
   });
 });
 

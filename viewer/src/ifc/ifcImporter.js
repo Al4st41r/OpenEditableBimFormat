@@ -119,7 +119,7 @@ export async function importIfcText(text, adapter) {
       for (const end of ['start', 'end']) {
         if (end in clipped.angles) { caps[`cap_${end}`] = 'angled'; caps[`cap_${end}_angle_deg`] = clipped.angles[end]; }
       }
-      profileId = await profiles.band(reader, e, shape.thickness, clipped.height, addMaterial);
+      profileId = await profiles.band(reader, e, shape.thickness, clipped.height, addMaterial, shape.centred);
     }
     if (!profileId) profileId = await profiles.placeholder(addMaterial);
 
@@ -162,7 +162,8 @@ function _elementShape(reader, product, warnings, label) {
     if (items.length) warnings.push(`${label}: its shape (${items[0].item.type}) could not be read; it was given a placeholder path`);
     return null;
   }
-  return { segments, thickness: axis?.thickness ?? null, height: axis?.height ?? null, items };
+  // a path read from the middle of a footprint is the wall's centreline, so its build-up is centred on it
+  return { segments, thickness: axis?.thickness ?? null, height: axis?.height ?? null, items, centred: !drawn && !!axis?.upright };
 }
 
 async function _writePath(adapter, pathId, name, segments) {
@@ -201,22 +202,26 @@ class Profiles {
     if (typeof this.adapter.writeRaw === 'function') await this.adapter.writeRaw(`profiles/${id}.svg`, svg);
   }
 
-  /** A band profile from the layer set, else one layer of the element's material, else the placeholder material. */
-  async band(reader, product, thickness, height, addMaterial) {
+  /**
+   * A band profile from the layer set, else one layer of the element's material, else the placeholder material.
+   * `centred`: the path is the wall's middle, so the build-up is centred on it whatever the layer set's offset says.
+   */
+  async band(reader, product, thickness, height, addMaterial, centred = false) {
     let lp = layerProfile(reader, product);
+    if (lp && centred) lp = { ...lp, origin: null };
     if (!lp && thickness) {
       const name = primaryMaterial(reader, product);
-      lp = { name: name ?? 'unknown-material', offset: null, layers: [{ name: name ?? 'Imported', material_name: name ?? 'Imported', thickness: _r6(thickness) }] };
+      lp = { name: name ?? 'unknown-material', origin: null, layers: [{ name: name ?? 'Imported', material_name: name ?? 'Imported', thickness: _r6(thickness) }] };
       if (!name) addMaterial(PLACEHOLDER_MATERIAL, 'Imported (placeholder)');
     }
     if (!lp) return null;
     height = height > 0 ? Math.round(height * 1e4) / 1e4 : null;
-    const sig = 'band|' + lp.layers.map(l => `${_slugify(l.material_name)}:${l.thickness}`).join('|') + (height ? `|h${height}` : '');
+    const width = _r6(lp.layers.reduce((s, l) => s + l.thickness, 0));
+    const originX = _r6(lp.origin == null ? width / 2 : Math.min(Math.max(lp.origin, 0), width));
+    const sig = 'band|' + lp.layers.map(l => `${_slugify(l.material_name)}:${l.thickness}`).join('|') + `|o${originX}` + (height ? `|h${height}` : '');
     if (this.bySignature.has(sig)) return this.bySignature.get(sig);
     const id = await this._free(`profile-imported-${_slugify(lp.name) || _slugify(lp.layers[0].material_name) || 'layers'}`);
     this.bySignature.set(sig, id);
-    const width = _r6(lp.layers.reduce((s, l) => s + l.thickness, 0));
-    const originX = _r6(lp.offset == null ? width / 2 : Math.min(Math.max(-lp.offset, 0), width));
     const doc = {
       $schema: 'oebf://schema/0.1/profile', id, type: 'Profile',
       description: `Rebuilt from the IFC material layer set${lp.name ? ` '${lp.name}'` : ''}`,
