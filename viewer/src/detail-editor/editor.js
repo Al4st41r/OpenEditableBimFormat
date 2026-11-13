@@ -39,7 +39,7 @@ import { buildPanelModel } from './panelModel.js';
 import { remapDocLayers } from './layerRemap.js';
 import { publishSteps } from './publishSteps.js';
 import { fitView, toDetail, zoomAt, panByPixels } from './viewTransform.js';
-import { translateRegions, transformRegions, selectionCentre } from './canvasEdit.js';
+import { translateRegions, transformRegions, selectionCentre, moveSelection } from './canvasEdit.js';
 import { renderCanvas } from './render.js';
 import { primitiveStyle } from './drawStyle.js';
 import { parseTypedPoint } from './typedPoint.js';
@@ -269,20 +269,17 @@ const actions = {
   rotateMember: (role, v) => apply((d) => D.rotateMember(d, role, v)),
   setRegionMaterial: (i, v) => apply((d) => D.setRegionMaterial(d, i, v)),
   refresh: () => refresh(),   // for panel controls that change which fields are shown
-  // Numeric move, copy, rotate and mirror of every picked region, about the centre of the selection
+  // Move or copy the selection (regions, a mark or a member) by a typed or picked distance; rotate and mirror below
+  // act on regions, about the centre of the selection
   moveBy: (dx, dy, copy) => {
-    const picked = regionIndices(st.selection);
-    if (!picked.length) return;
-    if (copy) {
-      const n = st.doc.geometry.regions.length;
-      apply((d) => D.duplicateRegions(d, picked, dx, dy));
-      st = select(st, selectionOfRegions(picked.map((_, k) => n + k))); refresh();
-      status(`Copied ${picked.length} region(s).`);
-    } else {
-      const r = translateRegions(st.doc, picked, dx, dy);
-      apply(() => r.doc);
-      if (r.locked.length) status('Coordinates bound to a parameter stay where they are.');
-    }
+    let r;
+    try { r = moveSelection(st.doc, st.selection, dx, dy, { copy }); } catch (err) { status(err.message, true); return; }
+    if (!r) return;
+    apply(() => r.doc);
+    if (st.doc !== r.doc) return;   // refused
+    st = select(st, r.selection); refresh();
+    if (copy) status(`Copied ${r.what}.`);
+    else if (r.locked.length) status('Coordinates bound to a parameter stay where they are.');
   },
   // Click one point (a base point) or two (a move) on the canvas; then(points) gets them, snapped.
   pickPoints: (count, then, prompt) => {
@@ -438,7 +435,7 @@ function applyEffects(effects) {
       case 'pan': view = panByPixels(view, e.dx, e.dy); break;
       case 'draft': draft = e.draft; break;
       case 'hint': hint = e.hint; break;
-      case 'message': status(e.text, true); break;
+      case 'message': status(e.text, !e.info); break;
       case 'cancel': display = null; needsRefresh = true; break;
       case 'picked': {
         const then = onPicked;

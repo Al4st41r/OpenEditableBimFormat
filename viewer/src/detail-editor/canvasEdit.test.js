@@ -1,6 +1,6 @@
 import { describe, test, expect } from 'vitest';
-import { snapValue, dragHandle, translateRegion, translateRegions, transformRegions, selectionCentre, regionsInBox } from './canvasEdit.js';
-import { bindCoordinate } from './detailDocument.js';
+import { snapValue, dragHandle, translateRegion, translateRegions, transformRegions, selectionCentre, regionsInBox, moveSelection } from './canvasEdit.js';
+import { bindCoordinate, duplicateMember } from './detailDocument.js';
 import { makeDetail } from '../detail/fixtures.js';
 import { deepFreeze } from './testUtils.js';
 
@@ -194,5 +194,57 @@ describe('transformRegions about a chosen point (#120)', () => {
   test('mirrors across a vertical line through the chosen point', () => {
     const { doc: d } = transformRegions(doc, [0], { mirror: 'x', about: { x: 3, y: 0 } });
     expect(d.geometry.regions[0].vertices.map((v) => v.x).sort()).toEqual([4, 4, 5, 5]);
+  });
+});
+
+describe('moveSelection: regions, marks and members (#166)', () => {
+  const withMark = () => ({ ...base(), condition: { rule: 'butt', member_count: 2, member_kinds: ['wall', 'wall'] },
+    annotations: [{ type: 'line', points: [{ x: 0, y: 0 }, { x: 1, y: 0 }], style: 'dashed' }, { type: 'note', at: { x: 0, y: 0 }, text: 'n' }] });
+
+  test('moves and copies regions as before, selecting the copies', () => {
+    const doc = deepFreeze(withMark());
+    const moved = moveSelection(doc, { type: 'region', index: 0 }, 0.1, 0);
+    close(moved.doc.geometry.regions[0].vertices[0].x, 0.2);
+    const copied = moveSelection(doc, { type: 'region', index: 0 }, 0, 1, { copy: true });
+    expect(copied.doc.geometry.regions).toHaveLength(2);
+    expect(copied.selection).toEqual({ type: 'region', index: 1 });
+    close(copied.doc.geometry.regions[1].vertices[0].y, 1.2);
+  });
+
+  test('moves a mark, or copies it and selects the copy', () => {
+    const doc = deepFreeze(withMark());
+    const moved = moveSelection(doc, { type: 'annotation', index: 0 }, 0.5, 0.25);
+    expect(moved.doc.annotations[0].points).toEqual([{ x: 0.5, y: 0.25 }, { x: 1.5, y: 0.25 }]);
+    expect(moved.selection).toEqual({ type: 'annotation', index: 0 });
+    const copied = moveSelection(doc, { type: 'annotation', index: 0 }, 0, 1, { copy: true });
+    expect(copied.doc.annotations).toHaveLength(3);
+    expect(copied.doc.annotations[0]).toEqual(doc.annotations[0]);
+    expect(copied.doc.annotations[2]).toEqual({ type: 'line', points: [{ x: 0, y: 1 }, { x: 1, y: 1 }], style: 'dashed' });
+    expect(copied.selection).toEqual({ type: 'annotation', index: 2 });
+    expect(() => moveSelection(doc, { type: 'annotation', index: 9 }, 1, 1)).toThrow(/No mark/);
+  });
+
+  test('moves a member by adding to its offsets, or copies it under a new role', () => {
+    const doc = deepFreeze(withMark());
+    const moved = moveSelection(doc, { type: 'member', role: 'b' }, 0.1, -0.2);
+    expect(moved.doc.members[1].placement).toEqual({ offset_x_m: 0.1, offset_y_m: -0.2, rotation_deg: 90 });
+    const copied = moveSelection(doc, { type: 'member', role: 'b' }, 1, 0, { copy: true });
+    expect(copied.doc.members.map((m) => m.role)).toEqual(['a', 'b', 'b-2']);
+    expect(copied.doc.members[2]).toMatchObject({ kind: 'wall', profile_id: 'p1', placement: { offset_x_m: 1, offset_y_m: 0, rotation_deg: 90 } });
+    expect(copied.selection).toEqual({ type: 'member', role: 'b-2' });
+    expect(copied.doc.condition).toMatchObject({ member_count: 3, member_kinds: ['wall', 'wall', 'wall'] });
+  });
+
+  test('a member measured from a reference line keeps its reference and shifts its offset', () => {
+    const doc = { ...base(), members: [{ role: 'a', kind: 'wall', profile_id: 'p1', placement: { offset_x_m: 0.05, offset_y_m: 0, rotation_deg: 0, reference: { x: 'grid-x' } } }] };
+    const r = moveSelection(doc, { type: 'member', role: 'a' }, 0.1, 0);
+    expect(r.doc.members[0].placement).toEqual({ offset_x_m: 0.15, offset_y_m: 0, rotation_deg: 0, reference: { x: 'grid-x' } });
+    expect(duplicateMember(doc, 'a', 0, 0.2).members[1].placement).toEqual({ offset_x_m: 0.05, offset_y_m: 0.2, rotation_deg: 0, reference: { x: 'grid-x' } });
+  });
+
+  test('nothing selected gives null; a bad distance is refused', () => {
+    expect(moveSelection(base(), null, 1, 1)).toBeNull();
+    expect(() => moveSelection(base(), { type: 'region', index: 0 }, NaN, 0)).toThrow(/finite/);
+    expect(() => duplicateMember(base(), 'nobody', 0, 0)).toThrow(/No member/);
   });
 });
