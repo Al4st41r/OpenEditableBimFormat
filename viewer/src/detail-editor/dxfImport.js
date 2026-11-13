@@ -5,12 +5,13 @@
  * (lines, arcs, circles and notes). Pure: it parses text and returns what to add; the editor adds it as one step.
  *
  * Read: LINE, LWPOLYLINE, POLYLINE with VERTEX, ARC, CIRCLE, TEXT and MTEXT. Anything else is counted and skipped. A
- * polyline's bulges (curved segments) are treated as straight; the count is reported. Coordinates are scaled to metres
- * from the drawing's units ($INSUNITS, else the caller's guess).
+ * polyline's bulges (curved segments) are read as arcs: an open polyline becomes line and arc marks, and a closed one,
+ * which becomes a region (regions are polygons), has each curve drawn as short straight segments. Coordinates are
+ * scaled to metres from the drawing's units ($INSUNITS, else the caller's guess).
  */
 
 import { signedArea, isSelfIntersecting } from '../detail/regionGeometry.js';
-import { checkAnnotation } from './annotationOps.js';
+import { checkAnnotation, angleOf } from './annotationOps.js';
 
 const UNIT_SCALE = { 1: 0.0254, 2: 0.3048, 4: 0.001, 5: 0.01, 6: 1 };   // inches, feet, mm, cm, m -> metres
 
@@ -50,11 +51,10 @@ function joinPolylines(entities) {
   const out = [];
   let poly = null;
   for (const e of entities) {
-    if (e.type === 'POLYLINE') { poly = { ...e, points: [], bulged: false }; out.push(poly); continue; }
+    if (e.type === 'POLYLINE') { poly = { ...e, points: [] }; out.push(poly); continue; }
     if (poly && e.type === 'VERTEX') {
       const g = (c) => e.data.find(([k]) => k === c)?.[1];
-      poly.points.push({ x: parseFloat(g(10)), y: parseFloat(g(20)) });
-      if (parseFloat(g(42) ?? '0')) poly.bulged = true;
+      poly.points.push({ x: parseFloat(g(10)), y: parseFloat(g(20)), bulge: parseFloat(g(42) ?? '0') || 0 });
       continue;
     }
     if (e.type === 'SEQEND') { poly = null; continue; }
@@ -66,20 +66,74 @@ function joinPolylines(entities) {
 const num = (e, code, fallback = NaN) => { const v = e.data.find(([k]) => k === code)?.[1]; return v === undefined ? fallback : parseFloat(v); };
 const finite = (...v) => v.every(Number.isFinite);
 
-/** Points of an LWPOLYLINE: its 10/20 pairs in order. */
+/** Points of an LWPOLYLINE: its 10/20 pairs in order, each with the bulge (42) of the segment that starts there. */
 function lwPoints(e) {
   const pts = [];
-  let bulged = false;
   let pending = null;
   for (const [code, v] of e.data) {
-    if (code === 10) { pending = { x: parseFloat(v), y: NaN }; pts.push(pending); }
+    if (code === 10) { pending = { x: parseFloat(v), y: NaN, bulge: 0 }; pts.push(pending); }
     else if (code === 20 && pending) pending.y = parseFloat(v);
-    else if (code === 42 && parseFloat(v)) bulged = true;
+    else if (code === 42 && pending) pending.bulge = parseFloat(v) || 0;
   }
-  return { points: pts, bulged };
+  return pts;
 }
 
 const round = (v) => Math.round(v * 1e6) / 1e6 + 0;
+const ARC_STEP_DEG = 5;   // at most this angle between points where a curve is drawn as straight segments (as SVG import)
+
+/**
+ * The arc of a bulged polyline segment from p to q. The bulge is tan(included angle / 4): positive runs anticlockwise
+ * from p to q, negative clockwise. Returns the centre, radius and the angles at p and q (degrees), or null when the
+ * segment has no length or no bulge.
+ */
+export function bulgeArc(p, q, bulge) {
+  const c = Math.hypot(q.x - p.x, q.y - p.y);
+  if (!bulge || c < 1e-12) return null;
+  const s = (bulge * c) / 2;                        // signed sagitta: how far the arc stands off the chord
+  const h = ((c / 2) ** 2 - s * s) / (2 * s);       // signed distance from the chord's midpoint to the centre, to its left
+  const n = { x: -(q.y - p.y) / c, y: (q.x - p.x) / c };
+  const centre = { x: (p.x + q.x) / 2 + n.x * h, y: (p.y + q.y) / 2 + n.y * h };
+  return { centre, radius: Math.abs(((c / 2) ** 2 + s * s) / (2 * s)), from: angleOf(centre, p), to: angleOf(centre, q), ccw: bulge > 0 };
+}
+
+/** The arc of a bulged segment as an arc mark (anticlockwise from start to end, as marks are stored). */
+function arcMark(a) {
+  const [start, end] = a.ccw ? [a.from, a.to] : [a.to, a.from];
+  return { type: 'arc', centre: { x: round(a.centre.x), y: round(a.centre.y) }, radius_m: round(a.radius), start_deg: round(start), end_deg: round(end) };
+}
+
+/** Points strictly between p and q along the arc of a bulged segment, at most ARC_STEP_DEG apart. */
+function arcInterior(a) {
+  let sweep = a.ccw ? a.to - a.from : a.from - a.to;
+  sweep = ((sweep % 360) + 360) % 360;
+  const n = Math.max(2, Math.ceil(sweep / ARC_STEP_DEG));
+  const dir = a.ccw ? 1 : -1;
+  return Array.from({ length: n - 1 }, (_, k) => {
+    const t = ((a.from + (dir * sweep * (k + 1)) / n) * Math.PI) / 180;
+    return { x: round(a.centre.x + a.radius * Math.cos(t)), y: round(a.centre.y + a.radius * Math.sin(t)) };
+  });
+}
+
+/** The segments of a polyline in order (closing back to the start when closed), each with its arc or null. */
+function polySegments(points, closed) {
+  const count = closed ? points.length : points.length - 1;
+  return Array.from({ length: count }, (_, i) => {
+    const p = points[i], q = points[(i + 1) % points.length];
+    return { p, q, arc: bulgeArc(p, q, p.bulge) };
+  });
+}
+
+/** Line and arc marks for a polyline: straight runs join into one line, each curved segment is an arc. */
+function polylineMarks(segments) {
+  const out = [];
+  let run = null;
+  for (const { p, q, arc } of segments) {
+    if (arc) { run = null; out.push(arcMark(arc)); continue; }
+    if (!run) { run = { type: 'line', points: [{ x: p.x, y: p.y }] }; out.push(run); }
+    run.points.push({ x: q.x, y: q.y });
+  }
+  return out;
+}
 
 /** Counter-clockwise, no repeated closing point. */
 function ring(points) {
@@ -97,7 +151,7 @@ function ring(points) {
  */
 export function dxfToDetail(entities, { scale }) {
   const regions = [], annotations = [], skipped = {}, notes = [];
-  let bulges = 0;
+  let arcsRead = 0, arcsFlattened = 0;
   const P = (x, y) => ({ x: round(x * scale), y: round(y * scale) });
   const skip = (t) => { skipped[t] = (skipped[t] ?? 0) + 1; };
 
@@ -107,14 +161,26 @@ export function dxfToDetail(entities, { scale }) {
       if (!finite(x1, y1, x2, y2) || Math.hypot(x2 - x1, y2 - y1) < 1e-12) { skip('LINE'); continue; }
       annotations.push({ type: 'line', points: [P(x1, y1), P(x2, y2)] });
     } else if (e.type === 'LWPOLYLINE' || e.type === 'POLYLINE') {
-      const { points, bulged } = e.type === 'POLYLINE' ? e : lwPoints(e);
+      const points = e.type === 'POLYLINE' ? e.points : lwPoints(e);
       const closed = (num(e, 70, 0) & 1) === 1;
-      if (bulged) bulges++;
       if (points.length < 2 || !points.every((p) => finite(p.x, p.y))) { skip(e.type); continue; }
-      const scaled = points.map((p) => P(p.x, p.y));
-      const shape = closed ? ring(scaled) : scaled;
-      if (closed && shape.length >= 3 && !isSelfIntersecting(shape) && Math.abs(signedArea(shape)) > 1e-12) regions.push({ vertices: shape });
-      else annotations.push({ type: 'line', points: closed ? [...scaled, scaled[0]] : scaled });
+      const scaled = points.map((p) => ({ ...P(p.x, p.y), bulge: p.bulge ?? 0 }));
+      // a closed polyline that repeats its first point as its last: the repeat carries no segment of its own
+      if (closed && scaled.length > 2 && Math.hypot(scaled[0].x - scaled.at(-1).x, scaled[0].y - scaled.at(-1).y) < 1e-9) scaled.pop();
+      const segments = polySegments(scaled, closed);
+      const curved = segments.filter((g) => g.arc).length;
+      if (closed) {
+        // a region is a polygon: each curve is drawn as short straight segments
+        const outline = segments.flatMap(({ p, arc }) => [{ x: p.x, y: p.y }, ...(arc ? arcInterior(arc) : [])]);
+        const shape = ring(outline);
+        if (shape.length >= 3 && !isSelfIntersecting(shape) && Math.abs(signedArea(shape)) > 1e-12) {
+          regions.push({ vertices: shape });
+          arcsFlattened += curved;
+          continue;
+        }
+      }
+      annotations.push(...polylineMarks(segments));
+      arcsRead += curved;
     } else if (e.type === 'ARC') {
       const [cx, cy, r, a0, a1] = [num(e, 10), num(e, 20), num(e, 40), num(e, 50), num(e, 51)];
       if (!finite(cx, cy, r, a0, a1) || r <= 0 || (((a1 - a0) % 360) + 360) % 360 < 1e-9) { skip('ARC'); continue; }
@@ -136,7 +202,8 @@ export function dxfToDetail(entities, { scale }) {
   }
   const valid = annotations.filter((a) => checkAnnotation(a).length === 0);
   if (valid.length < annotations.length) { skipped.invalid = annotations.length - valid.length; annotations.length = 0; annotations.push(...valid); }
-  if (bulges) notes.push(`${bulges} polyline(s) had curved segments, which were read as straight`);
+  if (arcsRead) notes.push(`${arcsRead} curved polyline segment(s) were read as arcs.`);
+  if (arcsFlattened) notes.push(`${arcsFlattened} curved segment(s) of closed polylines were drawn as short straight segments.`);
   return { regions, annotations, skipped, notes };
 }
 
