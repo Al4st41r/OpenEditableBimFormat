@@ -45,13 +45,17 @@ export function validateDetail(doc, ctx) {
     return out;
   }
 
-  noExtra(doc, ['$schema', 'id', 'type', 'description', 'condition', 'members', 'datum', 'plane', 'view_direction', 'geometry', 'annotations', 'reference_lines', 'clip', 'parameters', 'tags'], '');
+  noExtra(doc, ['$schema', 'id', 'type', 'description', 'condition', 'members', 'datum', 'plane', 'cut_height_m', 'view_direction', 'geometry', 'annotations', 'reference_lines', 'clip', 'parameters', 'tags'], '');
 
   if (typeof doc.$schema !== 'string') add('$schema', 'required', `Missing "$schema" (expected "${SCHEMA_ID}")`);
   if (doc.type !== 'Detail') add('type', 'type', 'type must be "Detail"');
   if (typeof doc.id !== 'string' || !SLUG.test(doc.id)) add('id', 'id', 'id must be lower-case letters, numbers and hyphens');
   if (typeof doc.description !== 'string' || doc.description.trim() === '') add('description', 'description', 'A description is required');
   if (doc.plane !== undefined && !PLANES.includes(doc.plane)) add('plane', 'enum', `plane must be one of ${PLANES.join(', ')}`);
+  if (doc.cut_height_m !== undefined) {
+    if (!isNum(doc.cut_height_m) || doc.cut_height_m < 0) add('cut_height_m', 'cut-height', 'cut_height_m must be a number, at least zero');
+    else if (doc.plane !== 'plan') add('cut_height_m', 'cut-height-plane', 'cut_height_m applies to plan details only');
+  }
   if (doc.view_direction !== undefined && !VIEW_DIRECTIONS.includes(doc.view_direction)) add('view_direction', 'enum', `view_direction must be one of ${VIEW_DIRECTIONS.join(', ')}`);
   if (doc.tags !== undefined && !(Array.isArray(doc.tags) && doc.tags.every((t) => typeof t === 'string'))) add('tags', 'tags', 'tags must be an array of strings');
 
@@ -171,7 +175,8 @@ export function validateDetail(doc, ctx) {
       (Array.isArray(g.regions) ? g.regions : []).forEach((region, r) => {
         const rp = `geometry.regions[${r}]`;
         if (!isObj(region)) { add(rp, 'geometry', 'A region must be an object'); return; }
-        noExtra(region, ['material_id', 'vertices', 'depth_m', 'repeat_x_m', 'repeat_y_m', 'count_x', 'count_y', 'stagger_x_m', 'tags', 'outline_mm'], rp);
+        noExtra(region, ['material_id', 'vertices', 'depth_m', 'repeat_x_m', 'repeat_y_m', 'count_x', 'count_y', 'stagger_x_m', 'priority', 'tags', 'outline_mm'], rp);
+        if (region.priority !== undefined && !(Number.isInteger(region.priority) && region.priority >= -99 && region.priority <= 99)) add(`${rp}.priority`, 'priority', 'priority must be a whole number from -99 to 99');
         if (region.outline_mm !== undefined && !PEN_SERIES.includes(region.outline_mm)) add(`${rp}.outline_mm`, 'pen', `outline_mm must be one of ${PEN_SERIES.join(', ')}`);
         if (region.tags !== undefined) for (const p of checkClassification(region.tags, `${rp}.tags`)) add(p.path, p.code, p.message);
         if (typeof region.material_id !== 'string' || region.material_id === '') add(`${rp}.material_id`, 'required', 'material_id is required');

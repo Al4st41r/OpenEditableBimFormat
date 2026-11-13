@@ -130,6 +130,17 @@ describe('repeating regions', () => {
     tile.geometry.regions[0] = { material_id: 'mat-a', depth_m: 0.09, repeat_y_m: 0.098, count_y: 6, vertices: [{ x: 0, y: 0 }, { x: 0.3, y: 0 }, { x: 0.3, y: 0.09 }, { x: 0, y: 0.09 }] };
     expect(codes(tile)).toEqual([]);
   });
+  test('a priority is a whole number from -99 to 99 (#167)', () => {
+    expect(codes(withRepeat({ priority: 2 }))).toEqual([]);
+    expect(codes(withRepeat({ priority: 1.5 }))).toContain('priority');
+    expect(codes(withRepeat({ priority: 100 }))).toContain('priority');
+  });
+  test('a cut height belongs to a plan detail and is not negative (#167)', () => {
+    const d = makeDetail();
+    expect(codes({ ...d, plane: 'plan', cut_height_m: 1 })).toEqual([]);
+    expect(codes({ ...d, plane: 'plan', cut_height_m: -1 })).toContain('cut-height');
+    expect(codes({ ...d, plane: 'section', cut_height_m: 1 })).toContain('cut-height-plane');
+  });
   test('an outline weight must be a pen in the series', () => {
     expect(codes(withRepeat({ outline_mm: 0.5 }))).toEqual([]);
     expect(codes(withRepeat({ outline_mm: 0.3 }))).toContain('pen');

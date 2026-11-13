@@ -42,7 +42,8 @@ function boundsOf(polys) {
  * @returns {{ plane: 'plan'|'section', extrusion: number, prisms: Array<object>, skipped: string[],
  *             warnings: string[], bounds: object|null }}
  *   prism: { id, kind: 'region'|'member', role, materialId, points, w0, w1, profileId?, layer?, function?, regionIndex?, unit?,
- *            course?, outlineMm? } (outlineMm: the region's own outline_mm)
+ *            course?, outlineMm?, priority? } (outlineMm: the region's own outline_mm; priority: its own non-zero priority)
+ *   cutHeight: a plan detail's cut_height_m, or null (see drawRole in detailSvg.js)
  */
 export function buildAxoModel(detail, ctx = {}) {
   const plane = detail.plane ?? 'section';
@@ -110,6 +111,7 @@ export function buildAxoModel(detail, ctx = {}) {
       prisms.push({
         kind: 'region', role: units.length > 1 ? `region ${i} unit ${u.ix},${u.iy}` : `region ${i}`, regionIndex: i, unit: { ix: u.ix, iy: u.iy },
         materialId: r.material_id, points: u.points, w0, w1, ...(r.outline_mm !== undefined ? { outlineMm: r.outline_mm } : {}),
+        ...(Number.isInteger(r.priority) && r.priority !== 0 ? { priority: r.priority } : {}),
       });
     }
   });
@@ -117,7 +119,9 @@ export function buildAxoModel(detail, ctx = {}) {
   // A stable id per prism, shared by every view of the model (the 3D pane and the 2D drawing select by it).
   prisms.forEach((p, i) => { p.id = `item-${i}`; });
 
-  return { plane, extrusion, prisms, skipped, warnings, annotations: detail.annotations ?? [], clip: clipOf(detail), refLines: referenceLinesOf(detail), bounds: boundsOf(prisms.map((p) => p.points)) };
+  // A plan's cut height (cut_height_m). A section is always cut at w = 0, so it has none.
+  const cutHeight = plane === 'plan' && Number.isFinite(detail.cut_height_m) && detail.cut_height_m >= 0 ? detail.cut_height_m : null;
+  return { plane, extrusion, cutHeight, prisms, skipped, warnings, annotations: detail.annotations ?? [], clip: clipOf(detail), refLines: referenceLinesOf(detail), bounds: boundsOf(prisms.map((p) => p.points)) };
 }
 
 /** World position of a detail-space point and a w value (Z up in both planes). */

@@ -5,8 +5,10 @@
  * ones, so a plain sum of polygon areas counts the overlaps twice. Here each solid owns only the part of it that no
  * solid above it in the paint order covers: the part you see in the 2D drawing. Pure: no DOM, no Three.js.
  *
- * Paint order: larger solids first, so a small item is drawn over (and wins against) a large one; ties keep the model
- * order. The 2D drawing uses the same order (detailSvg.js), so what is counted is what is drawn.
+ * Paint order: lower priority first, then larger solids first, so a small item is drawn over (and wins against) a large
+ * one; ties keep the model order. A region's `priority` (detail schema; members and regions without one have 0) lets a
+ * large region win an overlap all the same. The 2D drawing and the 3D pick use the same order (detailSvg.js,
+ * axoScene.js), so what is counted is what is drawn.
  *
  * The area of a polygon minus the union of others is found by a scanline: break the plane into horizontal slabs at
  * every vertex and every crossing of two edges. Inside a slab no edge starts, ends or crosses another, so the covered
@@ -18,11 +20,14 @@ import { signedArea } from '../detail/regionGeometry.js';
 
 const EPS = 1e-12;
 
+/** A solid's priority: its own whole number, else 0. */
+export const priorityOf = (p) => (Number.isInteger(p?.priority) ? p.priority : 0);
+
 /** The solids in paint order (first drawn first, last on top). Returns a new array. */
 export function paintOrder(prisms) {
   return prisms
-    .map((p, i) => ({ p, i, area: Math.abs(signedArea(p.points)) }))
-    .sort((a, b) => b.area - a.area || a.i - b.i)
+    .map((p, i) => ({ p, i, pr: priorityOf(p), area: Math.abs(signedArea(p.points)) }))
+    .sort((a, b) => a.pr - b.pr || b.area - a.area || a.i - b.i)
     .map((e) => e.p);
 }
 

@@ -258,6 +258,34 @@ describe('seen lines', () => {
     expect(drawRole({ course: 1, w0: 0.1, w1: 0.2 }, 'plan')).toBe('hidden');
     expect(drawRole({ w0: 0, w1: 1 }, 'plan')).toBe('cut');
   });
+  it('cuts a plan at its cut height: below is seen, above is hidden (#167)', () => {
+    expect(drawRole({ course: 0, w0: 0, w1: 0.065 }, 'plan', 1)).toBe('seen');
+    expect(drawRole({ course: 13, w0: 0.975, w1: 1.04 }, 'plan', 1)).toBe('cut');
+    expect(drawRole({ course: 14, w0: 1.05, w1: 1.115 }, 'plan', 1)).toBe('hidden');
+    expect(drawRole({ w0: 0, w1: 2.7 }, 'plan', 1)).toBe('cut');
+    expect(drawRole({ w0: 0, w1: 0.5 }, 'plan', 1)).toBe('seen');     // a low upstand is seen below the cut
+    expect(drawRole({ course: 0, w0: 0, w1: 0.065 }, 'plan', null)).toBe('cut');
+  });
+  it('draws the courses below a plan cut as seen lines (#167)', () => {
+    const detail = {
+      id: 'd', plane: 'plan', cut_height_m: 0.3,
+      members: [{ role: 'leaf', kind: 'wall', profile_id: 'p1', extent: 'forward', placement: { offset_x_m: 0, offset_y_m: 0, rotation_deg: 0 } }],
+      geometry: { extrusion_m: 1, regions: [] },
+    };
+    const brick = { id: 'p1', origin: { x: 0, y: 0 }, width: 0.1025, height_limit_m: 1, assembly: [{ layer: 1, name: 'brick', type: 'region', material_id: 'mb', function: 'structure',
+      vertices: [{ x: 0, y: 0 }, { x: 0.1025, y: 0 }, { x: 0.1025, y: 0.065 }, { x: 0, y: 0.065 }], depth_m: 0.215, repeat_x_m: 0.225, repeat_y_m: 0.075, offset_x_m: 0.1125 }] };
+    const model = buildAxoModel(detail, { profiles: new Map([['p1', brick]]) });
+    expect(model.cutHeight).toBe(0.3);
+    const roles = model.prisms.map((p) => drawRole(p, 'plan', model.cutHeight));
+    expect(roles).toContain('seen');
+    expect(roles).toContain('hidden');
+    const { svg } = buildDetailSvg(model, { materials: new Map([['mb', { category: 'masonry' }]]) });
+    expect(svg.match(/class="seen"/g)?.length).toBeGreaterThan(0);
+    // without a cut height the plan shows the first course cut and nothing seen
+    const flat = buildAxoModel({ ...detail, cut_height_m: undefined }, { profiles: new Map([['p1', brick]]) });
+    expect(flat.cutHeight).toBeNull();
+    expect(buildDetailSvg(flat, {}).svg).not.toContain('class="seen"');
+  });
   it('draws a seen solid once, as an outline at the seen weight, under the cut solids', () => {
     const { svg } = buildDetailSvg(model, {});
     const seen = svg.match(/<polygon class="seen"[^>]*>/g);

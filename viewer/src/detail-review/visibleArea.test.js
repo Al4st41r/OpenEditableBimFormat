@@ -66,3 +66,18 @@ describe('paintOrder', () => {
     expect(order.map((p) => p.id)).toEqual(['l', 's', 't']);
   });
 });
+
+describe('priority (#167)', () => {
+  const big = { ...prism('big', rect(0, 0, 4, 4)), priority: 1 };
+  const small = prism('small', rect(1, 1, 2, 2));
+  it('paints a higher priority on top whatever its size', () => {
+    expect(paintOrder([big, small]).map((p) => p.id)).toEqual(['small', 'big']);
+    expect(paintOrder([{ ...big, priority: 0 }, small]).map((p) => p.id)).toEqual(['big', 'small']);
+    expect(paintOrder([{ ...small, priority: -1 }, { ...big, priority: 0 }]).map((p) => p.id)).toEqual(['small', 'big']);
+  });
+  it('gives the overlap to the large solid when it has the higher priority', () => {
+    const v = visibleVolumes([big, small]);
+    expect(v.get('big')).toBeCloseTo(16, 12);
+    expect(v.get('small')).toBeCloseTo(0, 12);
+  });
+});
