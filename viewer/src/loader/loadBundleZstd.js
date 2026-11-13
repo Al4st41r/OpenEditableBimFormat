@@ -1,7 +1,7 @@
 /**
  * loadBundleZstd.js
  *
- * Loads an OEBF bundle from a Zstd-compressed .oebfz archive, or from the .oebf.zip the editor's Save downloads
+ * Loads an OEBF bundle from a Zstd-compressed .oebfz archive, or from the .oebf.zip earlier versions of the editor downloaded
  * (readArchiveFiles tells them apart by their first bytes).
  * Decompresses with fzstd (WASM), extracts files from a POSIX tar,
  * then runs the same geometry pipeline as loadBundle().
@@ -60,7 +60,7 @@ function decompressCapped(bytes, max) {
 }
 
 /**
- * The files in a bundle archive: a zip (the editor's Save, or a folder zipped by hand) or a .oebfz (Zstd tar).
+ * The files in a bundle archive: a zip (from earlier versions of the editor's Save, or a folder zipped by hand) or a .oebfz (Zstd tar).
  * A zip made from the folder itself (terraced-house.oebf/model.json) has that folder taken off, and the
  * __MACOSX and .DS_Store entries a Mac adds are left out. Entries with unsafe paths (isSafeEntryPath) are skipped,
  * and an archive larger than MAX_ARCHIVE_BYTES once decompressed is refused before it is decompressed (zip) or as soon
@@ -113,7 +113,10 @@ export function extractFilesFromTar(tarBytes) {
     // Two consecutive zero blocks = end of archive
     if (header.every(b => b === 0)) break;
 
-    const name      = decoder.decode(header.subarray(0, 100)).replace(/\0/g, '').trim();
+    const shortName = decoder.decode(header.subarray(0, 100)).replace(/\0/g, '').trim();
+    // ustar keeps the front of a long path in a separate prefix field
+    const prefix    = header[257] === 0x75 ? decoder.decode(header.subarray(345, 500)).replace(/\0/g, '').trim() : '';
+    const name      = prefix ? `${prefix}/${shortName}` : shortName;
     const sizeOctal = decoder.decode(header.subarray(124, 136)).replace(/\0/g, '').trim();
     const typeFlag  = String.fromCharCode(header[156]);
     const size      = sizeOctal ? parseInt(sizeOctal, 8) : 0;
@@ -124,7 +127,7 @@ export function extractFilesFromTar(tarBytes) {
     if (typeFlag === '0' || typeFlag === '\0') {
       // Strip leading directory component (e.g. "project.oebf/manifest.json" → "manifest.json")
       const normalised = name.replace(/^[^/]+\//, '');
-      if (normalised && size > 0 && isSafeEntryPath(normalised)) {
+      if (normalised && isSafeEntryPath(normalised)) {
         const content = decoder.decode(tarBytes.subarray(dataOffset, dataOffset + size));
         files.set(normalised, content);
       }

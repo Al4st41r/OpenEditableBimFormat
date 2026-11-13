@@ -12,6 +12,7 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@hpcc-js/wasm-zstd": "1.17.0",
     "fflate": "^0.8.2",
     "fzstd": "^0.1.1",
     "lucide": "1.72.0",

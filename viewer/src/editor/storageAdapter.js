@@ -3,11 +3,11 @@
  *
  * Three implementations:
  *   FsaAdapter    — wraps FileSystemDirectoryHandle (Chrome/Edge)
- *   MemoryAdapter — in-memory Map; saves by downloading a zip
+ *   MemoryAdapter — in-memory Map; saves as a .oebfz (a file picker where the browser has one, a download elsewhere)
  *   ServerAdapter — the live copy on the server (live-server/live_server.py); every write is stored as it is made
  */
 
-import { zipSync } from 'fflate';
+import { packOebfz } from './oebfzWriter.js';
 import { readArchiveFiles, archiveName } from '../loader/loadBundleZstd.js';
 
 // ── Not found ────────────────────────────────────────────────────────────────
@@ -160,7 +160,7 @@ export async function newBundleFolder(parent, name) {
 
 export class MemoryAdapter {
   /**
-   * Build a MemoryAdapter from a bundle archive: a .oebfz, or the .oebf.zip that Save downloads.
+   * Build a MemoryAdapter from a bundle archive: a .oebfz, or the .oebf.zip that earlier versions downloaded.
    *
    * @param {File} file
    * @returns {Promise<MemoryAdapter>}
@@ -214,25 +214,43 @@ export class MemoryAdapter {
     return names;
   }
 
+  /** The bundle as a .oebfz: a Zstd-compressed tar of `<name>.oebf/...` (see oebfzWriter.js). */
+  async toOebfzBytes() {
+    return packOebfz(this._map, `${bundleFolderBase(this.name)}.oebf`);
+  }
+
   /**
-   * Download the current in-memory bundle as a zip archive.
-   * The zip contains the same layout as a .oebf directory.
-   * Filename: "<name>.oebf.zip"
+   * Save the bundle as `<name>.oebfz`. Where the browser has showSaveFilePicker the user picks the name and place;
+   * elsewhere (or if the picker cannot open) it is downloaded. Cancelling the picker is not an error.
+   *
+   * @returns {Promise<'picker'|'download'|'cancelled'>}
    */
-  downloadZip() {
-    const enc     = new TextEncoder();
-    const entries = {};
-    for (const [path, text] of this._map) {
-      entries[path] = enc.encode(text);
+  async saveOebfz() {
+    const fileName = `${bundleFolderBase(this.name)}.oebfz`;
+    const bytes = await this.toOebfzBytes();
+    if (typeof window !== 'undefined' && window.showSaveFilePicker) {
+      try {
+        const handle = await window.showSaveFilePicker({
+          suggestedName: fileName,
+          types: [{ description: 'OEBF archive', accept: { 'application/zstd': ['.oebfz'] } }],
+        });
+        const writer = await handle.createWritable();
+        await writer.write(bytes);
+        await writer.close();
+        return 'picker';
+      } catch (err) {
+        if (err?.name === 'AbortError') return 'cancelled';
+        // no user gesture left after compressing, or the like: fall back to a download
+        if (err?.name !== 'SecurityError' && err?.name !== 'NotAllowedError') throw err;
+      }
     }
-    const zipped = zipSync(entries, { level: 6 });
-    const blob   = new Blob([zipped], { type: 'application/zip' });
-    const url    = URL.createObjectURL(blob);
-    const a      = document.createElement('a');
-    a.href       = url;
-    a.download   = `${this.name}.oebf.zip`;
+    const url = URL.createObjectURL(new Blob([bytes], { type: 'application/zstd' }));
+    const a   = document.createElement('a');
+    a.href     = url;
+    a.download = fileName;
     a.click();
-    URL.revokeObjectURL(url);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    return 'download';
   }
 }
 

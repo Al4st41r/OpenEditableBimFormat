@@ -34,7 +34,7 @@ A bundle held in memory (the demo, or an opened `.oebfz`) shows a Save to folder
 The examples on the editor's welcome screen open as your own copy:
 
 - **Chrome and Edge:** choose a folder, for example Documents. The editor makes a new `terraced-house.oebf` folder in it (`terraced-house-2.oebf` if that name is taken, so it never writes into an existing folder), copies the example in and opens it. Every change is saved there as you make it. Next time, open that folder with Open.
-- **Firefox and Safari:** the example downloads as `terraced-house.oebf.zip` and opens. Changes are held in memory: Save downloads the updated zip, which opens again with Open → Open .oebfz or .zip file.
+- **Firefox and Safari:** the example downloads as `terraced-house.oebfz` and opens. Changes are held in memory: Save writes the updated `.oebfz` (a file picker where the browser has one, a download elsewhere), which opens again with Open → Open .oebfz or .zip file. A `.oebf.zip` saved by an earlier version still opens.
 
 A `?demo` link (`editor.html?demo`, `?demo=nmb-two-storey`) still opens the example straight in memory, with nothing saved until you press Save.
 
