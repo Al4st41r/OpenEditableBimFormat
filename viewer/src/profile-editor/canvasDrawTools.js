@@ -5,6 +5,8 @@
  * DOM tools:    activateRectTool(svgEl, onDone), activatePolygonTool(svgEl, onDone), deactivateTool(svgEl)
  */
 
+import { svgY, clientToProfile } from './profileCanvas.js';
+
 const SVG_NS    = 'http://www.w3.org/2000/svg';
 const SNAP_DIST = 0.015; // metres
 let _cleanup    = null;
@@ -28,19 +30,12 @@ export function isPolygonClosed(points, candidate, snapDist = SNAP_DIST) {
 
 // ── DOM helpers ───────────────────────────────────────────────────────────────
 
-function _svgPt(svgEl, cx, cy) {
-  const ctm = svgEl.getScreenCTM();
-  if (!ctm) return null;
-  const pt = svgEl.createSVGPoint();
-  pt.x = cx; pt.y = cy;
-  return pt.matrixTransform(ctm.inverse());
-}
 /**
- * The pointer as a profile point, rounded, and snapped when a snap function is given (Alt suspends it).
+ * The pointer as a profile point (y up on a wall canvas, #184), rounded, and snapped when a snap function is given (Alt suspends it).
  * @param {((p:{x:number,y:number}, tolerance:number) => {x:number,y:number})|null} snap - tolerance is eight screen pixels
  */
 function _pt(svgEl, e, snap) {
-  const p = _svgPt(svgEl, e.clientX, e.clientY);
+  const p = clientToProfile(svgEl, e.clientX, e.clientY);
   if (!p) return null;
   const pt = { x: _r(p.x), y: _r(p.y) };
   const ctm = svgEl.getScreenCTM();
@@ -95,9 +90,11 @@ export function activateRectTool(svgEl, onDone, snap = null) {
     const p = _pt(svgEl, e, snap);
     if (!p) return;
     const { x1,y1,x2,y2 } = normaliseRect(startPt, p);
-    previewEl.setAttribute('x', String(x1)); previewEl.setAttribute('y', String(y1));
+    // the rectangle's edges on screen: profile y is mapped, so either corner may be the top
+    const top = Math.min(svgY(svgEl, y1), svgY(svgEl, y2)), bottom = Math.max(svgY(svgEl, y1), svgY(svgEl, y2));
+    previewEl.setAttribute('x', String(x1)); previewEl.setAttribute('y', String(top));
     previewEl.setAttribute('width', String(x2-x1)); previewEl.setAttribute('height', String(y2-y1));
-    _dimLabel(svgEl, x1, y2 + 0.07, `${_mm(x2-x1)} × ${_mm(y2-y1)} mm`);
+    _dimLabel(svgEl, x1, bottom + 0.07, `${_mm(x2-x1)} × ${_mm(y2-y1)} mm`);
   };
   const onUp = e => {
     if (!startPt) return;
@@ -134,7 +131,7 @@ export function activatePolygonTool(svgEl, onDone, snap = null) {
     previewPoly?.remove();
     const pts = [...points, cur];
     previewPoly = document.createElementNS(SVG_NS, 'polyline');
-    previewPoly.setAttribute('points', pts.map(p => `${p.x},${p.y}`).join(' '));
+    previewPoly.setAttribute('points', pts.map(p => `${p.x},${svgY(svgEl, p.y)}`).join(' '));
     previewPoly.setAttribute('fill', 'none');
     previewPoly.setAttribute('stroke', '#4488ff');
     previewPoly.setAttribute('stroke-width', '0.003');
@@ -145,12 +142,12 @@ export function activatePolygonTool(svgEl, onDone, snap = null) {
     const last = points[points.length - 1];
     const dx = cur.x - last.x, dy = cur.y - last.y;
     const len = Math.sqrt(dx*dx + dy*dy);
-    _dimLabel(svgEl, cur.x + 0.015, cur.y - 0.015, `${_mm(len)} mm`);
+    _dimLabel(svgEl, cur.x + 0.015, svgY(svgEl, cur.y) - 0.015, `${_mm(len)} mm`);
 
     snapCircle?.remove(); snapCircle = null;
     if (isPolygonClosed(points, cur, SNAP_DIST)) {
       snapCircle = document.createElementNS(SVG_NS, 'circle');
-      snapCircle.setAttribute('cx', String(points[0].x)); snapCircle.setAttribute('cy', String(points[0].y));
+      snapCircle.setAttribute('cx', String(points[0].x)); snapCircle.setAttribute('cy', String(svgY(svgEl, points[0].y)));
       snapCircle.setAttribute('r', '0.012');
       snapCircle.setAttribute('fill', 'rgba(68,136,255,0.3)'); snapCircle.setAttribute('stroke', '#4488ff');
       snapCircle.setAttribute('stroke-width', '0.002'); snapCircle.setAttribute('data-draw-preview', 'true');

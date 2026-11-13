@@ -3,7 +3,7 @@
  * State is module-level. Not persisted.
  */
 
-import { contentSize } from './profileCanvas.js';
+import { contentSize, svgY, clientToProfile } from './profileCanvas.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 let _guides = [];
@@ -35,13 +35,13 @@ export function renderGuidelines(svgEl, guides) {
     line.setAttribute('stroke-dasharray', '0.015 0.01');
     line.style.cursor = g.axis === 'h' ? 'ns-resize' : 'ew-resize';
     if (g.axis === 'h') {
-      const y = String(Math.round(g.value * 1e6) / 1e6);
+      const y = String(svgY(svgEl, Math.round(g.value * 1e6) / 1e6));
       line.setAttribute('x1', '0'); line.setAttribute('y1', y);
       line.setAttribute('x2', String(width)); line.setAttribute('y2', y);
     } else {
       const x = String(Math.round(g.value * 1e6) / 1e6);
-      line.setAttribute('x1', x); line.setAttribute('y1', '0');
-      line.setAttribute('x2', x); line.setAttribute('y2', String(height));
+      line.setAttribute('x1', x); line.setAttribute('y1', String(svgY(svgEl, 0)));
+      line.setAttribute('x2', x); line.setAttribute('y2', String(svgY(svgEl, height)));
     }
     svgEl.appendChild(line);
     // a wide invisible copy to grab: the visible line is under a pixel wide
@@ -79,9 +79,7 @@ export function setupGuideDrag(svgEl, onUpdate, onRemove, snap = null) {
     if (!draggingId) return;
     const ctm = svgEl.getScreenCTM();
     if (!ctm) return;
-    const pt = svgEl.createSVGPoint();
-    pt.x = e.clientX; pt.y = e.clientY;
-    const svgPt = pt.matrixTransform(ctm.inverse());
+    const svgPt = clientToProfile(svgEl, e.clientX, e.clientY);   // profile coordinates: y up on a wall (#184)
     const { w: cw, h: ch } = contentSize(svgEl);
     let newValue, offEdge;
     const tol = ctm.a > 0 ? 8 / ctm.a : 0;
