@@ -15,7 +15,7 @@ import ifcopenshell.api.material
 import numpy as np
 from . import ifc_mapping
 from . import ifc_openings
-from .ifc_shapes import section_frame
+from .ifc_shapes import arc_points, section_frame
 import ifcopenshell.api.pset
 
 # Default wall height when the profile has no explicit height field
@@ -95,13 +95,14 @@ def _export_element(ifc, oebf_dir, element_id, storey, body_context, mat_by_id, 
     first = path_data["segments"][0]
     start = first.get("start") or first["points"][0]
     if section:
-        _assign_region_body(ifc, entity, body_context, start, tangent, path_length, profile_data)
-        _assign_part_materials(ifc, entity, elem["description"], profile_data["assembly"], mat_by_id, mapping)
+        made = _assign_region_body(ifc, entity, body_context, path_data, profile_data)
+        _assign_profile_set(ifc, entity, elem["description"], made, mat_by_id, mapping)
     else:
         total_width = sum(layer["thickness"] for layer in _band_layers(profile_data["assembly"]))
         origin_x = profile_data.get("origin", {}).get("x", total_width / 2)
         _assign_body_geometry(ifc, entity, body_context,
-                              start, tangent, path_length, total_width, origin_x, WALL_HEIGHT)
+                              start, tangent, path_length, total_width, origin_x, _wall_height(profile_data),
+                              _end_angles(elem))
         _assign_material_layers(ifc, entity, profile_data["assembly"], mat_by_id, mapping)
     _assign_property_set(ifc, entity, elem.get("properties", {}), mapping)
 
@@ -123,8 +124,24 @@ def _path_length_and_tangent(path_data):
     return length, {"x": dx / length, "y": dy / length, "z": dz / length}
 
 
+def _wall_height(profile_data):
+    """A wall's height: its profile's height_limit_m (an IFC import puts the wall's height there), else WALL_HEIGHT."""
+    h = profile_data.get("height_limit_m")
+    return float(h) if isinstance(h, (int, float)) and h > 0 else WALL_HEIGHT
+
+
+def _end_angles(elem):
+    """{"start"|"end": degrees} for the element's 'angled' ends that have an angle other than square."""
+    out = {}
+    for end in ("start", "end"):
+        a = elem.get(f"cap_{end}_angle_deg")
+        if elem.get(f"cap_{end}") == "angled" and isinstance(a, (int, float)) and 1e-6 < abs(a) < 89.9:
+            out[end] = float(a)
+    return out
+
+
 def _assign_body_geometry(ifc, entity, context,
-                          start, tangent, path_length, total_width, origin_x, height):
+                          start, tangent, path_length, total_width, origin_x, height, angles=None):
     """
     Create an IfcExtrudedAreaSolid for the wall body and assign it to the entity.
 
@@ -134,7 +151,12 @@ def _assign_body_geometry(ifc, entity, context,
       - Depth   = wall height (Z direction)
     The rectangle is path_length × total_width, offset in Y so the centreline
     aligns with origin_x.
+
+    An angled end (`angles`: degrees from square, as the element's cap_<end>_angle_deg) runs the solid on past the
+    path's end far enough to reach the cut, and cuts it with a vertical half-space through the path's end point
+    (IfcBooleanClippingResult): the way other tools clip a wall's end, and what the importer reads back.
     """
+    angles = angles or {}
     tx, ty = tangent["x"], tangent["y"]
 
     # Wall normal: rotate tangent 90° CCW → (-ty, tx)
@@ -158,6 +180,9 @@ def _assign_body_geometry(ifc, entity, context,
     #   profile Y → ObjectPlacement Z (height / up)
     # Extrusion is along ObjectPlacement X (wall length direction), Depth = path_length.
     y_offset = -(origin_x - total_width / 2)  # offset from centreline in profile X (across)
+    reach = abs(y_offset) + total_width / 2   # the furthest face from the path
+    extra = {end: reach * abs(math.tan(math.radians(a))) for end, a in angles.items()}
+    x0 = -extra.get("start", 0.0)
     profile = ifc.create_entity(
         "IfcRectangleProfileDef",
         ProfileType="AREA",
@@ -176,18 +201,32 @@ def _assign_body_geometry(ifc, entity, context,
         SweptArea=profile,
         Position=ifc.create_entity(
             "IfcAxis2Placement3D",
-            Location=ifc.create_entity("IfcCartesianPoint", Coordinates=[0.0, 0.0, 0.0]),
+            Location=ifc.create_entity("IfcCartesianPoint", Coordinates=[x0, 0.0, 0.0]),
         ),
         ExtrudedDirection=ifc.create_entity("IfcDirection", DirectionRatios=[1.0, 0.0, 0.0]),
-        Depth=path_length,
+        Depth=path_length + extra.get("start", 0.0) + extra.get("end", 0.0),
     )
+    body = solid
+    for end, angle in angles.items():
+        # outward along the path at this end, turned anticlockwise by the angle: the outward normal of the end face
+        out_x = 1.0 if end == "end" else -1.0
+        a = math.radians(angle)
+        normal = [out_x * math.cos(a), out_x * math.sin(a), 0.0]
+        plane = ifc.create_entity("IfcPlane", Position=ifc.create_entity(
+            "IfcAxis2Placement3D",
+            Location=ifc.create_entity("IfcCartesianPoint", Coordinates=[path_length if end == "end" else 0.0, 0.0, 0.0]),
+            Axis=ifc.create_entity("IfcDirection", DirectionRatios=normal),
+            RefDirection=ifc.create_entity("IfcDirection", DirectionRatios=[0.0, 0.0, 1.0])))
+        # AgreementFlag FALSE: the half-space is on the side the normal points to, beyond the end, and is removed
+        half = ifc.create_entity("IfcHalfSpaceSolid", BaseSurface=plane, AgreementFlag=False)
+        body = ifc.create_entity("IfcBooleanClippingResult", Operator="DIFFERENCE", FirstOperand=body, SecondOperand=half)
 
     shape_rep = ifc.create_entity(
         "IfcShapeRepresentation",
         ContextOfItems=context,
         RepresentationIdentifier="Body",
-        RepresentationType="SweptSolid",
-        Items=[solid],
+        RepresentationType="Clipping" if angles else "SweptSolid",
+        Items=[body],
     )
     entity.Representation = ifc.create_entity(
         "IfcProductDefinitionShape", Representations=[shape_rep]
@@ -211,66 +250,95 @@ def _is_membrane(function, material):
 
 
 def _profile_polygons(profile_data):
-    """[(material id, [(x, y)])] of a profile in OEBF profile space measured from the path: each region's vertices,
-    and each band as a WALL_HEIGHT rectangle, both shifted by the profile's origin."""
+    """[(layer, [(x, y)])] of a profile in OEBF profile space measured from the path: each region's vertices, and
+    each band as a rectangle as high as the wall (see _wall_height), both shifted by the profile's origin."""
     assembly = profile_data["assembly"]
+    height = _wall_height(profile_data)
     total = sum(l.get("thickness", 0.0) for l in assembly if l.get("type") != "region")
     origin_x = profile_data.get("origin", {}).get("x", total / 2)
     out, cursor = [], 0.0
     for layer in assembly:
         if layer.get("type") == "region":
             if len(layer.get("vertices") or []) >= 3:
-                out.append((layer["material_id"], [(v["x"] - origin_x, v["y"]) for v in layer["vertices"]]))
+                out.append((layer, [(v["x"] - origin_x, v["y"]) for v in layer["vertices"]]))
         elif layer.get("thickness"):
             x0, x1 = cursor - origin_x, cursor + layer["thickness"] - origin_x
             cursor += layer["thickness"]
-            out.append((layer["material_id"], [(x0, 0.0), (x1, 0.0), (x1, WALL_HEIGHT), (x0, WALL_HEIGHT)]))
+            out.append((layer, [(x0, 0.0), (x1, 0.0), (x1, height), (x0, height)]))
     return out
 
 
-def _assign_region_body(ifc, entity, context, start, tangent, path_length, profile_data):
-    """A profile with regions (a beam or column section) as one extruded solid per region and band, swept along the
-    path's first segment. The placement puts profile x and y where the viewer puts them (ifc_shapes.section_frame),
-    so a vertical path (a column) works as well as a level one."""
-    t = np.array([tangent["x"], tangent["y"], tangent["z"]])
-    across, up = section_frame(t)
-    normal = np.cross(across, up)
-    sense = 1.0 if float(normal @ t) > 0 else -1.0
-    matrix = np.eye(4)
-    matrix[:3, 0], matrix[:3, 1], matrix[:3, 2] = across, up, normal
-    matrix[:3, 3] = [start["x"], start["y"], start.get("z", 0.0)]
-    ifcopenshell.api.geometry.edit_object_placement(ifc, product=entity, matrix=matrix)
-    items = []
-    for _, pts in _profile_polygons(profile_data):
+def _path_runs(path_data):
+    """The straight runs [(start, end)] (numpy 3-vectors) a section is swept along: each line, an arc as chords, a
+    spline through its points. Runs of no length are left out."""
+    pt = lambda p: np.array([p["x"], p["y"], p.get("z", 0.0)], dtype=float)
+    runs = []
+    for seg in path_data.get("segments", []):
+        if seg.get("type") == "arc" and seg.get("mid"):
+            a, m, b = pt(seg["start"]), pt(seg["mid"]), pt(seg["end"])
+            flat = arc_points(tuple(a[:2]), tuple(m[:2]), tuple(b[:2]))
+            n = len(flat) - 1
+            pts = [np.array([x, y, a[2] + (b[2] - a[2]) * i / max(n, 1)]) for i, (x, y) in enumerate(flat)]
+        elif seg.get("points"):
+            pts = [pt(p) for p in seg["points"]]
+        else:
+            pts = [pt(seg["start"]), pt(seg["end"])]
+        runs += [(p, q) for p, q in zip(pts, pts[1:]) if np.linalg.norm(q - p) > 1e-9]
+    return runs
+
+
+def _assign_region_body(ifc, entity, context, path_data, profile_data):
+    """A profile with regions (a beam or column section) as one extruded solid per region and band for each straight
+    run of the path (an arc as chords): every segment is swept, not only the first. Each run's solids are placed so
+    profile x and y fall where the viewer puts them (ifc_shapes.section_frame), so a vertical path (a column) works
+    as well as a level one. The element is placed at the path's start, unturned. Returns [(layer, profile
+    definition)], one per region, for the material profile set."""
+    runs = _path_runs(path_data) or [(np.zeros(3), np.array([1.0, 0.0, 0.0]))]
+    origin = runs[0][0]
+    place = np.eye(4)
+    place[:3, 3] = origin
+    ifcopenshell.api.geometry.edit_object_placement(ifc, product=entity, matrix=place)
+    made = []
+    for layer, pts in _profile_polygons(profile_data):
         ring = [ifc.create_entity("IfcCartesianPoint", Coordinates=[float(x), float(y)]) for x, y in pts]
         curve = ifc.create_entity("IfcPolyline", Points=ring + [ring[0]])
-        items.append(ifc.create_entity(
-            "IfcExtrudedAreaSolid",
-            SweptArea=ifc.create_entity("IfcArbitraryClosedProfileDef", ProfileType="AREA", OuterCurve=curve),
-            Position=ifc.create_entity("IfcAxis2Placement3D", Location=ifc.create_entity("IfcCartesianPoint", Coordinates=[0.0, 0.0, 0.0])),
-            ExtrudedDirection=ifc.create_entity("IfcDirection", DirectionRatios=[0.0, 0.0, sense]),
-            Depth=path_length,
-        ))
+        made.append((layer, ifc.create_entity("IfcArbitraryClosedProfileDef", ProfileType="AREA", ProfileName=layer.get("name"), OuterCurve=curve)))
+    point = lambda v: ifc.create_entity("IfcCartesianPoint", Coordinates=[float(c) for c in v])
+    direction = lambda v: ifc.create_entity("IfcDirection", DirectionRatios=[float(c) for c in v])
+    items = []
+    for a, b in runs:
+        length = float(np.linalg.norm(b - a))
+        t = (b - a) / length
+        across, up = section_frame(t)
+        normal = np.cross(across, up)
+        sense = 1.0 if float(normal @ t) > 0 else -1.0
+        position = ifc.create_entity("IfcAxis2Placement3D", Location=point(a - origin), Axis=direction(normal), RefDirection=direction(across))
+        for _, profile in made:
+            items.append(ifc.create_entity("IfcExtrudedAreaSolid", SweptArea=profile, Position=position,
+                                           ExtrudedDirection=direction([0.0, 0.0, sense]), Depth=length))
     rep = ifc.create_entity("IfcShapeRepresentation", ContextOfItems=context, RepresentationIdentifier="Body",
                             RepresentationType="SweptSolid", Items=items)
     entity.Representation = ifc.create_entity("IfcProductDefinitionShape", Representations=[rep])
+    return made
 
 
-def _assign_part_materials(ifc, entity, name, assembly, mat_by_id, mapping):
-    """The materials of a profile with regions: one IfcMaterial when it has one, else a constituent set."""
-    ids = list(dict.fromkeys(l["material_id"] for l in assembly if l.get("material_id")))
-    made = {mid: ifc.create_entity("IfcMaterial", Name=ifc_mapping.material_name(mapping, mid, mat_by_id.get(mid, {}).get("name")))
-            for mid in ids}
-    if not made:
+def _assign_profile_set(ifc, entity, name, made, mat_by_id, mapping):
+    """The materials of a profile with regions as an IfcMaterialProfileSet: one IfcMaterialProfile per region, naming
+    the region's material and the profile definition its solids are swept from, so an importer can give each region
+    its own material back. Used through an IfcMaterialProfileSetUsage."""
+    materials, entries = {}, []
+    for layer, profile in made:
+        mid = layer.get("material_id")
+        if not mid:
+            continue
+        if mid not in materials:
+            materials[mid] = ifc.create_entity("IfcMaterial", Name=ifc_mapping.material_name(mapping, mid, mat_by_id.get(mid, {}).get("name")))
+        entries.append(ifc.create_entity("IfcMaterialProfile", Name=layer.get("name"), Material=materials[mid], Profile=profile))
+    if not entries:
         return
-    if len(made) == 1:
-        ifcopenshell.api.material.assign_material(ifc, products=[entity], material=next(iter(made.values())))
-        return
-    cset = ifcopenshell.api.material.add_material_set(ifc, name=name, set_type="IfcMaterialConstituentSet")
-    for mid, material in made.items():
-        constituent = ifcopenshell.api.material.add_constituent(ifc, constituent_set=cset, material=material)
-        constituent.Name = mat_by_id.get(mid, {}).get("name") or mid
-    ifcopenshell.api.material.assign_material(ifc, products=[entity], material=cset)
+    profile_set = ifc.create_entity("IfcMaterialProfileSet", Name=name, MaterialProfiles=entries)
+    usage = ifc.create_entity("IfcMaterialProfileSetUsage", ForProfileSet=profile_set)
+    ifc.create_entity("IfcRelAssociatesMaterial", GlobalId=ifcopenshell.guid.new(), RelatedObjects=[entity], RelatingMaterial=usage)
 
 
 def _assign_material_layers(ifc, entity, assembly, mat_by_id, mapping):

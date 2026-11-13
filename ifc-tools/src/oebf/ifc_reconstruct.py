@@ -100,7 +100,9 @@ def body_items(entity):
 def _rect_of(profile, scale):
     """(centre x, centre y, x size, y size) of a rectangle profile, or of a polyline profile that is an
     axis-aligned rectangle (four corners); None for any other shape. Metres."""
-    if profile.is_a("IfcRectangleHollowProfileDef"):
+    if profile.is_a("IfcRectangleHollowProfileDef") or profile.is_a("IfcRoundedRectangleProfileDef"):
+        return None
+    if profile.is_a("IfcArbitraryProfileDefWithVoids") and profile.InnerCurves:
         return None
     if profile.is_a("IfcRectangleProfileDef"):
         return 0.0, 0.0, float(profile.XDim) * scale, float(profile.YDim) * scale
@@ -228,6 +230,22 @@ def primary_material(entity):
     if material.is_a("IfcMaterialList"):
         return next((named(m) for m in material.Materials or [] if named(m)), None)
     return None
+
+
+def profile_set_materials(entity) -> dict:
+    """{id of an IFC profile definition: (material name, entry name or None)} from the entity's material profile set,
+    so each region of a section can take the material of the profile it was swept from. Empty without a profile set."""
+    material = _material_of(entity)
+    if material is not None and material.is_a("IfcMaterialProfileSetUsage"):
+        material = material.ForProfileSet
+    if material is None or not material.is_a("IfcMaterialProfileSet"):
+        return {}
+    out = {}
+    for entry in material.MaterialProfiles or []:
+        if entry.Profile is None or entry.Material is None or not entry.Material.Name:
+            continue
+        out.setdefault(entry.Profile.id(), (entry.Material.Name, entry.Name or None))
+    return out
 
 
 def constituent_profile(entity, thickness):

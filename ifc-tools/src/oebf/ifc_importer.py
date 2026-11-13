@@ -242,8 +242,10 @@ class Rebuilt:
             out[key] = value
         return out
 
-    def profile_for(self, entity, thickness=None) -> str:
-        """The id of a profile for this entity: its layer set, else one layer of its material, else the placeholder."""
+    def profile_for(self, entity, thickness=None, height=None) -> str:
+        """The id of a profile for this entity: its layer set, else one layer of its material, else the placeholder.
+        A wall's height, when the IFC gives it, goes on the profile as height_limit_m (walls of other heights get
+        profiles of their own)."""
         lp = rebuild.layer_profile(entity) or rebuild.constituent_profile(entity, thickness)
         if lp is None and thickness:
             name = rebuild.primary_material(entity)
@@ -252,10 +254,16 @@ class Rebuilt:
                 if kind not in ("IfcMaterial", "IfcMaterialLayerSet"):
                     print(f"  Warning: {_label(entity)}: its {kind} gives no layer thicknesses; {name!r} was used for the whole thickness")
                 lp = {"name": name, "layers": [{"name": name, "material_name": name, "thickness": round(float(thickness), 6)}], "offset": None}
+        if lp is None and thickness and height:
+            # no material: the placeholder material, but at the wall's own thickness and height
+            self.placeholder_material_used = True
+            lp = {"name": "unknown-material", "offset": None,
+                  "layers": [{"name": "Imported", "material_name": "Imported", "thickness": round(float(thickness), 6)}]}
         if lp is None:
             self.placeholder_used = True
             return PLACEHOLDER_PROFILE
-        sig = rebuild.profile_signature(lp)
+        height = round(float(height), 4) if height and height > 0 else None
+        sig = rebuild.profile_signature(lp) + (f"|h{height}" if height else "")
         if sig not in self._by_signature:
             base = f"profile-imported-{rebuild.slugify(lp['name']) or rebuild.slugify(lp['layers'][0]['material_name']) or 'layers'}"
             pid, n = base, 1
@@ -263,18 +271,20 @@ class Rebuilt:
                 n += 1
                 pid = f"{base}-{n}"
             self._by_signature[sig] = pid
-            self.profiles[pid] = _profile_files(pid, lp)
+            self.profiles[pid] = _profile_files(pid, lp, height)
         return self._by_signature[sig]
 
-    def region_profile_for(self, entity, regions, note=None) -> str:
-        """The id of a profile whose regions are the entity's section, in the entity's material."""
+    def region_profile_for(self, entity, regions, note=None, sources=None) -> str:
+        """The id of a profile whose regions are the entity's section. Each region takes the material of the profile
+        set's entry for the IFC profile it came from (`sources`), else the entity's material."""
         name = rebuild.primary_material(entity)
-        if name and rebuild.slugify(name):
-            material_id = rebuild.material_id(name)
-        else:
-            material_id = PLACEHOLDER_MATERIAL
+        by_profile = rebuild.profile_set_materials(entity) if sources else {}
+        named = [by_profile.get(src, (name, None)) for src in (sources or [None] * len(regions))]
+        materials = [(rebuild.material_id(n) if n and rebuild.slugify(n) else PLACEHOLDER_MATERIAL, n or "Imported", label)
+                     for n, label in named]
+        if any(m == PLACEHOLDER_MATERIAL for m, _, _ in materials):
             self.placeholder_material_used = True
-        sig = "region|" + material_id + "|" + ";".join(",".join(f"{x:.4f}:{y:.4f}" for x, y in r) for r in regions)
+        sig = "region|" + "|".join(m for m, _, _ in materials) + "|" + ";".join(",".join(f"{x:.4f}:{y:.4f}" for x, y in r) for r in regions)
         if sig not in self._by_signature:
             label = rebuild.slugify(getattr(entity, "Name", None) or "") or rebuild.slugify(entity.is_a()[3:])
             base = f"profile-imported-section-{label}"[:60].rstrip("-")
@@ -283,7 +293,7 @@ class Rebuilt:
                 n += 1
                 pid = f"{base}-{n}"
             self._by_signature[sig] = pid
-            self.profiles[pid] = _region_profile_files(pid, regions, material_id, name or "Imported", note)
+            self.profiles[pid] = _region_profile_files(pid, regions, materials, note)
         return self._by_signature[sig]
 
     def write(self, out_dir: Path) -> None:
@@ -302,8 +312,8 @@ class Rebuilt:
 _GREYS = ("#8a8a8a", "#b4b4b4", "#6e6e6e", "#c8c8c8")
 
 
-def _profile_files(pid: str, lp: dict):
-    """The profile JSON and a plain SVG for a rebuilt build-up."""
+def _profile_files(pid: str, lp: dict, height=None):
+    """The profile JSON and a plain SVG for a rebuilt build-up; `height` (metres) is the wall's, when known."""
     width = round(sum(layer["thickness"] for layer in lp["layers"]), 6)
     assembly = [{
         "layer": i, "name": layer["name"], "material_id": rebuild.material_id(layer["material_name"]),
@@ -315,19 +325,23 @@ def _profile_files(pid: str, lp: dict):
         "svg_file": f"profiles/{pid}.svg", "width": width,
         "origin": {"x": rebuild.profile_origin_x(lp), "y": 0.0}, "alignment": "center", "assembly": assembly,
     }
+    if height:
+        doc["height_limit_m"] = height
+    tall = height or 2.7
     rects, x = [], 0.0
     for i, layer in enumerate(lp["layers"]):
-        rects.append(f'<rect x="{round(x, 6)}" y="0" width="{layer["thickness"]}" height="2.7" fill="{_GREYS[i % len(_GREYS)]}" stroke="#333" stroke-width="0.003"/>')
+        rects.append(f'<rect x="{round(x, 6)}" y="0" width="{layer["thickness"]}" height="{tall}" fill="{_GREYS[i % len(_GREYS)]}" stroke="#333" stroke-width="0.003"/>')
         x += layer["thickness"]
-    svg = f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} 2.7">\n  ' + "\n  ".join(rects) + "\n</svg>\n"
+    svg = f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {tall}">\n  ' + "\n  ".join(rects) + "\n</svg>\n"
     return doc, svg
 
 
-def _region_profile_files(pid, regions, material_id, material_name, note):
-    """A profile made of regions (the section of a beam or column), and an SVG of it."""
+def _region_profile_files(pid, regions, materials, note):
+    """A profile made of regions (the section of a beam or column), and an SVG of it. `materials` holds, for each
+    region, (material id, material name, the name of its profile set entry or None)."""
     xs = [x for r in regions for x, _ in r]
     ys = [y for r in regions for _, y in r]
-    function = rebuild.layer_function(material_name)
+    one = len(regions) == 1
     doc = {
         "$schema": "oebf://schema/0.1/profile", "id": pid, "type": "Profile",
         "description": "Rebuilt from the IFC section" + (f" ({note})" if note else ""),
@@ -335,9 +349,9 @@ def _region_profile_files(pid, regions, material_id, material_name, note):
         "height": round(max(ys) - min(ys), 6),
         "origin": {"x": 0.0, "y": 0.0}, "alignment": "center",
         "assembly": [{
-            "layer": i, "name": material_name if len(regions) == 1 else f"{material_name} {i}", "material_id": material_id,
-            "function": function, "type": "region", "vertices": [{"x": x, "y": y} for x, y in r],
-        } for i, r in enumerate(regions, 1)],
+            "layer": i, "name": (label or mname) if one else f"{label or mname} {i}", "material_id": mid,
+            "function": rebuild.layer_function(f"{label or ''} {mname}"), "type": "region", "vertices": [{"x": x, "y": y} for x, y in r],
+        } for i, (r, (mid, mname, label)) in enumerate(zip(regions, materials), 1)],
     }
     x0, y1 = min(xs), max(ys)
     w, h = max(xs) - x0, y1 - min(ys)
@@ -376,37 +390,47 @@ def _line(a, b) -> dict:
 
 
 def _element_shape(entity):
-    """How the element is swept, read from its IFC shape: {segments (world tuples), thickness} or, for a section,
-    {segments, regions, note}.
+    """How the element is swept, read from its IFC shape: {segments (world tuples), thickness, height} or, for a
+    section, {segments, regions, sources, note}.
 
     In order: a section that is not a rectangle (a beam or column) gives a path and regions; else the Axis
     representation (several legs or an arc), the rectangle the body is swept from, or a wall footprint (an L, several
-    legs, a curve) gives the path. Any other body (a BREP, say) is read through the geometry engine and stood in for
-    by its plan bounding box. With none of these the path is a 1 m stub."""
+    legs, a curve) gives the path. Any other body (a BREP, say) is read through the geometry engine: the outline of
+    its base, when that is a wall's, gives a centreline; else its plan bounding box stands in. With none of these the
+    path is a 1 m stub."""
     section = shapes.section_profile(entity)
     if section and section["regions"]:
-        return {"segments": [_line(section["start"], section["end"])], "regions": section["regions"], "note": section["note"]}
+        return {"segments": [_line(a, b) for a, b in section["segments"]], "regions": section["regions"],
+                "sources": section.get("sources"), "note": section["note"]}
     axis = rebuild.wall_axis(entity)
     drawn = rebuild.axis_path(entity)
     footprint = None if axis else shapes.footprint_axis(entity)
     thickness = (axis or footprint or {}).get("thickness")
+    height = (axis or footprint or {}).get("height")
     segments = drawn or ([_line(axis["start"], axis["end"])] if axis else None) or (footprint or {}).get("segments")
     items = rebuild.body_items(entity)
     solids = [i for i, _, _ in items if i.is_a("IfcExtrudedAreaSolid")]
     if items and (segments is None or (thickness is None and not solids)):
-        points = shapes.mesh_points(entity)
-        box = shapes.box_axis(points) if points is not None else None
-        if box:
-            if segments is None:
-                segments = [_line(box["start"], box["end"])]
-                print(f"  Warning: {_label(entity)}: its body ({items[0][0].is_a()}) was read as its plan bounding box")
-            thickness = thickness or box["thickness"]
+        outline = shapes.mesh_axis(entity) if segments is None else None
+        if outline:
+            segments = outline["segments"]
+            thickness, height = outline["thickness"], outline["height"]
+            print(f"  Warning: {_label(entity)}: its body ({items[0][0].is_a()}) was read from the outline of its base")
+        else:
+            points = shapes.mesh_points(entity)
+            box = shapes.box_axis(points) if points is not None else None
+            if box:
+                if segments is None:
+                    segments = [_line(box["start"], box["end"])]
+                    print(f"  Warning: {_label(entity)}: its body ({items[0][0].is_a()}) was read as its plan bounding box")
+                thickness = thickness or box["thickness"]
+                height = height or box["height"]
     if segments is None:
         if items:
             print(f"  Warning: {_label(entity)}: its shape could not be read; it was given a 1 m placeholder path")
         stub = _extract_path_segment(entity)
         return {"segments": [_line(tuple(stub["start"].values()), tuple(stub["end"].values()))], "thickness": thickness, "stub": True}
-    return {"segments": segments, "thickness": thickness}
+    return {"segments": segments, "thickness": thickness, "height": height}
 
 
 def _format_segment(seg) -> dict:
@@ -419,9 +443,9 @@ def _process_element(entity, element_id, oebf_type, group_id, out_dir, rebuilt, 
     try:
         path_id = f"path-{element_id}"
         shape = _element_shape(entity)
-        segments, angled = shape["segments"], set()
+        segments, angled, height = shape["segments"], {}, shape.get("height")
         if not shape.get("stub") and not shape.get("regions"):
-            segments, angled, boxes, notes = shapes.clip_path(entity, segments)
+            segments, angled, boxes, notes, height = shapes.clip_path(entity, segments, height, shape.get("thickness"))
             for note in notes:
                 print(f"  Warning: {_label(entity)}: {note}")
             if boxes and cut_boxes is not None:
@@ -438,9 +462,9 @@ def _process_element(entity, element_id, oebf_type, group_id, out_dir, rebuilt, 
         (out_dir / "paths" / f"{path_id}.json").write_text(json.dumps(path_data, indent=2))
 
         if shape.get("regions"):
-            profile_id = rebuilt.region_profile_for(entity, shape["regions"], shape.get("note"))
+            profile_id = rebuilt.region_profile_for(entity, shape["regions"], shape.get("note"), shape.get("sources"))
         else:
-            profile_id = rebuilt.profile_for(entity, shape.get("thickness"))
+            profile_id = rebuilt.profile_for(entity, shape.get("thickness"), height)
         elem_data = {
             "$schema": "oebf://schema/0.1/element",
             "id": element_id,
@@ -457,6 +481,9 @@ def _process_element(entity, element_id, oebf_type, group_id, out_dir, rebuilt, 
             "parent_group_id": group_id,
             "properties": {"imported_from_ifc": True, **rebuilt.properties(entity)},
         }
+        for end in ("start", "end"):
+            if end in angled:
+                elem_data[f"cap_{end}_angle_deg"] = angled[end]
         (out_dir / "elements" / f"{element_id}.json").write_text(json.dumps(elem_data, indent=2))
         return element_id
     except Exception as exc:
