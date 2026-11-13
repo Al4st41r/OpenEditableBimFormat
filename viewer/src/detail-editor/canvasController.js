@@ -19,7 +19,7 @@
  *     { type: 'select', selection }
  *     { type: 'pan', dx, dy }          pixels, content follows the pointer
  *     { type: 'draft', draft }         rubber band: rect { a, b } or polygon { points, cursor }; null clears
- *     { type: 'message', text }
+ *     { type: 'message', text, info? } an error unless info is true
  *     { type: 'cancel' }               discard transient changes, show the committed doc
  *     { type: 'hint', hint }           smart cursor: { snap, lastPoint } to show (marker, guides, tooltip), or null to clear
  *     { type: 'picked', points }       a point pick (startPick) finished: the snapped points, or null when cancelled
@@ -34,11 +34,11 @@ import { dragHandle, translateRegions, regionsInBox, snapValue } from './canvasE
 import { addRect, addRegion, removeRegions, setLayerStart, setLayerUnit, setLayerEnds } from './detailDocument.js';
 import { regionIndices, selectionOfRegions } from './pageState.js';
 import { TOOLS } from './detailConstants.js';
-import { addAnnotation, removeAnnotation, moveAnnotation, setAnnotationPoint, setDimensionOffset, angleOf } from './annotationOps.js';
+import { addAnnotation, removeAnnotation, moveAnnotation, setAnnotationPoint, setDimensionOffset, angleOf, distanceToSegment } from './annotationOps.js';
 import { setClip, resolvePlacement } from './referenceOps.js';
 import { startFromPoint, runPositionFromPoint } from './memberShapes.js';
 import { signedArea, isSelfIntersecting } from '../detail/regionGeometry.js';
-import { boundariesOf, trimMark, extendMark } from './markTrim.js';
+import { boundariesOf, trimMark, extendMark, trimRegionMark } from './markTrim.js';
 
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
@@ -604,16 +604,34 @@ function arcTool(state, event, ctx) {
 
 // ── trim and extend marks ───────────────────────────────────────────────────
 // Click a line, arc or circle. Trim cuts away the piece under the click, back to the nearest crossings with anything
-// else drawn; extend runs the end nearer the click on to the next thing in its way. Each click is one undo step.
+// else drawn or a reference line; extend runs the end nearer the click on to the next thing in its way, or to an edge
+// carried on past its end. Trim also takes a region's outline where a straight edge crosses it twice: click the
+// outline of the part to cut away. Each click is one undo step.
+
+/** The region whose outline passes within `tolerance` of the point, nearest first; null when none does. */
+function regionOutlineAt(model, point, tolerance) {
+  let best = null;
+  for (const p of model.primitives ?? []) {
+    if (p.locked || p.ref?.type !== 'region') continue;
+    const d = Math.min(...p.points.map((a, i) => distanceToSegment(point, { a, b: p.points[(i + 1) % p.points.length] })));
+    if (d <= tolerance && (!best || d < best.d)) best = { d, index: p.ref.index };
+  }
+  return best?.index ?? null;
+}
 
 function trimExtendTool(state, event, ctx, op) {
   if (event.type !== 'down') return done(state);
-  const hit = hitStack(ctx.model, event.point, ctx.tolerance).find((h) => h.ref.type === 'annotation');
-  const ann = hit ? ctx.doc.annotations?.[hit.ref.index] : null;
-  if (!ann || !['line', 'arc', 'circle'].includes(ann.type)) {
-    return done(state, [msg(op === trimMark ? 'Click the part of a line, arc or circle to cut away.' : 'Click a line or arc near the end to extend.')]);
+  const hit = hitStack(ctx.model, event.point, ctx.tolerance).find((h) => h.ref.type === 'annotation' && ['line', 'arc', 'circle'].includes(ctx.doc.annotations?.[h.ref.index]?.type));
+  const region = !hit && op === trimMark ? regionOutlineAt(ctx.model, event.point, ctx.tolerance) : null;
+  if (!hit && region === null) {
+    return done(state, [msg(op === trimMark ? 'Click the part of a line, arc, circle or region outline to cut away.' : 'Click a line or arc near the end to extend.')]);
   }
-  let doc;
-  try { doc = op(ctx.doc, hit.ref.index, event.point, boundariesOf(ctx.model, hit.ref.index)).doc; } catch (err) { return done(state, [msg(err.message)]); }
-  return done(state, [{ type: 'doc', doc, transient: false }, { type: 'select', selection: null }]);
+  let res;
+  try {
+    res = hit
+      ? op(ctx.doc, hit.ref.index, event.point, boundariesOf(ctx.model, hit.ref.index))
+      : trimRegionMark(ctx.doc, region, event.point, boundariesOf(ctx.model, null, { region }));
+  } catch (err) { return done(state, [msg(err.message)]); }
+  const note = res.carried ? [{ type: 'message', text: 'Nothing was in the way, so it ran on to the nearest edge carried on past its end.', info: true }] : [];
+  return done(state, [{ type: 'doc', doc: res.doc, transient: false }, { type: 'select', selection: null }, ...note]);
 }
