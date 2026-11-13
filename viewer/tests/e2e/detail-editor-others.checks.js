@@ -9,20 +9,24 @@
   const show = () => { let pre = document.getElementById('rep'); if (!pre) { pre = document.createElement('pre'); pre.id = 'rep'; pre.style.cssText = 'position:fixed;left:255px;bottom:6px;z-index:99;background:#000d;color:#9f9;font:12px monospace;padding:8px;white-space:pre-wrap;max-width:880px;margin:0'; document.body.appendChild(pre); } pre.textContent = log.join('\n'); };
   const note = (ok, name, extra) => { log.push(`${ok ? 'PASS' : 'FAIL'} ${name}${extra !== undefined ? ' ' + JSON.stringify(extra) : ''}`); show(); };
   const E = window.__detailEditor; const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  // wait for the state a check expects instead of a fixed pause (#177); false after `ms`, so the check reports FAIL
+  const until = async (cond, ms = 4000) => { const t0 = Date.now(); for (;;) { try { if (cond()) return true; } catch { /* not there yet */ } if (Date.now() - t0 > ms) return false; await sleep(50); } };
   const J = (id) => JSON.parse(E.adapter()._map.get(`junctions/${id}.json`));
   (async () => {
     while (!(E.state() && E.state().doc)) await sleep(100);
-    await sleep(300);
     // junction usage is on the right panel's 'Used at' tab
-    [...document.querySelectorAll('#right-panel .tab')].find((b) => b.textContent.startsWith('Used at')).click(); await sleep(100);
     const panel = document.getElementById('right-panel');
+    await until(() => [...panel.querySelectorAll('.tab')].some((b) => b.textContent.startsWith('Used at')));
+    [...panel.querySelectorAll('.tab')].find((b) => b.textContent.startsWith('Used at')).click();
+    await until(() => panel.textContent.includes('Other junctions'));
     const sel = [...panel.querySelectorAll('select')].find((s) => [...s.options].some((o) => o.value === 'junction-ne-padstone'));
     note(!!sel && panel.textContent.includes('Other junctions'), 'others: the padstone (custom rule, not matching the condition) is offered', sel && [...sel.options].map((o) => o.textContent));
     const before = J('junction-ne-padstone');
-    [...sel.parentElement.querySelectorAll('button')].find((b) => b.textContent === 'Assign…').click(); await sleep(200);
     const dlg = document.getElementById('loc-dialog');
+    [...sel.parentElement.querySelectorAll('button')].find((b) => b.textContent === 'Assign…').click(); await until(() => dlg.open);
     note(dlg.open && [...dlg.querySelectorAll('select')].map((s) => s.value).join() === 'grid-structural,2,B,storey-gf', 'others: picker pre-filled with 2 / B @ storey-gf');
-    [...dlg.querySelectorAll('button')].find((b) => b.textContent === 'Assign').click(); await sleep(300);
+    [...dlg.querySelectorAll('button')].find((b) => b.textContent === 'Assign').click();
+    await until(() => J('junction-ne-padstone').detail_id === 'detail-corner-cavity-butt' && !panel.textContent.includes('Other junctions'));
     const after = J('junction-ne-padstone');
     note(after.detail_id === 'detail-corner-cavity-butt' && after.rule === 'custom' && after.custom_geometry === before.custom_geometry, 'others: assigned, and the custom rule and geometry file are kept', { rule: after.rule, custom_geometry: after.custom_geometry });
     note([...panel.querySelectorAll('.box')].length === 5 && !panel.textContent.includes('Other junctions'), 'others: five junctions now use the detail, section gone');

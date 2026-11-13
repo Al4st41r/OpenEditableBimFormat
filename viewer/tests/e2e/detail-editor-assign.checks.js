@@ -10,6 +10,8 @@
   const note = (ok, name, extra) => { log.push(`${ok ? 'PASS' : 'FAIL'} ${name}${extra !== undefined ? ' ' + JSON.stringify(extra) : ''}`); show(); };
   const E = window.__detailEditor;
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  // wait for the state a check expects instead of a fixed pause (#177); false after `ms`, so the check reports FAIL
+  const until = async (cond, ms = 4000) => { const t0 = Date.now(); for (;;) { try { if (cond()) return true; } catch { /* not there yet */ } if (Date.now() - t0 > ms) return false; await sleep(50); } };
   const J = (id) => JSON.parse(E.adapter()._map.get(`junctions/${id}.json`));
   const boxes = () => [...document.querySelectorAll('#right-panel .box')];
   const box = (id) => boxes().find((b) => b.textContent.includes(id));
@@ -21,8 +23,7 @@
 
   (async () => {
     while (!(E.state() && E.state().doc)) await sleep(100);
-    await sleep(300);
-    tab('Used at'); await sleep(100);
+    tab('Used at'); await until(() => boxes().length === 4);
     note(boxes().length === 4, 'usage: four junctions listed with their settings', boxes().length);
     const se = box('junction-se-corner');
     note(se.textContent.includes('2 / A @ storey-gf') && se.querySelector('input[type=number]').value === '0.075' && !!btn(se, 'Reset'), 'usage: SE shows its location and overridden width 0.075 with Reset');
@@ -30,7 +31,7 @@
 
     // unassign SW
     const swBefore = J('junction-sw-corner');
-    btn(box('junction-sw-corner'), 'Unassign').click(); await sleep(250);
+    btn(box('junction-sw-corner'), 'Unassign').click(); await until(() => !('detail_id' in J('junction-sw-corner')) && boxes().length === 3);
     const sw = J('junction-sw-corner');
     note(!('detail_id' in sw) && !('location' in sw), 'unassign: link and location removed from the junction file');
     note(JSON.stringify(sw.priority) === JSON.stringify(swBefore.priority) && JSON.stringify(sw.trim_planes) === JSON.stringify(swBefore.trim_planes) && sw.rule === 'butt', 'unassign: priority, trim planes and rule kept');
@@ -39,43 +40,43 @@
     note(c.length === 1 && c[0].textContent.includes('junction-sw-corner') && c[0].textContent.includes('1 / A @ storey-gf') && !c[0].textContent.includes('approx'), 'candidates: SW is offered with the suggestion 1 / A @ storey-gf', c.map((x) => x.textContent));
 
     // assign through the picker
-    btn(c[0], 'Assign…').click(); await sleep(150);
     const dlg = document.getElementById('loc-dialog');
+    btn(c[0], 'Assign…').click(); await until(() => dlg.open);
     const sel = [...dlg.querySelectorAll('select')].map((s) => s.value);
     note(dlg.open && sel.join() === 'grid-structural,1,A,storey-gf', 'picker: opens pre-filled from the suggestion', sel);
-    btn(dlg, 'Assign').click(); await sleep(250);
+    btn(dlg, 'Assign').click(); await until(() => J('junction-sw-corner').detail_id === 'detail-corner-cavity-butt' && boxes().length === 4);
     const sw2 = J('junction-sw-corner');
     note(sw2.detail_id === 'detail-corner-cavity-butt' && JSON.stringify(sw2.location.axes) === '["1","A"]' && sw2.location.level_id === 'storey-gf', 'assign: junction file has the detail and location', sw2.location);
     note(JSON.stringify(sw2.priority) === JSON.stringify(swBefore.priority) && boxes().length === 4 && cands().length === 0, 'assign: other fields kept, four junctions again, no candidates');
 
     // overrides
     const input = () => box('junction-se-corner').querySelector('input[type=number]');
-    setNum(input(), 0.09); await sleep(250);
+    setNum(input(), 0.09); await until(() => J('junction-se-corner').detail_overrides?.cavity_closer_width_m === 0.09);
     note(J('junction-se-corner').detail_overrides.cavity_closer_width_m === 0.09, 'override: 0.09 written');
-    setNum(input(), 0.5); await sleep(250);
+    setNum(input(), 0.5); await until(() => /outside/.test(E.status()));
     note(J('junction-se-corner').detail_overrides.cavity_closer_width_m === 0.09 && /outside/.test(E.status()), 'override: out of range refused, file unchanged', E.status());
-    btn(box('junction-se-corner'), 'Reset').click(); await sleep(250);
+    btn(box('junction-se-corner'), 'Reset').click(); await until(() => !('detail_overrides' in J('junction-se-corner')));
     note(!('detail_overrides' in J('junction-se-corner')), 'override: Reset removes the override (empty map not stored)');
 
     // mirror
     const cb = () => box('junction-nw-corner').querySelector('input[type=checkbox]');
-    cb().checked = true; cb().dispatchEvent(new Event('change', { bubbles: true })); await sleep(250);
+    cb().checked = true; cb().dispatchEvent(new Event('change', { bubbles: true })); await until(() => J('junction-nw-corner').detail_mirrored === true);
     note(J('junction-nw-corner').detail_mirrored === true, 'mirror: flag written');
-    cb().checked = false; cb().dispatchEvent(new Event('change', { bubbles: true })); await sleep(250);
+    cb().checked = false; cb().dispatchEvent(new Event('change', { bubbles: true })); await until(() => !('detail_mirrored' in J('junction-nw-corner')));
     note(!('detail_mirrored' in J('junction-nw-corner')), 'mirror: cleared flag is omitted');
 
     // unsaved changes lock junction edits
-    tab('Detail'); await sleep(100);
+    tab('Detail'); await until(() => [...document.querySelectorAll('#right-panel .row')].some((r) => r.textContent.startsWith('Extrusion')));
     const ext = [...document.querySelectorAll('#right-panel .row')].find((r) => r.textContent.startsWith('Extrusion')).querySelector('input');
-    setNum(ext, 3000); await sleep(150);
-    tab('Used at'); await sleep(100);
+    setNum(ext, 3000); await until(() => !document.getElementById('dirty').hidden);
+    tab('Used at'); await until(() => /Save the detail before/.test(document.getElementById('right-panel').textContent));
     note(/Save the detail before/.test(document.getElementById('right-panel').textContent) && btn(box('junction-ne-corner'), 'Unassign').disabled, 'lock: junction controls disabled while the detail has unsaved changes');
-    document.getElementById('undo-btn').click(); await sleep(150);
+    document.getElementById('undo-btn').click(); await until(() => !btn(box('junction-ne-corner'), 'Unassign').disabled);
     note(!btn(box('junction-ne-corner'), 'Unassign').disabled, 'lock: enabled again after undo');
 
     // change location
-    btn(box('junction-ne-corner'), 'Change location').click(); await sleep(150);
     const dlg2 = document.getElementById('loc-dialog');
+    btn(box('junction-ne-corner'), 'Change location').click(); await until(() => dlg2.open);
     note(dlg2.open && [...dlg2.querySelectorAll('select')].map((s) => s.value).join() === 'grid-structural,2,B,storey-gf', 'change location: picker shows the current location');
     btn(dlg2, 'Cancel').click();
     note(window.__errors.length === 0, 'no page errors', window.__errors);
