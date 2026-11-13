@@ -52,6 +52,22 @@ test('detail editor: trim and extend with reference lines and region outlines, m
   expect(report.filter((line) => !line.startsWith('PASS')), report.join('\n')).toEqual([]);
 });
 
+test('detail editor: region priority and plan cut height; trim into two, extend a region edge, extend to edges carried on (#183, #185)', async ({ page, context }) => {
+  await page.goto('detail-editor.html?demo=1');
+  await page.waitForFunction(() => window.__detailEditor?.state());
+  const report = await page.evaluate(fs.readFileSync(new URL('./detail-editor-props.checks.js', import.meta.url), 'utf8'));
+  expect(report.filter((line) => !line.startsWith('PASS')), report.join('\n')).toEqual([]);
+
+  // 3D hands the detail to the review page with both fields, and the review page takes it
+  const [review] = await Promise.all([context.waitForEvent('page'), page.click('#view3d-btn')]);
+  const draft = await page.evaluate(() => JSON.parse(localStorage.getItem('oebf-detail-draft')));
+  expect(draft.json.cut_height_m).toBe(1.5);
+  expect(draft.json.geometry.regions[0].priority).toBe(5);
+  await review.waitForLoadState();
+  await expect(review.locator('#download-btn')).toBeVisible();
+  await expect(review.locator('#status')).not.toContainText('No unsaved detail');
+});
+
 test('detail editor: DXF import reads bulged polyline segments as arcs (#166)', async ({ page }) => {
   await page.goto('detail-editor.html?demo=1');
   await page.waitForFunction(() => window.__detailEditor?.state());

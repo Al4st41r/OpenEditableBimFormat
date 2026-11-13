@@ -38,7 +38,7 @@ import { addAnnotation, removeAnnotation, moveAnnotation, setAnnotationPoint, se
 import { setClip, resolvePlacement } from './referenceOps.js';
 import { startFromPoint, runPositionFromPoint } from './memberShapes.js';
 import { signedArea, isSelfIntersecting } from '../detail/regionGeometry.js';
-import { boundariesOf, trimMark, extendMark, trimRegionMark } from './markTrim.js';
+import { boundariesOf, trimMark, extendMark, trimRegionMark, extendRegionMark } from './markTrim.js';
 
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
@@ -606,7 +606,9 @@ function arcTool(state, event, ctx) {
 // Click a line, arc or circle. Trim cuts away the piece under the click, back to the nearest crossings with anything
 // else drawn or a reference line; extend runs the end nearer the click on to the next thing in its way, or to an edge
 // carried on past its end. Trim also takes a region's outline where a straight edge crosses it twice: click the
-// outline of the part to cut away. Each click is one undo step.
+// outline of the part to cut away; extend also takes a region's edge, moving the vertex nearer the click on along it.
+// ctx.extendCarried (a snap setting): extend always considers edges carried on past their ends. Each click is one
+// undo step.
 
 /** The region whose outline passes within `tolerance` of the point, nearest first; null when none does. */
 function regionOutlineAt(model, point, tolerance) {
@@ -622,16 +624,18 @@ function regionOutlineAt(model, point, tolerance) {
 function trimExtendTool(state, event, ctx, op) {
   if (event.type !== 'down') return done(state);
   const hit = hitStack(ctx.model, event.point, ctx.tolerance).find((h) => h.ref.type === 'annotation' && ['line', 'arc', 'circle'].includes(ctx.doc.annotations?.[h.ref.index]?.type));
-  const region = !hit && op === trimMark ? regionOutlineAt(ctx.model, event.point, ctx.tolerance) : null;
+  const region = !hit ? regionOutlineAt(ctx.model, event.point, ctx.tolerance) : null;
   if (!hit && region === null) {
-    return done(state, [msg(op === trimMark ? 'Click the part of a line, arc, circle or region outline to cut away.' : 'Click a line or arc near the end to extend.')]);
+    return done(state, [msg(op === trimMark ? 'Click the part of a line, arc, circle or region outline to cut away.' : 'Click a line, arc or region edge near the end to extend.')]);
   }
+  const opts = op === extendMark ? { always: !!ctx.extendCarried } : {};
   let res;
   try {
     res = hit
-      ? op(ctx.doc, hit.ref.index, event.point, boundariesOf(ctx.model, hit.ref.index))
-      : trimRegionMark(ctx.doc, region, event.point, boundariesOf(ctx.model, null, { region }));
+      ? op(ctx.doc, hit.ref.index, event.point, boundariesOf(ctx.model, hit.ref.index), opts)
+      : (op === trimMark ? trimRegionMark : extendRegionMark)(ctx.doc, region, event.point, boundariesOf(ctx.model, null, { region }), opts);
   } catch (err) { return done(state, [msg(err.message)]); }
-  const note = res.carried ? [{ type: 'message', text: 'Nothing was in the way, so it ran on to the nearest edge carried on past its end.', info: true }] : [];
+  const note = res.carried ? [{ type: 'message', text: 'Nothing was in the way, so it ran on to the nearest edge carried on past its end.', info: true }]
+    : !hit && res.pieces > 1 ? [{ type: 'message', text: `The trim left the region in ${res.pieces} pieces, so each is now a region of its own.`, info: true }] : [];
   return done(state, [{ type: 'doc', doc: res.doc, transient: false }, { type: 'select', selection: null }, ...note]);
 }

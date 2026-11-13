@@ -105,7 +105,7 @@ describe('messages and save state', () => {
 
   test('header fields mirror the document', async () => {
     const h = (await model()).header;
-    expect(h).toEqual({ description: expect.stringMatching(/cavity walls/), plane: 'plan', datumKind: 'storey', datumReference: 'elevation', extrusion_m: 2.7 });
+    expect(h).toEqual({ description: expect.stringMatching(/cavity walls/), plane: 'plan', datumKind: 'storey', datumReference: 'elevation', extrusion_m: 2.7, cut_height_m: null });
   });
 
   test('the condition is passed through, or null when absent', async () => {

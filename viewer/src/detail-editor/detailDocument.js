@@ -435,6 +435,16 @@ export function setRegionMaterial(doc, index, material_id) {
   return d;
 }
 
+/** Set a region's priority (a whole number from -99 to 99), or clear it with 0 or null: 0 is the default. */
+export function setRegionPriority(doc, index, priority) {
+  const d = clone(doc);
+  const region = regionAt(d, index);
+  if (priority === null || priority === undefined || priority === '' || priority === 0) { delete region.priority; return d; }
+  if (!Number.isInteger(priority) || priority < -99 || priority > 99) throw new DetailEditError('Priority must be a whole number from -99 to 99');
+  region.priority = priority;
+  return d;
+}
+
 const REGION_NUMBERS = ['depth_m', 'repeat_x_m', 'repeat_y_m', 'count_x', 'count_y', 'stagger_x_m'];
 const INTEGER_FIELDS = ['count_x', 'count_y'];
 
@@ -586,9 +596,27 @@ export function renameParameter(doc, from, to) {
 
 // ── scalar settings ─────────────────────────────────────────────────────────
 
+/** Set the view. A cut height belongs to a plan only, so turning a plan into a section drops it. */
 export function setPlane(doc, plane) {
   if (!PLANES.includes(plane)) throw new DetailEditError(`Unknown plane "${plane}"`);
-  return { ...clone(doc), plane };
+  const d = { ...clone(doc), plane };
+  if (plane !== 'plan') delete d.cut_height_m;
+  return d;
+}
+
+/**
+ * Set a plan detail's cut height (metres above the datum, from zero up to the extrusion), or clear it with null:
+ * without one the plan shows the first course cut.
+ */
+export function setCutHeight(doc, cut_height_m) {
+  const d = clone(doc);
+  if (cut_height_m === null || cut_height_m === undefined || cut_height_m === '') { delete d.cut_height_m; return d; }
+  if ((doc.plane ?? 'section') !== 'plan') throw new DetailEditError('A cut height applies to plan details only');
+  if (!isNum(cut_height_m) || cut_height_m < 0) throw new DetailEditError('The cut height must be a number, at least zero');
+  const top = doc.geometry?.extrusion_m;
+  if (isNum(top) && cut_height_m > top + 1e-9) throw new DetailEditError('The cut height is above the top of the detail (its extrusion), so nothing would be cut');
+  d.cut_height_m = cut_height_m;
+  return d;
 }
 
 export function setDatum(doc, datum) {

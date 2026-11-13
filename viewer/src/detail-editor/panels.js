@@ -46,18 +46,21 @@ let notify = () => {};   // set by renderPanels: shows a message in the status l
  * A length field. Accepts a plain number in the display unit, or a typed
  * dimension with units and arithmetic ("2.4m", "1200+300"); see snap/dimension.js.
  */
-const num = (metres, onChange, attrs = {}) => {
+const num = (metres, onChange, { blank = false, ...attrs } = {}) => {
   const shown = metres === null || metres === undefined ? '' : String(toDisplay(metres));
   return h('input', {
     type: 'text', inputmode: 'decimal', value: shown, title: 'Type a value: 2400, 2.4m or 1200+300', ...attrs,
     onchange: (e) => {
       const raw = e.target.value;
+      if (blank && raw.trim() === '') { onChange(null); return; }
       const m = parseDimension(raw, { unit: getUnit() });
       if (m === null) { notify(`Could not read "${raw}" as a length. Try 2400, 2.4m or 1200+300.`); e.target.value = shown; return; }
       onChange(m);
     },
   });
 };
+/** A length field that may be left blank: blank calls onChange(null). */
+const optNum = (metres, onChange, attrs = {}) => num(metres, onChange, { ...attrs, blank: true });
 const plain = (value, onChange, attrs = {}) => h('input', {
   type: 'number', value: value ?? '', step: 'any', ...attrs,
   onchange: (e) => { const v = parseFloat(e.target.value); if (Number.isFinite(v)) onChange(v); },
@@ -176,8 +179,9 @@ function detailTab(pm, bundle, a) {
       select(DATUM_KINDS, hd.datumKind, (v) => a.setDatum(v, hd.datumReference)),
       select(DATUM_REFERENCES, hd.datumReference, (v) => a.setDatum(hd.datumKind, v)))),
     row(`Extrusion (${unitLabel()})`, num(hd.extrusion_m, a.setExtrusion, { min: 0 })),
+    hd.plane === 'plan' ? row(`Cut height (${unitLabel()})`, optNum(hd.cut_height_m, a.setCutHeight, { id: 'cut-height', placeholder: 'first course', title: 'Height above the datum at which the plan is cut (1000 is usual). Blank: the first course is cut and the courses above are left out.' })) : null,
     h('div', { class: 'note' }, hd.plane === 'plan'
-      ? 'Plan: regions rise from the level by the extrusion.'
+      ? 'Plan: regions rise from the level by the extrusion. A solid the cut height passes through is drawn cut; one wholly below it is drawn seen; one wholly above it is left out.'
       : 'Section: regions run along the primary member, centred.'),
     ...referenceEditor(pm, a), ...clipEditor(pm, a),
     h('h3', {}, 'Parameters'),
@@ -299,6 +303,16 @@ function regionEditor(r, pm, bundle, a) {
     h('h3', {}, `Region ${r.index}`),
     r.pickedCount > 1 ? h('div', { class: 'note warn' }, `${r.pickedCount} regions are selected. Changes here apply to region ${r.index} only.`) : null,
     row('Material', materialSelect(bundle.materialIds.includes(r.materialId) ? bundle.materialIds : [r.materialId, ...bundle.materialIds], r.materialId, bundle.materials, (v) => a.setRegionMaterial(r.index, v))),
+    row('Priority', h('input', {
+      type: 'number', step: 1, min: -99, max: 99, value: r.priority, id: 'region-priority',
+      title: 'Which solid owns an overlap: a higher priority is drawn over a lower one and owns the area they share. Members have 0; among equal priorities the smaller wins.',
+      onchange: (e) => {
+        const raw = e.target.value.trim();
+        const v = raw === '' ? 0 : Number(raw);
+        if (!Number.isInteger(v) || v < -99 || v > 99) { notify('Priority must be a whole number from -99 to 99.'); e.target.value = r.priority; return; }
+        a.setRegionPriority(r.index, v);
+      },
+    })),
     ...regionTransformEditor(r, a),
     ...regionOffsetEditor(r, pm, a),
     ...regionCornerEditor(r, a),
@@ -337,7 +351,7 @@ function regionOffsetEditor(r, pm, a) {
       h('button', { title: 'Cut away the part of this region that the other covers (rectangles only)', onclick: () => a.trimBy(by) }, 'Trim'),
       select(['left', 'right', 'bottom', 'top'], offsetDraft.side, (v) => { offsetDraft.side = v; }, { title: 'Side to extend' }),
       h('button', { title: 'Run that side out to the nearest face of the other region (rectangles only)', onclick: () => a.extendTo(offsetDraft.side, by) }, 'Extend to')) : null,
-    h('div', { class: 'note' }, 'Offset and trim need plain-number vertices. Trim and extend here work on rectangles; for lines, arcs and circles use Trim and Extend in the Marks menu, and Trim there also cuts the outline of any region along a straight edge.'))];
+    h('div', { class: 'note' }, 'Offset and trim need plain-number vertices. Trim and extend here work on rectangles; for lines, arcs and circles use Trim and Extend in the Marks menu. Trim there also cuts the outline of any region along a straight edge (into separate regions where the cut leaves pieces), and Extend runs a region edge on to the next edge.'))];
 }
 
 /** Round or chamfer corners of the selected region. The corner defaults to the selected vertex. */
