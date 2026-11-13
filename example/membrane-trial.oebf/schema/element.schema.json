@@ -16,6 +16,8 @@
     "sweep_mode":      { "type": "string", "enum": ["perpendicular", "fixed", "twisted"] },
     "cap_start":       { "type": "string", "enum": ["flat", "angled", "open", "junction"] },
     "cap_end":         { "type": "string", "enum": ["flat", "angled", "open", "junction"] },
+    "cap_start_angle_deg": { "type": "number", "exclusiveMinimum": -90, "exclusiveMaximum": 90, "description": "Angle of an 'angled' start, degrees from square: seen from above, the anticlockwise turn from the path's outward direction at that end to the outward normal of the end face. The face pivots on the path. Absent or 0 is a square end." },
+    "cap_end_angle_deg":   { "type": "number", "exclusiveMinimum": -90, "exclusiveMaximum": 90, "description": "Angle of an 'angled' end, degrees from square, measured as cap_start_angle_deg." },
     "start_offset":    { "type": "number" },
     "end_offset":      { "type": "number" },
     "twist_per_metre": { "type": "number" },

@@ -351,16 +351,19 @@ def test_a_box_cut_out_by_a_boolean_becomes_an_opening(tmp_path):
     _valid(out)
 
 
-def test_a_top_clip_is_left_out_with_a_warning(tmp_path, capsys):
+def test_a_top_clip_lowers_the_wall_height(tmp_path, capsys):
     ifc, context, _, storey = _file()
     body = _extrusion(ifc, _rect(ifc, 5.0, 0.3, (2.5, 0)), 2.7)
     clipped = ifc.create_entity("IfcBooleanClippingResult", Operator="DIFFERENCE", FirstOperand=body,
                                 SecondOperand=_half_space(ifc, (0, 0, 2.4), (0, 0, 1), False))
     _product(ifc, storey, context, "IfcWall", [clipped], rep_type="Clipping")
     out = _import(ifc, tmp_path)
-    seg = _path(out, _element(out, "IfcWall"))["segments"][0]
+    element = _element(out, "IfcWall")
+    seg = _path(out, element)["segments"][0]
     assert (seg["start"]["x"], seg["end"]["x"]) == pytest.approx((0.0, 5.0))
-    assert "top or bottom" in capsys.readouterr().out
+    assert _profile(out, element)["height_limit_m"] == pytest.approx(2.4)
+    assert "Warning" not in capsys.readouterr().out
+    _valid(out)
 
 
 def test_a_wall_drawn_as_a_mapped_item_is_read_through_the_mapping(tmp_path):
@@ -378,7 +381,7 @@ def test_a_wall_drawn_as_a_mapped_item_is_read_through_the_mapping(tmp_path):
     _valid(out)
 
 
-def test_a_brep_wall_is_read_as_its_plan_bounding_box(tmp_path, capsys):
+def test_a_brep_box_wall_is_read_from_the_outline_of_its_base(tmp_path, capsys):
     ifc, context, _, storey = _file()
     corners = [(0, 0, 0), (6, 0, 0), (6, 0.25, 0), (0, 0.25, 0), (0, 0, 3), (6, 0, 3), (6, 0.25, 3), (0, 0.25, 3)]
     faces = [(1, 4, 3, 2), (5, 6, 7, 8), (1, 2, 6, 5), (2, 3, 7, 6), (3, 4, 8, 7), (4, 1, 5, 8)]
@@ -392,5 +395,6 @@ def test_a_brep_wall_is_read_as_its_plan_bounding_box(tmp_path, capsys):
     xs = sorted([seg["start"]["x"], seg["end"]["x"]])
     assert xs == pytest.approx([0, 6]) and seg["start"]["y"] == pytest.approx(0.125)
     assert _profile(out, element)["width"] == pytest.approx(0.25)
-    assert "bounding box" in capsys.readouterr().out
+    assert _profile(out, element)["height_limit_m"] == pytest.approx(3.0)
+    assert "outline of its base" in capsys.readouterr().out
     _valid(out)

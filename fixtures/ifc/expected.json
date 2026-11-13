@@ -1,0 +1,160 @@
+{
+  "description": "What each shared IFC fixture must import as, in both IFC importers (see make_fixtures.py). Segments are [start, end] in world metres; width and height_limit_m are the profile's; regions give the count, total area (to 2%: curves are drawn with chords) and [min x, max x, min y, max y] of a section's regions; materials are the sorted material ids of the profile's layers or regions.",
+  "fixtures": {
+    "wall-box.ifc": {
+      "description": "A wall extruded up from a 5 m x 0.3 m footprint, 3 m high, its placement moved to (1, 2, 0), with a layer set.",
+      "elements": [
+        {
+          "ifc_type": "IfcWall",
+          "segments": [
+            [
+              [
+                1,
+                2,
+                0
+              ],
+              [
+                6,
+                2,
+                0
+              ]
+            ]
+          ],
+          "width": 0.3,
+          "height_limit_m": 3.0,
+          "materials": [
+            "mat-blockwork",
+            "mat-brick"
+          ]
+        }
+      ]
+    },
+    "wall-axis-mm.ifc": {
+      "description": "A wall in a millimetre file with an Axis representation, a 200 mm rectangle body 2700 mm high, one material.",
+      "elements": [
+        {
+          "ifc_type": "IfcWall",
+          "segments": [
+            [
+              [
+                0,
+                0,
+                0
+              ],
+              [
+                4,
+                0,
+                0
+              ]
+            ]
+          ],
+          "width": 0.2,
+          "height_limit_m": 2.7,
+          "materials": [
+            "mat-concrete"
+          ]
+        }
+      ]
+    },
+    "wall-clipped.ifc": {
+      "description": "A 5 m wall clipped square-off at its top (2.4 m) and on a 45 degree plan angle through (4, 0) at its end.",
+      "elements": [
+        {
+          "ifc_type": "IfcWall",
+          "segments": [
+            [
+              [
+                0,
+                0,
+                0
+              ],
+              [
+                4,
+                0,
+                0
+              ]
+            ]
+          ],
+          "width": 0.3,
+          "height_limit_m": 2.4,
+          "cap_start": "flat",
+          "cap_end": "angled",
+          "cap_end_angle_deg": 45.0,
+          "materials": [
+            "mat-brick"
+          ]
+        }
+      ]
+    },
+    "beam-i.ifc": {
+      "description": "An I-section beam 6 m long along X at 3 m up (section 200 x 400, web 10, flanges 20), in a material profile set.",
+      "elements": [
+        {
+          "ifc_type": "IfcBeam",
+          "segments": [
+            [
+              [
+                0,
+                0,
+                3
+              ],
+              [
+                6,
+                0,
+                3
+              ]
+            ]
+          ],
+          "regions": {
+            "count": 3,
+            "area": 0.0116,
+            "bounds": [
+              -0.1,
+              0.1,
+              -0.2,
+              0.2
+            ]
+          },
+          "materials": [
+            "mat-s355-steel"
+          ]
+        }
+      ]
+    },
+    "column-circle.ifc": {
+      "description": "A round column, radius 150 mm, 3 m high, standing at (2, 1, 0).",
+      "elements": [
+        {
+          "ifc_type": "IfcColumn",
+          "segments": [
+            [
+              [
+                2,
+                1,
+                0
+              ],
+              [
+                2,
+                1,
+                3
+              ]
+            ]
+          ],
+          "regions": {
+            "count": 1,
+            "area": 0.07068583470577035,
+            "bounds": [
+              -0.15,
+              0.15,
+              -0.15,
+              0.15
+            ]
+          },
+          "materials": [
+            "mat-concrete"
+          ]
+        }
+      ]
+    }
+  }
+}
