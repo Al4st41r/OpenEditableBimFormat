@@ -12,6 +12,10 @@
  * (userData.outlined === false) rather than vanishing (#139).
  *
  * A membrane's 'edges' (userData.membrane) are shown in every mode, in their own ink (#127).
+ *
+ * X-ray (#172): an object inside a wall (userData.xrayable: a tie, a door with no opening) is depth-tested, so the wall
+ * hides it. With X-ray on, it and its outline are drawn over the wall, the faces at 85% opacity. It works in every mode:
+ * in lines mode the faces write no colour, so only the outline shows through.
  */
 
 import { MEMBRANE_INK } from '../membrane.js';
@@ -22,8 +26,9 @@ export const RENDER_MODES = ['solid', 'lines', 'solid+edges'];
  * @param {import('three').Object3D} group  the model group
  * @param {'solid'|'lines'|'solid+edges'} mode
  */
-export function applyRenderMode(group, mode) {
+export function applyRenderMode(group, mode, { xray = false } = {}) {
   const lines = mode === 'lines';
+  applyXray(group, xray);
   group.traverse((child) => {
     if (child.name === 'object-edges') {
       child.material.color.setHex(lines ? 0x222222 : (child.userData.colour ?? 0x333333));
@@ -38,6 +43,28 @@ export function applyRenderMode(group, mode) {
       child.visible = true;
       child.renderOrder = lines ? -1 : (child.userData.renderOrder ?? 0);   // depth first, so no line behind a face is drawn before it
       for (const m of [child.material].flat()) if (m) m.colorWrite = !lines;
+    }
+  });
+}
+
+export const XRAY_OPACITY = 0.85;
+
+/**
+ * Draw the objects hidden inside walls (userData.xrayable) over them, or hide them behind the wall again (#172).
+ * @param {import('three').Object3D} group
+ * @param {boolean} on
+ */
+export function applyXray(group, on) {
+  group.traverse((child) => {
+    if (!child.userData.xrayable) return;
+    for (const m of [child.material].flat()) {
+      if (!m) continue;
+      m.depthTest = !on;
+      if (!child.isLineSegments) {
+        m.transparent = on;
+        m.opacity = on ? XRAY_OPACITY : 1;
+      }
+      m.needsUpdate = true;
     }
   });
 }

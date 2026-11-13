@@ -116,14 +116,15 @@ export function initEditorScene(canvas) {
   // ── Render mode ───────────────────────────────────────────────────────────
   let _renderMode = 'solid+edges';
   let _gridMode = 'solid+edges';
+  let _xray = false;   // objects inside walls drawn over them (#172)
   const _renderModeGroups = [];
 
   function setRenderMode(mode) {
     _renderMode = mode;
     scene.background.setHex(mode === 'lines' ? 0xf5f5f0 : 0x1a1a1a);
 
-    applyRenderMode(modelGroup, mode);   // overlays and the construction plane are outside modelGroup
-    for (const g of _renderModeGroups) applyRenderMode(g, mode);
+    applyRenderMode(modelGroup, mode, { xray: _xray });   // overlays and the construction plane are outside modelGroup
+    for (const g of _renderModeGroups) applyRenderMode(g, mode, { xray: _xray });
     if (gridColours(mode)[0] !== gridColours(_gridMode)[0]) {
       const visible = constructionGrid.visible;
       scene.remove(constructionGrid);
@@ -135,7 +136,11 @@ export function initEditorScene(canvas) {
   }
 
   /** Further groups that follow the render mode, eg the editor's objects (doors, windows) in the overlay group. */
-  function addRenderModeGroup(group) { _renderModeGroups.push(group); applyRenderMode(group, _renderMode); }
+  function addRenderModeGroup(group) { _renderModeGroups.push(group); applyRenderMode(group, _renderMode, { xray: _xray }); }
+
+  /** X-ray (#172): show objects hidden inside walls (ties, doors with no opening) through them. */
+  function setXray(on) { _xray = !!on; setRenderMode(_renderMode); }
+  function getXray() { return _xray; }
 
   function getRenderMode() { return _renderMode; }
 
@@ -194,9 +199,14 @@ export function initEditorScene(canvas) {
   // Frames are asked for by camera moves, input (with one trailing frame for work an input awaits), resizes, objects
   // added or removed anywhere in the scene, render-mode, storey and view switches, and requestRender() for anything
   // else that changes the scene in place without input.
+  const _beforeRender = [];
+  /** Run `fn({ plan, drop })` before each frame: `drop` is how far under its level a grid sits for this view (#173). */
+  function onBeforeRender(fn) { _beforeRender.push(fn); }
   const scheduler = createRenderScheduler(() => {
     // the further off the camera, the further under the floor the grid must be to stay hidden by it (#152)
-    constructionGrid.position.z = activeStoreyZ - gridDrop(isPlanView ? 0 : perspCamera.position.distanceTo(controls.target));
+    const drop = gridDrop(isPlanView ? 0 : perspCamera.position.distanceTo(controls.target));
+    constructionGrid.position.z = activeStoreyZ - drop;
+    for (const fn of _beforeRender) fn({ plan: isPlanView, drop });
     renderer.render(scene, getActiveCamera());
   });
   const requestRender = scheduler.request;
@@ -215,7 +225,7 @@ export function initEditorScene(canvas) {
     constructionPlane, modelGroup, overlayGroup,
     get constructionGrid() { return constructionGrid; },   // replaced when the render mode changes its colours
     setStoreyZ: andRender(setStoreyZ), getStoreyZ, setPlanView: andRender(setPlanView), getActiveCamera, fitView: andRender(fitView),
-    setRenderMode: andRender(setRenderMode), getRenderMode, addRenderModeGroup: andRender(addRenderModeGroup),
+    setRenderMode: andRender(setRenderMode), getRenderMode, setXray: andRender(setXray), getXray, onBeforeRender: andRender(onBeforeRender), addRenderModeGroup: andRender(addRenderModeGroup),
     requestRender,
     get renderFrames() { return scheduler.frames; },   // frames drawn so far, for headless checks
   };

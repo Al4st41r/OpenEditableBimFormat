@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
 import { buildThreeMesh } from './buildMesh.js';
-import { applyRenderMode } from './renderMode.js';
+import { applyRenderMode, applyXray, XRAY_OPACITY } from './renderMode.js';
 import { buildJunctionDetailMeshes } from '../junction-renderer.js';
 
 function model() {
@@ -134,5 +134,49 @@ describe('gridDrop (#152)', () => {
     expect(gridDrop(20)).toBeCloseTo(0.05);
     expect(gridDrop(40)).toBeGreaterThan(gridDrop(20));
     expect(gridDrop(-5)).toBeCloseTo(0.01);
+  });
+});
+
+describe('applyXray (#172)', () => {
+  function tie() {
+    const group = new THREE.Group();
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshStandardMaterial());
+    const edges = new THREE.LineSegments(new THREE.BufferGeometry(), new THREE.LineBasicMaterial());
+    edges.name = 'object-edges';
+    mesh.userData.xrayable = edges.userData.xrayable = true;
+    const door = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshStandardMaterial());   // in an opening
+    group.add(mesh, edges, door);
+    return { group, mesh, edges, door };
+  }
+
+  it('on: objects inside walls and their outlines draw over the wall, the faces faded', () => {
+    const { group, mesh, edges, door } = tie();
+    applyXray(group, true);
+    expect(mesh.material.depthTest).toBe(false);
+    expect(mesh.material.transparent).toBe(true);
+    expect(mesh.material.opacity).toBe(XRAY_OPACITY);
+    expect(edges.material.depthTest).toBe(false);
+    expect(door.material.depthTest).toBe(true);
+  });
+
+  it('off: back to depth-tested and opaque', () => {
+    const { group, mesh, edges } = tie();
+    applyXray(group, true);
+    applyXray(group, false);
+    expect(mesh.material.depthTest).toBe(true);
+    expect(mesh.material.transparent).toBe(false);
+    expect(mesh.material.opacity).toBe(1);
+    expect(edges.material.depthTest).toBe(true);
+  });
+
+  it('applyRenderMode carries the X-ray setting in every mode, lines too', () => {
+    for (const mode of ['solid', 'lines', 'solid+edges']) {
+      const { group, mesh, edges } = tie();
+      applyRenderMode(group, mode, { xray: true });
+      expect(edges.material.depthTest).toBe(false);
+      expect(mesh.material.colorWrite).toBe(mode !== 'lines');
+      applyRenderMode(group, mode);
+      expect(edges.material.depthTest).toBe(true);
+    }
   });
 });

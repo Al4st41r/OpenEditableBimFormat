@@ -8,6 +8,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import * as THREE from 'three';
 import { applyCsgJunctions } from './junction-csg.js';
+import { buildThreeMesh } from './scene/buildMesh.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -245,5 +246,43 @@ describe('applyCsgJunctions', () => {
     );
 
     logSpy.mockRestore();
+  });
+});
+
+describe('applyCsgJunctions — the outline after the cut (#173)', () => {
+  /** A box as buildThreeMesh makes it, with its 'edges' outline child. */
+  function wall(x0, y0, z0, x1, y1, z1, elementId) {
+    const box = makeBoxMesh(x0, y0, z0, x1, y1, z1, elementId).geometry;
+    return buildThreeMesh({
+      vertices: box.attributes.position.array, normals: box.attributes.normal.array,
+      indices: new Uint32Array(box.index.array), colour: '#888888', elementId, description: '',
+    });
+  }
+  /** Segments that are not along X, Y or Z: on boxes cut by boxes, only a triangle diagonal can be. */
+  function diagonals(geometry) {
+    const a = geometry.getAttribute('position').array;
+    let n = 0;
+    for (let i = 0; i < a.length; i += 6) {
+      const moved = [0, 1, 2].filter((k) => Math.abs(a[i + k] - a[i + 3 + k]) > 1e-6).length;
+      if (moved > 1) n++;
+    }
+    return n;
+  }
+
+  it('the subordinate outline follows the cut, with no triangle diagonals across the faces', () => {
+    const group = new THREE.Group();
+    const a = wall(0, 0, 0, 2, 0.3, 2.4, 'element-a');
+    // a notch: the dominant element covers only part of a's thickness and height, so the cut leaves T-junctions
+    const b = wall(1.5, 0.1, 0.5, 5, 5, 2, 'element-b');
+    group.add(a, b);
+    const before = a.getObjectByName('edges').geometry;
+    applyCsgJunctions(group, [{ id: 'j', elements: ['element-a', 'element-b'], priority: ['element-b'], trim_method: 'csg', trim_planes: [] }]);
+    const edges = a.getObjectByName('edges').geometry;
+    expect(edges).not.toBe(before);
+    edges.computeBoundingBox();
+    expect(edges.boundingBox.max.x).toBeCloseTo(2);
+    expect(diagonals(edges)).toBe(0);
+    // more segments than the uncut box's 12: the notch is outlined
+    expect(edges.getAttribute('position').count / 2).toBeGreaterThan(12);
   });
 });

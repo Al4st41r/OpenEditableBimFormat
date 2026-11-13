@@ -12,6 +12,7 @@ import { toDisplay, unitLabel, fromDisplay } from './units.js';
 import { wireRow, makeRemoveButton, treeItemMeta } from './treeMenu.js';
 import { askForm, ask, confirmDialog, notify } from '../ui/dialog.js';
 import { fatSegments } from './fatLine.js';
+import { gridDrop } from '../scene/renderMode.js';
 import { axisEndpoints, axisPlaneGeometry, axisPlaneExtent, axisLabel } from '../grid/gridAxis.js';
 import {
   loadGridSet, flattenAxes, activeGrid, setActiveGrid, addGrid as addGridTo, addAxis as addAxisTo,
@@ -47,6 +48,7 @@ export class GridOverlayManager {
     /** (gridId, axisId) => boolean, set by the editor: junction locations that name the axis. */
     this.isAxisUsed = null;
     this._planes = localStorage.getItem('oebf-grid-planes') !== 'off';
+    this._lineView = { plan: false, drop: gridDrop() };
   }
 
   /** Show or hide the translucent 3D planes (the lines stay). */
@@ -57,6 +59,23 @@ export class GridOverlayManager {
   }
 
   get planesVisible() { return this._planes; }
+
+  /**
+   * Place the dashed axis lines for the view, called before each frame is drawn (#173). In plan they are drawn over
+   * everything, as a plan's grid is. In 3D they sit `drop` metres under Z 0 and are depth-tested, as the construction
+   * grid is (scene/renderMode.js gridDrop): at Z 0 they lay over the ground slab's top face.
+   * @param {{ plan: boolean, drop: number }} view
+   */
+  placeLines(view) {
+    this._lineView = view;
+    for (const a of this._axes) if (a.object3d.userData.axisLine) this._placeLine(a.object3d.userData.axisLine);
+  }
+
+  _placeLine(line) {
+    const { plan, drop } = this._lineView;
+    line.material.depthTest = !plan;
+    line.position.z = plan ? 0 : -drop;
+  }
 
   /** Redraw every axis: a plane's length depends on the other axes, so any change to the set can change it. */
   _rebuildAll() {
@@ -240,9 +259,12 @@ export class GridOverlayManager {
     plane.visible = this._planes;
     group.add(plane);
 
-    // Dashed line at Z=0 (plan view), a fixed number of pixels wide at any zoom
+    // Dashed line at Z=0, a fixed number of pixels wide at any zoom; placed for the view by placeLines (#173)
     const { a, b } = axisEndpoints(direction, offset_m, -50, 50);
-    group.add(fatSegments([a.x, a.y, 0, b.x, b.y, 0], { color: GRID_COLOUR, widthPx: GRID_LINE_PX, dash: 0.5, gap: 0.25 }));
+    const line = fatSegments([a.x, a.y, 0, b.x, b.y, 0], { color: GRID_COLOUR, widthPx: GRID_LINE_PX, dash: 0.5, gap: 0.25 });
+    group.add(line);
+    group.userData.axisLine = line;
+    this._placeLine(line);
 
     return group;
   }

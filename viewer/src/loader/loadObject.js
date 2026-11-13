@@ -5,7 +5,9 @@
  * `parameter_overrides` on top). If it names an Opening it fills that opening: it is centred
  * on it and rests on its sill. Otherwise `path_position` is its centre along the host path.
  *
- * An object in an opening is depth-tested (the wall is cut); one inside a wall (a tie) is drawn over it.
+ * Every object is depth-tested, so one inside a wall (a tie, or a door with no opening) is hidden by the wall (#172).
+ * Such an object is marked `userData.xrayable`; the editor's X-ray toggle (scene/renderMode.js applyXray) draws it
+ * over the wall instead.
  */
 
 import * as THREE from 'three';
@@ -83,7 +85,8 @@ function partGeometry(part) {
 
 /**
  * Every instance of an object as one InstancedMesh per part (so a grid of wall ties is a handful of draw calls).
- * Every instance gets edge lines, merged into one LineSegments (#154). Drawn over the wall unless it fills an opening.
+ * Every instance gets edge lines, merged into one LineSegments (#154). Depth-tested like the walls; one not in an
+ * opening is marked `userData.xrayable` so X-ray can draw it over its wall (#172).
  *
  * @param {object} placement - from objectPlacement
  * @param {string} id
@@ -100,9 +103,7 @@ export function buildObjectGroup(placement, id, parts, colourOf = () => undefine
     // so a face turned from the one direct light (a south-facing door) went black
     const material = new THREE.MeshStandardMaterial({
       roughness: 0.8, metalness: 0,
-      // in an opening the wall is cut, so the object is seen through the hole like anything else; otherwise it is
-      // drawn over the wall (a tie inside the wall would be hidden by it)
-      color: colourOf(part.material_id) ?? DEFAULT_COLOUR, transparent: !placement.inOpening, opacity: placement.inOpening ? 1 : 0.85, depthTest: !!placement.inOpening, side: THREE.DoubleSide,
+      color: colourOf(part.material_id) ?? DEFAULT_COLOUR, side: THREE.DoubleSide,
     });
     const mesh = new THREE.InstancedMesh(geometry, material, instances.length);
     const matrices = instances.map((inst) => new THREE.Matrix4().compose(
@@ -112,15 +113,17 @@ export function buildObjectGroup(placement, id, parts, colourOf = () => undefine
     mesh.renderOrder = 3;
     mesh.userData.renderOrder = 3;                     // what the render mode puts back after lines mode
     mesh.frustumCulled = false;   // the bounding sphere of an instanced mesh is its first instance's
+    mesh.userData.xrayable = !placement.inOpening;   // in an opening the wall is cut and it is seen through the hole
     group.add(mesh);
     // every instance's outline as one line set (#154); a grid too big to outline keeps its colour in lines mode
     const edgeGeometry = instancedEdgesGeometry(geometry, matrices, 1);
     mesh.userData.outlined = !!edgeGeometry;
     if (edgeGeometry) {
-      const edges = new THREE.LineSegments(edgeGeometry, new THREE.LineBasicMaterial({ color: 0x3a2a18, depthTest: !!placement.inOpening }));
+      const edges = new THREE.LineSegments(edgeGeometry, new THREE.LineBasicMaterial({ color: 0x3a2a18 }));
       edges.renderOrder = 4;
       edges.name = 'object-edges';
       edges.userData.colour = 0x3a2a18;
+      edges.userData.xrayable = !placement.inOpening;
       group.add(edges);
     }
   }

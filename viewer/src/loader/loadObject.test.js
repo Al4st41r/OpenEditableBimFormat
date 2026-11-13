@@ -67,5 +67,15 @@ describe('arrays of objects', () => {
     expect(colourLookup([{ id: 'm', colour_hex: '#fff' }])('m')).toBe('#fff');
     expect(colourLookup([])('x')).toBeUndefined();
   });
+  it('an object inside a wall is depth-tested and marked for X-ray; one in an opening is not marked (#172)', () => {
+    const inWall = buildObjectGroup(objectPlacement({ path_position: 0.45 }, tie, east), 'o', symbolParts_(tie));
+    for (const c of inWall.children) {
+      expect(c.material.depthTest).toBe(true);
+      expect(c.userData.xrayable).toBe(true);
+    }
+    expect(inWall.children.find((c) => c.isInstancedMesh).material.transparent).toBe(false);
+    const inOpening = buildObjectGroup(objectPlacement({}, symbol, path, opening), 'd', symbolParts_(symbol));
+    for (const c of inOpening.children) expect(c.userData.xrayable).toBe(false);
+  });
 });
 import { symbolParts as symbolParts_ } from './symbolParts.js';
