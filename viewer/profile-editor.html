@@ -49,6 +49,9 @@
     #lineweights-bar select { background: #333; color: #ddd; border: 1px solid #555; border-radius: 3px; padding: 2px 4px; font-size: 11px; }
     #lineweights-bar label { display: inline-flex; align-items: center; gap: 4px; }
     #lineweights-bar input[type=checkbox] { accent-color: #6e8ec8; }
+    /* the layer rows (name, thickness, material, function) match the other dark controls (#174) */
+    #layer-list input:not([type=hidden]):not([type=checkbox]), #layer-list select { background: #333; color: #ddd; border: 1px solid #555; border-radius: 3px; padding: 3px 6px; font-size: 12px; color-scheme: dark; }
+    #layer-list input[type=checkbox] { accent-color: #6e8ec8; }
 
     #pane-resizer {
       width: 5px; flex-shrink: 0; cursor: ew-resize; background: #2a2a2a;

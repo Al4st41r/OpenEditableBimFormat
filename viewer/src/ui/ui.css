@@ -46,3 +46,11 @@
 }
 .oebf-small-note span { flex: 1; }
 .oebf-small-note button { background: none; border: none; color: #fff; font-size: 16px; line-height: 1; padding: 0 2px; }
+/*
+ * Word spacing (#174). Barlow's space is narrow, so "Grid spacing (mm" and "Hardwood Timber (Sawn)" read as one
+ * word. A little extra space between words on every app page; controls do not inherit word-spacing by default, so
+ * they are told to. Inline SVG (the 2D drawings) keeps the font's own spacing, so the screen matches the export.
+ */
+:where(body) { word-spacing: 0.1em; }
+:where(button, select, input, textarea) { word-spacing: inherit; }
+:where(svg) { word-spacing: normal; }
