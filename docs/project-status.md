@@ -2,7 +2,7 @@
 
 **Date:** 2026-11-13
 **Branch:** main
-**Tests:** 2332 JS (Vitest, 148 test files) + 514 Python (499 ifc-tools, 15 live-server) + 62 Playwright e2e
+**Tests:** 2423 JS (Vitest, 149 test files) + 538 Python (523 ifc-tools, 15 live-server) + 66 Playwright e2e
 
 ---
 
@@ -116,7 +116,8 @@ The open issue list is the plan: `gh issue list --state open`. On 2026-11-12, #1
 | #127 | Membranes and tapes: round 1 delivered (design note, rendering, `membrane-trial.oebf`); awaiting the user's answers | 8 |
 | #114 | NMB example: placed-detail floor regions can flicker (awaiting a check on a real GPU) | 8 |
 | #168 | CI/SfB codes on the NMB materials need a check against a real CI/SfB table | 8 |
-| #179-#186 | Leftovers from #166, #167, #169 and #170 (profile heights and angled ends in 3D, IFC sloping tops and export, viewer IFC importer coverage, layer repeats in 3D, priority and cut-height controls, profile editor orientation, two-piece trim, fixed delays in checks) | 8 |
+| #187 | Sloping wall tops: choose how to store them (decision needed; `docs/plans/2026-11-13-sloping-wall-tops.md`) | 8 |
+| #188-#192 | Leftovers from #179-#186 (empty SVG for region-only profiles, viewer IFC gaps, IFC export edge cases, coursed corners, edge stretch) | 8 |
 | #150 | Live copy on its own subdomain | Backlog |
 | #117 | Quantities and embodied carbon panel | Backlog |
 | #128 | Research: compare OEBF with IFC (tokens, readability, schema and CLI completeness) | Backlog |
