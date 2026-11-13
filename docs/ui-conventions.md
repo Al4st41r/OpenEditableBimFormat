@@ -54,7 +54,11 @@ Buttons carry words, with an icon where one exists. Undo, Redo and Help are icon
 
 ## Controls
 
-Every app page links `viewer/src/ui/ui.css` after `fonts/barlow.css`. It gives buttons, selects and inputs the page font (Barlow, not the system sans-serif) and gives a button the page has not styled the plain dark look, with a wider padding in dialogs. Its rules sit in `:where()`, so a page's own rules always win. `src/ui/pages.test.js` checks that each app links it and has the home link, that the launch page has a card for each app, and that every page in `viewer/` is a Vite input.
+Every app page links `viewer/src/ui/ui.css` after `fonts/barlow.css`. It gives buttons, selects and inputs the page font (Barlow, not the system sans-serif) and gives a button the page has not styled the plain dark look, with a wider padding in dialogs. Its rules sit in `:where()`, so a page's own rules always win.
+
+Barlow's space is narrow (0.20 em, against Arial's 0.28 em), so 'Grid spacing (mm' or 'Hardwood Timber (Sawn)' read as one word. `ui.css` therefore adds `word-spacing: 0.1em` to the body and makes controls inherit it; inline SVG (the 2D drawings) keeps the font's own spacing, so the screen matches the exported drawing. This is the one rule for spacing in labels, options and names: do not add spaces or spacing per page. Where script builds a name followed by a measurement (scene tree rows such as 'Ground Floor (0 mm)'), the measurement also goes in a dimmed span (`treeItemMeta` in `viewer/src/editor/treeMenu.js`), which sets it apart by colour as well as space.
+
+Form controls in a panel use the dark look: `background: #333; color: #ddd; border: 1px solid #555; border-radius: 3px`, with `color-scheme: dark` so number spinners and option lists are dark too. No app shows a white browser control. `src/ui/pages.test.js` checks that each app links it and has the home link, that the launch page has a card for each app, and that every page in `viewer/` is a Vite input.
 
 ## Names
 
