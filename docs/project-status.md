@@ -1,14 +1,16 @@
 # OEBF Project Status
 
-**Date:** 2026-11-12
+**Date:** 2026-11-13
 **Branch:** main
-**Tests:** 2261 JS (Vitest, 145 test files) + 460 Python (445 ifc-tools, 15 live-server) + 36 Playwright e2e
+**Tests:** 2262 JS (Vitest, 145 test files) + 460 Python (445 ifc-tools, 15 live-server) + 53 Playwright e2e
 
 ---
 
 ## Summary
 
 v0.1.0 is released and `v0.2.0-editor-alpha` is tagged. The work planned for v0.3 (IFC in the editor, snapping, the full properties panel) and v0.4 (the junction detail system) is delivered on main but not yet tagged. Since then the project has added the detail review page with seven overlays, the New Model Building example bundle, `oebf validate` and `oebf apply`, openings cut through walls, and editor undo and redo. Phase 8 (editor polish and spec conformance) is in progress. The build is deployed at `architools.drawingtable.net/oebf/`.
+
+**Toolbar widths and phones (#158, #160, #175, 2026-11-13).** Every app's toolbar is one row at 1400 px and 1920 px, even with every conditional control shown: secondary commands show only their icon below 1800 px (2400 px in detail review), and a long status shortens with an ellipsis instead of wrapping. Below 700 px each toolbar is one row that scrolls sideways inside itself, side panels become drawers over the canvas, detail review stacks its 2D and 3D panes, the profile editor puts its form below the drawing, and the two editors say once that they are made for a larger screen (`viewer/src/ui/smallScreen.js`). Pages link public files as `/fonts/...` and `/icons/...`, so Barlow and the editor's 3D and Plan icons load on the dev server too. `tests/e2e/layout.spec.js` checks all of this.
 
 **Editor consistency and safety (#136, 2026-11-11).** The three editors share one toolbar order (see `docs/ui-conventions.md`). Every browser `prompt`, `alert` and `confirm` is replaced by an in-app dialog that checks its fields as you type (`viewer/src/ui/dialog.js`). The profile editor has undo and redo, an unsaved marker and a leave warning (`profileHistory.js`). The detail editor's open, import, export and publish actions are in one File menu, and its toolbar fits one row at 1400 px. In the 3D editor, undo names its step ("Undo: edit path-wall-south-gf"), and undoing a path edit redraws only the elements on that path. A veil with a spinner shows while a bundle loads, errors stay on screen until dismissed, the scene tree works from the keyboard, low-contrast text is raised to at least 4.5:1, the Edit tool has its own icon, and a separator never starts or ends a wrapped toolbar row. End-to-end tests answer the dialogs through `tests/e2e/dialogAnswers.js`.
 
