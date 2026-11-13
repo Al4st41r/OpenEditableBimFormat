@@ -1,6 +1,6 @@
 import { describe, test, expect } from 'vitest';
 import {
-  elementFieldSpecs, slabFieldSpecs, storeyFieldSpecs, parseFieldValue, applyFieldValue,
+  elementFieldSpecs, slabFieldSpecs, withMaterialOptions, storeyFieldSpecs, parseFieldValue, applyFieldValue,
   pathSummary, setPathNodeAxis, storeyHeights, IFC_ELEMENT_TYPES,
 } from './entityFields.js';
 
@@ -34,6 +34,22 @@ describe('field specs', () => {
     expect(parseFieldValue(spec(slab, 'thickness_m'), '-20').ok).toBe(false);
     expect(parseFieldValue(spec(slab, 'elevation_m'), '-0.12m')).toEqual({ ok: true, value: -0.12 });
     expect(parseFieldValue(spec(slab, 'elevation_m'), 'high').ok).toBe(false);
+  });
+  test('the slab material is offered by name, in name order, with the id as the value (#178)', () => {
+    const materials = {
+      'mat-dense-aggregate': { id: 'mat-dense-aggregate', name: 'Dense aggregate block' },
+      'mat-brick':           { id: 'mat-brick', name: 'Common brick' },
+      'mat-unnamed':         { id: 'mat-unnamed' },
+    };
+    const specs = withMaterialOptions(slabFieldSpecs(), materials);
+    const mat = spec(specs, 'material_id');
+    expect(mat.options).toEqual(['mat-brick', 'mat-dense-aggregate', 'mat-unnamed']);
+    expect(mat.options.map((v) => mat.labels[v])).toEqual(['Common brick', 'Dense aggregate block', 'mat-unnamed']);
+    // the id is what is validated and stored
+    expect(parseFieldValue(mat, 'mat-brick')).toEqual({ ok: true, value: 'mat-brick' });
+    expect(parseFieldValue(mat, 'Common brick').ok).toBe(false);
+    // the other fields are untouched
+    expect(spec(specs, 'thickness_m')).toEqual(spec(slabFieldSpecs(), 'thickness_m'));
   });
   test('storey fields are name and elevation', () => {
     expect(storeyFieldSpecs().map((s) => s.key)).toEqual(['name', 'z_m']);

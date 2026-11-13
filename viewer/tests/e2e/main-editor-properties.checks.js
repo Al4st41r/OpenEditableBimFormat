@@ -53,6 +53,10 @@
       await until(() => document.getElementById('field-material_id'));
       const slabId = E.selectedId();
       const mat = document.getElementById('field-material_id');
+      // names, in name order, with the id as the value (#178)
+      const shown = [...mat.options].map((o) => o.textContent);
+      note(shown.every((t, i) => i === 0 || shown[i - 1].localeCompare(t, 'en', { sensitivity: 'base' }) <= 0), 'slab materials are in name order', shown);
+      note([...mat.options].some((o) => o.value.startsWith('mat-') && o.textContent !== o.value), 'slab materials show names, not ids', shown);
       const other = [...mat.options].map((o) => o.value).find((v) => v !== mat.value);
       await set('field-material_id', other);
       note(file(`slabs/${slabId}.json`).material_id === other, 'slab material written to the slab file', { other });
