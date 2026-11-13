@@ -11,11 +11,70 @@ const r6 = (v) => Math.round(v * 1e6) / 1e6;
 const bandTotal = (layers) => layers.filter((l) => l.type !== 'region').reduce((sum, l) => sum + (l.thickness ?? 0), 0);
 
 /**
+ * A wall profile's width across the wall: its band layers' total, or for a profile drawn only as regions (a coursed
+ * leaf, #184) the regions' extent from the left face (x = 0). 0 when there is neither.
+ */
+export function wallWidth(layers) {
+  const bands = bandTotal(layers);
+  if (bands > 0) return r6(bands);
+  const xs = layers.filter((l) => l.type === 'region' && Array.isArray(l.vertices)).flatMap((l) => l.vertices.map((v) => v.x));
+  return xs.length ? r6(Math.max(...xs) - Math.min(0, ...xs)) : 0;
+}
+
+/**
  * A slab profile whose alignment is a face (top-face, bottom-face) stacks its layers from that face, across a nominal
  * plan width (1 m by default); any other profile lays its layers across x like a wall.
  */
 export function isStackedProfile(profileType, alignment) {
   return profileType === 'slab' && (alignment === 'top-face' || alignment === 'bottom-face');
+}
+
+/** The alignments a profile may have (profile schema), with the words the Align control shows. */
+export const ALIGNMENTS = [
+  ['center', 'Centre (layers across x)'],
+  ['left-face', 'Left face (layers across x)'],
+  ['right-face', 'Right face (layers across x)'],
+  ['top-face', 'Top face (stacked)'],
+  ['bottom-face', 'Bottom face (stacked)'],
+];
+
+/**
+ * The editor's state for a profile JSON: the inverse of buildJson, so a profile opened and saved unchanged keeps its
+ * values (#184). A field the profile does not have stays undefined (no FFL, no height limit), so it is not written.
+ *
+ * @param {object} data - OEBF profile JSON
+ * @returns {{ id, description, layers, originX, profileType, alignment, planWidth, ffl_m, height_limit_m, detail, lineweights }}
+ */
+export function editorStateFromJson(data) {
+  return {
+    id:          data.id,
+    description: data.description ?? '',
+    originX:     data.origin?.x ?? data.width / 2,
+    layers: (data.assembly ?? []).map(l => ({
+      name:        l.name,
+      material_id: l.material_id,
+      thickness:   l.thickness,
+      function:    l.function,
+      ...(l.tags && { tags: l.tags }),
+      ...(l.outline_mm !== undefined && { outline_mm: l.outline_mm }),
+      ...(l.type === 'region' ? {
+        type:     'region',
+        vertices: (l.vertices ?? []).map(v => ({ x: v.x, y: v.y })),
+        ...(l.depth_m    !== undefined && { depth_m:    l.depth_m    }),
+        ...(l.repeat_x_m !== undefined && { repeat_x_m: l.repeat_x_m }),
+        ...(l.repeat_y_m !== undefined && { repeat_y_m: l.repeat_y_m }),
+        ...(l.offset_x_m !== undefined && { offset_x_m: l.offset_x_m }),
+        ...(l.offset_y_m !== undefined && { offset_y_m: l.offset_y_m }),
+      } : {}),
+    })),
+    profileType:    data.profile_type,
+    alignment:      data.alignment ?? 'center',
+    planWidth:      data.width > 0 ? data.width : 1,
+    ffl_m:          typeof data.ffl_m === 'number' ? data.ffl_m : undefined,
+    height_limit_m: typeof data.height_limit_m === 'number' ? data.height_limit_m : undefined,
+    detail:         data.detail === true,
+    lineweights:    { ...(data.lineweights ?? {}) },
+  };
 }
 
 /**
@@ -26,7 +85,7 @@ export function isStackedProfile(profileType, alignment) {
  */
 export function buildJson({ layers, originX, id, description, profileType, alignment, planWidth, ffl_m, height_limit_m, detail, lineweights }) {
   const stacked = isStackedProfile(profileType, alignment);
-  const width = stacked ? (planWidth > 0 ? planWidth : 1) : layers.reduce((sum, l) => sum + (l.thickness ?? 0), 0);
+  const width = stacked ? (planWidth > 0 ? planWidth : 1) : wallWidth(layers);
   return {
     $schema:     'oebf://schema/0.1/profile',
     id,

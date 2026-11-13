@@ -12,30 +12,33 @@
   const until = async (cond, ms = 10000) => { const t0 = Date.now(); while (!cond()) { if (Date.now() - t0 > ms) throw new Error('timeout ' + cond); await sleep(100); } };
   const $ = (id) => document.getElementById(id);
   const lib = () => JSON.parse(E.adapter()._map.get('materials/library.json')).materials;
+  // wait for the state a check expects instead of a fixed pause (#186); on a timeout the check after it reports FAIL
+  const wait = (cond, ms) => until(() => { try { return cond(); } catch { return false; } }, ms).catch(() => {});
   (async () => {
     await until(() => E.junctions().length > 0);
-    await sleep(500);
+    await until(() => !$('add-material-btn').disabled);
     const before = lib().length;
-    $('add-material-btn').click(); await sleep(400);
+    $('add-material-btn').click(); await wait(() => $('material-dialog').open && $('material-existing').children.length === before);
     note($('material-dialog').open, 'the dialog opens (no prompt)');
     note($('material-existing').children.length === before, 'the existing library is listed below the form', $('material-existing').children.length);
 
     $('material-name').value = 'brick'; $('material-name').dispatchEvent(new Event('input', { bubbles: true }));
     note(/Similar/.test($('material-warning').textContent) && $('material-existing').querySelector('.similar'), 'a similar name is flagged and highlighted', $('material-warning').textContent);
 
-    $('material-name').value = ''; $('material-form').requestSubmit(); await sleep(200);
+    $('material-name').value = ''; $('material-form').requestSubmit(); await wait(() => /name/i.test($('material-warning').textContent));
     note($('material-dialog').open && /name/i.test($('material-warning').textContent), 'an empty name is refused and the dialog stays open');
 
     $('material-name').value = 'Brick Common'; $('material-colour-hex').value = '#fa0'; $('material-colour-hex').dispatchEvent(new Event('input', { bubbles: true }));
-    $('material-form').requestSubmit(); await sleep(600);
+    $('material-form').requestSubmit();
+    await wait(() => !$('material-dialog').open && lib().length === before + 1 && document.querySelector(`#materials-list [data-id="${lib().at(-1).id}"]`));
     const added = lib().at(-1);
     note(!$('material-dialog').open && lib().length === before + 1, 'submit closes the dialog and adds a material', lib().length);
     note(added.id === 'mat-brick-common-2', 'a duplicate name gets a unique id instead of overwriting', added.id);
     note(added.colour_hex === '#FFAA00' && added.category === 'custom' && added.type === 'Material', 'colour is normalised and the required category is set', added);
     note(!!document.querySelector(`#materials-list [data-id="${added.id}"]`), 'it appears in the materials list');
 
-    $('add-material-btn').click(); await sleep(300);
-    $('material-cancel').click(); await sleep(300);
+    $('add-material-btn').click(); await wait(() => $('material-dialog').open);
+    $('material-cancel').click(); await wait(() => !$('material-dialog').open);
     note(!$('material-dialog').open && lib().length === before + 1, 'cancel adds nothing');
     note(window.__errors === undefined || window.__errors.length === 0, 'no page errors', window.__errors);
     log.push('DONE'); show();

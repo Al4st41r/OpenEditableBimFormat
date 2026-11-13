@@ -13,18 +13,21 @@
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const until = async (cond, ms = 8000) => { const t0 = Date.now(); while (!cond()) { if (Date.now() - t0 > ms) throw new Error('timeout ' + cond); await sleep(100); } };
   const near = (a, b) => Math.abs(a - b) < 1e-6;
+  // wait for the state a check expects instead of a fixed pause (#186); on a timeout the check after it reports FAIL
+  const wait = (cond, ms) => until(() => { try { return cond(); } catch { return false; } }, ms).catch(() => {});
   (async () => {
     await until(() => E.junctions().length > 0 && E.junctionMarkers().length > 0);
-    await sleep(500);
+    await until(() => document.querySelector('#details-list .tree-item'));
     const orig = window.open; window.open = (...a) => (window.__popup = orig.apply(window, a));
     document.querySelector('#details-list .tree-item').click();
     await until(() => window.__popup && window.__popup.__detailEditor && window.__popup.__detailEditor.state(), 60000);   // a new page: slow to start when the machine is busy
-    await sleep(500);
     const P = window.__popup, d = P.document;
     // the plan, legend and usage rows live on the right panel's Used at tab
-    [...d.querySelectorAll('#right-panel .tab')].find((b) => b.textContent.startsWith('Used at')).click();
-    await sleep(200);
+    const usedAt = () => [...d.querySelectorAll('#right-panel .tab')].find((b) => b.textContent.startsWith('Used at'));
+    await until(usedAt);
+    usedAt().click();
     const markers = () => [...d.querySelectorAll('#right-panel .ref svg g[data-junction]')];
+    await wait(() => markers().length === 5 && d.querySelector('#right-panel .legend'));
     const marker = (id) => markers().find((g) => g.getAttribute('data-junction') === id);
     note(markers().length === 5, 'plan: five markers drawn (four corners and the padstone)', markers().length);
     note(d.querySelector('#right-panel .legend').textContent.includes('detail-corner-cavity-butt (4)') && d.querySelector('#right-panel .legend').textContent.includes('no detail (1)'), 'legend: 4 using the detail, 1 with none', d.querySelector('#right-panel .legend').textContent);
@@ -32,7 +35,7 @@
 
     // click a marker: highlights its row
     marker('junction-se-corner').dispatchEvent(new P.MouseEvent('click', { bubbles: true }));
-    await sleep(200);
+    await wait(() => d.querySelector('#right-panel .box.hl') && d.querySelector('#right-panel').textContent.includes('Show in 3D editor'));
     const hl = d.querySelector('#right-panel .box.hl');
     note(hl && hl.getAttribute('data-id') === 'junction-se-corner', 'click a marker: its usage row is highlighted');
     note(!!d.querySelector('#right-panel .ref + .legend') && d.querySelector('#right-panel').textContent.includes('Show in 3D editor'), 'click a marker: Show in 3D editor offered');
@@ -48,12 +51,12 @@
 
     // navigate between instances from the main editor
     [...document.querySelectorAll('#props-content button')].find((b) => b.textContent === 'junction-nw-corner').click();
-    await sleep(200);
+    await wait(() => near(E.cameraTarget().x, 0) && near(E.cameraTarget().y, 8.5) && /junction-nw-corner/.test(E.status()));
     note(near(E.cameraTarget().x, 0) && near(E.cameraTarget().y, 8.5), 'also used at: clicking junction-nw-corner moves the camera to the NW corner', E.cameraTarget());
     note(/junction-nw-corner/.test(E.status()), 'status', E.status());
 
     // toggle highlight off, click a marker with no detail
-    marker('junction-se-corner').dispatchEvent(new P.MouseEvent('click', { bubbles: true })); await sleep(150);
+    marker('junction-se-corner').dispatchEvent(new P.MouseEvent('click', { bubbles: true })); await wait(() => !d.querySelector('#right-panel .box.hl'));
     note(!d.querySelector('#right-panel .box.hl'), 'click the same marker again: highlight cleared');
     note(window.__errors.length === 0 && P.__errors.length === 0, 'no page errors', [...window.__errors, ...P.__errors]);
     log.push('DONE'); show();

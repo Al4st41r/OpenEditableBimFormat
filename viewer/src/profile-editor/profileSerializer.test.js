@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildJson, buildSvg, isStackedProfile } from './profileSerializer.js';
+import { buildJson, buildSvg, isStackedProfile, editorStateFromJson } from './profileSerializer.js';
 import { readdirSync, readFileSync } from 'node:fs';
 
 describe('buildJson', () => {
@@ -285,5 +285,37 @@ describe('line weights survive a save (#115)', () => {
   it('leaves them out when there are none, so the JSON stays free of empty objects', () => {
     const json = buildJson({ ...base, layers: [layers[1]], lineweights: {} });
     expect(json).not.toHaveProperty('lineweights');
+  });
+});
+
+describe('a profile opened and saved unchanged is written back as it was (#184)', () => {
+  const root = new URL('../../../example/', import.meta.url);
+  const files = readdirSync(root).filter((b) => b.endsWith('.oebf')).flatMap((b) => {
+    const dir = new URL(`${b}/profiles/`, root);
+    try { return readdirSync(dir).filter((f) => f.endsWith('.json')).map((f) => [`${b}/${f}`, new URL(f, dir)]); } catch { return []; }
+  });
+
+  it('there are example profiles to check', () => expect(files.length).toBeGreaterThan(5));
+
+  it.each(files)('%s', (_name, url) => {
+    const json = JSON.parse(readFileSync(url, 'utf8'));
+    expect(buildJson(editorStateFromJson(json))).toEqual(json);
+  });
+
+  it('keeps region coordinates as stored, y up from the base', () => {
+    const vertices = [{ x: 0, y: 0.15 }, { x: 0.102, y: 0.15 }, { x: 0.102, y: 0.1505 }, { x: 0, y: 0.1505 }];
+    const json = { id: 'p', width: 0.102, origin: { x: 0, y: 0 }, alignment: 'center',
+      assembly: [{ layer: 1, name: 'DPC', material_id: 'm', function: 'membrane', type: 'region', vertices }] };
+    expect(buildJson(editorStateFromJson(json)).assembly[0].vertices).toEqual(vertices);
+  });
+
+  it('a profile with no height limit or FFL stays without them, and a left-face alignment is kept', () => {
+    const state = editorStateFromJson({ id: 'p', width: 0.1, origin: { x: 0, y: 0 }, alignment: 'left-face',
+      assembly: [{ layer: 1, name: 'A', material_id: 'm', thickness: 0.1, function: 'structure' }] });
+    expect(state.height_limit_m).toBeUndefined();
+    const out = buildJson(state);
+    expect(out).not.toHaveProperty('height_limit_m');
+    expect(out).not.toHaveProperty('ffl_m');
+    expect(out.alignment).toBe('left-face');
   });
 });

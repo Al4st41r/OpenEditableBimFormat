@@ -250,3 +250,21 @@ describe('buildCustomJunctionMesh', () => {
     expect(pos.count).toBeGreaterThan(0);
   });
 });
+
+// ─── Non-convex custom faces (#186) ────────────────────────────────────────
+
+test('buildCustomJunctionMesh covers a non-convex (L-shaped) face once, not with a fan across its notch', () => {
+  const L = [[0.3, 0], [0.3, 0.1], [0.1, 0.1], [0.1, 0.3], [0, 0.3], [0, 0]];
+  const geom = { junction_id: 'j', vertices: L.map(([x, y]) => ({ x, y, z: 0 })), faces: [{ material_id: 'm', indices: [0, 1, 2, 3, 4, 5] }] };
+  const group = buildCustomJunctionMesh(geom, new Map());
+  const pos = group.children[0].geometry.attributes.position;
+  let area = 0, upward = true;
+  for (let t = 0; t < pos.count; t += 3) {
+    const a = new THREE.Vector3().fromBufferAttribute(pos, t), b = new THREE.Vector3().fromBufferAttribute(pos, t + 1), c = new THREE.Vector3().fromBufferAttribute(pos, t + 2);
+    const n = b.clone().sub(a).cross(c.clone().sub(a));
+    area += n.length() / 2;
+    if (n.z <= 0) upward = false;
+  }
+  expect(area).toBeCloseTo(0.05, 6);
+  expect(upward).toBe(true);
+});

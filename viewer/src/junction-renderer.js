@@ -17,6 +17,7 @@
 
 import * as THREE from 'three';
 import { oebfTrimPlanesToPlanes } from './junction-trimmer.js';
+import { polygonTriangles3d } from './geometry/polygonTriangles.js';
 
 /**
  * How far (metres) each trim plane is moved to the discarded side. A butting wall's flat end cap
@@ -128,12 +129,13 @@ export function buildCustomJunctionMesh(geomJson, materialMap) {
     const positions = [];
     const normals = [];
 
-    // Triangulate each face (fan from vertex 0) and compute face normals
+    // Triangulate each face (ear clipping, so a non-convex face such as an L is covered correctly, #186) and compute
+    // face normals
     for (const indices of faceList) {
-      const v0 = src[indices[0]];
-      for (let i = 1; i < indices.length - 1; i++) {
-        const vA = src[indices[i]];
-        const vB = src[indices[i + 1]];
+      for (const [a, b, c] of polygonTriangles3d(indices.map(i => src[i]))) {
+        const v0 = src[indices[a]];
+        const vA = src[indices[b]];
+        const vB = src[indices[c]];
 
         positions.push(v0.x, v0.y, v0.z);
         positions.push(vA.x, vA.y, vA.z);

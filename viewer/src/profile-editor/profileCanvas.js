@@ -11,6 +11,7 @@
 
 import { fill2d } from '../materialFill.js';
 import { profileMembraneMarks, MEMBRANE_INK } from '../membrane.js';
+import { wallWidth } from './profileSerializer.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const WALL_HEIGHT = 2.7; // metres — fixed for v0.1
@@ -30,6 +31,38 @@ export function getView() { return _view; }
 export function contentSize(svgEl) {
   return { w: parseFloat(svgEl.dataset.contentW) || 0.3, h: parseFloat(svgEl.dataset.contentH) || WALL_HEIGHT };
 }
+
+/**
+ * Profile y to SVG y on this canvas, and back (the mapping is its own inverse). A wall profile is drawn with y up, as
+ * the sweep and the detail drawings read it (#184): profile y = 0 is the base of the wall and SVG y is its negative.
+ * A stacked slab is drawn in its own y-down frame, layer 1 at the top. Everything outside this module (snap targets,
+ * guides, drawing tools, the view window) works in profile coordinates and converts here.
+ */
+export function svgY(svgEl, y) { return svgEl?.dataset?.yUp === '0' ? y : (y === 0 ? 0 : -y); }
+
+/** A pointer position (client pixels) as a profile point, or null before the canvas is laid out. */
+export function clientToProfile(svgEl, clientX, clientY) {
+  const ctm = svgEl.getScreenCTM();
+  if (!ctm) return null;
+  const pt = svgEl.createSVGPoint();
+  pt.x = clientX; pt.y = clientY;
+  const p = pt.matrixTransform(ctm.inverse());
+  return { x: p.x, y: svgY(svgEl, p.y) };
+}
+
+/** The visible window in profile coordinates: { x, y, w, h } with y the lower edge on a y-up canvas. */
+export function visibleBox(svgEl) {
+  const b = svgEl.viewBox.baseVal;
+  return { x: b.x, y: svgEl.dataset.yUp === '0' ? b.y : -(b.y + b.height), w: b.width, h: b.height };
+}
+
+/** The SVG viewBox for a window in profile coordinates. Pure. */
+export function viewBoxFor(box, yUp) {
+  return `${box.x} ${yUp ? -(box.y + box.h) : box.y} ${box.w} ${box.h}`;
+}
+
+/** "x,y x,y ..." for an SVG points attribute, y mapped. */
+function _pts(svgEl, points) { return points.map(p => `${p.x},${svgY(svgEl, p.y)}`).join(' '); }
 
 /**
  * The window that frames the drawn detail: the region layers when there are any (they are the detail), otherwise the
@@ -99,7 +132,7 @@ function _drawRepeat(svgEl, layer, colour) {
   g.setAttribute('pointer-events', 'none');
   for (const ghost of ghosts) {
     const poly = document.createElementNS(SVG_NS, 'polygon');
-    poly.setAttribute('points', ghost.points.map(p => `${p.x},${p.y}`).join(' '));
+    poly.setAttribute('points', _pts(svgEl, ghost.points));
     poly.setAttribute('fill', colour);
     poly.setAttribute('fill-opacity', '0.45');
     poly.setAttribute('stroke', '#555');
@@ -119,11 +152,11 @@ function _drawRepeat(svgEl, layer, colour) {
   svgEl.appendChild(g);
 }
 
-function _applyView(svgEl, w, h) {
+function _applyView(svgEl, w, h, yUp) {
   svgEl.dataset.contentW = String(w);
   svgEl.dataset.contentH = String(h);
-  const v = _view;
-  svgEl.setAttribute('viewBox', v ? `${v.x} ${v.y} ${v.w} ${v.h}` : `0 0 ${w} ${h}`);
+  svgEl.dataset.yUp = yUp ? '1' : '0';
+  svgEl.setAttribute('viewBox', viewBoxFor(_view ?? { x: 0, y: 0, w, h }, yUp));
 }
 
 export function initCanvas(svgEl) {
@@ -161,10 +194,9 @@ export function renderCanvas(svgEl, layers, originX, matMap, selectedIndex = nul
 
   if (opts.stacked) { _renderStacked(svgEl, layers, originX, matMap, selectedIndex, opts); return; }
 
-  const totalWidth = layers
-    .filter(l => l.type !== 'region')
-    .reduce((s, l) => s + (l.thickness ?? 0), 0) || 0.1;
-  _applyView(svgEl, totalWidth, WALL_HEIGHT);
+  const totalWidth = wallWidth(layers) || 0.1;   // a profile drawn only as regions is as wide as they are
+  _applyView(svgEl, totalWidth, WALL_HEIGHT, true);
+  const Y = (y) => String(svgY(svgEl, Math.round(y * 1e6) / 1e6));
 
   let cursor = 0;
   layers.forEach((layer, i) => {
@@ -173,7 +205,7 @@ export function renderCanvas(svgEl, layers, originX, matMap, selectedIndex = nul
     if (layer.type === 'region' && Array.isArray(layer.vertices) && layer.vertices.length >= 3) {
       _drawRepeat(svgEl, layer, colour);
       const poly = document.createElementNS(SVG_NS, 'polygon');
-      poly.setAttribute('points', layer.vertices.map(v => `${v.x},${v.y}`).join(' '));
+      poly.setAttribute('points', _pts(svgEl, layer.vertices));
       poly.setAttribute('fill', colour);
       poly.setAttribute('pointer-events', 'all');   // air has no fill but is still picked by clicking inside it
       poly.setAttribute('stroke', i === selectedIndex ? '#0080ff' : '#333');
@@ -189,7 +221,7 @@ export function renderCanvas(svgEl, layers, originX, matMap, selectedIndex = nul
     // Band layer (rect) — existing code
     const rect = document.createElementNS(SVG_NS, 'rect');
     rect.setAttribute('x',      String(Math.round(cursor * 1e6) / 1e6));
-    rect.setAttribute('y',      '0');
+    rect.setAttribute('y',      Y(WALL_HEIGHT));   // the band runs from the base (y = 0) up
     rect.setAttribute('width',  String(Math.round((layer.thickness ?? 0) * 1e6) / 1e6));
     rect.setAttribute('height', String(WALL_HEIGHT));
     rect.setAttribute('fill',   colour);
@@ -211,9 +243,9 @@ export function renderCanvas(svgEl, layers, originX, matMap, selectedIndex = nul
   const clampedX = Math.max(0, Math.min(originX, totalWidth));
   const line = document.createElementNS(SVG_NS, 'line');
   line.setAttribute('x1', String(clampedX));
-  line.setAttribute('y1', '-0.020');
+  line.setAttribute('y1', Y(-0.020));
   line.setAttribute('x2', String(clampedX));
-  line.setAttribute('y2', String(WALL_HEIGHT + 0.020));
+  line.setAttribute('y2', Y(WALL_HEIGHT + 0.020));
   line.setAttribute('stroke', 'red');
   line.setAttribute('stroke-width', '0.002');
   svgEl.appendChild(line);
@@ -230,7 +262,7 @@ export function renderCanvas(svgEl, layers, originX, matMap, selectedIndex = nul
   const { ffl_m: ffl = 0, height_limit_m: hlimit } = opts;
 
   if (ffl > 0) {
-    const yFfl = Math.round((WALL_HEIGHT - ffl) * 1e6) / 1e6;
+    const yFfl = Number(Y(ffl));
     const fflLine = document.createElementNS(SVG_NS, 'line');
     fflLine.setAttribute('x1', '0'); fflLine.setAttribute('y1', String(yFfl));
     fflLine.setAttribute('x2', String(totalWidth * 10)); fflLine.setAttribute('y2', String(yFfl));
@@ -246,8 +278,8 @@ export function renderCanvas(svgEl, layers, originX, matMap, selectedIndex = nul
     svgEl.appendChild(fflLabel);
   }
 
-  if (hlimit !== undefined) {
-    const yLimit = Math.round((WALL_HEIGHT - hlimit) * 1e6) / 1e6;
+  if (typeof hlimit === 'number' && Number.isFinite(hlimit)) {   // no limit set: no line (#184)
+    const yLimit = Number(Y(hlimit));
     const limitLine = document.createElementNS(SVG_NS, 'line');
     limitLine.setAttribute('x1', '0'); limitLine.setAttribute('y1', String(yLimit));
     limitLine.setAttribute('x2', String(totalWidth * 10)); limitLine.setAttribute('y2', String(yLimit));
@@ -272,7 +304,7 @@ function _renderStacked(svgEl, layers, originX, matMap, selectedIndex, opts) {
   const W = opts.planWidth > 0 ? opts.planWidth : 1;
   const bands = layers.map((layer, index) => ({ layer, index })).filter(({ layer }) => layer.type !== 'region');
   const total = Math.round(bands.reduce((s, { layer }) => s + (layer.thickness ?? 0), 0) * 1e6) / 1e6 || 0.1;
-  _applyView(svgEl, W, total);
+  _applyView(svgEl, W, total, false);
   let cursor = 0;
   for (const { layer, index } of bands) {
     const t = Math.round((layer.thickness ?? 0) * 1e6) / 1e6;
@@ -315,7 +347,7 @@ function _renderStacked(svgEl, layers, originX, matMap, selectedIndex, opts) {
 function _drawMembranes(svgEl, layers, matMap, selectedIndex, opts, geom) {
   for (const mark of profileMembraneMarks(layers, matMap, geom)) {
     const el = document.createElementNS(SVG_NS, mark.closed ? 'polygon' : 'polyline');
-    el.setAttribute('points', mark.points.map((p) => `${p.x},${p.y}`).join(' '));
+    el.setAttribute('points', _pts(svgEl, mark.points));
     const ink = mark.index === selectedIndex ? '#0080ff' : MEMBRANE_INK;
     el.setAttribute('fill', mark.closed ? ink : 'none');
     el.setAttribute('stroke', ink);
@@ -363,14 +395,9 @@ function _setupOriginDrag(svgEl) {
 
 /** Wheel zooms about the pointer; middle-drag or Shift-drag pans. Both fire 'view-changed' on the svg. */
 function _setupZoomPan(svgEl) {
-  const current = () => {
-    const b = svgEl.viewBox.baseVal;
-    return { x: b.x, y: b.y, w: b.width, h: b.height };
-  };
-  const toSvg = (cx, cy) => {
-    const pt = svgEl.createSVGPoint(); pt.x = cx; pt.y = cy;
-    return pt.matrixTransform(svgEl.getScreenCTM().inverse());
-  };
+  // the view is kept in profile coordinates, so it survives a redraw whichever way up the canvas is
+  const current = () => visibleBox(svgEl);
+  const toSvg = (cx, cy) => clientToProfile(svgEl, cx, cy);
   const changed = () => svgEl.dispatchEvent(new CustomEvent('view-changed'));
 
   svgEl.addEventListener('wheel', e => {
@@ -392,7 +419,8 @@ function _setupZoomPan(svgEl) {
   window.addEventListener('mousemove', e => {
     if (!pan || !pan.ctm) return;
     const dx = (e.clientX - pan.cx) / pan.ctm.a, dy = (e.clientY - pan.cy) / pan.ctm.d;
-    _view = { ...pan.v, x: pan.v.x - dx, y: pan.v.y - dy };
+    const up = svgEl.dataset.yUp !== '0';   // dragging down shows what is above: a higher y on a y-up canvas
+    _view = { ...pan.v, x: pan.v.x - dx, y: up ? pan.v.y + dy : pan.v.y - dy };
     changed();
   });
   window.addEventListener('mouseup', () => { pan = null; });

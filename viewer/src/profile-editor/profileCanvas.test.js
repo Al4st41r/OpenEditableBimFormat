@@ -1,5 +1,5 @@
 import { test, expect } from 'vitest';
-import { fitBox, repeatGhosts, repeatLabel } from './profileCanvas.js';
+import { fitBox, repeatGhosts, repeatLabel, svgY, viewBoxFor } from './profileCanvas.js';
 
 test('fitBox frames the whole profile when there are no regions', () => {
   const b = fitBox([{ thickness: 0.3 }], { w: 0.3, h: 2.7 });
@@ -37,4 +37,20 @@ test('fitBox frames the first three rows of a repeating region (#167)', () => {
   const b = fitBox([brick], { w: 0.1, h: 2.7 });
   expect(b.y + b.h).toBeGreaterThan(0.215);
   expect(b.y + b.h).toBeLessThan(0.3);
+});
+
+test('a wall canvas draws profile y up: SVG y is its negative; a stacked slab keeps its own frame (#184)', () => {
+  const wall = { dataset: { yUp: '1' } }, slab = { dataset: { yUp: '0' } };
+  expect(svgY(wall, 0.15)).toBe(-0.15);
+  expect(svgY(wall, svgY(wall, 0.15))).toBe(0.15);
+  expect(svgY(wall, 0)).toBe(0);
+  expect(svgY(slab, 0.15)).toBe(0.15);
+  // a DPC 150 mm up sits above the base (a larger SVG y is lower on screen)
+  expect(svgY(wall, 0.15)).toBeLessThan(svgY(wall, 0));
+});
+
+test('viewBoxFor turns a window in profile coordinates into an SVG viewBox (#184)', () => {
+  expect(viewBoxFor({ x: 0, y: 0, w: 0.3, h: 2.7 }, true)).toBe('0 -2.7 0.3 2.7');
+  expect(viewBoxFor({ x: -0.01, y: 0.1, w: 0.2, h: 0.1 }, true)).toBe('-0.01 -0.2 0.2 0.1');
+  expect(viewBoxFor({ x: 0, y: 0, w: 1, h: 0.2 }, false)).toBe('0 0 1 0.2');
 });

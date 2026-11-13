@@ -16,18 +16,21 @@
   const box3 = (g) => { let b = null; g.traverse((o) => { if (o.geometry) { o.geometry.computeBoundingBox(); const bb = o.geometry.boundingBox.clone(); b = b ? b.union(bb) : bb; } }); return b; };
   const J = (jid) => JSON.parse(E.adapter()._map.get(`junctions/${jid}.json`));
   const marker = (jid) => E.junctionMarkers().find((m) => m.id === jid);
+  // wait for the state a check expects instead of a fixed pause (#186); on a timeout the check after it reports FAIL
+  const wait = (cond, ms) => until(() => { try { return cond(); } catch { return false; } }, ms).catch(() => {});
 
   (async () => {
     await until(() => E.junctions().length > 0 && E.junctionMarkers().length > 0);
-    await sleep(500);
+    await wait(() => E.detailGroups(id).length === 4 && document.querySelector('#details-list .tree-item'));
     const orig = window.open; window.open = (...a) => (window.__popup = orig.apply(window, a));
     document.querySelector('#details-list .tree-item').click();
     await until(() => window.__popup && window.__popup.__detailEditor && window.__popup.__detailEditor.state(), 60000);   // a new page: slow to start when the machine is busy
-    await sleep(400);
     const P = window.__popup, d = P.document;
-    // junction usage is on the popup's right-panel 'Used at' tab
-    [...d.querySelectorAll('#right-panel .tab')].find((b) => b.textContent.startsWith('Used at')).click(); await sleep(100);
     const pbox = (jid) => [...d.querySelectorAll('#right-panel .box')].find((b) => b.textContent.includes(jid));
+    // junction usage is on the popup's right-panel 'Used at' tab
+    const usedAt = () => [...d.querySelectorAll('#right-panel .tab')].find((b) => b.textContent.startsWith('Used at'));
+    await until(usedAt);
+    usedAt().click(); await until(() => pbox('junction-sw-corner'));
     const pbtn = (root, label) => [...root.querySelectorAll('button')].find((b) => b.textContent === label);
     note(E.detailGroups(id).length === 4, 'start: four detail groups in the 3D view');
 
@@ -39,9 +42,9 @@
     note(/junction-sw-corner updated/.test(E.status()), 'unassign: status', E.status());
 
     // assign it again via the candidate list
-    await sleep(300);
-    const cand = [...d.querySelectorAll('#right-panel .item')].find((i) => i.querySelector('button') && i.textContent.includes('junction-sw-corner'));
-    pbtn(cand, 'Assign…').click(); await sleep(200);
+    const candidate = () => [...d.querySelectorAll('#right-panel .item')].find((i) => i.querySelector('button') && i.textContent.includes('junction-sw-corner'));
+    await until(candidate);
+    pbtn(candidate(), 'Assign…').click(); await until(() => d.getElementById('loc-dialog').open);
     pbtn(d.getElementById('loc-dialog'), 'Assign').click();
     await until(() => E.detailGroups(id).length === 4);
     note(!!groupOf('junction-sw-corner') && J('junction-sw-corner').detail_id === id, 'assign: SW group is back in the 3D view; file has the link');

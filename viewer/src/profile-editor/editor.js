@@ -12,10 +12,10 @@
 
 import { HttpAdapter, BUNDLE_NAME } from '../detail-editor/httpAdapter.js';
 import { loadDetailContext } from '../detail-editor/detailStore.js';
-import { initCanvas, renderCanvas, setOriginSnap, setView, fitBox, contentSize } from './profileCanvas.js';
+import { initCanvas, renderCanvas, setOriginSnap, setView, fitBox, contentSize, visibleBox } from './profileCanvas.js';
 import { snapTargets, snapToTargets } from './profileSnap.js';
 import { initForm, setLayers, getLayers, highlightRow, addBlankLayer } from './profileForm.js';
-import { buildJson, buildSvg, isStackedProfile } from './profileSerializer.js';
+import { buildJson, buildSvg, isStackedProfile, editorStateFromJson, ALIGNMENTS } from './profileSerializer.js';
 import { addGuide, getGuides, clearGuides, renderGuidelines, setupGuideDrag } from './profileGuidelines.js';
 import { activateRectTool, activatePolygonTool, deactivateTool } from './canvasDrawTools.js';
 import { findUses, renameRefs, matchesSearch } from './profileRefs.js';
@@ -60,8 +60,7 @@ unitsSelect.addEventListener('change', () => {
   localStorage.setItem('oebf-units', unitsSelect.value);
   _refreshUnitLabels();
   if (currentId) {
-    fflInput.value         = toDisplay(ffl_m);
-    heightLimitInput.value = toDisplay(height_limit_m ?? 0);
+    _syncLevelInputs();
     setLayers(layerList, layers);
     _renderCanvas();
   }
@@ -93,11 +92,11 @@ let currentId  = null;
 let currentDesc = '';
 let layers     = [];
 let originX    = 0;
-let profileType    = 'wall';
+let profileType    = 'wall';     // undefined when the profile does not say (shown as Wall, not written until changed)
 let alignment      = 'center';   // a slab can be aligned to its top or bottom face, which stacks its layers
 let planWidth      = 1;          // nominal plan width of a stacked slab profile, metres
-let ffl_m          = 0.0;
-let height_limit_m = 2.4;
+let ffl_m;                       // undefined: the profile has none (drawn as 0, not written until set) (#184)
+let height_limit_m;              // undefined: no height limit (the field is empty, nothing is written) (#184)
 let detail = false;
 let lineweights = {};   // the profile's own pens (cut, seen, hatch, annotation); blank ones use the defaults
 let thin = localStorage.getItem('oebf-thin') === '1';
@@ -120,11 +119,9 @@ function _applySnapshot(snap) {
   ({ originX, profileType, alignment, planWidth, ffl_m, height_limit_m, detail } = snap);
   lineweights = { ...snap.lineweights };
   layers = snap.layers;
-  profileTypeSelect.value = profileType;
-  alignmentSelect.value = alignment;
+  profileTypeSelect.value = profileType ?? 'wall';
   _syncAlignmentControl();
-  fflInput.value = toDisplay(ffl_m);
-  heightLimitInput.value = toDisplay(height_limit_m ?? 0);
+  _syncLevelInputs();
   _syncLineweightControls();
   if (selectedLayerIndex !== null && selectedLayerIndex >= layers.length) selectedLayerIndex = null;
   setLayers(layerList, layers);
@@ -211,13 +208,13 @@ setupGuideDrag(profileSvg, () => _renderCanvas(), () => _renderCanvas(), (axis, 
 setOriginSnap((value, tol) => _snapTo('x', value, tol));
 
 document.getElementById('add-h-guide-btn').addEventListener('click', () => {
-  const vb = profileSvg.viewBox.baseVal;   // the visible window, so the guide lands where you are looking
-  addGuide('h', Math.round((vb.y + vb.height / 2) * 1e4) / 1e4);
+  const vb = visibleBox(profileSvg);   // the visible window, so the guide lands where you are looking
+  addGuide('h', Math.round((vb.y + vb.h / 2) * 1e4) / 1e4);
   _renderCanvas();
 });
 document.getElementById('add-v-guide-btn').addEventListener('click', () => {
-  const vb = profileSvg.viewBox.baseVal;
-  addGuide('v', Math.round((vb.x + vb.width / 2) * 1e4) / 1e4);
+  const vb = visibleBox(profileSvg);
+  addGuide('v', Math.round((vb.x + vb.w / 2) * 1e4) / 1e4);
   _renderCanvas();
 });
 
@@ -228,16 +225,36 @@ const heightLimitInput  = document.getElementById('height-limit-input');
 
 profileTypeSelect.addEventListener('change', () => {
   profileType = profileTypeSelect.value;
-  if (profileType !== 'slab') { alignment = 'center'; alignmentSelect.value = 'center'; }
+  // a wall cannot be stacked: a face alignment of a slab falls back to the centre; left and right faces are kept
+  if (profileType !== 'slab' && (alignment === 'top-face' || alignment === 'bottom-face')) alignment = 'center';
   _syncAlignmentControl();
   _renderCanvas();
   _noteChange();
 });
 alignmentSelect.addEventListener('change', () => { alignment = alignmentSelect.value; _renderCanvas(); _noteChange(); });
-/** The alignment choice only applies to slabs. */
-function _syncAlignmentControl() { alignmentSelect.disabled = profileType !== 'slab'; }
-fflInput.addEventListener('change',          () => { ffl_m          = fromDisplay(parseFloat(fflInput.value) || 0);                       _renderCanvas(); _noteChange(); });
-heightLimitInput.addEventListener('change',  () => { const p = parseFloat(heightLimitInput.value); height_limit_m = isNaN(p) ? undefined : fromDisplay(p); _renderCanvas(); _noteChange(); });
+/**
+ * The Align control shows the profile's own alignment (#184): every value the schema allows, and the stacked ones
+ * (top and bottom face) only for a slab. A value outside the list is shown as it is rather than as Centre.
+ */
+function _syncAlignmentControl() {
+  const slab = profileType === 'slab';
+  const opts = ALIGNMENTS.map(([value, label]) => Object.assign(document.createElement('option'), {
+    value, textContent: label, disabled: !slab && (value === 'top-face' || value === 'bottom-face'),
+  }));
+  if (!ALIGNMENTS.some(([v]) => v === alignment)) opts.push(Object.assign(document.createElement('option'), { value: alignment, textContent: alignment }));
+  alignmentSelect.replaceChildren(...opts);
+  alignmentSelect.value = alignment;
+  alignmentSelect.disabled = false;
+}
+/** FFL and height limit in the current unit; a value the profile does not have shows empty. */
+function _syncLevelInputs() {
+  fflInput.value         = ffl_m === undefined ? '' : toDisplay(ffl_m);
+  heightLimitInput.value = height_limit_m === undefined ? '' : toDisplay(height_limit_m);
+}
+/** A level field's value in metres, or undefined when it is cleared. */
+function _levelValue(input) { const p = parseFloat(input.value); return Number.isFinite(p) ? fromDisplay(p) : undefined; }
+fflInput.addEventListener('change',          () => { ffl_m          = _levelValue(fflInput);         _renderCanvas(); _noteChange(); });
+heightLimitInput.addEventListener('change',  () => { height_limit_m = _levelValue(heightLimitInput); _renderCanvas(); _noteChange(); });
 
 // Apply initial unit labels (fflInput/heightLimitInput are now declared)
 _refreshUnitLabels();
@@ -392,39 +409,13 @@ profileSelect.addEventListener('change', async () => {
   if (!await _okToDiscard()) { profileSelect.value = currentId ?? ''; return; }
   clearGuides();
   const data = await _readJson(`profiles/${id}.json`);
-  currentId   = data.id;
-  currentDesc = data.description ?? '';
-  originX     = data.origin?.x ?? data.width / 2;
-  layers      = data.assembly.map(l => ({
-    name:        l.name,
-    material_id: l.material_id,
-    thickness:   l.thickness,
-    function:    l.function,
-    ...(l.tags && { tags: l.tags }),
-    ...(l.outline_mm !== undefined && { outline_mm: l.outline_mm }),
-    ...(l.type === 'region' ? {
-      type:     'region',
-      vertices: l.vertices ?? [],
-      ...(l.depth_m    !== undefined && { depth_m:    l.depth_m    }),
-      ...(l.repeat_x_m !== undefined && { repeat_x_m: l.repeat_x_m }),
-      ...(l.repeat_y_m !== undefined && { repeat_y_m: l.repeat_y_m }),
-      ...(l.offset_x_m !== undefined && { offset_x_m: l.offset_x_m }),
-      ...(l.offset_y_m !== undefined && { offset_y_m: l.offset_y_m }),
-    } : {}),
-  }));
-  profileType    = data.profile_type    ?? 'wall';
-  ffl_m          = data.ffl_m           ?? 0.0;
-  height_limit_m = data.height_limit_m  ?? 2.4;
-  detail         = data.detail === true;
-  lineweights    = { ...(data.lineweights ?? {}) };
+  // the inverse of buildJson, so a profile saved unchanged is written back as it was (#184)
+  ({ id: currentId, description: currentDesc, originX, layers, profileType, alignment, planWidth, ffl_m, height_limit_m,
+     detail, lineweights } = editorStateFromJson(data));
   _syncLineweightControls();
-  profileTypeSelect.value   = profileType;
-  alignment = data.alignment ?? 'center';
-  planWidth = data.width > 0 ? data.width : 1;
-  alignmentSelect.value = ['center', 'top-face', 'bottom-face'].includes(alignment) ? alignment : 'center';
+  profileTypeSelect.value = profileType ?? 'wall';
   _syncAlignmentControl();
-  fflInput.value            = toDisplay(ffl_m);
-  heightLimitInput.value    = toDisplay(height_limit_m);
+  _syncLevelInputs();
   selectedLayerIndex = null;
   setView(null);            // a different profile: show all of it
   setLayers(layerList, layers);
@@ -587,9 +578,9 @@ newBtn.addEventListener('click', async () => {
   currentId   = id;
   currentDesc = '';
   originX     = 0.1;
-  profileType = 'wall'; ffl_m = 0.0; height_limit_m = 2.4; detail = false; lineweights = {}; _syncLineweightControls();
-  alignment = 'center'; planWidth = 1; alignmentSelect.value = 'center';
-  profileTypeSelect.value = 'wall'; _syncAlignmentControl(); fflInput.value = toDisplay(0.0); heightLimitInput.value = toDisplay(2.4);
+  profileType = 'wall'; ffl_m = undefined; height_limit_m = undefined; detail = false; lineweights = {}; _syncLineweightControls();
+  alignment = 'center'; planWidth = 1;
+  profileTypeSelect.value = 'wall'; _syncAlignmentControl(); _syncLevelInputs();
   layers      = [{ name: '', material_id: matIds[0] ?? '', thickness: 0.1, function: 'structure' }];
   selectedLayerIndex = null;
   setView(null);            // a different profile: show all of it
