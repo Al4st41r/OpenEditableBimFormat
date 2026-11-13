@@ -48,7 +48,7 @@ import { FloorTool } from './floorTool.js';
 import { JunctionEditor } from './junctionEditor.js';
 import { DrawingTool } from './drawingTool.js';
 import { PathEditTool } from './pathEditTool.js';
-import { FsaAdapter, MemoryAdapter, ServerAdapter, LIVE_BASE, readJsonOr, newBundleFolder } from './storageAdapter.js';
+import { FsaAdapter, MemoryAdapter, ServerAdapter, LIVE_BASE, readJsonOr, readJsonSkippingMissing, newBundleFolder } from './storageAdapter.js';
 import { ARCHIVE_ACCEPT } from '../loader/loadBundleZstd.js';
 import { bundleMessage, isMessage, AXO_READY } from '../detail-axo/editorHandoff.js';
 import { icon } from '../ui/icons.js';
@@ -779,13 +779,10 @@ async function _loadAndRenderBundleInner(adapter, keepView) {
   // Load storeys
   storeyManager.setAdapter(adapter);
   setLibraryAdapter(adapter);
+  // Only a missing group file is skipped. Any other failure stops the load, as a failed model.json read does: the
+  // storey would otherwise be left out here and its id dropped by the next model.json sync (#171).
+  const storeyGroups = await readJsonSkippingMissing(adapter, (model.storeys ?? []).map(id => `groups/${id}.json`));
   try {
-    const storeyIds = model.storeys ?? [];
-    const storeyGroups = [];
-    for (const id of storeyIds) {
-      try { storeyGroups.push(await readEntity(adapter, `groups/${id}.json`)); }
-      catch { /* skip missing */ }
-    }
     // Bundles that describe their levels in model.hierarchy (the examples) have no group files: take them from there.
     storeyManager.loadFromBundle(mergeStoreyGroups(model, storeyGroups));
   } catch { /* ignore */ }

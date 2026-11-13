@@ -38,6 +38,23 @@ export async function readJsonOr(adapter, path, fallback) {
   catch (err) { if (isNotFound(err)) return fallback; throw err; }
 }
 
+/**
+ * Read several JSON files, leaving out those that are not there. Any other failure is thrown, naming the file, so
+ * that a caller which later writes an index from what it read (the storeys in model.json) never drops an entry it
+ * merely could not read (#171).
+ */
+export async function readJsonSkippingMissing(adapter, paths) {
+  const out = [];
+  for (const path of paths) {
+    try { out.push(await adapter.readJson(path)); }
+    catch (err) {
+      if (isNotFound(err)) continue;
+      throw new Error(`${path} could not be read: ${err.message}`, { cause: err });
+    }
+  }
+  return out;
+}
+
 // ── FsaAdapter ───────────────────────────────────────────────────────────────
 
 export class FsaAdapter {
