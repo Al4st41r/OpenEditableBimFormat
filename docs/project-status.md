@@ -118,6 +118,7 @@ The open issue list is the plan: `gh issue list --state open`. On 2026-11-12, #1
 | #168 | CI/SfB codes on the NMB materials need a check against a real CI/SfB table | 8 |
 | #187 | Sloping wall tops: choose how to store them (decision needed; `docs/plans/2026-11-13-sloping-wall-tops.md`) | 8 |
 | #188-#192 | Leftovers from #179-#186 (empty SVG for region-only profiles, viewer IFC gaps, IFC export edge cases, coursed corners, edge stretch) | 8 |
+| #193 | Save downloads a .oebf.zip instead of an OEBF file (.oebfz) | 8 |
 | #150 | Live copy on its own subdomain | Backlog |
 | #117 | Quantities and embodied carbon panel | Backlog |
 | #128 | Research: compare OEBF with IFC (tokens, readability, schema and CLI completeness) | Backlog |
