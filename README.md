@@ -146,7 +146,7 @@ cd viewer && npx playwright test
 cd ifc-tools && uv run pytest
 ```
 
-At 2026-11-13: 2,270 Vitest tests in 146 files, 460 pytest tests (445 in ifc-tools, 15 in live-server) and 60 Playwright end-to-end tests, all passing.
+At 2026-11-13: 2,332 Vitest tests in 148 files, 514 pytest tests (499 in ifc-tools, 15 in live-server) and 62 Playwright end-to-end tests, all passing.
 
 ---
 
