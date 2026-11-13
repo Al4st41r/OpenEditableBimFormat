@@ -1,5 +1,5 @@
 {
-  "description": "What each shared IFC fixture must import as, in both IFC importers (see make_fixtures.py). Segments are [start, end] in world metres; width and height_limit_m are the profile's; regions give the count, total area (to 2%: curves are drawn with chords) and [min x, max x, min y, max y] of a section's regions; materials are the sorted material ids of the profile's layers or regions.",
+  "description": "What each shared IFC fixture must import as, in both IFC importers (see make_fixtures.py). Segments are [start, end] in world metres; width and height_limit_m are the profile's; regions give the count, total area (to 2%: curves are drawn with chords) and [min x, max x, min y, max y] of a section's regions; materials are the sorted material ids of the profile's layers or regions. Optional: segment_types (line or arc, in order), arc_radius (the distance of an arc's start, mid and end from the origin), either_direction (the path may run the other way), layers (the band names, left to right), layer_thicknesses, origin_x (the profile's), openings (path_position, width_m, height_m, sill_height_m of each, along the path), and per fixture slabs (outline points in order, from any start, either way round; thickness_m, elevation_m, material_id).",
   "fixtures": {
     "wall-box.ifc": {
       "description": "A wall extruded up from a 5 m x 0.3 m footprint, 3 m high, its placement moved to (1, 2, 0), with a layer set.",
@@ -152,6 +152,441 @@
           },
           "materials": [
             "mat-concrete"
+          ]
+        }
+      ]
+    },
+    "wall-layers-positive.ifc": {
+      "description": "A wall swept along X from a 0.3 m section, as OEBF writes one, with a layer set used POSITIVE from -0.1 m: block (0.2) from -0.1 to 0.1 m and brick (0.1) from 0.1 to 0.2 m across its local Y, which is its left. So the brick is on the left and the reference line 0.2 m from the left face (#180).",
+      "elements": [
+        {
+          "ifc_type": "IfcWall",
+          "segments": [
+            [
+              [
+                0,
+                0,
+                0
+              ],
+              [
+                4,
+                0,
+                0
+              ]
+            ]
+          ],
+          "width": 0.3,
+          "height_limit_m": 2.5,
+          "layers": [
+            "Brick",
+            "Block"
+          ],
+          "origin_x": 0.2,
+          "materials": [
+            "mat-block",
+            "mat-brick"
+          ]
+        }
+      ]
+    },
+    "wall-constituents.ifc": {
+      "description": "A 5 m x 0.3 m wall, 3 m high, whose material is a constituent set with fractions: brick 0.5, mineral wool 0.25, blockwork 0.25. Each constituent becomes a layer as thick as its share, in the set's order.",
+      "elements": [
+        {
+          "ifc_type": "IfcWall",
+          "segments": [
+            [
+              [
+                0,
+                0,
+                0
+              ],
+              [
+                5,
+                0,
+                0
+              ]
+            ]
+          ],
+          "width": 0.3,
+          "height_limit_m": 3.0,
+          "layers": [
+            "Brick",
+            "Mineral wool",
+            "Blockwork"
+          ],
+          "layer_thicknesses": [
+            0.15,
+            0.075,
+            0.075
+          ],
+          "origin_x": 0.15,
+          "materials": [
+            "mat-blockwork",
+            "mat-brick",
+            "mat-mineral-wool"
+          ]
+        }
+      ]
+    },
+    "wall-footprint-l.ifc": {
+      "description": "A wall extruded 2.7 m up from an L-shaped footprint 0.2 m thick (a polyline), with no Axis: its centreline is the middle of the footprint, two legs.",
+      "elements": [
+        {
+          "ifc_type": "IfcWall",
+          "segments": [
+            [
+              [
+                3.9,
+                3,
+                0
+              ],
+              [
+                3.9,
+                0.1,
+                0
+              ]
+            ],
+            [
+              [
+                3.9,
+                0.1,
+                0
+              ],
+              [
+                0,
+                0.1,
+                0
+              ]
+            ]
+          ],
+          "either_direction": true,
+          "width": 0.2,
+          "height_limit_m": 2.7,
+          "materials": [
+            "mat-concrete"
+          ]
+        }
+      ]
+    },
+    "wall-curved-footprint.ifc": {
+      "description": "A curved wall: a quarter ring from radius 4.9 to 5.1 (an indexed poly curve with arcs) extruded 3 m up. Its centreline is the arc of radius 5 from (5, 0) to (0, 5).",
+      "elements": [
+        {
+          "ifc_type": "IfcWall",
+          "segments": [
+            [
+              [
+                5,
+                0,
+                0
+              ],
+              [
+                0,
+                5,
+                0
+              ]
+            ]
+          ],
+          "segment_types": [
+            "arc"
+          ],
+          "arc_radius": 5.0,
+          "either_direction": true,
+          "width": 0.2,
+          "height_limit_m": 3.0,
+          "materials": [
+            "mat-brick"
+          ]
+        }
+      ]
+    },
+    "wall-axis-arc.ifc": {
+      "description": "A curved wall with an Axis representation, an indexed poly curve: an arc of radius 4.9 (the inner face, the reference line) from (4.9, 0) to (0, 4.9) then a 2 m line on to (-2, 4.9). The body is the footprint of the arc part (4.9 to 5.1). The path is the Axis, not the body's middle.",
+      "elements": [
+        {
+          "ifc_type": "IfcWall",
+          "segments": [
+            [
+              [
+                4.9,
+                0,
+                0
+              ],
+              [
+                0,
+                4.9,
+                0
+              ]
+            ],
+            [
+              [
+                0,
+                4.9,
+                0
+              ],
+              [
+                -2,
+                4.9,
+                0
+              ]
+            ]
+          ],
+          "segment_types": [
+            "arc",
+            "line"
+          ],
+          "arc_radius": 4.9,
+          "width": 0.2,
+          "height_limit_m": 3.0,
+          "materials": [
+            "mat-brick"
+          ]
+        }
+      ]
+    },
+    "beam-two-legs.ifc": {
+      "description": "An I-section beam (as beam-i) swept as two solids: 6 m along X from (0, 0, 3), then 4 m along Y. The second carries on from the end of the first, so the path has two segments.",
+      "elements": [
+        {
+          "ifc_type": "IfcBeam",
+          "segments": [
+            [
+              [
+                0,
+                0,
+                3
+              ],
+              [
+                6,
+                0,
+                3
+              ]
+            ],
+            [
+              [
+                6,
+                0,
+                3
+              ],
+              [
+                6,
+                4,
+                3
+              ]
+            ]
+          ],
+          "regions": {
+            "count": 3,
+            "area": 0.0116,
+            "bounds": [
+              -0.1,
+              0.1,
+              -0.2,
+              0.2
+            ]
+          },
+          "materials": [
+            "mat-s355-steel"
+          ]
+        }
+      ]
+    },
+    "beam-derived.ifc": {
+      "description": "A beam 3 m along X whose section is an IfcDerivedProfileDef: an L (200 x 100 x 10, no fillet) moved 0.1 m along its x by the operator.",
+      "elements": [
+        {
+          "ifc_type": "IfcBeam",
+          "segments": [
+            [
+              [
+                0,
+                0,
+                2
+              ],
+              [
+                3,
+                0,
+                2
+              ]
+            ]
+          ],
+          "regions": {
+            "count": 2,
+            "area": 0.0029,
+            "bounds": [
+              -0.15,
+              -0.05,
+              -0.1,
+              0.1
+            ]
+          },
+          "materials": [
+            "mat-s275-steel"
+          ]
+        }
+      ]
+    },
+    "column-void.ifc": {
+      "description": "A hollow column 3 m high at (1, 1, 0): a 400 mm square polygon with a 200 mm square void in its middle.",
+      "elements": [
+        {
+          "ifc_type": "IfcColumn",
+          "segments": [
+            [
+              [
+                1,
+                1,
+                0
+              ],
+              [
+                1,
+                1,
+                3
+              ]
+            ]
+          ],
+          "regions": {
+            "count": 4,
+            "area": 0.12,
+            "bounds": [
+              -0.2,
+              0.2,
+              -0.2,
+              0.2
+            ]
+          },
+          "materials": [
+            "mat-concrete"
+          ]
+        }
+      ]
+    },
+    "wall-bounded-clip.ifc": {
+      "description": "A 5 m x 0.3 m wall, 3 m high, with two polygonal-bounded clips: one across the top at 2.4 m whose boundary takes in the whole wall (kept: the wall is 2.4 m high), and one across the end at x = 4 whose boundary misses the wall (ignored: the wall keeps its 5 m).",
+      "elements": [
+        {
+          "ifc_type": "IfcWall",
+          "segments": [
+            [
+              [
+                0,
+                0,
+                0
+              ],
+              [
+                5,
+                0,
+                0
+              ]
+            ]
+          ],
+          "width": 0.3,
+          "height_limit_m": 2.4,
+          "cap_start": "flat",
+          "cap_end": "flat",
+          "materials": [
+            "mat-brick"
+          ]
+        }
+      ]
+    },
+    "wall-brep.ifc": {
+      "description": "A wall whose body is an IfcFacetedBrep: a box 4 m x 0.2 m x 2.7 m from (0, -0.1, 0). It is read from the outline of its base: a centreline along y = 0.",
+      "elements": [
+        {
+          "ifc_type": "IfcWall",
+          "segments": [
+            [
+              [
+                0,
+                0,
+                0
+              ],
+              [
+                4,
+                0,
+                0
+              ]
+            ]
+          ],
+          "either_direction": true,
+          "width": 0.2,
+          "height_limit_m": 2.7,
+          "materials": [
+            "mat-concrete"
+          ]
+        }
+      ]
+    },
+    "slab-outline.ifc": {
+      "description": "An L-shaped slab 250 mm thick, its outline a closed polyline, placed with its top at 3 m.",
+      "elements": [],
+      "slabs": [
+        {
+          "points": [
+            [
+              0,
+              0
+            ],
+            [
+              6,
+              0
+            ],
+            [
+              6,
+              3
+            ],
+            [
+              3,
+              3
+            ],
+            [
+              3,
+              5
+            ],
+            [
+              0,
+              5
+            ]
+          ],
+          "thickness_m": 0.25,
+          "elevation_m": 3.0,
+          "material_id": "mat-concrete"
+        }
+      ]
+    },
+    "wall-opening.ifc": {
+      "description": "A 5 m x 0.3 m wall, 3 m high, with an IfcOpeningElement (IfcRelVoidsElement): a box 1 m wide and 1.2 m high through the wall, from 2 m along it and 0.9 m up.",
+      "elements": [
+        {
+          "ifc_type": "IfcWall",
+          "segments": [
+            [
+              [
+                0,
+                0,
+                0
+              ],
+              [
+                5,
+                0,
+                0
+              ]
+            ]
+          ],
+          "width": 0.3,
+          "height_limit_m": 3.0,
+          "materials": [
+            "mat-brick"
+          ],
+          "openings": [
+            {
+              "path_position": 2.0,
+              "width_m": 1.0,
+              "height_m": 1.2,
+              "sill_height_m": 0.9
+            }
           ]
         }
       ]

@@ -12,7 +12,7 @@
  *   string                      — quoted string (with '' → ' unescaping)
  *   {type:'ref', id:number}     — entity reference #123
  *   {type:'enum', value:string} — enumeration .VALUE.
- *   array                       — list (...)
+ *   array                       — list (...); a typed list such as IFCARCINDEX((1,2,3)) has `typeName`
  */
 export function parseStep(text) {
   const dataMatch = text.match(/DATA;([\s\S]*?)ENDSEC;/);
@@ -104,8 +104,11 @@ function _parseValue(token) {
   // Typed value: TYPE(...)
   const typedMatch = token.match(/^([A-Z][A-Z0-9]*)\((.+)\)$/s);
   if (typedMatch) {
-    // Return the inner value (string, number, etc.) unwrapped
-    return _parseValue(typedMatch[2]);
+    // Return the inner value (string, number, etc.) unwrapped; a list keeps its type name (IFCARCINDEX or
+    // IFCLINEINDEX in an indexed poly curve, #181) as `typeName`
+    const value = _parseValue(typedMatch[2]);
+    if (Array.isArray(value)) value.typeName = typedMatch[1];
+    return value;
   }
   const num = parseFloat(token);
   if (!isNaN(num) && token.trim() !== '') return num;

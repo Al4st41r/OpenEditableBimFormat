@@ -1,21 +1,26 @@
 /**
  * ifcImporter.js — Convert IFC STEP text to OEBF entities.
  *
- * Writes path, element, profile and slab JSON files to the bundle via adapter.
- * Returns { projectName, elementIds, slabIds, materials }.
+ * Writes path, element, profile, slab and opening JSON files to the bundle via adapter.
+ * Returns { projectName, elementIds, slabIds, openingIds, materials, warnings }.
  *
- * Elements are read with ifcShapes.js (#169): a wall's centreline, thickness and height (from its body, its Axis
- * representation and its half-space clips, an angled end keeping its angle) and its layer set or material become a
- * path and a band profile; a beam or column swept from a section becomes a path and a profile of regions, each in
- * the material of its profile set entry. It is tested against the IFC fixtures it shares with the Python importer
- * (fixtures/ifc/, sharedFixtures.test.js). An element whose shape cannot be read keeps the old fallback: a path
- * from its first extrusion (else a 1 m stub) and the placeholder profile.
+ * Elements are read with ifcShapes.js (#169, #181): a wall's path (its Axis, else the centreline of its footprint,
+ * else of a faceted body's base, else its bounding box), thickness and height, its half-space clips (bounded or not,
+ * an angled end keeping its angle) and its layer set, constituent set or material become a path and a band profile;
+ * a beam or column swept from a section, along one or more segments, becomes a path and a profile of regions, each in
+ * the material of its profile set entry. A slab extruded from an outline becomes a Slab with a closed boundary; an
+ * opening voiding an imported wall (IfcRelVoidsElement), or a box a boolean cuts out of it, becomes an Opening. It is
+ * tested against the IFC fixtures it shares with the Python importer (fixtures/ifc/, sharedFixtures.test.js). An
+ * element whose shape cannot be read keeps the old fallback: a path from its first extrusion (else a 1 m stub) and the
+ * placeholder profile. Not read here: doors and windows as Objects (the Python importer makes them; here an opening
+ * only records the filler's class), and bodies the browser cannot mesh (non-faceted BREPs, swept disks).
  */
 
 import { parseStep } from './stepParser.js';
 import {
-  makeReader, bodyItems, sectionProfile, wallAxis, axisPath, clipPath,
-  layerProfile, primaryMaterial, profileSetMaterials, layerFunction,
+  makeReader, bodyItems, sectionProfile, wallAxis, axisPath, clipPath, footprintAxis, meshAxis, meshPoints, boxAxis,
+  slabOutline, bodyPoints, placeOnPath,
+  layerProfile, constituentProfile, primaryMaterial, profileSetMaterials, layerFunction,
 } from './ifcShapes.js';
 
 const IFC_TO_OEBF_TYPE = {
@@ -38,7 +43,7 @@ const GREYS = ['#8a8a8a', '#b4b4b4', '#6e6e6e', '#c8c8c8'];
  *
  * @param {string} text  — IFC STEP file content
  * @param {object} adapter  — FsaAdapter or MemoryAdapter
- * @returns {Promise<{projectName:string, elementIds:string[], slabIds:string[], materials:object[], warnings:string[]}>}
+ * @returns {Promise<{projectName:string, elementIds:string[], slabIds:string[], openingIds:string[], materials:object[], warnings:string[]}>}
  */
 export async function importIfcText(text, adapter) {
   const entities = parseStep(text);
@@ -55,6 +60,7 @@ export async function importIfcText(text, adapter) {
 
   const elementIds = [];
   const slabIds    = [];
+  const openingIds = [];
   const materials  = [];
   const warnings   = [];
   const seenMatIds = new Set();
@@ -70,6 +76,8 @@ export async function importIfcText(text, adapter) {
   }
 
   const profiles = new Profiles(adapter);
+  const walls = new Map();   // IFC entity id -> {elemId, path segments}, for openings
+  const cuts = [];           // [{elemId, boxes}] solids a boolean cut out of a wall
 
   // Process elements
   for (const [, e] of entities) {
@@ -88,7 +96,14 @@ export async function importIfcText(text, adapter) {
     const pathId = `path-${baseId}`;
 
     if (SLAB_TYPES.has(e.type)) {
-      await _writePath(adapter, pathId, name, [_extractPathSegment(entities, repRef)]);
+      let outline = null;
+      try { outline = slabOutline(reader, e, bodyItems(reader, e)); } catch (err) { warnings.push(`${label}: ${err.message}`); }
+      if (outline) {
+        const pts = outline.points.map(p => [p[0], p[1], 0]);
+        await _writePath(adapter, pathId, name, pts.map((a, i) => ({ type: 'line', start: a, end: pts[(i + 1) % pts.length] })), true);
+      } else {
+        await _writePath(adapter, pathId, name, null, false, _extractPathSegment(entities, repRef));
+      }
       await adapter.writeJson(`slabs/${elemId}.json`, {
         $schema:          'oebf://schema/0.1/slab',
         id:               elemId,
@@ -96,8 +111,9 @@ export async function importIfcText(text, adapter) {
         description:      name,
         ifc_type:         oebfType,
         boundary_path_id: pathId,
-        thickness_m:      0.2,
-        material_id:      '',
+        thickness_m:      outline ? _r4(outline.thickness) : 0.2,
+        material_id:      outline ? _slabMaterial(reader, e, addMaterial) : '',
+        ...(outline ? { elevation_m: _r4(outline.elevation) } : {}),
         parent_group_id:  '',
         properties:       { imported_from_ifc: true },
       });
@@ -113,19 +129,19 @@ export async function importIfcText(text, adapter) {
       segments = shape.segments;
       profileId = await profiles.region(reader, e, shape, addMaterial);
     } else if (shape) {
-      const clipped = clipPath(reader, shape.items, shape.segments, shape.height);
+      const clipped = clipPath(reader, shape.items, shape.segments, shape.height, shape.thickness);
       for (const note of clipped.notes) warnings.push(`${label}: ${note}`);
       segments = clipped.segments;
       for (const end of ['start', 'end']) {
         if (end in clipped.angles) { caps[`cap_${end}`] = 'angled'; caps[`cap_${end}_angle_deg`] = clipped.angles[end]; }
       }
+      if (clipped.boxes.length) cuts.push({ elemId, boxes: clipped.boxes });
       profileId = await profiles.band(reader, e, shape.thickness, clipped.height, addMaterial, shape.centred);
     }
     if (!profileId) profileId = await profiles.placeholder(addMaterial);
 
-    await _writePath(adapter, pathId, name, segments
-      ? segments.map(([a, b]) => ({ type: 'line', start: _pt(a), end: _pt(b) }))
-      : [_extractPathSegment(entities, repRef)]);
+    if (segments) await _writePath(adapter, pathId, name, segments);
+    else await _writePath(adapter, pathId, name, null, false, _extractPathSegment(entities, repRef));
     await adapter.writeJson(`elements/${elemId}.json`, {
       $schema:        'oebf://schema/0.1/element',
       id:             elemId,
@@ -142,14 +158,74 @@ export async function importIfcText(text, adapter) {
       properties:     { imported_from_ifc: true },
     });
     elementIds.push(elemId);
+    if (segments) walls.set(e.id, { elemId, pathId, segments, name });
   }
 
-  return { projectName, elementIds, slabIds, materials, warnings };
+  await _importOpenings(reader, adapter, walls, cuts, openingIds, warnings);
+  return { projectName, elementIds, slabIds, openingIds, materials, warnings };
 }
 
 /**
- * How the element is swept: {segments, regions, sources, note} for a section, else {segments, thickness, height,
- * items} for a wall; null when the shape cannot be read.
+ * Openings: each IfcRelVoidsElement whose wall was imported, placed along the wall's path from the opening's box
+ * (the filler's class, a door or window, is kept as its ifc_type), and each box a boolean cut out of a wall.
+ */
+async function _importOpenings(reader, adapter, walls, cuts, openingIds, warnings) {
+  const fillers = new Map();   // opening entity id -> IFC class of what fills it
+  for (const [, e] of reader.entities) {
+    if (e.type !== 'IFCRELFILLSELEMENT') continue;
+    const filler = reader.get(e.attrs[5]);
+    if (filler && (filler.type === 'IFCDOOR' || filler.type === 'IFCWINDOW')) fillers.set(e.attrs[4]?.id, filler.type === 'IFCDOOR' ? 'IfcDoor' : 'IfcWindow');
+  }
+  const write = async (id, name, wall, placed, ifcType) => {
+    const doc = {
+      $schema: 'oebf://schema/0.1/opening', id, type: 'Opening', description: name || 'Opening',
+      host_element_id: wall.elemId, path_id: wall.pathId,
+      path_position: _r4(placed.position), width_m: _r4(placed.width), height_m: _r4(placed.height), sill_height_m: _r4(Math.max(placed.sill, 0)),
+    };
+    if (ifcType) doc.ifc_type = ifcType;
+    await adapter.writeJson(`openings/${id}.json`, doc);
+    openingIds.push(id);
+  };
+  for (const [, e] of reader.entities) {
+    if (e.type !== 'IFCRELVOIDSELEMENT') continue;
+    const wall = walls.get(e.attrs[4]?.id);
+    const opening = reader.get(e.attrs[5]);
+    if (!wall || !opening) continue;
+    const label = typeof opening.attrs[2] === 'string' ? opening.attrs[2] : null;
+    let placed = null;
+    try { const pts = bodyPoints(reader, opening); placed = pts && placeOnPath(pts, wall.segments); } catch { /* skipped below */ }
+    if (!placed || placed.width < 1e-3 || placed.height < 1e-3) {
+      warnings.push(`skipped opening ${label ?? opening.attrs[0]}: its shape is not a box the importer can place`);
+      continue;
+    }
+    const id = `opening-${_slugify(typeof opening.attrs[0] === 'string' ? opening.attrs[0] : _makeId())}`;
+    await write(id, label, wall, placed, fillers.get(opening.id));
+  }
+  for (const { elemId, boxes } of cuts) {
+    const wall = [...walls.values()].find(w => w.elemId === elemId);
+    for (const [n, pts] of boxes.entries()) {
+      const placed = placeOnPath(pts, wall.segments);
+      if (!placed || placed.width < 1e-3 || placed.height < 1e-3 || placed.gap > 1e-3) {
+        warnings.push(`skipped a cut in ${elemId}: it is not a box on the wall the importer can place`);
+        continue;
+      }
+      await write(`opening-${elemId}-cut-${n + 1}`.slice(0, 120), `Cut ${n + 1} in ${wall.name}`, wall, placed, null);
+    }
+  }
+}
+
+/** A slab has one material: its thickest layer's, else its single material, else the placeholder. */
+function _slabMaterial(reader, product, addMaterial) {
+  const lp = layerProfile(reader, product);
+  const name = lp ? lp.layers.reduce((a, b) => (b.thickness > a.thickness ? b : a)).material_name : primaryMaterial(reader, product);
+  if (name && _slugify(name)) return _materialId(name, addMaterial);
+  addMaterial(PLACEHOLDER_MATERIAL, 'Imported (placeholder)');
+  return PLACEHOLDER_MATERIAL;
+}
+
+/**
+ * How the element is swept (as the Python importer's _element_shape): {segments, regions, sources, note} for a
+ * section, else {segments, thickness, height, items, centred} for a wall; null when the shape cannot be read.
  */
 function _elementShape(reader, product, warnings, label) {
   const items = bodyItems(reader, product);
@@ -157,23 +233,49 @@ function _elementShape(reader, product, warnings, label) {
   if (section?.regions.length) return section;
   const axis = wallAxis(reader, items);
   const drawn = axisPath(reader, product);
-  const segments = drawn ?? (axis ? [[axis.start, axis.end]] : null);
+  const footprint = axis ? null : footprintAxis(reader, items);
+  let thickness = (axis ?? footprint)?.thickness ?? null;
+  let height = (axis ?? footprint)?.height ?? null;
+  let segments = drawn ?? (axis ? [{ type: 'line', start: axis.start, end: axis.end }] : null) ?? footprint?.segments ?? null;
+  // a path read from the middle of the body is the wall's centreline, so its build-up is centred on it
+  let centred = !drawn && (!!axis?.upright || (!axis && segments != null));
+  const solids = items.filter(i => i.item.type === 'IFCEXTRUDEDAREASOLID');
+  if (items.length && (segments == null || (thickness == null && !solids.length))) {
+    const outline = segments == null ? meshAxis(reader, items) : null;
+    if (outline) {
+      ({ segments, thickness, height } = outline);
+      centred = true;
+      warnings.push(`${label}: its body (${items[0].item.type}) was read from the outline of its base`);
+    } else {
+      const points = meshPoints(reader, items);
+      const box = points ? boxAxis(points) : null;
+      if (box) {
+        if (segments == null) {
+          segments = [{ type: 'line', start: box.start, end: box.end }];
+          centred = true;
+          warnings.push(`${label}: its body (${items[0].item.type}) was read as its plan bounding box`);
+        }
+        thickness = thickness ?? box.thickness;
+        height = height ?? box.height;
+      }
+    }
+  }
   if (!segments) {
     if (items.length) warnings.push(`${label}: its shape (${items[0].item.type}) could not be read; it was given a placeholder path`);
     return null;
   }
-  // a path read from the middle of a footprint is the wall's centreline, so its build-up is centred on it
-  return { segments, thickness: axis?.thickness ?? null, height: axis?.height ?? null, items, centred: !drawn && !!axis?.upright };
+  return { segments, thickness, height, items, centred };
 }
 
-async function _writePath(adapter, pathId, name, segments) {
+/** Write a path of segments ({type, start, end, mid?}, [x, y, z]), or of one ready-made segment `raw`. */
+async function _writePath(adapter, pathId, name, segments, closed = false, raw = null) {
   await adapter.writeJson(`paths/${pathId}.json`, {
     $schema:     'oebf://schema/0.1/path',
     id:          pathId,
     type:        'Path',
-    description: `Imported path for ${name}`,
-    closed:      false,
-    segments,
+    description: `Imported ${closed ? 'boundary' : 'path'} for ${name}`,
+    closed,
+    segments:    raw ? [raw] : segments.map(s => ({ type: s.type, start: _pt(s.start), ...(s.mid ? { mid: _pt(s.mid) } : {}), end: _pt(s.end) })),
     tags:        ['imported'],
   });
 }
@@ -207,7 +309,7 @@ class Profiles {
    * `centred`: the path is the wall's middle, so the build-up is centred on it whatever the layer set's offset says.
    */
   async band(reader, product, thickness, height, addMaterial, centred = false) {
-    let lp = layerProfile(reader, product);
+    let lp = layerProfile(reader, product) ?? constituentProfile(reader, product, thickness);
     if (lp && centred) lp = { ...lp, origin: null };
     if (!lp && thickness) {
       const name = primaryMaterial(reader, product);
