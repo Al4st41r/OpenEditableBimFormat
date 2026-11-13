@@ -18,7 +18,10 @@
  *
  * Coordinate system: right-hand, Z-up.
  * Top face is at elevation_m; bottom face at elevation_m - thickness_m.
+ * The top and bottom faces are ear-clipped, so collinear vertices may give
+ * fewer than N - 2 triangles each; the index array is trimmed to fit.
  */
+import { polygonTriangles } from '../geometry/polygonTriangles.js';
 
 /**
  * Extract unique polygon vertices from a closed path's line segments.
@@ -72,21 +75,22 @@ export function buildSlabMeshData(slabData, pathData) {
   const topBase = vi;
   for (const p of poly) writeVert(p.x, p.y, topZ, 0, 0, 1);
 
-  // Fan triangulation from topBase (requires convex or simple polygon)
-  for (let i = 1; i < N - 1; i++) {
-    indices[ii++] = topBase;
-    indices[ii++] = topBase + i;
-    indices[ii++] = topBase + i + 1;
+  // Ear-clipped, so an L-shaped or other non-convex slab is filled correctly (#170)
+  const faceTris = polygonTriangles(poly);
+  for (const [a, b, c] of faceTris) {
+    indices[ii++] = topBase + a;
+    indices[ii++] = topBase + b;
+    indices[ii++] = topBase + c;
   }
 
   // --- Bottom face (N verts, indices N..2N-1) reversed winding ---
   const botBase = vi;
   for (const p of poly) writeVert(p.x, p.y, botZ, 0, 0, -1);
 
-  for (let i = 1; i < N - 1; i++) {
-    indices[ii++] = botBase;
-    indices[ii++] = botBase + i + 1;
-    indices[ii++] = botBase + i;
+  for (const [a, b, c] of faceTris) {
+    indices[ii++] = botBase + a;
+    indices[ii++] = botBase + c;
+    indices[ii++] = botBase + b;
   }
 
   // --- Side faces (N quads, 4 separate verts per quad for flat normals) ---
@@ -114,7 +118,8 @@ export function buildSlabMeshData(slabData, pathData) {
   return {
     vertices:    positions,
     normals,
-    indices,
+    // ear clipping drops collinear vertices, so there may be fewer than N - 2 face triangles
+    indices:     ii === indices.length ? indices : indices.slice(0, ii),
     materialId:  slabData.material_id,
     elementId:   slabData.id,
     description: slabData.description ?? '',

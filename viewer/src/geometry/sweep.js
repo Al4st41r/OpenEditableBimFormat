@@ -20,7 +20,7 @@
  *
  * Geometry layout per layer (N path frames, M profile vertices):
  *   Tube vertices:   N × M  (grid, row-major by frame)
- *   Start cap verts: M      (fan from vertex 0, (M-2) triangles)
+ *   Start cap verts: M      (ear-clipped, (M-2) triangles; see polygonTriangles.js)
  *   End cap verts:   M      (same, reversed winding)
  *   Total vertices:  (N+2) × M
  *
@@ -31,6 +31,7 @@
  *
  * See: docs/decisions/2026-03-02-junction-trim-algorithm.md
  */
+import { polygonTriangles } from './polygonTriangles.js';
 
 /**
  * Sweep options, taken from an element's fields (see sweepOptionsFromElement).
@@ -252,7 +253,8 @@ function _sweepShape(frames, profilePoints, materialId, caps = { start: true, en
 }
 
 /**
- * Append cap vertices and fan-triangulation indices.
+ * Append cap vertices and their triangle indices. The cap is ear-clipped, so
+ * a non-convex region (an L or an I) is filled correctly (#170).
  * @param {number[]} positions - Mutable positions array (xyz flat).
  * @param {number[]} normals   - Mutable normals array.
  * @param {number[]} indices   - Mutable indices array.
@@ -273,13 +275,9 @@ function _addCap(positions, normals, indices, frame, profilePoints, flip) {
     );
   }
 
-  // Fan from vertex 0 through the polygon
-  for (let vi = 1; vi < profilePoints.length - 1; vi++) {
-    if (flip) {
-      indices.push(capBase, capBase + vi + 1, capBase + vi);
-    } else {
-      indices.push(capBase, capBase + vi, capBase + vi + 1);
-    }
+  for (const [a, b, c] of polygonTriangles(profilePoints)) {
+    if (flip) indices.push(capBase + a, capBase + c, capBase + b);
+    else      indices.push(capBase + a, capBase + b, capBase + c);
   }
 }
 
