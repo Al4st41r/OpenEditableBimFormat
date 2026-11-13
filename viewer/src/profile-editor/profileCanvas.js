@@ -39,13 +39,84 @@ export function contentSize(svgEl) {
  */
 export function fitBox(layers, content) {
   let x0 = 0, y0 = 0, x1 = content.w, y1 = content.h;
-  const pts = layers.filter(l => l.type === 'region' && Array.isArray(l.vertices)).flatMap(l => l.vertices);
+  // A region that repeats in rows is framed with its first three rows, so the preview shows the coursing.
+  const pts = layers.filter(l => l.type === 'region' && Array.isArray(l.vertices))
+    .flatMap(l => [l.vertices, ...repeatGhosts(l, Infinity, 2).map(g => g.points)].flat());
   if (pts.length) {
     x0 = Math.min(...pts.map(v => v.x)); x1 = Math.max(...pts.map(v => v.x));
     y0 = Math.min(...pts.map(v => v.y)); y1 = Math.max(...pts.map(v => v.y));
   }
   const m = Math.max(x1 - x0, y1 - y0, 0.01) * 0.08;
   return { x: x0 - m, y: y0 - m, w: (x1 - x0) + 2 * m, h: (y1 - y0) + 2 * m };
+}
+
+const _pos = (v) => typeof v === 'number' && Number.isFinite(v) && v > 0;
+const _num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
+
+/**
+ * The rows a region layer repeats in (repeat_y_m, offset_y_m; profile schema), other than the one its vertices draw:
+ * row r sits offset_y_m + r * repeat_y_m from the drawn unit, as the detail drawings and 3D view place it
+ * (memberShapes.js). Rows stop where they would pass `limit` (profile y), and at `max` rows. A region with no row
+ * repeat but an offset_y_m gives one copy, lifted. Pure.
+ * @returns {Array<{ row: number, dy: number, points: Array<{x:number,y:number}> }>}
+ */
+export function repeatGhosts(layer, limit = WALL_HEIGHT, max = 200) {
+  const verts = Array.isArray(layer?.vertices) && layer.vertices.length >= 3 ? layer.vertices : null;
+  if (!verts) return [];
+  const pitch = _pos(layer.repeat_y_m) ? layer.repeat_y_m : 0;
+  const rise = _num(layer.offset_y_m);
+  if (!pitch && !rise) return [];
+  const yhi = Math.max(...verts.map((v) => v.y));
+  const out = [];
+  for (let r = 0; out.length < max; r++) {
+    if (r > 0 && !pitch) break;
+    const dy = rise + r * pitch;
+    if (r > 0 && yhi + dy > limit + 1e-9) break;
+    if (Math.abs(dy) > 1e-12) out.push({ row: r, dy, points: verts.map((v) => ({ x: v.x, y: v.y + dy })) });
+  }
+  return out;
+}
+
+/** A line describing a region layer's repeat along the run, or '' when it has none. Lengths in millimetres. */
+export function repeatLabel(layer) {
+  const mm = (m) => Math.round(m * 10000) / 10;
+  const parts = [];
+  if (_pos(layer?.depth_m) && _pos(layer?.repeat_x_m)) {
+    parts.push(`${mm(layer.depth_m)} long on ${mm(layer.repeat_x_m)} pitch along the run`);
+    if (_num(layer.offset_x_m)) parts.push(`rows shifted ${mm(layer.offset_x_m)}`);
+  }
+  if (_pos(layer?.repeat_y_m)) parts.push(`rows every ${mm(layer.repeat_y_m)}`);
+  return parts.join(', ');
+}
+
+/** Ghost copies of a repeating region's other rows (not clickable; the drawn unit is the one to edit). */
+function _drawRepeat(svgEl, layer, colour) {
+  const ghosts = repeatGhosts(layer);
+  const label = repeatLabel(layer);
+  if (!ghosts.length && !label) return;
+  const g = document.createElementNS(SVG_NS, 'g');
+  g.setAttribute('class', 'repeat-preview');
+  g.setAttribute('pointer-events', 'none');
+  for (const ghost of ghosts) {
+    const poly = document.createElementNS(SVG_NS, 'polygon');
+    poly.setAttribute('points', ghost.points.map(p => `${p.x},${p.y}`).join(' '));
+    poly.setAttribute('fill', colour);
+    poly.setAttribute('fill-opacity', '0.45');
+    poly.setAttribute('stroke', '#555');
+    poly.setAttribute('stroke-width', '1');
+    poly.setAttribute('stroke-dasharray', '3 2');
+    poly.setAttribute('vector-effect', 'non-scaling-stroke');
+    poly.setAttribute('data-repeat-row', String(ghost.row));
+    g.appendChild(poly);
+  }
+  if (label) {
+    // The repeat along the run lies across the drawing, so it is only described: here for tools reading the SVG, and in
+    // words under the layer's repeat fields in the form.
+    const title = document.createElementNS(SVG_NS, 'title');
+    title.textContent = `Repeats (mm): ${label}`;
+    g.appendChild(title);
+  }
+  svgEl.appendChild(g);
 }
 
 function _applyView(svgEl, w, h) {
@@ -100,6 +171,7 @@ export function renderCanvas(svgEl, layers, originX, matMap, selectedIndex = nul
     const colour = fill2d(matMap[layer.material_id], matMap[layer.material_id]?.colour_hex ?? '#888888');
 
     if (layer.type === 'region' && Array.isArray(layer.vertices) && layer.vertices.length >= 3) {
+      _drawRepeat(svgEl, layer, colour);
       const poly = document.createElementNS(SVG_NS, 'polygon');
       poly.setAttribute('points', layer.vertices.map(v => `${v.x},${v.y}`).join(' '));
       poly.setAttribute('fill', colour);

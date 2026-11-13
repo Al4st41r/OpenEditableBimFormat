@@ -59,7 +59,8 @@
     "grid-structural"
   ],
   "details": [
-    "detail-corner-cavity-butt"
+    "detail-corner-cavity-butt",
+    "detail-wall-cavity-section"
   ],
   "openings": [
     "opening-door-south-gf"

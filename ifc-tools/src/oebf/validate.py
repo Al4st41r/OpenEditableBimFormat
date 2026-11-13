@@ -74,6 +74,32 @@ def _check_region_repeat(region, ri, rel, add):
         add("repeat-depth-mismatch", rel, f"region {ri}: depth_m ({region['depth_m']}) does not match the drawn unit size along {axis} ({round(size[axis], 4)} m)")
 
 
+LAYER_REPEAT_FIELDS = ("depth_m", "repeat_x_m", "repeat_y_m", "offset_x_m", "offset_y_m")
+
+
+def _check_layer_repeat(layer, rel, add):
+    """A profile region layer's repeat: the pitch along the run must be at least the unit's length (depth_m) and the
+    pitch of the rows at least the unit's height, or neighbouring units overlap."""
+    name = f'layer {layer.get("layer")}'
+    fields = [k for k in LAYER_REPEAT_FIELDS if k in layer]
+    if not fields:
+        return
+    if layer.get("type") != "region":
+        add("layer-repeat-band", rel, f"{name}: {', '.join(fields)} only apply to a region layer (type region); a band layer ignores them")
+        return
+    depth, pitch = layer.get("depth_m"), layer.get("repeat_x_m")
+    if (depth is None) != (pitch is None):
+        add("layer-repeat-incomplete", rel, f"{name}: units along the run need both depth_m (the unit's length) and repeat_x_m (the pitch)")
+    elif depth is not None and pitch < depth - 1e-9:
+        add("layer-repeat-overlap", rel, f"{name}: repeat_x_m ({pitch}) is smaller than the unit's length depth_m ({depth}), so the units overlap")
+    rows = layer.get("repeat_y_m")
+    ys = [v.get("y") for v in layer.get("vertices", [])]
+    if rows is not None and ys and all(isinstance(y, (int, float)) for y in ys):
+        height = max(ys) - min(ys)
+        if rows < height - 1e-9:
+            add("layer-repeat-overlap", rel, f"{name}: repeat_y_m ({rows}) is smaller than the unit's height ({round(height, 4)} m), so the rows overlap")
+
+
 def validate_bundle(bundle_dir) -> list:
     bundle = Path(bundle_dir)
     problems: list[Problem] = []
@@ -189,6 +215,7 @@ def validate_bundle(bundle_dir) -> list:
     # ── profiles, elements, slabs ──
     for pid, p in profiles.items():
         for layer in p.get("assembly", []):
+            _check_layer_repeat(layer, f"profiles/{pid}.json", add)
             mid = layer.get("material_id")
             if mid and materials and mid not in materials:
                 add("material-missing", f"profiles/{pid}.json", f'layer material "{mid}" is not in the materials library')
@@ -265,6 +292,13 @@ def validate_bundle(bundle_dir) -> list:
                     c = v.get(axis)
                     if isinstance(c, dict) and c.get("param") not in params:
                         add("param-undeclared", rel, f'region {ri} vertex {vi} {axis} uses undeclared parameter "{c.get("param")}"')
+        cut = d.get("cut_height_m")
+        if isinstance(cut, (int, float)):
+            extrusion = d.get("geometry", {}).get("extrusion_m")
+            if d.get("plane", "section") != "plan":
+                add("cut-height-plane", rel, "cut_height_m applies to plan details only; a section is cut on its own plane")
+            elif isinstance(extrusion, (int, float)) and cut > extrusion:
+                add("cut-height-range", rel, f"cut_height_m ({cut}) is above the top of the detail (extrusion_m {extrusion}), so nothing is cut")
         datum = d.get("datum", {})
         if datum.get("kind") == "grid_elevation" and datum.get("reference") in ("top", "bottom"):
             add("datum-combination", rel, 'datum kind "grid_elevation" only supports reference "elevation"')

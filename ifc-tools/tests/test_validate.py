@@ -433,3 +433,67 @@ def test_a_part_with_an_unknown_material_a_part_with_no_size_and_a_huge_array_ar
     obj.write_text(json.dumps(o))
     found = codes(bundle)
     assert {"material-missing", "part-incomplete", "array-too-large"} <= set(found)
+
+
+# ── repeat on a profile region layer, and a plan's cut height (#167) ─────────
+
+BRICK_UNIT = {
+    "layer": 5, "name": "Facing brick", "material_id": "mat-brick-common", "function": "finish", "type": "region",
+    "vertices": [{"x": 0, "y": 0}, {"x": 0.1025, "y": 0}, {"x": 0.1025, "y": 0.065}, {"x": 0, "y": 0.065}],
+    "depth_m": 0.215, "repeat_x_m": 0.225, "repeat_y_m": 0.075, "offset_x_m": 0.1125,
+}
+
+
+def _with_layer(bundle, layer):
+    edit(bundle / "profiles" / "profile-cavity-250.json", lambda p: p["assembly"].append(layer))
+
+
+def test_a_layer_repeat_that_fits_passes(bundle):
+    _with_layer(bundle, BRICK_UNIT)
+    assert validate_bundle(bundle) == []
+
+
+def test_a_layer_pitch_shorter_than_the_unit_is_an_overlap(bundle):
+    _with_layer(bundle, {**BRICK_UNIT, "repeat_x_m": 0.2})
+    assert "layer-repeat-overlap" in codes(bundle)
+
+
+def test_a_layer_row_pitch_lower_than_the_unit_is_an_overlap(bundle):
+    _with_layer(bundle, {**BRICK_UNIT, "repeat_y_m": 0.05})
+    assert "layer-repeat-overlap" in codes(bundle)
+
+
+def test_a_layer_pitch_equal_to_the_unit_is_allowed(bundle):
+    _with_layer(bundle, {**BRICK_UNIT, "repeat_x_m": 0.215, "repeat_y_m": 0.065})
+    assert validate_bundle(bundle) == []
+
+
+def test_a_layer_repeat_needs_depth_and_pitch_together(bundle):
+    _with_layer(bundle, {k: v for k, v in BRICK_UNIT.items() if k != "depth_m"})
+    assert "layer-repeat-incomplete" in codes(bundle)
+
+
+def test_repeat_fields_on_a_band_layer_are_reported(bundle):
+    edit(bundle / "profiles" / "profile-cavity-250.json", lambda p: p["assembly"][0].update(depth_m=0.215, repeat_x_m=0.225))
+    assert "layer-repeat-band" in codes(bundle)
+
+
+def test_a_plan_cut_height_within_the_detail_passes(bundle):
+    edit(bundle / "details" / "detail-corner-cavity-butt.json", lambda d: d.update(cut_height_m=1.0))
+    assert validate_bundle(bundle) == []
+
+
+def test_a_cut_height_on_a_section_or_above_the_detail_is_reported(bundle):
+    path = bundle / "details" / "detail-corner-cavity-butt.json"
+    edit(path, lambda d: d.update(cut_height_m=9.0))
+    assert "cut-height-range" in codes(bundle)
+    edit(path, lambda d: d.update(cut_height_m=1.0, plane="section"))
+    assert "cut-height-plane" in codes(bundle)
+
+
+def test_a_region_priority_is_checked_by_the_schema(bundle):
+    path = bundle / "details" / "detail-corner-cavity-butt.json"
+    edit(path, lambda d: d["geometry"]["regions"][0].update(priority=2))
+    assert validate_bundle(bundle) == []
+    edit(path, lambda d: d["geometry"]["regions"][0].update(priority=1.5))
+    assert "schema" in codes(bundle)

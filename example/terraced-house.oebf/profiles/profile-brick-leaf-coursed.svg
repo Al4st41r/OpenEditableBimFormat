@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+     viewBox="0 0 0.102 0.065"
+     width="102mm" height="65mm">
+  <!-- Layer 1: one facing brick in section (102 x 65 mm); the profile repeats it in courses -->
+  <rect x="0" y="0" width="0.102" height="0.065" fill="#C4693A" stroke="#888" stroke-width="0.002"/>
+  <!-- Origin marker at the left face -->
+  <circle cx="0" cy="0" r="0.005" fill="red"/>
+</svg>

@@ -82,10 +82,18 @@ export function styleFor(prism, { materials, profiles, k = 200 } = {}) {
  * How the 2D drawing shows a solid: 'cut' (the cut plane passes through it), 'seen' (wholly beyond the cut) or
  * 'hidden' (between the viewer and the cut).
  *   section  the cut is at w = 0 and the viewer is on the +w side (the front elevation's side), looking towards -w.
- *   plan     the drawing looks down on the first course: a solid in a higher course is hidden.
+ *   plan     the viewer looks down. With a cut height (the detail's cut_height_m, w up from the datum) a solid wholly
+ *            below it is seen and one wholly above it is hidden. Without one the drawing shows the first course cut
+ *            and a solid in a higher course is hidden.
+ * @param {number|null} [cutHeight] - a plan's cut height (model.cutHeight)
  */
-export function drawRole(prism, plane) {
-  if (plane === 'plan') return prism.course > 0 ? 'hidden' : 'cut';
+export function drawRole(prism, plane, cutHeight = null) {
+  if (plane === 'plan') {
+    if (!Number.isFinite(cutHeight)) return prism.course > 0 ? 'hidden' : 'cut';
+    if (prism.w1 <= cutHeight) return 'seen';
+    if (prism.w0 > cutHeight) return 'hidden';
+    return 'cut';
+  }
   if (prism.w1 <= 0) return 'seen';
   if (prism.w0 >= 0) return 'hidden';
   return 'cut';
@@ -123,7 +131,7 @@ export function buildDetailSvg(model, opts = {}) {
 
   // Larger solids first, so a small item is never hidden under a large one (paintOrder; the 3D pick and the carbon
   // total use the same rule).
-  const role = (p) => drawRole(p, model.plane);
+  const role = (p) => drawRole(p, model.plane, model.cutHeight);
   const styled = paintOrder(model.prisms.filter((p) => role(p) === 'cut')).map((p) => ({ p, s: styleFor(p, { ...opts, k }) }));
   const defs = hatchDefs(styled.map(({ s }) => ({ kind: s.hatchKind, weight: s.hatch })));
 

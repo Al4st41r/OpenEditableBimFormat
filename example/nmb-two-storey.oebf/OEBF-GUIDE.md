@@ -13,8 +13,8 @@ Read this before editing any file in this bundle. Every 3D element sweeps a
 | Path | `paths/path-{id}.json` | `id` `type:"Path"` `closed` `segments[]` |
 | Profile | `profiles/profile-{id}.json` | `id` `type:"Profile"` `svg_file` `origin` `alignment` `assembly[]` |
 | Element | `elements/element-{id}.json` | `id` `type:"Element"` `ifc_type` `path_id` `profile_id` `sweep_mode` `cap_start` `cap_end` `parent_group_id` |
-| Object | `elements/object-{id}.json` | `id` `type:"Object"` `symbol_id` `host_element_id` `path_id` `path_position` `parent_group_id` |
-| Opening | `elements/opening-{id}.json` | `id` `type:"Opening"` `host_element_id` `path_id` `path_position` `width_m` `height_m` |
+| Object | `objects/object-{id}.json` | `id` `type:"Object"` `symbol_id` `host_element_id` `path_id` `path_position` `parent_group_id` |
+| Opening | `openings/opening-{id}.json` | `id` `type:"Opening"` `host_element_id` `path_id` `path_position` `width_m` `height_m` |
 | Junction | `junctions/junction-{id}.json` | `id` `type:"Junction"` `elements[]` `rule` `priority[]` (optional: `detail_id` `location` `detail_overrides` `detail_mirrored`) |
 | Array | `arrays/array-{id}.json` | `id` `type:"Array"` `source_id` `path_id` `mode` `alignment` `axes[]` |
 | Symbol | `symbols/symbol-{id}.json` | `id` `type:"Symbol"` `ifc_type` `parameters{}` |
@@ -22,6 +22,14 @@ Read this before editing any file in this bundle. Every 3D element sweeps a
 | Material | `materials/library.json` | `id` `type:"Material"` `name` `category` (all materials in **one file**) |
 | Grid | `grids/grid-{id}.json` | `id` `type:"Grid"` `description` `axes[]` `ifc_type` |
 | Detail | `details/detail-{id}.json` | `id` `type:"Detail"` `description` `members[]` `datum` |
+
+**Line weights (optional).** A profile may carry `lineweights` (`cut`, `seen`, `hatch`, `annotation`) and an assembly layer or a detail region may carry `outline_mm` (on a region it replaces the weight the material's category implies). Values are millimetres at print scale and must be one of 0.09, 0.13, 0.18, 0.25, 0.35, 0.5 or 0.7. Omit them to use the defaults (cut 0.35, seen 0.18, hatch 0.09, annotation 0.09). Where `cut` is omitted, the detail drawing weights each layer by its `function`: structure 0.5, finish 0.35, insulation 0.25, service 0.25, membrane 0.18. The detail review drawing, the profile editor and the detail editor draw them (a **Thin** button draws every line as a hairline without changing the data), the profile editor has pickers for both fields, and the DXF export writes each pen as a colour (1 = 0.09 mm up to 7 = 0.7 mm) for a plot style table to map; see `docs/plans/2026-11-06-lineweights.md`.
+
+**Repeating units (optional).** A detail region may repeat one drawn unit, such as a brick or a tile. The region's vertices draw one unit. Add `repeat_x_m` or `repeat_y_m` (the pitch, in metres) with `count_x` or `count_y` (how many). `stagger_x_m` shifts every second row for a bond (half the pitch gives a half-bond). `depth_m` states the unit's size along the repeat axis and is checked against the drawing to within 1 mm. A brick 210 mm long on a 220 mm pitch leaves a 10 mm joint; a tile 90 mm deep on a 98 mm pitch leaves 8 mm. The pitch must be at least the unit's size, or `oebf validate` reports an overlap. The gap is empty. A profile region layer (`"type": "region"`) repeats too, with its own fields: its vertices draw one unit's cross-section, `depth_m` is the unit's length along the run and `repeat_x_m` its pitch along the run (give both), `repeat_y_m` repeats rows up the profile, `offset_x_m` shifts every second row along the run for a bond, and `offset_y_m` lifts the first row. `repeat_x_m` must be at least `depth_m` and `repeat_y_m` at least the unit's height, or `oebf validate` reports an overlap; repeat fields on a band layer are reported too, as a band ignores them. In a section the units along the run are centred on the cut; a unit wholly beyond the cut is drawn as a seen line. The example's `profiles/profile-brick-leaf-coursed.json` (a brick leaf in stretcher bond) and `profiles/profile-block-leaf-coursed.json` are drawn in `details/detail-wall-cavity-section.json`, where every second course is cut through a joint and shows the unit beyond. The main 3D model does not yet draw a layer's repeat: there the unit's cross-section is swept along the whole run.
+
+**Classification tags (optional).** A material may carry `classification` and an assembly layer or detail region may carry `tags`, with the same six fields: `package` (groundworks, concrete, timber-frame, cladding, interiors, mep or other), `barrier` (a list from air, water, vapour, breathable), `fire_role` (firestop, cavity-barrier or fire-rated), `sequence` (a whole number from 1 to 99; 1 is installed first, and only the order matters) `shearing_layer` (site, structure, skin, services, space-plan or stuff) and `sfb` (a CI/SfB element code in brackets, such as `(21)` external walls, `(27)` roofs or `(43)` floor finishes; the overlay groups by the first digit). The tags on a layer or region override the material's, field by field. The detail review view colours the drawing by them. Reaction class and rating stay in `properties.fire`.
+
+**Carbon factors (optional).** A material may name a row of the CarbonBench material database with `carbonbench_id`, record the release with `carbonbench_version`, and say whether the row is the same product or a stand-in with `carbon_match` (`exact` or `proxy`). `node scripts/sync-carbonbench.mjs <bundle>` then copies the A1-A3 factor, its unit, the density and any biogenic factor into `properties.carbon`, so the bundle stays self-contained. A material with no match shows as no data in the carbon overlay. The detail review panel totals a detail's A1-A3 carbon from each solid's volume times its per-m3 factor; where solids overlap, the one drawn on top owns the overlap, so nothing is counted twice. The smaller solid is drawn on top unless a detail region sets `priority` (a whole number from -99 to 99; members and regions without one have 0): a higher priority is drawn over a lower one whatever its size, so a large region, such as a concrete slab with a bar cast into it, can own the overlap.
 
 ---
 
@@ -34,7 +42,9 @@ project.oebf/
 ├── OEBF-GUIDE.md           — this file
 ├── paths/                  — one JSON per path
 ├── profiles/               — one JSON + one SVG per profile
-├── elements/               — elements, objects, and openings
+├── elements/               — one JSON per element
+├── objects/                — symbol instances (doors, posts)
+├── openings/               — one JSON per opening
 ├── junctions/              — one JSON per junction
 ├── arrays/                 — one JSON per array
 ├── symbols/                — symbol type definitions
@@ -116,6 +126,7 @@ After writing a new entity file, add its ID to `model.json`:
 |-------------|-----------|
 | Element | `elements[]` **and** relevant storey `children[]` |
 | Object | `objects[]` **and** relevant storey `children[]` |
+| Opening | `openings[]` |
 | Junction | `junctions[]` |
 | Array | `arrays[]` |
 | Grid | `grids[]` |
@@ -123,7 +134,7 @@ After writing a new entity file, add its ID to `model.json`:
 
 Paths, Profiles, Symbols, Groups, and Materials are **not registered** in
 `model.json` — they are found by ID reference from the entities that use them.
-Openings are found via their Object's `opening_id` — no separate registration.
+An Object's `opening_id` names its Opening. The viewer cuts each Opening through its host wall's layers and draws the door or window Object in the hole (an Object with no opening is drawn as a box over the wall), and the IFC export writes it as an `IfcDoor` or `IfcWindow` filling an `IfcOpeningElement` that cuts the wall. Both read the Opening from `openings[]`.
 
 ---
 
@@ -189,10 +200,11 @@ How the optional sweep fields behave:
 ## Worked example: add a door opening
 
 Prerequisite: the host element (`element-wall-internal-01`) and its path
-(`path-wall-internal-01`) already exist. `path_position` is metres from the
-start of the path.
+(`path-wall-internal-01`) already exist. An Opening's `path_position` is metres from the
+start of the path to the opening's start edge. An Object that names an opening is centred on
+it; one with no `opening_id` has its centre at its own `path_position`.
 
-**Step 1.** Create `elements/opening-d02.json`:
+**Step 1.** Create `openings/opening-d02.json`:
 
 ```json
 {
@@ -210,7 +222,7 @@ start of the path.
 }
 ```
 
-**Step 2.** Create `elements/object-door-d02.json`:
+**Step 2.** Create `objects/object-door-d02.json`:
 
 ```json
 {
@@ -231,7 +243,66 @@ start of the path.
 ```
 
 **Step 3.** Register in `model.json`: add `"object-door-d02"` to `objects[]`
-and `storey-gf > children[]`. The opening does **not** need a separate entry.
+and `storey-gf > children[]`, and add `"opening-d02"` to `openings[]`.
+
+---
+
+## Worked example: add wall ties (a multi-part symbol in a grid)
+
+A Symbol can be one box (`geometry_definition: "box"`, sized by `parameters`) or several shapes
+(`geometry_definition: "parts"`). Each part is a `box` or a `cylinder` with its own material.
+The symbol's frame has **x along the wall, y across it, z up**, with the origin at the centre of
+the bottom face; a part's `offset_m` is the centre of that part. The detail editor's **Objects**
+button builds a symbol from a form with a front and side preview.
+
+**Step 1.** Create `symbols/symbol-wall-tie.json` (a 4 mm bar across the wall with a drip):
+
+```json
+{
+  "$schema": "oebf://schema/0.1/symbol",
+  "id": "symbol-wall-tie",
+  "type": "Symbol",
+  "description": "Stainless steel cavity wall tie",
+  "ifc_type": "IfcMechanicalFastener",
+  "geometry_definition": "parts",
+  "parameters": {},
+  "parts": [
+    { "name": "Bar", "shape": "cylinder", "axis": "y", "radius_m": 0.002, "length_m": 0.2,
+      "material_id": "mat-stainless-steel", "offset_m": { "x": 0, "y": 0, "z": 0 } },
+    { "name": "Drip", "shape": "box", "size_m": { "x": 0.004, "y": 0.03, "z": 0.025 },
+      "material_id": "mat-stainless-steel", "offset_m": { "x": 0, "y": 0, "z": -0.0125 } }
+  ]
+}
+```
+
+**Step 2.** Place it with an Object. `path_position` is the centre of the first instance along the
+wall, `base_height_m` its height above the wall path, and `array` repeats it in a grid: here
+6 along the wall at 900 mm and 4 rows up at 450 mm (24 ties). Symbols are found by `symbol_id`;
+they are not listed in `model.json`.
+
+```json
+{
+  "$schema": "oebf://schema/0.1/object",
+  "id": "object-wall-ties-south-gf",
+  "type": "Object",
+  "description": "Cavity wall ties, south wall",
+  "ifc_type": "IfcMechanicalFastener",
+  "symbol_id": "symbol-wall-tie",
+  "host_element_id": "element-wall-south-gf",
+  "path_id": "path-wall-south-gf",
+  "path_position": 0.45,
+  "base_height_m": 0.3,
+  "array": { "count_along": 6, "spacing_along_m": 0.9, "count_up": 4, "spacing_up_m": 0.45 },
+  "parameter_overrides": {},
+  "parent_group_id": "storey-gf",
+  "properties": {}
+}
+```
+
+**Step 3.** Register as for any object: add the id to `objects[]` and to `storey-gf > children[]`.
+An array is limited to 500 instances. The IFC export writes one element per instance, sharing one
+material set whose constituents are the parts. An Object in an opening ignores `base_height_m` and
+rests on the sill.
 
 ---
 
@@ -471,22 +542,82 @@ axes and a level). The detail says *what* (members, drawn regions, parameters).
       "kind": "wall",
       "profile_id": "profile-cavity-250",
       "placement": {
-        "offset_x_m": 0.0,
-        "offset_y_m": 0.0,
-        "rotation_deg": 0
+        "offset_x_m": 0,
+        "offset_y_m": 0,
+        "rotation_deg": 0,
+        "reference": {
+          "y": "grid-y"
+        }
       },
-      "extent": "forward"
+      "extent": "forward",
+      "layer_ends": [
+        {
+          "layer": 1,
+          "near_m": 0.145
+        },
+        {
+          "layer": 2,
+          "near_m": 0.043
+        },
+        {
+          "layer": 3,
+          "near_m": -0.032
+        },
+        {
+          "layer": 4,
+          "near_m": -0.145
+        }
+      ],
+      "insertion": {
+        "layer": 3,
+        "at": "left-face"
+      }
     },
     {
       "role": "butting-wall",
       "kind": "wall",
       "profile_id": "profile-cavity-250",
       "placement": {
-        "offset_x_m": 0.0,
+        "offset_x_m": 0,
         "offset_y_m": -0.145,
-        "rotation_deg": 90
+        "rotation_deg": 90,
+        "reference": {
+          "x": "grid-x"
+        }
       },
-      "extent": "backward"
+      "extent": "backward",
+      "layer_ends": [
+        {
+          "layer": 1,
+          "near_m": 0.188
+        },
+        {
+          "layer": 2,
+          "near_m": 0.113
+        },
+        {
+          "layer": 3,
+          "near_m": 0.013
+        },
+        {
+          "layer": 4,
+          "near_m": 0.013
+        }
+      ],
+      "insertion": {
+        "layer": 3,
+        "at": "left-face"
+      },
+      "layer_units": [
+        {
+          "layer": 1,
+          "depth_m": 0.145,
+          "repeat_m": 0.153,
+          "height_m": 0.1025,
+          "course_m": 0.1125,
+          "bond": "running"
+        }
+      ]
     }
   ],
   "datum": {
@@ -494,6 +625,7 @@ axes and a level). The detail says *what* (members, drawn regions, parameters).
     "reference": "elevation"
   },
   "plane": "plan",
+  "cut_height_m": 1.0,
   "view_direction": "along_path",
   "geometry": {
     "extrusion_m": 2.7,
@@ -502,7 +634,7 @@ axes and a level). The detail says *what* (members, drawn regions, parameters).
         "material_id": "mat-brick-common",
         "vertices": [
           {
-            "x": 0.0,
+            "x": 0,
             "y": 0.145
           },
           {
@@ -513,21 +645,37 @@ axes and a level). The detail says *what* (members, drawn regions, parameters).
             "x": 0.05,
             "y": {
               "param": "cavity_closer_width_m",
-              "scale": 1.0,
               "offset": 0.145
             }
           },
           {
-            "x": 0.0,
+            "x": 0,
             "y": {
               "param": "cavity_closer_width_m",
-              "scale": 1.0,
               "offset": 0.145
             }
           }
         ]
       }
     ]
+  },
+  "reference_lines": [
+    {
+      "id": "grid-x",
+      "kind": "grid",
+      "axis": "x",
+      "offset_m": 0.032
+    },
+    {
+      "id": "grid-y",
+      "kind": "grid",
+      "axis": "y",
+      "offset_m": -0.032
+    }
+  ],
+  "clip": {
+    "x_max_m": 0.767,
+    "y_min_m": -0.673
   },
   "parameters": {
     "cavity_closer_width_m": {
@@ -555,11 +703,53 @@ Detail fields:
 - `plane` — `plan` (seen from above; regions rise from the level by
   `geometry.extrusion_m`) or `section` (regions run along the primary member,
   centred on the location).
+- `cut_height_m` — optional, plan details only: the height above the datum at
+  which the plan is cut (1.0 is usual). What the cut passes through is drawn cut;
+  what lies wholly below it (lower courses seen through the joints, a low
+  upstand) is drawn as a seen line; what lies above it is left out. Without it
+  the plan shows the first course cut. `oebf validate` reports it on a section
+  or above `geometry.extrusion_m`.
 - `datum` — where the drawing's zero sits: `elevation` and `top` are the storey
   elevation; `bottom` is the elevation minus the thickness of the slab on that
   storey.
 - `geometry.regions[]` — extra shapes (trim, membranes, fillers): a `material_id`
   and at least three `vertices` in drawing space, simple (not self-intersecting).
+  Optional `priority` (a whole number, default 0) decides which solid owns an
+  overlap: the higher is drawn on top; on a tie the smaller wins.
+- `members[].layer_ends[]` — optional `{ "layer": 1, "near_m": 0.1, "far_m": -0.05 }`: let that
+  layer start or finish at a different point along the run (positive extends past the
+  member's end, negative shortens), so a cavity wall's leaves can stop at different
+  places. For this use only.
+- `members[].insertion` — optional `{ "layer": 3, "at": "left-face" }`: put the member's
+  insertion point on the left face, centre or right face of that profile layer (eg the
+  external face of the blockwork) instead of the profile's own origin.
+- `members[].layer_units[]` — optional: draw a profile layer as repeating units, eg
+  `{ "layer": 1, "depth_m": 0.215, "repeat_m": 0.225, "joint_material_id": "mat-mortar" }`
+  for a brick leaf (215 mm bricks on a 225 mm pitch, a 10 mm joint). The unit is as
+  thick as the layer; it repeats along the wall in plan and up it in section.
+  `count` and `start_m` are optional (no count fills the run); `material_id` swaps
+  the unit's material. In a plan detail `height_m`, `course_m` and `bond` (`stack` or
+  `running`) make the 3D view build the wall in courses, every second one offset by
+  half a unit for a running bond. For this use only; the profile is unchanged.
+- `members[].layer_starts[]` — optional `{ "layer": 3, "start_m": 0.1 }`: where that
+  layer of the member's profile starts across its width, for this use only. Without
+  an entry a layer starts where the one before it ends.
+- `reference_lines[]` — optional named lines the drawing is set out from:
+  `{ "kind": "grid", "axis": "x", "offset_m": 0 }` (`kind` is `grid`, `ffl`,
+  `level` or `custom`; `name` overrides the label; an `x` line sits at that x,
+  a `y` line at that y; `id` defaults to `<kind>-<axis>`, eg `grid-x`). Drawn only;
+  never extruded. A member's `placement.reference` (`{ "x": "grid-x" }`) measures
+  its insertion point from such a line, so it follows the line when it moves.
+- `clip` — optional viewing box `{ "x_min_m", "x_max_m", "y_min_m", "y_max_m" }`
+  (any side may be left out). The 3D view cuts the detail to it.
+- `annotations[]` — optional drawing marks for the 2D view only, never extruded
+  into 3D: `{ "type": "line", "points": [...], "style": "dashed" }` (an open
+  line; `solid`, `dashed` or `centre`), `{ "type": "arc", "centre": {x, y},
+  "radius_m": 0.05, "start_deg": 0, "end_deg": 90 }` (anticlockwise from start
+  to end), `{ "type": "circle", "centre": {x, y}, "radius_m": 0.05 }`,
+  `{ "type": "dimension", "from": {x, y},
+  "to": {x, y}, "offset_m": 0.1 }` and `{ "type": "note", "at": {x, y},
+  "text": "...", "leader_to": {x, y} }`. Coordinates are plain metres.
 - `parameters{}` — named numbers with a `default` and optional `min` and `max`.
   A vertex coordinate may use one: `{ "param": "name", "scale": 1, "offset": 0.145 }`
   means `offset + scale * value`.
@@ -645,10 +835,78 @@ Importing an IFC file written by OEBF restores element ids, junctions with their
 level data they refer to. The bundle is restored complete: the element, slab and
 path files, the profiles (with their SVG) and the materials come back as they were,
 and the schemas are copied in, so `oebf validate` passes on the imported bundle.
-IFC from other tools has no such record: its elements get a placeholder profile and
-material and the first level (or `storey-imported`) as `parent_group_id`, and a slab
-with a polyline outline becomes a `Slab` with a closed boundary path. Geometry edited
-in another tool is not read back when the OEBF record is present.
+IFC from other tools has no such record, so the import rebuilds what the IFC holds:
+a wall's centreline comes from its "Axis" representation when it has one (a polyline gives
+one segment per leg, a trimmed circle gives an arc), else from its swept solid (a footprint
+extruded up, rectangular or a four-corner polyline, or a section extruded along the wall),
+else from a footprint made of two parallel runs joined by straight ends (an L, a run of
+several legs, or a curve, which gives an arc), converted from the file's length unit to metres.
+A body that is a mapped item is read through its mapping; a boolean result is read from its
+first operand, a vertical clipping plane across an end trims the path there (an end cut at
+an angle gets `cap_*: "angled"`), and a box cut out of the wall becomes an `Opening`. Any
+other body (a BREP or a face set) is stood in for by its plan bounding box, with a warning.
+A beam or column swept from a section that is not a rectangle (I, T, L, U, C, circle,
+ellipse, hollow, polygon) gets a profile of `region` layers, cut into convex pieces; a
+column's path runs vertically from its base. The build-up comes from the
+`IfcMaterialLayerSet` as a profile (layer names, materials and thicknesses, with each
+layer's function guessed from its name), else from an `IfcMaterialConstituentSet` whose
+fractions are all given (one layer per constituent, its share of the thickness); and its
+property sets become element properties, with an `ifc/mapping.json` that sends them back
+to the same sets on export. An element with no layer set but one material (or a profile
+set, a constituent set without fractions or a material list, which give their main
+material) gets a one-layer profile of its thickness. Anything the IFC does not hold falls
+back to a placeholder profile and material. Elements take the first level (or `storey-imported`) as `parent_group_id`,
+and a slab with a polyline outline becomes a `Slab` with a closed boundary path.
+An `IfcOpeningElement` that voids an imported wall becomes an `Opening` (position, width, height and
+sill read from its box), and the `IfcDoor` or `IfcWindow` that fills it becomes an `Object` with a box
+`Symbol` of its size. A door or window in no opening hangs on the wall it stands in, as an
+`Object` with `base_height_m` and no `opening_id`; one that stands in no imported wall is
+skipped with a warning. Clips across the top or at a slope, and shapes the import cannot read,
+are left out with a warning. Geometry edited in another tool is not read back when the OEBF record is present; the
+import says when an element was moved there.
+
+### Mapping to IFC classes and property sets (`ifc/mapping.json`)
+
+`ifc/mapping.json` is optional. It says how this bundle's entities are written to IFC. Without it every entity is written with its own `ifc_type`, materials keep their library names, and all properties go into one property set called `OEBF_Properties`.
+
+```json
+{
+  "$schema": "oebf://schema/0.1/ifc-mapping",
+  "type": "IfcMapping",
+  "description": "Wall properties go to Pset_WallCommon",
+  "classes": { "IfcWall": "IfcWallStandardCase" },
+  "property_sets": {
+    "fire_rating": { "pset": "Pset_WallCommon", "name": "FireRating" }
+  },
+  "materials": { "mat-brick-common": "Facing brick" }
+}
+```
+
+- `classes` changes the IFC class written for an `ifc_type`.
+- `property_sets` moves a property (by its OEBF name) into the named IFC property set and property. A property that is not listed stays in `OEBF_Properties`.
+- `materials` sets the IFC material name for a material id. Each id must be in the materials library, which `oebf validate` checks.
+
+---
+
+## Commands
+
+Instead of writing files by hand, write a list of commands and let the tool apply them. The commands are catalogued in `spec/commands.json` (each with its parameters and an example): `add_path`, `add_element`, `set_element_profile` and `remove_element`.
+
+```json
+{
+  "commands": [
+    { "command": "add_path", "id": "path-wall-garden", "description": "Garden wall centreline", "points": [[0, 8.5], [5.4, 8.5]] },
+    { "command": "add_element", "id": "element-wall-garden", "path_id": "path-wall-garden", "profile_id": "profile-cavity-250", "description": "Garden wall" }
+  ]
+}
+```
+
+```bash
+oebf apply path/to/project.oebf commands.json            # apply
+oebf apply path/to/project.oebf commands.json --dry-run  # check only
+```
+
+The commands run on a copy of the bundle. The copy is validated, and only if it has no problem the bundle did not already have are the changes written back. If any command fails, or the result would be invalid, the bundle is left exactly as it was and the tool says why.
 
 ---
 

@@ -9,6 +9,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { AXO_VIEWS, clipPolygon, guideSegments } from './detailAxo.js';
 import { signedArea } from '../detail/regionGeometry.js';
+import { priorityOf } from '../detail-review/visibleArea.js';
 import { NONE_COLOUR } from '../detail-review/overlays.js';
 
 const FALLBACK_COLOUR = '#999999';
@@ -82,7 +83,7 @@ export class AxoViewer {
       if (points.length < 3) continue;
       const geometry = prismGeometry(model.plane, { ...prism, points });
       const mesh = new THREE.Mesh(geometry, materialFor(prism.materialId, prism.kind === 'region'));
-      mesh.userData = { kind: prism.kind, edges: false, itemId: prism.id, baseMaterial: mesh.material, materialColour: mesh.material, area: Math.abs(signedArea(prism.points)) };
+      mesh.userData = { kind: prism.kind, edges: false, itemId: prism.id, baseMaterial: mesh.material, materialColour: mesh.material, area: Math.abs(signedArea(prism.points)), priority: priorityOf(prism) };
       this.group.add(mesh);
       const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geometry, 25), edgeMaterial);
       edges.userData = { kind: prism.kind, edges: true };
@@ -168,9 +169,10 @@ export class AxoViewer {
     const meshes = this.group.children.filter((o) => o.isMesh && o.visible);
     const hits = ray.intersectObjects(meshes, false);
     if (!hits.length) return null;
-    // Overlapping solids (a region drawn over a member) have faces at the same depth: take the smallest, the most specific.
+    // Overlapping solids (a region drawn over a member) have faces at the same depth: take the one painted on top
+    // (paintOrder: the highest priority, then the smallest, the most specific).
     const front = hits.filter((h) => h.distance <= hits[0].distance + 1e-3);
-    front.sort((a, b) => a.object.userData.area - b.object.userData.area);
+    front.sort((a, b) => b.object.userData.priority - a.object.userData.priority || a.object.userData.area - b.object.userData.area);
     return front[0].object.userData.itemId;
   }
 

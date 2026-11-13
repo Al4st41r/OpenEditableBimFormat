@@ -104,6 +104,21 @@ def test_the_template_has_the_same_sections_as_the_bundle_guide(text):
     assert _headings(TEMPLATE.read_text()) == _headings(text)
 
 
+SHIPPED_GUIDES = sorted((REPO / "example").glob("*.oebf/OEBF-GUIDE.md"))
+
+
+def test_the_main_examples_ship_a_guide():
+    names = {g.parent.name for g in SHIPPED_GUIDES}
+    assert {"terraced-house.oebf", "nmb-two-storey.oebf"} <= names
+
+
+@pytest.mark.parametrize("guide", SHIPPED_GUIDES, ids=lambda g: g.parent.name)
+def test_every_shipped_guide_is_the_template(guide):
+    """A bundle's guide is a copy of spec/OEBF-GUIDE-template.md (the NMB generator copies it); a copy left behind
+    when the template changes tells an LLM about a format that no longer exists (#167)."""
+    assert guide.read_text() == TEMPLATE.read_text(), f"{guide.relative_to(REPO)} differs from spec/OEBF-GUIDE-template.md; copy the template over it"
+
+
 def test_the_template_examples_validate_too():
     for d in blocks(TEMPLATE.read_text()):
         sid = d.get("$schema", "")

@@ -14,8 +14,8 @@ describe('buildSnapshot', () => {
   test('carries the project name, details, profiles, reduced materials, junctions and elements', async () => {
     const s = buildSnapshot(await ctx(), 'detail-corner-cavity-butt');
     expect(s.projectName).toMatch(/Terraced/);
-    expect(s.details.map((d) => d.id)).toEqual(['detail-corner-cavity-butt']);
-    expect(Object.keys(s.profiles)).toEqual(['profile-cavity-250']);
+    expect(s.details.map((d) => d.id)).toEqual(['detail-corner-cavity-butt', 'detail-wall-cavity-section']);
+    expect(Object.keys(s.profiles)).toEqual(['profile-block-leaf-coursed', 'profile-brick-leaf-coursed', 'profile-cavity-250']);
     expect(s.materials['mat-brick-common']).toEqual({ id: 'mat-brick-common', name: expect.any(String), colour_hex: expect.stringMatching(/^#/), category: expect.any(String) });
     expect(s.junctions.map((j) => j.id)).toContain('junction-ne-corner');
     expect(s.elements['element-wall-east-gf']).toEqual({ id: 'element-wall-east-gf', ifc_type: 'IfcWall', profile_id: 'profile-cavity-250', parent_group_id: 'storey-gf' });

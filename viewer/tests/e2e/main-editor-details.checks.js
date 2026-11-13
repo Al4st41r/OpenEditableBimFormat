@@ -22,7 +22,7 @@
     // tree
     const details = [...document.querySelectorAll('#details-list .tree-item')].map((e) => e.textContent);
     const subs = [...document.querySelectorAll('#subassemblies-list .tree-item')].map((e) => e.textContent);
-    note(details.join() === 'detail-corner-cavity-butt', 'tree: Details lists the Detail entity', details);
+    note(details.join() === 'detail-corner-cavity-butt,detail-wall-cavity-section', 'tree: Details lists the Detail entities', details);
     note(subs.length === 0, 'tree: Sub-assembly profiles section present and empty', subs);
     note(!document.getElementById('add-detail-btn').disabled && !document.getElementById('add-subassembly-btn').disabled, 'tree: both + buttons enabled');
 

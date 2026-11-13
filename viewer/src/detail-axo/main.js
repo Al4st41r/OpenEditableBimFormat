@@ -98,7 +98,7 @@ function carbonSection(model) {
     (c.perMetre !== null ? ` (${kg(c.perMetre)} per m run)` : '') + `<br>${Math.round(c.volumeM3 * 1e4) / 1e4} m3 of material</div>` +
     rows +
     (c.missing.length ? `<div class="note">Not counted, no per-m3 figure: ${c.missing.map((id) => esc(name(id))).join(', ')} (${Math.round(c.missingM3 * 1e4) / 1e4} m3).</div>` : '') +
-    `<div class="note">Where solids overlap, the one drawn on top (the smaller) owns the overlap, so nothing is counted twice.${model.clip ? ' Cut to the clip box.' : ''}</div>`;
+    `<div class="note">Where solids overlap, the one drawn on top (the smaller, unless a region has a higher priority) owns the overlap, so nothing is counted twice.${model.clip ? ' Cut to the clip box.' : ''}</div>`;
 }
 
 function renderInfo(detail, model) {

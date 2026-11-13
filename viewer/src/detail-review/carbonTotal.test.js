@@ -32,6 +32,21 @@ describe('detailCarbon', () => {
     const r = detailCarbon(model([{ materialId: 'conc', points: rect(0, 0, 2, 1) }], { clip: { x_max_m: 1 } }), { materials });
     expect(r.volumeM3).toBeCloseTo(1, 12);
   });
+  it('counts an overlap against a large region with a higher priority (#167)', () => {
+    const detail = {
+      id: 'd', plane: 'section',
+      geometry: { extrusion_m: 1, regions: [
+        { material_id: 'conc', priority: 1, vertices: rect(0, 0, 1, 1) },
+        { material_id: 'steel', vertices: rect(0.4, 0.4, 0.5, 0.5) },
+      ] },
+    };
+    const m = buildAxoModel(detail, { profiles: new Map() });
+    expect(m.prisms[0].priority).toBe(1);
+    const r = detailCarbon(m, { materials });
+    // the concrete owns the whole square, so the bar inside it counts nothing
+    expect(r.rows.find((row) => row.materialId === 'steel').volumeM3).toBeCloseTo(0, 12);
+    expect(r.totalKg).toBeCloseTo(300, 9);
+  });
   it('gives no per-metre figure for a plan', () => {
     expect(detailCarbon(model([{ materialId: 'conc', points: rect(0, 0, 1, 1) }], { plane: 'plan' }), { materials }).perMetre).toBeNull();
   });

@@ -705,17 +705,18 @@ async function openFolder() {
     openContext(await loadDetailContext(adapter), adapter, 'fsa');
   } catch (err) { if (err.name !== 'AbortError') status(`Could not open folder: ${err.message}`, true); }
 }
-async function openMemory(file) {
+async function openMemory(file, activeId = null) {
   try {
     const adapter = await MemoryAdapter.fromFile(file);
-    openContext(await loadDetailContext(adapter), adapter, 'memory');
+    openContext(await loadDetailContext(adapter), adapter, 'memory', activeId);
   } catch (err) { status(`Could not open archive: ${err.message}`, true); }
 }
 async function openDemo() {
   try {
     const resp = await fetch(import.meta.env.BASE_URL + 'terraced-house.oebfz');
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    await openMemory(new File([await resp.blob()], 'terraced-house.oebfz'));
+    // The demo opens on the guide's worked example (the bundle has other details too, #167).
+    await openMemory(new File([await resp.blob()], 'terraced-house.oebfz'), 'detail-corner-cavity-butt');
     if (bundle) bundle.urlName = 'terraced-house.oebf';
   } catch (err) { status(`Could not load the demo: ${err.message}`, true); }
 }

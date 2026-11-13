@@ -100,6 +100,7 @@
     "reference": "elevation"
   },
   "plane": "plan",
+  "cut_height_m": 1.0,
   "view_direction": "along_path",
   "geometry": {
     "extrusion_m": 2.7,

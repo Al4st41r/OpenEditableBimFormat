@@ -124,6 +124,7 @@
       }
     },
     "plane": { "type": "string", "enum": ["section", "plan"], "default": "section" },
+    "cut_height_m": { "type": "number", "minimum": 0, "description": "Plan details only: the height above the datum at which the plan is cut, in metres (1.0 is usual). A solid the cut passes through is drawn cut; one wholly below it is seen and drawn as an outline at the seen weight; one wholly above it is left out. Without it the plan shows the first course cut and leaves out the courses above." },
     "view_direction": { "type": "string", "enum": ["along_path", "across_path"] },
     "geometry": {
       "type": "object",
@@ -146,6 +147,7 @@
               "stagger_x_m": { "type": "number", "description": "Shift along x applied to every second row (when count_y is above 1), for a bond. Half of repeat_x_m gives a half-bond." },
               "count_x":    { "type": "integer", "minimum": 1, "description": "Number of units along x. Needs repeat_x_m. Default 1." },
               "count_y":    { "type": "integer", "minimum": 1, "description": "Number of units along y. Needs repeat_y_m. Default 1." },
+              "priority":   { "type": "integer", "minimum": -99, "maximum": 99, "description": "Which solid owns an overlap. A solid with a higher priority is drawn over one with a lower priority and owns the area they share in the carbon and quantity totals. Members have 0. Default 0; among equal priorities the smaller solid wins." },
               "tags":       { "$ref": "#/definitions/classification" },
               "outline_mm": { "$ref": "#/definitions/pen_mm", "description": "Pen weight of this region's cut outline in the 2D drawings, overriding the weight its material category implies (structure 0.5 down to membrane 0.18)." },
               "vertices": {
