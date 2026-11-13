@@ -806,3 +806,44 @@ describe('computeMitreTrimPlaneFromSegments', () => {
     warnSpy.mockRestore();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Non-convex faces (#186): an L-shaped section cut by a trim plane
+// ---------------------------------------------------------------------------
+
+describe('trimMeshByPlane with a non-convex (L-shaped) section', () => {
+  // the L in the y-z plane, starting at a corner from which a fan would cover the notch
+  const L = [[0.3, 0], [0.3, 0.1], [0.1, 0.1], [0.1, 0.3], [0, 0.3], [0, 0]];
+  const L_AREA = 0.3 * 0.1 + 0.1 * 0.2;
+  // an L prism from x = 0 to x = 2: side quads and the two end faces as six-sided polygons
+  const lPrism = () => {
+    const vertices = [...L.map(([y, z]) => [0, y, z]), ...L.map(([y, z]) => [2, y, z])];
+    const n = L.length;
+    const faces = [];
+    for (let i = 0; i < n; i++) { const j = (i + 1) % n; faces.push([i, j, n + j, n + i]); }
+    faces.push([0, ...[...Array(n).keys()].slice(1).reverse()]);   // x = 0 end, facing -x, starting at (0.3, 0)
+    faces.push([...Array(n).keys()].map((i) => n + i));    // x = 2 end, facing +x
+    return { vertices, faces };
+  };
+  const tri = (m, f) => { const [a, b, c] = f.map((i) => m.vertices[i]); const u = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], v = [c[0] - a[0], c[1] - a[1], c[2] - a[2]]; return [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]].map((x) => x / 2); };
+  const facesAt = (m, x) => m.faces.filter((f) => f.every((i) => Math.abs(m.vertices[i][0] - x) < 1e-9));
+
+  const out = trimMeshByPlane(lPrism(), { normal: [-1, 0, 0], origin: [1, 0, 0] });   // keep x <= 1
+
+  it('the cut cap covers the L once, every triangle facing out of the cut', () => {
+    const cap = facesAt(out, 1).map((f) => tri(out, f));
+    expect(cap.length).toBeGreaterThan(0);
+    expect(cap.every((n) => n[0] > 0)).toBe(true);
+    expect(cap.reduce((s, n) => s + Math.hypot(...n), 0)).toBeCloseTo(L_AREA, 9);
+  });
+
+  it('a kept non-convex face is not covered by a fan reaching across the notch', () => {
+    const end = facesAt(out, 0).map((f) => tri(out, f));
+    expect(end.every((n) => n[0] < 0)).toBe(true);
+    expect(end.reduce((s, n) => s + Math.hypot(...n), 0)).toBeCloseTo(L_AREA, 9);
+  });
+
+  it('the trimmed L is a closed solid of the right volume', () => {
+    expect(meshVolume(out)).toBeCloseTo(L_AREA * 1, 9);
+  });
+});

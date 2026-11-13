@@ -19,7 +19,18 @@
  * See: docs/decisions/2026-03-02-junction-trim-algorithm.md
  */
 
+import { polygonTriangles3d } from './geometry/polygonTriangles.js';
+
 const EPS = 1e-9;
+
+/**
+ * Triangles for a polygon face given as output vertex indices. A cut through an L- or I-shaped profile gives a
+ * non-convex cap, which a fan from the first vertex would cover wrongly, so faces are ear-clipped (#186).
+ */
+function triangulateFace(verts, indices) {
+  if (indices.length === 3) return [[indices[0], indices[1], indices[2]]];
+  return polygonTriangles3d(indices.map(i => verts[i])).map(([a, b, c]) => [indices[a], indices[b], indices[c]]);
+}
 
 // ---------------------------------------------------------------------------
 // Vector helpers (pure arrays — no Three.js dependency)
@@ -245,10 +256,7 @@ export function trimMeshByPlane(mesh, plane) {
 
     if (allKeep) {
       const indices = face.map(i => addOrigVert(i));
-      // Fan-triangulate (handles both triangles and quads)
-      for (let j = 1; j < indices.length - 1; j++) {
-        outFaces.push([indices[0], indices[j], indices[j + 1]]);
-      }
+      outFaces.push(...triangulateFace(outVerts, indices));
       continue;
     }
 
@@ -282,10 +290,7 @@ export function trimMeshByPlane(mesh, plane) {
       p.isIntersect ? addIntersectVert(p.v) : addOrigVert(p.origIdx)
     );
 
-    // Fan-triangulate the clipped polygon
-    for (let j = 1; j < indices.length - 1; j++) {
-      outFaces.push([indices[0], indices[j], indices[j + 1]]);
-    }
+    outFaces.push(...triangulateFace(outVerts, indices));
 
     // Collect cap edge from this face (the two intersection points)
     const intersectIdx = clipped
@@ -310,10 +315,8 @@ export function trimMeshByPlane(mesh, plane) {
       // The cap closes the solid; its outward normal points toward the clipped
       // side, i.e., opposite to plane.normal.
       ensureWinding(outVerts, poly, plane.normal.map(x => -x));
-      // Fan-triangulate
-      for (let j = 1; j < poly.length - 1; j++) {
-        outFaces.push([poly[0], poly[j], poly[j + 1]]);
-      }
+      // the cut through an L- or I-shaped section is not convex: ear-clip it rather than fan it
+      outFaces.push(...triangulateFace(outVerts, poly));
     }
   }
 
