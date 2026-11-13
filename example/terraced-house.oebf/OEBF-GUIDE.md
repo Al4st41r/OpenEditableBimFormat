@@ -25,11 +25,11 @@ Read this before editing any file in this bundle. Every 3D element sweeps a
 
 **Line weights (optional).** A profile may carry `lineweights` (`cut`, `seen`, `hatch`, `annotation`) and an assembly layer or a detail region may carry `outline_mm` (on a region it replaces the weight the material's category implies). Values are millimetres at print scale and must be one of 0.09, 0.13, 0.18, 0.25, 0.35, 0.5 or 0.7. Omit them to use the defaults (cut 0.35, seen 0.18, hatch 0.09, annotation 0.09). Where `cut` is omitted, the detail drawing weights each layer by its `function`: structure 0.5, finish 0.35, insulation 0.25, service 0.25, membrane 0.18. The detail review drawing, the profile editor and the detail editor draw them (a **Thin** button draws every line as a hairline without changing the data), the profile editor has pickers for both fields, and the DXF export writes each pen as a colour (1 = 0.09 mm up to 7 = 0.7 mm) for a plot style table to map; see `docs/plans/2026-11-06-lineweights.md`.
 
-**Repeating units (optional).** A detail region may repeat one drawn unit, such as a brick or a tile. The region's vertices draw one unit. Add `repeat_x_m` or `repeat_y_m` (the pitch, in metres) with `count_x` or `count_y` (how many). `stagger_x_m` shifts every second row for a bond (half the pitch gives a half-bond). `depth_m` states the unit's size along the repeat axis and is checked against the drawing to within 1 mm. A brick 210 mm long on a 220 mm pitch leaves a 10 mm joint; a tile 90 mm deep on a 98 mm pitch leaves 8 mm. The pitch must be at least the unit's size, or `oebf validate` reports an overlap. The gap is empty. A profile region layer (`"type": "region"`) repeats too, with its own fields: its vertices draw one unit's cross-section, `depth_m` is the unit's length along the run and `repeat_x_m` its pitch along the run (give both), `repeat_y_m` repeats rows up the profile, `offset_x_m` shifts every second row along the run for a bond, and `offset_y_m` lifts the first row. In a section the units along the run are centred on the cut; a unit wholly beyond the cut is drawn as a seen line.
+**Repeating units (optional).** A detail region may repeat one drawn unit, such as a brick or a tile. The region's vertices draw one unit. Add `repeat_x_m` or `repeat_y_m` (the pitch, in metres) with `count_x` or `count_y` (how many). `stagger_x_m` shifts every second row for a bond (half the pitch gives a half-bond). `depth_m` states the unit's size along the repeat axis and is checked against the drawing to within 1 mm. A brick 210 mm long on a 220 mm pitch leaves a 10 mm joint; a tile 90 mm deep on a 98 mm pitch leaves 8 mm. The pitch must be at least the unit's size, or `oebf validate` reports an overlap. The gap is empty. A profile region layer (`"type": "region"`) repeats too, with its own fields: its vertices draw one unit's cross-section, `depth_m` is the unit's length along the run and `repeat_x_m` its pitch along the run (give both), `repeat_y_m` repeats rows up the profile, `offset_x_m` shifts every second row along the run for a bond, and `offset_y_m` lifts the first row. `repeat_x_m` must be at least `depth_m` and `repeat_y_m` at least the unit's height, or `oebf validate` reports an overlap; repeat fields on a band layer are reported too, as a band ignores them. In a section the units along the run are centred on the cut; a unit wholly beyond the cut is drawn as a seen line. The example's `profiles/profile-brick-leaf-coursed.json` (a brick leaf in stretcher bond) and `profiles/profile-block-leaf-coursed.json` are drawn in `details/detail-wall-cavity-section.json`, where every second course is cut through a joint and shows the unit beyond. The main 3D model does not yet draw a layer's repeat: there the unit's cross-section is swept along the whole run.
 
 **Classification tags (optional).** A material may carry `classification` and an assembly layer or detail region may carry `tags`, with the same six fields: `package` (groundworks, concrete, timber-frame, cladding, interiors, mep or other), `barrier` (a list from air, water, vapour, breathable), `fire_role` (firestop, cavity-barrier or fire-rated), `sequence` (a whole number from 1 to 99; 1 is installed first, and only the order matters) `shearing_layer` (site, structure, skin, services, space-plan or stuff) and `sfb` (a CI/SfB element code in brackets, such as `(21)` external walls, `(27)` roofs or `(43)` floor finishes; the overlay groups by the first digit). The tags on a layer or region override the material's, field by field. The detail review view colours the drawing by them. Reaction class and rating stay in `properties.fire`.
 
-**Carbon factors (optional).** A material may name a row of the CarbonBench material database with `carbonbench_id`, record the release with `carbonbench_version`, and say whether the row is the same product or a stand-in with `carbon_match` (`exact` or `proxy`). `node scripts/sync-carbonbench.mjs <bundle>` then copies the A1-A3 factor, its unit, the density and any biogenic factor into `properties.carbon`, so the bundle stays self-contained. A material with no match shows as no data in the carbon overlay. The detail review panel totals a detail's A1-A3 carbon from each solid's volume times its per-m3 factor; where solids overlap, the one drawn on top (the smaller) owns the overlap, so nothing is counted twice.
+**Carbon factors (optional).** A material may name a row of the CarbonBench material database with `carbonbench_id`, record the release with `carbonbench_version`, and say whether the row is the same product or a stand-in with `carbon_match` (`exact` or `proxy`). `node scripts/sync-carbonbench.mjs <bundle>` then copies the A1-A3 factor, its unit, the density and any biogenic factor into `properties.carbon`, so the bundle stays self-contained. A material with no match shows as no data in the carbon overlay. The detail review panel totals a detail's A1-A3 carbon from each solid's volume times its per-m3 factor; where solids overlap, the one drawn on top owns the overlap, so nothing is counted twice. The smaller solid is drawn on top unless a detail region sets `priority` (a whole number from -99 to 99; members and regions without one have 0): a higher priority is drawn over a lower one whatever its size, so a large region, such as a concrete slab with a bar cast into it, can own the overlap.
 
 ---
 
@@ -625,6 +625,7 @@ axes and a level). The detail says *what* (members, drawn regions, parameters).
     "reference": "elevation"
   },
   "plane": "plan",
+  "cut_height_m": 1.0,
   "view_direction": "along_path",
   "geometry": {
     "extrusion_m": 2.7,
@@ -702,11 +703,19 @@ Detail fields:
 - `plane` — `plan` (seen from above; regions rise from the level by
   `geometry.extrusion_m`) or `section` (regions run along the primary member,
   centred on the location).
+- `cut_height_m` — optional, plan details only: the height above the datum at
+  which the plan is cut (1.0 is usual). What the cut passes through is drawn cut;
+  what lies wholly below it (lower courses seen through the joints, a low
+  upstand) is drawn as a seen line; what lies above it is left out. Without it
+  the plan shows the first course cut. `oebf validate` reports it on a section
+  or above `geometry.extrusion_m`.
 - `datum` — where the drawing's zero sits: `elevation` and `top` are the storey
   elevation; `bottom` is the elevation minus the thickness of the slab on that
   storey.
 - `geometry.regions[]` — extra shapes (trim, membranes, fillers): a `material_id`
   and at least three `vertices` in drawing space, simple (not self-intersecting).
+  Optional `priority` (a whole number, default 0) decides which solid owns an
+  overlap: the higher is drawn on top; on a tie the smaller wins.
 - `members[].layer_ends[]` — optional `{ "layer": 1, "near_m": 0.1, "far_m": -0.05 }`: let that
   layer start or finish at a different point along the run (positive extends past the
   member's end, negative shortens), so a cavity wall's leaves can stop at different

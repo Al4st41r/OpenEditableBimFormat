@@ -95,7 +95,7 @@ describe('refreshDetail (E7)', () => {
   test('returns the reloaded details', async () => {
     const { ctx, model, grids, readJson } = await loaded();
     const r = await refreshDetail({ readJson, model, junctions: structuredClone(ctx.junctions), grids, detailId: 'detail-corner-cavity-butt' });
-    expect(r.details.map((d) => d.id)).toEqual(['detail-corner-cavity-butt']);
+    expect(r.details.map((d) => d.id)).toEqual(['detail-corner-cavity-butt', 'detail-wall-cavity-section']);
   });
 });
 

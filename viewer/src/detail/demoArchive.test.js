@@ -19,7 +19,7 @@ describe('demo archive (public/terraced-house.oebfz)', () => {
   test('loads without warnings and includes the junction details', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const r = await loadBundleZstd(archive());
-    expect(r.details.map((d) => d.id)).toEqual(['detail-corner-cavity-butt']);
+    expect(r.details.map((d) => d.id)).toEqual(['detail-corner-cavity-butt', 'detail-wall-cavity-section']);
     const placed = r.junctions.filter((j) => j.detailGeometry);
     expect(placed).toHaveLength(4);
     for (const j of placed) expect(assertValidGeometry(j.detailGeometry), j.id).toEqual([]);

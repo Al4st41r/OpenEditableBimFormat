@@ -303,6 +303,29 @@ describe('seen lines', () => {
   });
 });
 
+describe('seen lines in the shipped terraced-house details (#167)', () => {
+  const th = new URL('../../../example/terraced-house.oebf/', import.meta.url);
+  const readTh = (p) => JSON.parse(readFileSync(new URL(p, th), 'utf8'));
+  const draw = (id) => {
+    const detail = readTh(`details/${id}.json`);
+    const profiles = new Map(detail.members.map((m) => [m.profile_id, readTh(`profiles/${m.profile_id}.json`)]));
+    const model = buildAxoModel(detail, { profiles });
+    expect(model.warnings).toEqual([]);
+    return { model, svg: buildDetailSvg(model, { profiles }).svg };
+  };
+  it('the coursed cavity wall section shows the bricks and blocks beyond the joints it cuts', () => {
+    const { model, svg } = draw('detail-wall-cavity-section');
+    expect(model.prisms.some((p) => drawRole(p, 'section') === 'seen' && p.profileId === 'profile-brick-leaf-coursed')).toBe(true);
+    expect(model.prisms.some((p) => drawRole(p, 'section') === 'seen' && p.profileId === 'profile-block-leaf-coursed')).toBe(true);
+    expect(svg.match(/class="seen"/g)?.length).toBeGreaterThan(0);
+  });
+  it('the corner plan is cut at 1 m and shows the courses below as seen lines', () => {
+    const { model, svg } = draw('detail-corner-cavity-butt');
+    expect(model.cutHeight).toBe(1);
+    expect(svg.match(/class="seen"/g)?.length).toBeGreaterThan(0);
+  });
+});
+
 describe('a region outline weight', () => {
   const pts = [{ x: 0, y: 0 }, { x: 0.2, y: 0 }, { x: 0.2, y: 0.2 }, { x: 0, y: 0.2 }];
   const materials = new Map([['m', { category: 'insulation' }]]);

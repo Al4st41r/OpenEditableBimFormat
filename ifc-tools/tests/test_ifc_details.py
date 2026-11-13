@@ -181,7 +181,9 @@ def test_the_detail_and_grid_files_are_restored_exactly(round_trip):
 
 def test_model_json_registers_what_was_restored(round_trip):
     m = load(round_trip / "model.json")
-    assert m["details"] == [DETAIL] and m["grids"] == ["grid-structural"]
+    # Every detail comes back, including one no junction uses (detail-wall-cavity-section, #167).
+    assert DETAIL in m["details"] and set(m["details"]) == set(load(EXAMPLE / "model.json")["details"])
+    assert m["grids"] == ["grid-structural"]
     assert set(m["junctions"]) == {"junction-sw-corner", "junction-se-corner", "junction-nw-corner", "junction-ne-corner", "junction-ne-padstone"}
 
 

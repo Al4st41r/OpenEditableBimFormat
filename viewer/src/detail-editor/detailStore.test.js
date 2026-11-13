@@ -11,9 +11,9 @@ describe('loadDetailContext', () => {
   test('reads project name, details, profiles, materials, junctions and elements', async () => {
     const c = await loadDetailContext(makeFsAdapter());
     expect(c.projectName).toMatch(/Terraced/);
-    expect(c.detailIds).toEqual(['detail-corner-cavity-butt']);
+    expect(c.detailIds).toEqual(['detail-corner-cavity-butt', 'detail-wall-cavity-section']);
     expect(c.details[0].id).toBe('detail-corner-cavity-butt');
-    expect(c.profileIds).toEqual(['profile-cavity-250']);
+    expect(c.profileIds).toEqual(['profile-block-leaf-coursed', 'profile-brick-leaf-coursed', 'profile-cavity-250']);
     expect(c.profiles['profile-cavity-250'].assembly).toHaveLength(4);
     expect(c.materials['mat-brick-common'].colour_hex).toMatch(/^#/);
     expect(c.materialIds).toContain('mat-pir-insulation');
@@ -60,7 +60,7 @@ describe('loadDetailContext', () => {
     const read = a.readJson;
     a.readJson = async (p) => { if (p === 'details/detail-corner-cavity-butt.json') throw new Error('gone'); return read(p); };
     const c = await loadDetailContext(a);
-    expect(c.details).toEqual([]);
+    expect(c.details.map((d) => d.id)).toEqual(['detail-wall-cavity-section']);
     expect(c.warnings.join(' ')).toMatch(/detail-corner-cavity-butt/);
   });
 
@@ -130,7 +130,7 @@ describe('saveDetail', () => {
     const r = await saveDetail(adapter, doc);
     const after = await adapter.readJson('model.json');
     expect(r.modelUpdated).toBe(true);
-    expect(after.details).toEqual(['detail-corner-cavity-butt', 'detail-second']);
+    expect(after.details).toEqual(['detail-corner-cavity-butt', 'detail-wall-cavity-section', 'detail-second']);
     expect({ ...after, details: before.details }).toEqual(before);
   });
 

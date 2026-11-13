@@ -135,7 +135,7 @@ describe('example bundle via loadBundle', () => {
   test('returns details and attaches geometry to the four corners without warnings', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const r = await loadBundle(fsHandle(BUNDLE));
-    expect(r.details.map((d) => d.id)).toEqual(['detail-corner-cavity-butt']);
+    expect(r.details.map((d) => d.id)).toEqual(['detail-corner-cavity-butt', 'detail-wall-cavity-section']);
     const withDetail = r.junctions.filter((j) => j.detail_id);
     expect(withDetail.map((j) => j.id).sort()).toEqual(
       ['junction-ne-corner', 'junction-nw-corner', 'junction-se-corner', 'junction-sw-corner']);
