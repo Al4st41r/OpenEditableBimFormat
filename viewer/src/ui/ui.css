@@ -27,3 +27,22 @@
 }
 :where(a.home-link:hover) { color: #fff; background: #333; }
 :where(a.home-link:focus-visible) { outline: 2px solid #6fc0ff; outline-offset: 1px; }
+
+/* Phones (#160). A dialog never runs past the screen edge, whatever minimum width its page gives it. */
+@media (max-width: 699px) {
+  dialog { min-width: 0 !important; max-width: calc(100vw - 24px) !important; }
+}
+/* Controls that only matter on a phone, such as the toggles for panels that are drawers there. */
+@media (min-width: 700px) {
+  .phone-only { display: none !important; }
+}
+
+/* The note an editing app shows on a phone: it works there, but is made for a larger screen (smallScreen.js). */
+.oebf-small-note {
+  position: fixed; left: 8px; right: 8px; bottom: 8px; z-index: 1500;
+  display: flex; align-items: flex-start; gap: 10px; padding: 8px 10px 8px 12px;
+  background: #23303d; color: #eee; border: 1px solid #4a6a8a; border-radius: 4px;
+  font: 13px 'Barlow', system-ui, sans-serif; box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+.oebf-small-note span { flex: 1; }
+.oebf-small-note button { background: none; border: none; color: #fff; font-size: 16px; line-height: 1; padding: 0 2px; }

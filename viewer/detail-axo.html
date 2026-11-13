@@ -21,9 +21,13 @@
     #project-name { opacity: 0.6; max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     #header .sep { margin: 0 1px; }
     [hidden] { display: none !important; }
-    @media (max-width: 1599px) { .short .lbl { display: none; } }   /* secondary commands show only their icon on narrower screens */
+    @media (max-width: 2399px) {
+      .short .lbl { display: none; }
+      #app-title { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }   /* the tab title says it; still read out */
+    }   /* secondary commands show only their icon on narrower screens */
 
-    #status { margin-left: auto; opacity: 0.8; font-size: 12px; max-width: 40%; text-align: right; }
+    /* the status takes what room is left and shortens to fit, so a long message never wraps the toolbar (#158) */
+    #status { margin-left: auto; flex: 1 1 0; min-width: 0; opacity: 0.8; font-size: 12px; max-width: 40%; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     #status.error { color: #f88; opacity: 1; }
     #main { display: flex; flex: 1; min-height: 0; }
     .panel { overflow-y: auto; padding: 8px 12px; background: #1e1e1e; flex-shrink: 0; }
@@ -62,17 +66,35 @@
     .use { font-size: 12px; margin: 3px 0; line-height: 1.45; }
     .use code { color: #8cb4d8; }
     #detail-title { font-weight: 700; font-size: 14px; word-break: break-word; }
+
+    /* Phones (#160): one toolbar row that scrolls inside itself, icon-only buttons, the 2D and 3D panes one above the
+       other, the lists as drawers over them, and the status at the foot of the screen rather than off the row's end. */
+    @media (max-width: 699px) {
+      #header { flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; padding: 6px 8px; scrollbar-width: thin; }
+      #header > * { flex-shrink: 0; }
+      #header .lbl, #header > strong { display: none; }
+      #project-name { max-width: 90px; }
+      #status { position: fixed; left: 8px; right: 8px; bottom: 8px; z-index: 30; max-width: none; margin: 0; text-align: left; padding: 4px 8px; border-radius: 3px; background: rgba(24,24,24,0.88); color: #ddd; opacity: 1; pointer-events: none; }
+      #status:empty { display: none; }
+      #main { position: relative; }
+      .panel { position: absolute; top: 0; bottom: 0; z-index: 20; width: min(340px, 88vw); box-shadow: 0 0 12px rgba(0,0,0,0.5); }
+      #left-panel { left: 0; }
+      #right-panel { right: 0; }
+      #panes { flex-direction: column; }
+      #pane-2d { min-width: 0; min-height: 120px; flex: 1 1 50% !important; }
+      #divider { display: none; }
+    }
   </style>
 </head>
 <body>
   <div id="header">
     <a href="launch.html" class="home-link" title="All OEBF applications" aria-label="All OEBF applications"><i data-icon="home"></i></a>
     <button id="left-btn" class="active short" title="Show or hide the detail list" aria-label="List"><i data-icon="panel-left"></i><span class="lbl">List</span></button>
-    <strong>Detail review</strong>
+    <strong id="app-title">Detail review</strong>
     <span id="project-name"></span>
     <span class="sep"></span>
-    <button id="open-btn" title="Open a bundle folder"><i data-icon="open"></i><span class="lbl">Open</span></button>
-    <button id="demo-btn" title="Load the NMB two-storey example"><i data-icon="example"></i><span class="lbl">NMB example</span></button>
+    <button id="open-btn" title="Open a bundle folder" class="short" aria-label="Open"><i data-icon="open"></i><span class="lbl">Open</span></button>
+    <button id="demo-btn" title="Load the NMB two-storey example" class="short" aria-label="NMB example"><i data-icon="example"></i><span class="lbl">NMB example</span></button>
     <span class="sep"></span>
     <button id="pane2d-btn" class="active short" title="Show the 2D drawing beside the 3D view" aria-label="2D"><i data-icon="split"></i><span class="lbl">2D</span></button>
     <select id="scale-select" title="Drawing scale of the 2D pane">
@@ -97,9 +119,9 @@
       <option value="">Auto</option><option>A4</option><option>A3</option><option>A2</option><option>A1</option>
     </select>
     <span class="sep"></span>
-    <button id="edit-btn" title="Open this detail in the detail editor" disabled><i data-icon="edit"></i><span class="lbl">Edit detail</span></button>
-    <button id="compare-btn" title="Show the detail as it was before your edits" hidden><i data-icon="history"></i><span class="lbl">Original</span></button>
-    <button id="download-btn" title="Download the edited detail as JSON" hidden><i data-icon="download"></i><span class="lbl">Download edit</span></button>
+    <button id="edit-btn" title="Open this detail in the detail editor" class="short" aria-label="Edit detail" disabled><i data-icon="edit"></i><span class="lbl">Edit detail</span></button>
+    <button id="compare-btn" title="Show the detail as it was before your edits" class="short" aria-label="Original" hidden><i data-icon="history"></i><span class="lbl">Original</span></button>
+    <button id="download-btn" title="Download the edited detail as JSON" class="short" aria-label="Download edit" hidden><i data-icon="download"></i><span class="lbl">Download edit</span></button>
     <button id="right-btn" class="active short" title="Show or hide the information panel" aria-label="Info"><i data-icon="panel-right"></i><span class="lbl">Info</span></button>
     <span id="status"></span>
   </div>

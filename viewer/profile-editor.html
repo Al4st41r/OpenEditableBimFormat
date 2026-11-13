@@ -27,7 +27,8 @@
     #header button:disabled { opacity: 0.45; cursor: default; }
     #header .sep { width: 1px; height: 20px; background: #444; margin: 0 2px; }
     #dirty { color: #e8b04a; font-size: 14px; }
-    #status { margin-left: auto; color: #aaa; font-size: 12px; }
+    /* the status takes what room is left and shortens to fit, so a long message never wraps the toolbar (#158) */
+    #status { margin-left: auto; flex: 1 1 0; min-width: 0; color: #aaa; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
     #main { display: flex; flex: 1; overflow: hidden; }
 
@@ -59,6 +60,22 @@
     #form-footer { padding: 8px 12px; border-top: 1px solid #333; display: flex; gap: 8px; }
     #form-footer button { padding: 5px 12px; cursor: pointer; background: #333; color: #ddd; border: 1px solid #555; border-radius: 3px; }
     #form-footer button.icon-btn { display: flex; align-items: center; gap: 4px; }
+
+    /* Phones (#160): one toolbar row that scrolls inside itself, icon-only buttons, and the form below the drawing
+       rather than beside it; the page scrolls down to the form. */
+    @media (max-width: 699px) {
+      #header { flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; padding: 6px 8px; scrollbar-width: thin; }
+      #header > * { flex-shrink: 0; }
+      #header .lbl { display: none; }
+      #project-name { max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      #status { position: fixed; left: 8px; right: 8px; bottom: 8px; z-index: 30; margin: 0; padding: 4px 8px; border-radius: 3px; background: rgba(24,24,24,0.88); color: #ddd; pointer-events: none; }
+      #status:empty { display: none; }
+      #main { flex-direction: column; overflow-y: auto; }
+      #canvas-panel { flex: 0 0 62vh; padding: 12px; border-right: 0; border-bottom: 1px solid #333; }
+      #pane-resizer { display: none; }
+      #form-panel { width: auto !important; flex: 0 0 auto; overflow: visible; }
+      #layer-list { flex: 0 0 auto; overflow: visible; }
+    }
   </style>
 </head>
 <body>

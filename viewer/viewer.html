@@ -24,6 +24,12 @@
     #ui button:disabled { opacity: 0.4; cursor: default; }
     #ui .home-link { vertical-align: top; height: 30px; margin-right: 4px; }
     #status { margin-top: 8px; opacity: 0.6; }
+    /* Phones (#160): the buttons show only their icons (each has a title), so they stay on one row. */
+    @media (max-width: 699px) {
+      #ui { top: 8px; left: 8px; right: 8px; }
+      #ui button { padding: 6px 9px; margin-right: 4px; }
+      #ui .lbl { display: none; }
+    }
   </style>
 </head>
 <body>
@@ -31,7 +37,7 @@
   <div id="ui">
     <a href="launch.html" class="home-link" title="All OEBF applications" aria-label="All OEBF applications"><i data-icon="home"></i></a>
     <button id="load-demo-btn" title="Load the terraced house example"><i data-icon="example"></i><span class="lbl">Load demo</span></button>
-    <button id="open-dir-btn"><i data-icon="open"></i><span class="lbl">Open .oebf folder</span></button>
+    <button id="open-dir-btn" title="Open a .oebf bundle folder"><i data-icon="open"></i><span class="lbl">Open .oebf folder</span></button>
     <button id="open-file-btn" title="Open a .oebfz archive, or the .oebf.zip the editor saves"><i data-icon="open-archive"></i><span class="lbl">Open archive</span></button>
     <button id="edit-profiles-btn" disabled title="Open the profiles of the loaded bundle in the profile editor (a .oebf folder or the demo, not an archive)"><i data-icon="layers"></i><span class="lbl">View profiles</span></button>
     <p id="status">No project loaded</p>

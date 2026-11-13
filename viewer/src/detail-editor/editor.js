@@ -51,6 +51,7 @@ import { setRegionEdgeLength, setRegionSize } from './dimensionOps.js';
 import { KINDS, PLANES, TOOLS, MARK_TOOLS, PICK_TOOLS, SHORTCUTS } from './detailConstants.js';
 import { confirmDialog, ask, idValidator } from '../ui/dialog.js';
 import { tidyToolbarSeparators } from '../ui/toolbar.js';
+import { noteSmallScreen } from '../ui/smallScreen.js';
 import { renderIcons } from '../ui/icons.js';
 
 const $ = (id) => document.getElementById(id);
@@ -140,11 +141,12 @@ function paint() {
 function updateViewSwitch() {
   const btn = $('view-switch-btn');
   const lbl = btn.querySelector('.lbl') ?? btn;   // keep the icon
-  if (!st || !bundle) { btn.disabled = true; lbl.textContent = 'Plan / Section'; return; }
+  if (!st || !bundle) { btn.disabled = true; lbl.textContent = 'Plan / Section'; btn.setAttribute('aria-label', lbl.textContent); return; }
   const want = otherPlane(st.doc.plane);
   const pair = findCounterpart(st.doc, bundle.ctx.details);
   btn.disabled = false;
   lbl.textContent = pair ? `Show ${want}` : `New ${want}…`;   // the ellipsis: it asks for a name first
+  btn.setAttribute('aria-label', lbl.textContent);             // the label is hidden on narrower screens
   btn.title = pair ? `Open ${pair.id}, the same junction in ${want}` : `Make a new, empty ${want} detail with the same members and condition`;
 }
 
@@ -1186,3 +1188,4 @@ window.addEventListener('keyup', (e) => { if (e.key === 'Alt') pointer.alt = fal
 
 renderIcons();
 tidyToolbarSeparators(document.getElementById('header'));
+noteSmallScreen('detail-editor', 'The detail editor is made for a larger screen. Here you can open and view a detail; the panel buttons in the toolbar show the lists and properties.');
