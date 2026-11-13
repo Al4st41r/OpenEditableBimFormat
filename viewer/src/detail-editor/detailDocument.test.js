@@ -595,3 +595,30 @@ describe('setLayerEnds', () => {
     expect(validateDetail(d).filter((p) => p.path.includes('layer_ends')).length).toBeGreaterThanOrEqual(2);
   });
 });
+
+describe('region priority and plan cut height (#183)', () => {
+  test('setRegionPriority sets a whole number from -99 to 99; 0 or null clears it', () => {
+    const d = deepFreeze(base());
+    expect(D.setRegionPriority(d, 0, 5).geometry.regions[0].priority).toBe(5);
+    expect(D.setRegionPriority(d, 0, -99).geometry.regions[0].priority).toBe(-99);
+    expect('priority' in D.setRegionPriority(D.setRegionPriority(d, 0, 5), 0, 0).geometry.regions[0]).toBe(false);
+    expect('priority' in D.setRegionPriority(D.setRegionPriority(d, 0, 5), 0, null).geometry.regions[0]).toBe(false);
+    for (const bad of [100, -100, 1.5, NaN, '3']) expect(() => D.setRegionPriority(d, 0, bad)).toThrow(D.DetailEditError);
+    expect(() => D.setRegionPriority(d, 9, 1)).toThrow(D.DetailEditError);
+  });
+  test('setCutHeight: plan only, from zero up to the extrusion; null clears it', () => {
+    const plan = deepFreeze(D.setPlane(base(), 'plan'));   // extrusion 2.7
+    expect(D.setCutHeight(plan, 1).cut_height_m).toBe(1);
+    expect(D.setCutHeight(plan, 0).cut_height_m).toBe(0);
+    expect(D.setCutHeight(plan, 2.7).cut_height_m).toBe(2.7);
+    expect('cut_height_m' in D.setCutHeight(D.setCutHeight(plan, 1), null)).toBe(false);
+    expect(() => D.setCutHeight(plan, -0.1)).toThrow(/at least zero/);
+    expect(() => D.setCutHeight(plan, 3)).toThrow(/above the top/);
+    expect(() => D.setCutHeight(D.setPlane(base(), 'section'), 1)).toThrow(/plan details only/);
+  });
+  test('turning a plan into a section drops its cut height', () => {
+    const plan = D.setCutHeight(D.setPlane(base(), 'plan'), 1);
+    expect('cut_height_m' in D.setPlane(plan, 'section')).toBe(false);
+    expect(D.setPlane(plan, 'plan').cut_height_m).toBe(1);
+  });
+});

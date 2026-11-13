@@ -85,7 +85,7 @@ export function buildPanelModel({ doc, selection, validation, dirty, canUndo, ca
     const vertexBound = r.vertices.map((v) => bound(v.x) || bound(v.y));
     const rect = regionAsRect(doc, selection.index, previewValues);
     selectedRegion = {
-      index: selection.index, pickedCount: 1 + (selection.also?.length ?? 0), materialId: r.material_id, tags: r.tags ?? {}, outline: r.outline_mm ?? null,
+      index: selection.index, pickedCount: 1 + (selection.also?.length ?? 0), materialId: r.material_id, tags: r.tags ?? {}, outline: r.outline_mm ?? null, priority: r.priority ?? 0,
       numbers: Object.fromEntries(['depth_m', 'repeat_x_m', 'repeat_y_m', 'count_x', 'count_y', 'stagger_x_m'].map((k) => [k, r[k] ?? null])),
       vertices: r.vertices.map((v, i) => ({
         x: tidy(evaluateCoordinate(v.x, doc.parameters, previewValues)), y: tidy(evaluateCoordinate(v.y, doc.parameters, previewValues)),
@@ -125,6 +125,7 @@ export function buildPanelModel({ doc, selection, validation, dirty, canUndo, ca
       description: doc.description, plane: doc.plane ?? 'section',
       datumKind: doc.datum?.kind, datumReference: doc.datum?.reference,
       extrusion_m: doc.geometry?.extrusion_m ?? null,
+      cut_height_m: doc.cut_height_m ?? null,
     },
     condition: doc.condition ?? null,
     members, regions: regionRows, parameters, selectedMember, selectedRegion, selectedAnnotation,

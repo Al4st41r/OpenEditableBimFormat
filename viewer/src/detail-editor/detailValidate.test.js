@@ -141,6 +141,11 @@ describe('repeating regions', () => {
     expect(codes({ ...d, plane: 'plan', cut_height_m: -1 })).toContain('cut-height');
     expect(codes({ ...d, plane: 'section', cut_height_m: 1 })).toContain('cut-height-plane');
   });
+  test('a cut height above the extrusion cuts nothing, as the bundle validator says (#183)', () => {
+    const d = makeDetail();   // extrusion_m 2.7
+    expect(codes({ ...d, plane: 'plan', cut_height_m: 2.7 })).toEqual([]);
+    expect(codes({ ...d, plane: 'plan', cut_height_m: 3 })).toContain('cut-height-range');
+  });
   test('an outline weight must be a pen in the series', () => {
     expect(codes(withRepeat({ outline_mm: 0.5 }))).toEqual([]);
     expect(codes(withRepeat({ outline_mm: 0.3 }))).toContain('pen');

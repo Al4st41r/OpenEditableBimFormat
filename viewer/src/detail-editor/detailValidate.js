@@ -55,6 +55,7 @@ export function validateDetail(doc, ctx) {
   if (doc.cut_height_m !== undefined) {
     if (!isNum(doc.cut_height_m) || doc.cut_height_m < 0) add('cut_height_m', 'cut-height', 'cut_height_m must be a number, at least zero');
     else if (doc.plane !== 'plan') add('cut_height_m', 'cut-height-plane', 'cut_height_m applies to plan details only');
+    else if (isNum(doc.geometry?.extrusion_m) && doc.cut_height_m > doc.geometry.extrusion_m) add('cut_height_m', 'cut-height-range', `cut_height_m (${doc.cut_height_m}) is above the top of the detail (extrusion_m ${doc.geometry.extrusion_m}), so nothing is cut`);
   }
   if (doc.view_direction !== undefined && !VIEW_DIRECTIONS.includes(doc.view_direction)) add('view_direction', 'enum', `view_direction must be one of ${VIEW_DIRECTIONS.join(', ')}`);
   if (doc.tags !== undefined && !(Array.isArray(doc.tags) && doc.tags.every((t) => typeof t === 'string'))) add('tags', 'tags', 'tags must be an array of strings');

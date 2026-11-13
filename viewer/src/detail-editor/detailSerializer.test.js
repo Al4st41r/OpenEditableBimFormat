@@ -136,3 +136,31 @@ describe('round trip', () => {
     expect(t).toContain('\n  "id"');
   });
 });
+
+describe('optional detail and region fields (#183)', () => {
+  test('keeps a plan cut height, after plane', () => {
+    const s = serializeDetail({ ...makeDetail(), plane: 'plan', cut_height_m: 1 });
+    expect(s.cut_height_m).toBe(1);
+    const keys = Object.keys(s);
+    expect(keys.indexOf('cut_height_m')).toBe(keys.indexOf('plane') + 1);
+    expect('cut_height_m' in serializeDetail(makeDetail())).toBe(false);
+  });
+  test('keeps a region\'s priority, depth, repeat, tags and outline weight; leaves out priority 0 and empty tags', () => {
+    const d = makeDetail();
+    Object.assign(d.geometry.regions[0], { priority: 2, depth_m: 0.1, repeat_x_m: 0.3, count_x: 3, tags: { package: 'frame' }, outline_mm: 0.5 });
+    const r = serializeDetail(d).geometry.regions[0];
+    expect(Object.keys(r)).toEqual(['material_id', 'vertices', 'depth_m', 'repeat_x_m', 'count_x', 'priority', 'tags', 'outline_mm']);
+    expect(r.priority).toBe(2);
+    d.geometry.regions[0].priority = 0; d.geometry.regions[0].tags = {};
+    const r0 = serializeDetail(d).geometry.regions[0];
+    expect('priority' in r0 || 'tags' in r0).toBe(false);
+  });
+  test('round-trips a plan with a cut height and a region priority', () => {
+    const d = { ...makeDetail(), plane: 'plan', cut_height_m: 1 };
+    d.geometry.regions[0].priority = -4;
+    const back = JSON.parse(toJsonText(d));
+    expect(back.cut_height_m).toBe(1);
+    expect(back.geometry.regions[0].priority).toBe(-4);
+    expect(serializeDetail(back)).toEqual(serializeDetail(d));
+  });
+});

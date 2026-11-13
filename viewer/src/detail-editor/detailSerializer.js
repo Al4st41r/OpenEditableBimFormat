@@ -51,6 +51,8 @@ const coordOut = (c) => {
   return o;
 };
 
+const REGION_FIELDS = ['depth_m', 'repeat_x_m', 'repeat_y_m', 'stagger_x_m', 'count_x', 'count_y', 'priority', 'tags', 'outline_mm'];
+
 /** Ordered, default-free plain object ready for JSON.stringify. */
 export function serializeDetail(doc) {
   const out = { $schema: SCHEMA_ID, id: doc.id, type: 'Detail', description: doc.description };
@@ -79,15 +81,22 @@ export function serializeDetail(doc) {
 
   if (doc.datum) out.datum = { kind: doc.datum.kind, reference: doc.datum.reference };
   if (doc.plane !== undefined) out.plane = doc.plane;
+  if (doc.cut_height_m !== undefined) out.cut_height_m = doc.cut_height_m;
   if (doc.view_direction !== undefined) out.view_direction = doc.view_direction;
 
   const g = {};
   if (doc.geometry?.extrusion_m !== undefined) g.extrusion_m = doc.geometry.extrusion_m;
   if (doc.geometry?.regions?.length) {
-    g.regions = doc.geometry.regions.map((r) => ({
-      material_id: r.material_id,
-      vertices: r.vertices.map((v) => ({ x: coordOut(v.x), y: coordOut(v.y) })),
-    }));
+    g.regions = doc.geometry.regions.map((r) => {
+      const o = { material_id: r.material_id, vertices: r.vertices.map((v) => ({ x: coordOut(v.x), y: coordOut(v.y) })) };
+      // the optional fields, in schema order; priority 0 is the default and is left out
+      for (const k of REGION_FIELDS) {
+        if (r[k] === undefined || (k === 'priority' && r[k] === 0)) continue;
+        if (k === 'tags' && (!r.tags || Object.keys(r.tags).length === 0)) continue;
+        o[k] = structuredClone(r[k]);
+      }
+      return o;
+    });
   }
   if (Object.keys(g).length > 0) out.geometry = g;
 
