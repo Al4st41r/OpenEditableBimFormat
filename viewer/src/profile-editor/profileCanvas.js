@@ -168,6 +168,18 @@ export function initCanvas(svgEl) {
   _setupZoomPan(svgEl);
 }
 
+/** Label text height on screen, pixels. */
+export const LABEL_PX = 12;
+
+/**
+ * The font size in profile units that draws text LABEL_PX tall on screen at the current zoom (#188). Before the canvas
+ * is laid out (no screen transform) it falls back to the old fixed 0.06.
+ */
+function _labelSize(svgEl) {
+  const scale = svgEl.getScreenCTM?.()?.a;
+  return scale > 0 ? LABEL_PX / scale : 0.06;
+}
+
 /**
  * Outline width of layer `i`. With opts.strokePx (a function of the layer index giving screen pixels) the line keeps
  * that width at any zoom, so a pen weight reads the same as the view is zoomed; without it the old width in profile
@@ -260,6 +272,7 @@ export function renderCanvas(svgEl, layers, originX, matMap, selectedIndex = nul
   svgEl.appendChild(circle);
 
   const { ffl_m: ffl = 0, height_limit_m: hlimit } = opts;
+  const labelSize = _labelSize(svgEl);
 
   if (ffl > 0) {
     const yFfl = Number(Y(ffl));
@@ -272,8 +285,8 @@ export function renderCanvas(svgEl, layers, originX, matMap, selectedIndex = nul
     svgEl.appendChild(fflLine);
 
     const fflLabel = document.createElementNS(SVG_NS, 'text');
-    fflLabel.setAttribute('x', '0.005'); fflLabel.setAttribute('y', String(yFfl - 0.01));
-    fflLabel.setAttribute('fill', '#22bb66'); fflLabel.setAttribute('font-size', '0.06');
+    fflLabel.setAttribute('x', String(labelSize * 0.1)); fflLabel.setAttribute('y', String(yFfl - labelSize * 0.2));
+    fflLabel.setAttribute('fill', '#22bb66'); fflLabel.setAttribute('font-size', String(labelSize));
     fflLabel.textContent = `FFL: ${ffl}m`;
     svgEl.appendChild(fflLabel);
   }
@@ -289,8 +302,8 @@ export function renderCanvas(svgEl, layers, originX, matMap, selectedIndex = nul
     svgEl.appendChild(limitLine);
 
     const limitLabel = document.createElementNS(SVG_NS, 'text');
-    limitLabel.setAttribute('x', '0.005'); limitLabel.setAttribute('y', String(yLimit - 0.01));
-    limitLabel.setAttribute('fill', '#cc8800'); limitLabel.setAttribute('font-size', '0.06');
+    limitLabel.setAttribute('x', String(labelSize * 0.1)); limitLabel.setAttribute('y', String(yLimit - labelSize * 0.2));
+    limitLabel.setAttribute('fill', '#cc8800'); limitLabel.setAttribute('font-size', String(labelSize));
     limitLabel.textContent = `${hlimit}m limit`;
     svgEl.appendChild(limitLabel);
   }
