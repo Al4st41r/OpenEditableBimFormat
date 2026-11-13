@@ -54,7 +54,8 @@ export function propertiesText(properties) {
 
 /**
  * A new material entity, with a unique id.
- * @param {{ category?: string, ifcMaterialName?: string, properties?: string }} [extra] - optional specification
+ * @param {{ id?: string, category?: string, ifcMaterialName?: string, properties?: string }} [extra] - optional specification;
+ *   an id given here is used as it is (the caller has checked it is free), otherwise one is made from the name
  */
 export function buildMaterial(name, colour, existing = [], extra = {}) {
   const clean = String(name ?? '').trim();
@@ -62,7 +63,7 @@ export function buildMaterial(name, colour, existing = [], extra = {}) {
   const properties = parseProperties(extra.properties);
   const ifcName = String(extra.ifcMaterialName ?? '').trim();
   return {
-    id: materialIdFor(clean, existing), type: 'Material', name: clean,
+    id: String(extra.id ?? '').trim() || materialIdFor(clean, existing), type: 'Material', name: clean,
     category: String(extra.category ?? '').trim() || 'custom',
     colour_hex: normaliseColour(colour),
     ...(ifcName ? { ifc_material_name: ifcName } : {}),

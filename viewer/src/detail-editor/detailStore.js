@@ -121,10 +121,21 @@ export async function saveDetail(adapter, doc, validationCtx) {
 export async function saveProfileEdit(adapter, { id, json, svg, newMaterials = [] }) {
   await adapter.writeJson(`profiles/${id}.json`, json);
   if (svg && adapter.writeRaw) await adapter.writeRaw(`profiles/${id}.svg`, svg);
-  if (newMaterials.length) {
-    const lib = await readJsonOr(adapter, 'materials/library.json', { $schema: 'oebf://schema/0.1/materials', materials: [] });
-    const have = new Set((lib.materials ?? []).map((m) => m.id));
-    lib.materials = [...(lib.materials ?? []), ...newMaterials.filter((m) => !have.has(m.id))];
-    await adapter.writeJson('materials/library.json', lib);
-  }
+  await saveNewMaterials(adapter, newMaterials);
+}
+
+/**
+ * Add materials to materials/library.json (ones already there are kept as they are, and a material whose id is taken is
+ * left out). A library that cannot be read is an error, never a fresh library; a bundle with no library gets one.
+ *
+ * @returns {Promise<object[]>} the materials that were added
+ */
+export async function saveNewMaterials(adapter, newMaterials) {
+  if (!newMaterials.length) return [];
+  const lib = await readJsonOr(adapter, 'materials/library.json', { $schema: 'oebf://schema/0.1/materials', materials: [] });
+  const have = new Set((lib.materials ?? []).map((m) => m.id));
+  const added = newMaterials.filter((m) => !have.has(m.id));
+  lib.materials = [...(lib.materials ?? []), ...added];
+  await adapter.writeJson('materials/library.json', lib);
+  return added;
 }

@@ -12,6 +12,8 @@
  *                      false means the opener must write it (snapshot bundles)
  *                    profile-saved         { id, json, svg, newMaterials }   (snapshot bundles: a profile edited in
  *                      the profile editor, for the opener to write; the same message the profile editor sends)
+ *                    materials-added       { materials, persisted }   (materials added to the library in the detail editor;
+ *                      persisted as for detail-saved: false means the opener must write materials/library.json)
  *   opener -> page   detail-bundle-handle  { handle, activeDetailId }   (file-system bundle)
  *                    detail-snapshot       { snapshot, activeDetailId }  (memory bundle, eg Firefox)
  *
@@ -31,6 +33,20 @@ export function savedMessage({ doc, previousId, persisted = false }) {
 /** A profile saved in the profile editor, forwarded to the opener to write (snapshot bundles, #143). */
 export function profileSavedMessage({ id, json, svg, newMaterials = [] }) {
   return { type: 'profile-saved', id, json, svg, newMaterials };
+}
+
+/** Materials added in the detail editor, for the opener to show (and, for a snapshot, to write). */
+export function materialsAddedMessage({ materials, persisted = false }) {
+  return { type: 'materials-added', materials, persisted };
+}
+
+/** Opener side: parse a materials-added message from the tab we opened, or null. */
+export function parseMaterialsAdded(event, { ownOrigin, tab }) {
+  if (event?.origin !== ownOrigin || event.source !== tab) return null;
+  const d = event.data;
+  if (!isObject(d) || d.type !== 'materials-added' || !Array.isArray(d.materials)) return null;
+  const materials = d.materials.filter((m) => isObject(m) && typeof m.id === 'string' && m.type === 'Material');
+  return materials.length ? { materials, persisted: d.persisted === true } : null;
 }
 
 const isObject = (x) => x !== null && typeof x === 'object';
