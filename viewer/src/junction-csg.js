@@ -26,6 +26,7 @@
 
 import * as THREE from 'three';
 import { Brush, Evaluator, SUBTRACTION } from 'three-bvh-csg';
+import { featureEdges } from './geometry/featureEdges.js';
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -51,6 +52,9 @@ export function applyCsgJunctions(sceneRoot, junctions) {
   });
 
   const evaluator = new Evaluator();
+  // the element meshes (scene/buildMesh.js) have positions and normals but no UVs; the default list asks for 'uv'
+  // and the cut then fails on every real wall (#173)
+  evaluator.attributes = ['position', 'normal'];
 
   for (const junction of csgJunctions) {
     const t0 = performance.now();
@@ -130,5 +134,9 @@ function _applyOneCsgJunction(evaluator, junction, meshMap) {
       subMesh.geometry = resultBrush.geometry;
       oldGeo.dispose();
     }
+    // the outline (buildMesh.js 'edges') still traced the uncut shape; rebuilt without the cut faces'
+    // triangle diagonals, as openingCut.js does (#173)
+    const edges = subMesh.getObjectByName('edges');
+    if (edges) { edges.geometry.dispose(); edges.geometry = featureEdges(subMesh.geometry, 15); }
   }
 }
