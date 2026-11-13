@@ -56,7 +56,8 @@
     },
     "height_limit_m": {
       "type": "number",
-      "minimum": 0
+      "minimum": 0,
+      "description": "Wall profiles: the height of the band layers above the path, in metres. Absent or 0 gives 2.7. A region layer repeating up the profile (repeat_y_m) stops at the last whole row below it."
     },
     "lineweights": {
       "type": "object",

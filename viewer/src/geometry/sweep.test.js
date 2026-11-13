@@ -261,7 +261,7 @@ describe('sweepProfile — edge cases', () => {
 
 // ─── element options (#98): offsets, caps, sweep modes ──────────────────────
 
-import { offsetPolyline, sweepOptionsFromElement } from './sweep.js';
+import { offsetPolyline, sweepOptionsFromElement, capSkew, MAX_CAP_ANGLE_DEG } from './sweep.js';
 
 const P = (x, y, z = 0) => ({ x, y, z });
 const bounds = (verts, axis) => {
@@ -331,8 +331,72 @@ describe('sweepProfile — caps', () => {
     expect(m.vertices.length / 3).toBe(2 * 4);
     expect(m.indices.length).toBe(1 * 4 * 6);
   });
-  test('angled and junction are capped like flat', () => {
+  test('angled with no angle, and junction, are capped like flat', () => {
     expect(count({ capStart: 'angled', capEnd: 'junction' }).indices.length).toBe(count({}).indices.length);
+    expect(Array.from(count({ capStart: 'angled', capEnd: 'angled' }).vertices)).toEqual(Array.from(count({}).vertices));
+  });
+});
+
+describe('sweepProfile — angled ends (#179)', () => {
+  // Path along +x: profile x runs along the binormal, tangent x Z = -y, so profile x = +0.1 lies at world y = -0.1.
+  const path = [P(0, 0), P(4, 0)];
+  const layer = [layerFrom(rect(-0.1, 0.1))];
+  /** The x of the vertex at world (y, z) in ring `ring` (0 = start, 1 = end of a two-point path). */
+  const xAt = (m, ring, y, z = 0) => {
+    for (let i = ring * 4; i < ring * 4 + 4; i++) {
+      const v = m.vertices;
+      if (Math.abs(v[i * 3 + 1] - y) < 1e-6 && Math.abs(v[i * 3 + 2] - z) < 1e-6) return v[i * 3];
+    }
+    return NaN;
+  };
+
+  test('a 45 degree end moves each side along the path by its distance from the path', () => {
+    const m = sweepProfile(path, layer, { capEnd: 'angled', capEndAngleDeg: 45 })[0];
+    // outward +x turned 45 deg anticlockwise: the face normal is (1, 1)/sqrt2, so the -y side reaches further
+    expect(xAt(m, 1, -0.1)).toBeCloseTo(4.1, 6);
+    expect(xAt(m, 1, 0.1)).toBeCloseTo(3.9, 6);
+    // the start is still square
+    expect(xAt(m, 0, -0.1)).toBeCloseTo(0, 6);
+    expect(xAt(m, 0, 0.1)).toBeCloseTo(0, 6);
+  });
+
+  test('the start angle is measured from the outward direction there (-x)', () => {
+    const m = sweepProfile(path, layer, { capStart: 'angled', capStartAngleDeg: 30 })[0];
+    // outward -x turned 30 deg anticlockwise points to (-cos30, -sin30): the -y side is cut back, the +y side reaches out
+    const t = Math.tan(Math.PI / 6) * 0.1;
+    expect(xAt(m, 0, -0.1)).toBeCloseTo(t, 6);
+    expect(xAt(m, 0, 0.1)).toBeCloseTo(-t, 6);
+  });
+
+  test('the end face pivots on the path and keeps its height', () => {
+    const m = sweepProfile(path, [layerFrom(rect(0, 0.2, 1.5))], { capEnd: 'angled', capEndAngleDeg: -20 })[0];
+    expect(xAt(m, 1, 0)).toBeCloseTo(4, 6);                                    // on the path: no move
+    expect(xAt(m, 1, -0.2, 1.5)).toBeCloseTo(4 + 0.2 * Math.tan(-20 * Math.PI / 180), 6);
+  });
+
+  test('the cap normals are the turned face normal', () => {
+    const m = sweepProfile(path, layer, { capEnd: 'angled', capEndAngleDeg: 45 })[0];
+    const capEnd = m.normals.length / 3 - 1;                                    // last vertex: an end-cap vertex
+    expect(m.normals[capEnd * 3]).toBeCloseTo(Math.SQRT1_2, 6);
+    expect(m.normals[capEnd * 3 + 1]).toBeCloseTo(Math.SQRT1_2, 6);
+    expect(m.normals[capEnd * 3 + 2]).toBeCloseTo(0, 6);
+  });
+
+  test('angles are only used on an angled end', () => {
+    const flat = sweepProfile(path, layer, { capEnd: 'flat', capEndAngleDeg: 45 })[0];
+    expect(Array.from(flat.vertices)).toEqual(Array.from(sweepProfile(path, layer)[0].vertices));
+  });
+
+  test('an angle at the schema limit is drawn at MAX_CAP_ANGLE_DEG, not to infinity', () => {
+    const m = sweepProfile(path, layer, { capEnd: 'angled', capEndAngleDeg: 89.999 })[0];
+    expect(xAt(m, 1, -0.1)).toBeCloseTo(4 + 0.1 * capSkew(MAX_CAP_ANGLE_DEG), 6);
+    expect(capSkew(0)).toBe(0);
+    expect(capSkew(undefined)).toBe(0);
+  });
+
+  test('a junction trim still sees the same path ends (the angle moves vertices, not the path)', () => {
+    const m = sweepProfile([P(0, 0), P(2, 0), P(2, 3)], layer, { capStart: 'angled', capStartAngleDeg: 10, capEnd: 'angled', capEndAngleDeg: -10 })[0];
+    expect(m.vertices.length / 3).toBe(3 * 4 + 2 * 4);
   });
 });
 
@@ -376,11 +440,13 @@ describe('sweepOptionsFromElement', () => {
   test('maps the element fields', () => {
     expect(sweepOptionsFromElement({
       sweep_mode: 'fixed', cap_start: 'open', cap_end: 'angled', start_offset: 0.5, end_offset: 1, twist_per_metre: 3,
-    })).toEqual({ sweepMode: 'fixed', capStart: 'open', capEnd: 'angled', startOffset: 0.5, endOffset: 1, twistPerMetre: 3 });
+      cap_end_angle_deg: -30,
+    })).toEqual({ sweepMode: 'fixed', capStart: 'open', capEnd: 'angled', startOffset: 0.5, endOffset: 1, twistPerMetre: 3, capStartAngleDeg: 0, capEndAngleDeg: -30 });
   });
   test('missing fields give the defaults', () => {
     expect(sweepOptionsFromElement({})).toEqual({
       sweepMode: 'perpendicular', capStart: 'flat', capEnd: 'flat', startOffset: 0, endOffset: 0, twistPerMetre: 0,
+      capStartAngleDeg: 0, capEndAngleDeg: 0,
     });
     expect(sweepOptionsFromElement(undefined).sweepMode).toBe('perpendicular');
   });

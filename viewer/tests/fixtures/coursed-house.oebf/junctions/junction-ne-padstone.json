@@ -1,0 +1,10 @@
+{
+  "$schema": "oebf://schema/0.1/junction",
+  "id": "junction-ne-padstone",
+  "type": "Junction",
+  "description": "Concrete padstone at NE corner — bearing block distributing compression where east and north cavity walls meet",
+  "elements": ["element-wall-east-gf", "element-wall-north-gf"],
+  "rule": "custom",
+  "priority": ["element-wall-east-gf"],
+  "custom_geometry": "junction-ne-padstone-geometry.json"
+}

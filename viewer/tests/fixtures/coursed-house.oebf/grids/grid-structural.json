@@ -1,0 +1,17 @@
+{
+  "$schema": "oebf://schema/0.1/grid",
+  "id": "grid-structural",
+  "type": "Grid",
+  "description": "Structural grid — column lines and storey elevations for the terraced house",
+  "ifc_type": "IfcGrid",
+  "axes": [
+    { "id": "1", "direction": "y", "offset_m": 0.0 },
+    { "id": "2", "direction": "y", "offset_m": 5.4 },
+    { "id": "A", "direction": "x", "offset_m": 0.0 },
+    { "id": "B", "direction": "x", "offset_m": 8.5 }
+  ],
+  "elevations": [
+    { "id": "GF", "z_m": 0.0, "description": "Ground floor" },
+    { "id": "FF", "z_m": 3.0, "description": "First floor" }
+  ]
+}

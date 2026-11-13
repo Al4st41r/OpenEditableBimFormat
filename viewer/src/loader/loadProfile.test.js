@@ -2,7 +2,7 @@ import { describe, test, expect } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { buildProfileShape, normaliseProfile, libraryProfileToBundle } from './loadProfile.js';
+import { buildProfileShape, normaliseProfile, libraryProfileToBundle, profileSweepHeight, DEFAULT_WALL_HEIGHT_M } from './loadProfile.js';
 
 const LIB = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../public/library/profiles');
 const libProfile = (name) => JSON.parse(fs.readFileSync(path.join(LIB, `${name}.json`), 'utf8'));
@@ -220,6 +220,39 @@ describe('buildProfileShape — edge cases', () => {
     };
     const shapes = buildProfileShape(profile);
     expect(shapes).toHaveLength(1);
+  });
+});
+
+describe('buildProfileShape — band height (#179)', () => {
+  const band = (extra = {}) => ({
+    id: 'p', type: 'Profile', width: 0.1, origin: { x: 0.05, y: 0 }, ...extra,
+    assembly: [{ layer: 1, name: 'Wall', material_id: 'mat-a', thickness: 0.1, function: 'structure' }],
+  });
+  const top = (shapes) => Math.max(...shapes[0].points.map((p) => p.y));
+
+  test('a band is swept to the profile height_limit_m', () => {
+    expect(top(buildProfileShape(band({ height_limit_m: 0.66 })))).toBeCloseTo(0.66);
+    expect(top(buildProfileShape(band({ height_limit_m: 3.252 })))).toBeCloseTo(3.252);
+  });
+  test('with no height_limit_m (or 0) the band is 2.7 m tall', () => {
+    expect(DEFAULT_WALL_HEIGHT_M).toBe(2.7);
+    expect(top(buildProfileShape(band()))).toBeCloseTo(2.7);
+    expect(top(buildProfileShape(band({ height_limit_m: 0 })))).toBeCloseTo(2.7);
+  });
+  test('an explicit height still wins', () => {
+    expect(top(buildProfileShape(band({ height_limit_m: 0.66 }), 1.2))).toBeCloseTo(1.2);
+  });
+  test('profileSweepHeight', () => {
+    expect(profileSweepHeight({ height_limit_m: 0.14 })).toBe(0.14);
+    expect(profileSweepHeight({ height_limit_m: -1 })).toBe(2.7);
+    expect(profileSweepHeight(undefined)).toBe(2.7);
+  });
+  test('the NMB parapet and upstand profiles sweep to their own heights', () => {
+    const NMB = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../example/nmb-two-storey.oebf/profiles');
+    const nmb = (id) => JSON.parse(fs.readFileSync(path.join(NMB, `${id}.json`), 'utf8'));
+    expect(top(buildProfileShape(nmb('profile-nmb-ew-01-parapet')))).toBeCloseTo(0.66);
+    expect(top(buildProfileShape(nmb('profile-nmb-upstand-int')))).toBeCloseTo(0.14);
+    expect(top(buildProfileShape(nmb('profile-nmb-upstand-col')))).toBeCloseTo(0.14);
   });
 });
 

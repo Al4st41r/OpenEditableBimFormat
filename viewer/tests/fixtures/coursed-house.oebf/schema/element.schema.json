@@ -1,0 +1,27 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "oebf://schema/0.1/element",
+  "title": "OEBF Element",
+  "type": "object",
+  "required": ["$schema", "id", "type", "ifc_type", "path_id", "profile_id", "sweep_mode", "cap_start", "cap_end", "parent_group_id"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema":         { "type": "string" },
+    "id":              { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+    "type":            { "type": "string", "const": "Element" },
+    "description":     { "type": "string" },
+    "ifc_type":        { "type": "string" },
+    "path_id":         { "type": "string" },
+    "profile_id":      { "type": "string" },
+    "sweep_mode":      { "type": "string", "enum": ["perpendicular", "fixed", "twisted"] },
+    "cap_start":       { "type": "string", "enum": ["flat", "angled", "open", "junction"] },
+    "cap_end":         { "type": "string", "enum": ["flat", "angled", "open", "junction"] },
+    "cap_start_angle_deg": { "type": "number", "exclusiveMinimum": -90, "exclusiveMaximum": 90, "description": "Angle of an 'angled' start, degrees from square: seen from above, the anticlockwise turn from the path's outward direction at that end to the outward normal of the end face. The face pivots on the path. Absent or 0 is a square end." },
+    "cap_end_angle_deg":   { "type": "number", "exclusiveMinimum": -90, "exclusiveMaximum": 90, "description": "Angle of an 'angled' end, degrees from square, measured as cap_start_angle_deg." },
+    "start_offset":    { "type": "number" },
+    "end_offset":      { "type": "number" },
+    "twist_per_metre": { "type": "number" },
+    "parent_group_id": { "type": "string" },
+    "properties":      { "type": "object" }
+  }
+}

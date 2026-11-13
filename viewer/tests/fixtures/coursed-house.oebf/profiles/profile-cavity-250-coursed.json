@@ -1,0 +1,124 @@
+{
+  "$schema": "oebf://schema/0.1/profile",
+  "id": "profile-cavity-250-coursed",
+  "type": "Profile",
+  "description": "Test fixture (#182): the 250 mm cavity wall with its brick and block leaves drawn as coursed units",
+  "svg_file": "profiles/profile-cavity-250-coursed.svg",
+  "width": 0.29,
+  "height": null,
+  "origin": {
+    "x": 0.145,
+    "y": 0.0
+  },
+  "alignment": "center",
+  "assembly": [
+    {
+      "layer": 1,
+      "name": "External Brick Leaf",
+      "material_id": "mat-brick-common",
+      "function": "finish",
+      "type": "region",
+      "vertices": [
+        {
+          "x": 0.0,
+          "y": 0.0
+        },
+        {
+          "x": 0.102,
+          "y": 0.0
+        },
+        {
+          "x": 0.102,
+          "y": 0.065
+        },
+        {
+          "x": 0.0,
+          "y": 0.065
+        }
+      ],
+      "depth_m": 0.215,
+      "repeat_x_m": 0.225,
+      "repeat_y_m": 0.075,
+      "offset_x_m": 0.1125
+    },
+    {
+      "layer": 2,
+      "name": "Cavity + PIR",
+      "material_id": "mat-pir-insulation",
+      "function": "insulation",
+      "type": "region",
+      "vertices": [
+        {
+          "x": 0.102,
+          "y": 0.0
+        },
+        {
+          "x": 0.177,
+          "y": 0.0
+        },
+        {
+          "x": 0.177,
+          "y": 2.7
+        },
+        {
+          "x": 0.102,
+          "y": 2.7
+        }
+      ]
+    },
+    {
+      "layer": 3,
+      "name": "Dense Aggregate Block",
+      "material_id": "mat-dense-aggregate",
+      "function": "structure",
+      "type": "region",
+      "vertices": [
+        {
+          "x": 0.177,
+          "y": 0.0
+        },
+        {
+          "x": 0.277,
+          "y": 0.0
+        },
+        {
+          "x": 0.277,
+          "y": 0.215
+        },
+        {
+          "x": 0.177,
+          "y": 0.215
+        }
+      ],
+      "depth_m": 0.44,
+      "repeat_x_m": 0.45,
+      "repeat_y_m": 0.225,
+      "offset_x_m": 0.225
+    },
+    {
+      "layer": 4,
+      "name": "Gypsum Plaster Skim",
+      "material_id": "mat-gypsum-plaster",
+      "function": "finish",
+      "type": "region",
+      "vertices": [
+        {
+          "x": 0.277,
+          "y": 0.0
+        },
+        {
+          "x": 0.29,
+          "y": 0.0
+        },
+        {
+          "x": 0.29,
+          "y": 2.7
+        },
+        {
+          "x": 0.277,
+          "y": 2.7
+        }
+      ]
+    }
+  ]
+}
