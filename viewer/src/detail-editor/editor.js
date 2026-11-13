@@ -72,12 +72,13 @@ const SNAP_LABELS = {
   endpoint: 'Endpoint', intersection: 'Intersection', midpoint: 'Midpoint', perpendicular: 'Perpendicular', parallel: 'Parallel',
   angle: 'Angle', 'grid-axis': 'Drawing origin axes', alignment: 'Alignment', 'on-line': 'On line', step: 'Ruler step',
 };
-const snapState = { on: true, kinds: new Set(SNAP_KINDS), angleStep: 45 };
+// extendCarried: Extend always considers edges carried on past their ends, CAD-style (#185); off by default
+const snapState = { on: true, kinds: new Set(SNAP_KINDS), angleStep: 45, extendCarried: false };
 try {
   const saved = JSON.parse(localStorage.getItem('oebf-detail-snap') ?? 'null');
-  if (saved) { snapState.on = saved.on !== false; snapState.kinds = new Set(saved.kinds ?? SNAP_KINDS); snapState.angleStep = saved.angleStep ?? 45; }
+  if (saved) { snapState.on = saved.on !== false; snapState.kinds = new Set(saved.kinds ?? SNAP_KINDS); snapState.angleStep = saved.angleStep ?? 45; snapState.extendCarried = saved.extendCarried === true; }
 } catch { /* defaults */ }
-const saveSnapState = () => { try { localStorage.setItem('oebf-detail-snap', JSON.stringify({ on: snapState.on, kinds: [...snapState.kinds], angleStep: snapState.angleStep })); } catch { /* optional */ } };
+const saveSnapState = () => { try { localStorage.setItem('oebf-detail-snap', JSON.stringify({ on: snapState.on, kinds: [...snapState.kinds], angleStep: snapState.angleStep, extendCarried: snapState.extendCarried })); } catch { /* optional */ } };
 let hint = null;            // { snap, lastPoint } from the controller
 let pointer = { x: 0, y: 0, alt: false };
 const anchors = { edge: 'start', rect: 'bottom-left' };   // what stays put when a typed length or size is applied
@@ -259,6 +260,7 @@ const actions = {
   setPlane: (v) => apply((d) => D.setPlane(d, v)),
   setDatum: (kind, reference) => apply((d) => D.setDatum(d, { kind, reference })),
   setExtrusion: (v) => apply((d) => D.setExtrusion(d, v)),
+  setCutHeight: (v) => apply((d) => D.setCutHeight(d, v)),
   addMember: (kind, profile) => apply((d) => D.addMember(d, { kind, profile_id: profile })),
   removeMember: (role) => apply((d) => D.removeMember(d, role)),
   renameMember: (role, to) => { apply((d) => D.renameMemberRole(d, role, to)); if (st.doc.members.some((m) => m.role === to)) { st = select(st, { type: 'member', role: to }); refresh(); } },
@@ -268,6 +270,7 @@ const actions = {
   moveMember: (role, o) => apply((d) => D.moveMember(d, role, o)),
   rotateMember: (role, v) => apply((d) => D.rotateMember(d, role, v)),
   setRegionMaterial: (i, v) => apply((d) => D.setRegionMaterial(d, i, v)),
+  setRegionPriority: (i, v) => apply((d) => D.setRegionPriority(d, i, v)),
   refresh: () => refresh(),   // for panel controls that change which fields are shown
   // Move or copy the selection (regions, a mark or a member) by a typed or picked distance; rotate and mirror below
   // act on regions, about the centre of the selection
@@ -406,6 +409,7 @@ function controllerContext() {
   const step = visibleSnap();
   return {
     blocked: blocked(layers), doc: st.doc, selection: st.selection, snap: step, angleStep: 5, tolerance: 9 / view.scale,
+    extendCarried: snapState.extendCarried,
     material: $('material-select').value || null,
     suspendSnap: pointer.alt,
     // The smart cursor: named snaps against everything drawn, in pixels converted to metres at this zoom.
@@ -642,6 +646,12 @@ function refreshSnapControls() {
   sel.addEventListener('change', () => { snapState.angleStep = Number(sel.value); saveSnapState(); });
   angle.append(sel);
   body.append(angle);
+  const carried = document.createElement('label');
+  carried.title = 'Extend runs to the nearest edge carried on past its end even when something real lies further ahead (CAD-style). Off: only when nothing real is ahead.';
+  const ccb = Object.assign(document.createElement('input'), { type: 'checkbox', id: 'extend-carried', checked: snapState.extendCarried });
+  ccb.addEventListener('change', () => { snapState.extendCarried = ccb.checked; saveSnapState(); });
+  carried.append(ccb, 'Extend to edges carried on');
+  body.append(carried);
 }
 function toggleSnap() { snapState.on = !snapState.on; saveSnapState(); hint = null; refreshSnapControls(); paint(); status(snapState.on ? 'Snapping on' : 'Snapping off'); }
 $('snap-btn').addEventListener('click', toggleSnap);

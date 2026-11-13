@@ -1,7 +1,7 @@
 import { describe, test, expect } from 'vitest';
 import { createController, setControllerTool, handleEvent, startPick } from './canvasController.js';
 import { buildCanvasModel } from './canvasModel.js';
-import { addRect } from './detailDocument.js';
+import { addRect, addRegion, setRegionPriority } from './detailDocument.js';
 import { addAnnotation } from './annotationOps.js';
 import { setClip } from './referenceOps.js';
 import { exampleDetail, readExample, deepFreeze } from './testUtils.js';
@@ -977,8 +977,40 @@ describe('trim and extend tools', () => {
     // clicking inside, away from the outline, is not a trim of the region
     const inside = handleEvent(createController('trim'), ev('down', 5.8, 5.5), ctxFor(doc));
     expect(of(inside, 'doc')).toHaveLength(0);
-    // extend does not take regions
-    expect(of(handleEvent(createController('extend'), ev('down', 6, 5.5), ctxFor(doc)), 'doc')).toHaveLength(0);
+  });
+
+  test('trim splits a region in two where the line crosses it again between the crossings (#185)', () => {
+    // a U open at the top, a line across both arms, the click on its base
+    let doc = addRegion(exampleDetail(), { material_id: 'mat-pir-insulation', vertices: [
+      { x: 5, y: 5 }, { x: 5.3, y: 5 }, { x: 5.3, y: 5.3 }, { x: 5.2, y: 5.3 }, { x: 5.2, y: 5.1 }, { x: 5.1, y: 5.1 }, { x: 5.1, y: 5.3 }, { x: 5, y: 5.3 }] });
+    doc = setRegionPriority(doc, doc.geometry.regions.length - 1, 2);
+    doc = addAnnotation(doc, { type: 'line', points: [{ x: 4.9, y: 5.2 }, { x: 5.4, y: 5.2 }] });
+    const n = doc.geometry.regions.length;
+    const res = handleEvent(createController('trim'), ev('down', 5.15, 5), ctxFor(doc));
+    const regions = lastDoc(res).doc.geometry.regions;
+    expect(regions).toHaveLength(n + 1);
+    for (const r of [regions[n - 1], regions[n]]) expect(r).toMatchObject({ material_id: 'mat-pir-insulation', priority: 2 });
+    expect(of(res, 'message')[0]).toMatchObject({ info: true, text: expect.stringMatching(/2 pieces/) });
+  });
+
+  test('extend runs a region edge on to a line, moving the vertex nearer the click (#185)', () => {
+    let doc = addRect(exampleDetail(), 'mat-pir-insulation', { x: 5, y: 5 }, { x: 6, y: 6 });
+    doc = addAnnotation(doc, { type: 'line', points: [{ x: 7, y: 4 }, { x: 7, y: 7 }] });
+    const r = doc.geometry.regions.length - 1;
+    const res = handleEvent(createController('extend'), ev('down', 5.95, 5), ctxFor(doc));   // the bottom edge, near its right end
+    const vs = lastDoc(res).doc.geometry.regions[r].vertices;
+    expect(vs).toContainEqual({ x: 7, y: 5 });
+    expect(vs).not.toContainEqual({ x: 6, y: 5 });
+  });
+
+  test('with the setting on, extend takes a nearer edge carried on over something real further ahead (#185)', () => {
+    let doc = addAnnotation(exampleDetail(), { type: 'line', points: [{ x: 5, y: 5 }, { x: 5.2, y: 5 }] });
+    doc = addAnnotation(doc, { type: 'line', points: [{ x: 5.5, y: 5.5 }, { x: 5.5, y: 6 }] });   // stops short of y = 5
+    doc = addAnnotation(doc, { type: 'line', points: [{ x: 5.8, y: 4 }, { x: 5.8, y: 6 }] });   // real, further on
+    const off = handleEvent(createController('extend'), ev('down', 5.19, 5), ctxFor(doc));
+    expect(lastDoc(off).doc.annotations[doc.annotations.length - 3].points[1]).toEqual({ x: 5.8, y: 5 });
+    const on = handleEvent(createController('extend'), ev('down', 5.19, 5), ctxFor(doc, null, { extendCarried: true }));
+    expect(lastDoc(on).doc.annotations[doc.annotations.length - 3].points[1]).toEqual({ x: 5.5, y: 5 });
   });
 });
 

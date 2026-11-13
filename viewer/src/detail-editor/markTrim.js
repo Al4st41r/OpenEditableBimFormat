@@ -4,9 +4,10 @@
  * Trim and extend for open lines, arcs and circles (doc.annotations), the way CAD does it: everything else drawn,
  * and the reference lines, is a cutting edge. Trim removes the piece of a mark between the crossings either side of
  * the point you clicked; extend runs the end nearer the click on until it meets the next thing in its way, or, when
- * nothing is in its way, the nearest straight edge carried on past its end. A region's outline can be trimmed too,
- * where the cut can close along a straight edge (trimRegionOutline). Regions keep their rectangle trim and extend in
- * regionOps.js as well.
+ * nothing is in its way (or, with the CAD-style setting, whenever it is nearer), the nearest straight edge carried on
+ * past its end. A region's outline can be trimmed too, where the cut can close along a straight edge
+ * (trimRegionOutline), and a region's edge extended (extendRegionEdge). Regions keep their rectangle trim and extend
+ * in regionOps.js as well.
  *
  * Pure geometry. Boundaries are { kind: 'seg', a, b }, { kind: 'xline', p, d } (a line without ends: a reference
  * line, or an edge carried on) or { kind: 'arc', centre, r, start, sweep } (degrees, anticlockwise; a circle has
@@ -198,11 +199,26 @@ export function trimLine(points, pick, boundaries) {
 const nearerEnd = (start, end, pick) => (dist(pick, start) <= dist(pick, end) ? 'start' : 'end');
 
 /**
+ * How far to extend: the first crossing ahead with a boundary, or, failing that, with a straight edge carried on past
+ * its end (carried: true). With `always` (the CAD-style setting, #185) the edges carried on count even when something
+ * real lies further ahead, and the nearer wins. firstAhead(boundaries) gives the distance to the first crossing.
+ * @returns {{ at: number, carried: boolean } | null}
+ */
+function reach(firstAhead, boundaries, always) {
+  const real = firstAhead(boundaries);
+  if (real !== undefined && !always) return { at: real, carried: false };
+  const on = firstAhead(carriedOn(boundaries));
+  if (on === undefined || (real !== undefined && real <= on + 1e-7)) return real === undefined ? null : { at: real, carried: false };
+  return { at: on, carried: true };
+}
+
+/**
  * Extend the end of an open polyline nearer `pick`, straight on along its last segment, to the first boundary ahead.
- * When nothing lies ahead, it runs to the nearest straight edge carried on past its end, and says so (carried: true).
+ * When nothing lies ahead, it runs to the nearest straight edge carried on past its end, and says so (carried: true);
+ * with opts.always it does so whenever such an edge is nearer than anything real.
  * @returns {{ points: Array<{x, y}>, end: 'start'|'end', carried: boolean } | { error: string }}
  */
-export function extendLine(points, pick, boundaries) {
+export function extendLine(points, pick, boundaries, { always = false } = {}) {
   const end = nearerEnd(points[0], points.at(-1), pick);
   const pts = end === 'start' ? [...points].reverse() : points;
   const tip = pts.at(-1);
@@ -213,10 +229,9 @@ export function extendLine(points, pick, boundaries) {
   const len = dist(pts[k], tip);
   const d = { x: (tip.x - pts[k].x) / len, y: (tip.y - pts[k].y) / len };
   const firstAhead = (bs) => hitsOnLine(tip, d, bs).filter((t) => t > 1e-7).sort((x, y) => x - y)[0];
-  let t = firstAhead(boundaries);
-  const carried = t === undefined;
-  if (carried) t = firstAhead(carriedOn(boundaries));
-  if (t === undefined) return { error: 'Nothing lies ahead of that end to extend it to.' };
+  const r = reach(firstAhead, boundaries, always);
+  if (!r) return { error: 'Nothing lies ahead of that end to extend it to.' };
+  const { at: t, carried } = r;
   const out = [...pts.slice(0, -1), rp({ x: tip.x + d.x * t, y: tip.y + d.y * t })];
   return { points: end === 'start' ? out.reverse() : out, end, carried };
 }
@@ -260,10 +275,10 @@ export function trimArc(arc, pick, boundaries) {
 
 /**
  * Extend the end of an arc nearer `pick` round its circle to the first boundary it meets, short of closing the circle;
- * failing that, to the nearest straight edge carried on past its end (carried: true).
+ * failing that (or, with opts.always, when nearer), to the nearest straight edge carried on past its end (carried: true).
  * @returns {{ arc: object, end: 'start'|'end', carried: boolean } | { error: string }}
  */
-export function extendArc(arc, pick, boundaries) {
+export function extendArc(arc, pick, boundaries, { always = false } = {}) {
   if (arc.type === 'circle') return { error: 'A circle has no ends to extend.' };
   const sweep = arcSweep(arc);
   const end = nearerEnd(pointAtAngle(arc, arc.start_deg), pointAtAngle(arc, arc.end_deg), pick);
@@ -271,10 +286,9 @@ export function extendArc(arc, pick, boundaries) {
   const firstAhead = (bs) => hitsOnCircle(arc.centre, arc.radius_m, bs)
     .map((a) => (end === 'end' ? normDeg(a - arc.end_deg) : normDeg(arc.start_deg - a)))
     .filter((g) => g > ANG_EPS && g < 360 - sweep - ANG_EPS).sort((x, y) => x - y)[0];
-  let g = firstAhead(boundaries);
-  const carried = g === undefined;
-  if (carried) g = firstAhead(carriedOn(boundaries));
-  if (g === undefined) return { error: 'Nothing lies ahead of that end to extend it to.' };
+  const r = reach(firstAhead, boundaries, always);
+  if (!r) return { error: 'Nothing lies ahead of that end to extend it to.' };
+  const { at: g, carried } = r;
   return { arc: end === 'end' ? arcOf(arc, arc.start_deg, sweep + g) : arcOf(arc, arc.start_deg - g, sweep + g), end, carried };
 }
 
@@ -312,10 +326,12 @@ const NO_CROSSINGS = "Nothing straight crosses this region's outline twice, so t
 /**
  * Trim a region's outline at `pick`, as a mark would be: the stretch of outline between the crossings either side of
  * the pick goes, and the outline closes again straight along the cutting edge. That makes sense only when both
- * crossings are on the same straight edge (a line, a shape's edge, a reference line) and the outline does not cross
- * that edge again between them; otherwise it is refused with a reason. Arcs and circles do not cut outlines.
+ * crossings are on the same straight edge (a line, a shape's edge, a reference line); otherwise it is refused with a
+ * reason. Where the outline crosses that edge again between the two crossings (a line across both arms of a U, with
+ * the pick on its base), what is left falls into separate pieces (#185). Arcs and circles do not cut outlines.
  * @param {Array<{x, y}>} points - the region's vertices (plain numbers)
- * @returns {{ points: Array<{x, y}> } | { error: string }}
+ * @returns {{ points: Array<{x, y}>, pieces: Array<Array<{x, y}>> } | { error: string }} pieces, largest first;
+ *   points is the first
  */
 export function trimRegionOutline(points, pick, boundaries) {
   if (points.length < 3) return { error: 'The region needs at least three vertices.' };
@@ -332,23 +348,97 @@ export function trimRegionOutline(points, pick, boundaries) {
   if (hi.j !== lo.j) return { error: 'An outline can be trimmed only between two crossings with the same straight edge, so the cut closes along it. Draw a line right across the region first.' };
   const b = boundaries[hi.j];
   const P = (c) => pointAtStation(ring, cum, c.s);
-  const [ta, tb] = [along(b, P(lo)), along(b, P(hi))].sort((x, y) => x - y);
-  if (cuts.some((c) => c.j === hi.j && c !== hi && c !== lo && along(b, P(c)) > ta + 1e-9 && along(b, P(c)) < tb - 1e-9)) {
-    return { error: 'That edge crosses the region again between those points, so trimming there would leave it in pieces. Trim a simpler part.' };
+  const tLo = along(b, P(lo)), tHi = along(b, P(hi));
+  const [ta, tb] = tLo < tHi ? [tLo, tHi] : [tHi, tLo];
+  // the outline's other crossings with the cutting edge between the two, where the kept outline meets the cut again
+  const fromLo = (c) => Math.abs(along(b, P(c)) - tLo);
+  const between = cuts.filter((c) => c.j === hi.j && c !== hi && c !== lo && along(b, P(c)) > ta + 1e-9 && along(b, P(c)) < tb - 1e-9)
+    .sort((x, y) => fromLo(x) - fromLo(y));
+  // the nodes on the cut in order from lo to hi: 0 is lo, the last is hi
+  const nodes = [lo, ...between, hi];
+  for (let i = 1; i < nodes.length; i++) {
+    if (fromLo(nodes[i]) - fromLo(nodes[i - 1]) < 1e-9) return { error: UNCLEAR_CUT };
   }
-  // keep the outline from hi round to lo; the closing edge lo -> hi runs along the cutting edge
+  if (nodes.length % 2) return { error: UNCLEAR_CUT };
+  // the outline kept, from hi round to lo (the closing edge lo -> hi runs along the cutting edge), nodes marked
   const end = lo.s > hi.s ? lo.s : lo.s + total;
-  const kept = [P(hi)];
+  const events = [{ at: hi.s, p: P(hi), node: nodes.length - 1 }];
   for (let k = 0; k < 2 * points.length; k++) {
     const at = cum[k % points.length] + (k >= points.length ? total : 0);
-    if (at > hi.s + 1e-9 && at < end - 1e-9) kept.push(points[k % points.length]);
+    if (at > hi.s + 1e-9 && at < end - 1e-9) events.push({ at, p: points[k % points.length], node: null });
   }
-  kept.push(P(lo));
-  const out = kept.map(rp).filter((q, i, a) => i === 0 || dist(q, a[i - 1]) > 1e-7);
-  if (out.length > 1 && dist(out[0], out.at(-1)) < 1e-7) out.pop();
-  if (out.length < 3 || Math.abs(signedArea(out)) < 1e-12) return { error: 'Trimming there would leave no region.' };
-  if (isSelfIntersecting(out)) return { error: 'Trimming there would make the region cross itself.' };
-  return { points: out };
+  between.forEach((c) => events.push({ at: c.s > hi.s ? c.s : c.s + total, p: P(c), node: nodes.indexOf(c) }));
+  events.push({ at: end, p: P(lo), node: 0 });
+  events.sort((x, y) => x.at - y.at);
+  const chain = [];   // coincident points merge, keeping the node mark
+  for (const e of events) {
+    const q = { p: rp(e.p), node: e.node };
+    const last = chain.at(-1);
+    if (last && dist(last.p, q.p) < 1e-7) { if (q.node !== null) last.node = q.node; } else chain.push(q);
+  }
+  const nodeAt = new Map();
+  chain.forEach((c, i) => { if (c.node !== null) nodeAt.set(c.node, i); });
+  if (nodeAt.size !== nodes.length) return { error: UNCLEAR_CUT };
+  // Follow the kept outline from a node to the next node, then along the cut to the node after that (towards hi),
+  // and on until the piece closes. With no crossings between lo and hi that is the one piece; with more, what is left
+  // falls into pieces, and a piece that winds the other way from the region is a gap between them (the stretch of
+  // the cut that runs outside the region), which is dropped.
+  const area = signedArea(points);
+  const pieces = [];
+  const started = new Set();
+  for (let first = nodes.length - 1; first >= 1; first--) {
+    if (started.has(first)) continue;
+    const piece = [];
+    let node = first;
+    for (let guard = 0; guard < nodes.length; guard++) {
+      started.add(node);
+      let i = nodeAt.get(node);
+      do { piece.push(chain[i].p); i++; } while (chain[i].node === null);
+      piece.push(chain[i].p);
+      node = chain[i].node + 1;
+      if (node === first) break;
+    }
+    if (node !== first) return { error: UNCLEAR_CUT };
+    const out = piece.filter((q, k, all) => k === 0 || dist(q, all[k - 1]) > 1e-7);
+    if (out.length > 1 && dist(out[0], out.at(-1)) < 1e-7) out.pop();
+    const a = out.length >= 3 ? signedArea(out) : 0;
+    if (Math.abs(a) < 1e-12 || Math.sign(a) !== Math.sign(area)) continue;
+    if (isSelfIntersecting(out)) return { error: 'Trimming there would make the region cross itself.' };
+    pieces.push(out);
+  }
+  if (!pieces.length) return { error: 'Trimming there would leave no region.' };
+  pieces.sort((x, y) => Math.abs(signedArea(y)) - Math.abs(signedArea(x)));
+  return { points: pieces[0], pieces };
+}
+
+const UNCLEAR_CUT = 'The outline only touches the cutting edge between those points, so where to cut is unclear. Trim a simpler part.';
+
+/**
+ * Extend an edge of a region's outline (#185): take the edge nearest `pick`, and move its vertex nearer the pick on
+ * along the edge to the next boundary ahead, as a line's end would go (see extendLine). The edge after that vertex
+ * follows it. Refused with a reason where the outline would cross itself or lose its area.
+ * @returns {{ points: Array<{x, y}>, vertex: number, carried: boolean } | { error: string }}
+ */
+export function extendRegionEdge(points, pick, boundaries, opts = {}) {
+  const n = points.length;
+  if (n < 3) return { error: 'The region needs at least three vertices.' };
+  let best = null;
+  for (let k = 0; k < n; k++) {
+    const a = points[k], b = points[(k + 1) % n];
+    const cum = [0, dist(a, b)];
+    if (cum[1] < EPS) continue;
+    const d = dist(pick, pointAtStation([a, b], cum, stationOf([a, b], cum, pick)));
+    if (!best || d < best.d) best = { d, k };
+  }
+  if (!best) return { error: 'The region has no length.' };
+  const i = best.k, j = (best.k + 1) % n;
+  const res = extendLine([points[i], points[j]], pick, boundaries, opts);
+  if (res.error) return res;
+  const vertex = res.end === 'end' ? j : i;
+  const out = points.map((p, k) => (k === vertex ? (res.end === 'end' ? res.points[1] : res.points[0]) : rp(p)));
+  if (Math.abs(signedArea(out)) < 1e-12) return { error: 'Extending that edge would leave the region with no area.' };
+  if (isSelfIntersecting(out)) return { error: 'Extending that edge would make the region cross itself. Extend a line instead, or move the vertex.' };
+  return { points: out, vertex, carried: res.carried };
 }
 
 // ── document operations ─────────────────────────────────────────────────────
@@ -388,11 +478,12 @@ export function trimMark(doc, index, pick, boundaries) {
 
 /**
  * Extend the end of mark `index` nearer `pick` to the next boundary (carried: true when it ran to an edge carried on).
+ * opts.always: always consider edges carried on past their ends (see reach).
  * @returns {{ doc: object, carried: boolean }}
  */
-export function extendMark(doc, index, pick, boundaries) {
+export function extendMark(doc, index, pick, boundaries, opts = {}) {
   const a = markAt(doc, index);
-  const res = a.type === 'line' ? extendLine(a.points, pick, boundaries) : extendArc(a, pick, boundaries);
+  const res = a.type === 'line' ? extendLine(a.points, pick, boundaries, opts) : extendArc(a, pick, boundaries, opts);
   if (res.error) throw new DetailEditError(res.error);
   const d = structuredClone(doc);
   d.annotations[index] = checked(a.type === 'line' ? { ...structuredClone(a), points: res.points } : res.arc);
@@ -402,8 +493,9 @@ export function extendMark(doc, index, pick, boundaries) {
 
 /**
  * Trim the outline of region `index` at `pick` (see trimRegionOutline). The region keeps its material and its other
- * settings; only its vertices change.
- * @returns {{ doc: object }}
+ * settings; only its vertices change. Where the trim leaves it in pieces, the largest keeps its place and the others
+ * are appended as copies of it.
+ * @returns {{ doc: object, pieces: number }}
  */
 export function trimRegionMark(doc, index, pick, boundaries) {
   const region = doc.geometry?.regions?.[index];
@@ -415,5 +507,25 @@ export function trimRegionMark(doc, index, pick, boundaries) {
   if (res.error) throw new DetailEditError(res.error);
   const d = structuredClone(doc);
   d.geometry.regions[index].vertices = res.points;
-  return { doc: d };
+  // a trim that leaves the region in pieces: each further piece is a new region, a copy of the original (material,
+  // depth, repeat, priority, tags, outline weight) with its own vertices, added at the end
+  for (const vertices of res.pieces.slice(1)) d.geometry.regions.push({ ...structuredClone(region), vertices });
+  return { doc: d, pieces: res.pieces.length };
+}
+
+/**
+ * Extend an edge of region `index` at `pick` (see extendRegionEdge). Only the moved vertex changes.
+ * @returns {{ doc: object, carried: boolean }}
+ */
+export function extendRegionMark(doc, index, pick, boundaries, opts = {}) {
+  const region = doc.geometry?.regions?.[index];
+  if (!region) throw new DetailEditError(`No region at index ${index}`);
+  if (!region.vertices.every((v) => typeof v.x === 'number' && typeof v.y === 'number')) {
+    throw new DetailEditError('Extending a region edge needs plain-number vertices: unbind its parameters first.');
+  }
+  const res = extendRegionEdge(region.vertices, pick, boundaries, opts);
+  if (res.error) throw new DetailEditError(res.error);
+  const d = structuredClone(doc);
+  d.geometry.regions[index].vertices[res.vertex] = res.points[res.vertex];
+  return { doc: d, carried: res.carried };
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { boundariesOf, carriedOn, hitsOnLine, hitsOnCircle, trimLine, extendLine, trimArc, extendArc, trimMark, extendMark, trimRegionOutline, trimRegionMark } from './markTrim.js';
+import { boundariesOf, carriedOn, hitsOnLine, hitsOnCircle, trimLine, extendLine, trimArc, extendArc, trimMark, extendMark, trimRegionOutline, trimRegionMark, extendRegionEdge, extendRegionMark } from './markTrim.js';
 import { DetailEditError } from './detailDocument.js';
 
 const seg = (ax, ay, bx, by) => ({ kind: 'seg', a: { x: ax, y: ay }, b: { x: bx, y: by } });
@@ -234,11 +234,36 @@ describe('trimming a region outline (#166)', () => {
     expect(trimRegionOutline(square, { x: 4, y: 1 }, [seg(3, -1, 3, 1)]).error).toMatch(/nowhere to trim/);
     expect(trimRegionOutline(square, { x: 4, y: 1 }, [circ(4, 1, 0.5)]).error).toMatch(/nowhere to trim/);   // arcs do not cut outlines
   });
-  it('refuses a cut that would leave the region in pieces', () => {
-    // a U open at the top; a line across both arms crosses the outline four times
-    const u = [{ x: 0, y: 0 }, { x: 3, y: 0 }, { x: 3, y: 3 }, { x: 2, y: 3 }, { x: 2, y: 1 }, { x: 1, y: 1 }, { x: 1, y: 3 }, { x: 0, y: 3 }];
+  // a U open at the top; a line across both arms crosses the outline four times
+  const u = [{ x: 0, y: 0 }, { x: 3, y: 0 }, { x: 3, y: 3 }, { x: 2, y: 3 }, { x: 2, y: 1 }, { x: 1, y: 1 }, { x: 1, y: 3 }, { x: 0, y: 3 }];
+  const area = (pts) => Math.abs(pts.reduce((s, p, i) => s + p.x * pts[(i + 1) % pts.length].y - pts[(i + 1) % pts.length].x * p.y, 0)) / 2;
+  it('splits the region in two where the cut crosses it again between the crossings (#185)', () => {
     const cut = [seg(-1, 2, 4, 2)];
-    expect(trimRegionOutline(u, { x: 1.5, y: 0 }, cut).error).toMatch(/in pieces/);
+    const r = trimRegionOutline(u, { x: 1.5, y: 0 }, cut);
+    expect(r.pieces).toHaveLength(2);
+    expect(r.pieces.map(area)).toEqual([1, 1]);
+    const box = (pts) => [Math.min(...pts.map((p) => p.x)), Math.min(...pts.map((p) => p.y)), Math.max(...pts.map((p) => p.x)), Math.max(...pts.map((p) => p.y))];
+    expect(r.pieces.map(box).sort()).toEqual([[0, 2, 1, 3], [2, 2, 3, 3]]);
+    expect(r.points).toBe(r.pieces[0]);
+    // either winding of the outline gives the same pieces
+    const back = trimRegionOutline([...u].reverse(), { x: 1.5, y: 0 }, cut);
+    expect(back.pieces.map(box).sort()).toEqual([[0, 2, 1, 3], [2, 2, 3, 3]]);
+  });
+  it('a reference line across an E splits it into three, the largest first', () => {
+    // an E open to the right, cut by a vertical reference line through its three arms; pick its spine
+    const e = [{ x: 0, y: 0 }, { x: 4, y: 0 }, { x: 4, y: 1 }, { x: 1, y: 1 }, { x: 1, y: 2 }, { x: 3, y: 2 }, { x: 3, y: 3 },
+      { x: 1, y: 3 }, { x: 1, y: 4 }, { x: 4, y: 4 }, { x: 4, y: 5 }, { x: 0, y: 5 }];
+    const r = trimRegionOutline(e, { x: 0, y: 2.5 }, [xline(2, 0, 0, 1)]);
+    expect(r.pieces.map(area)).toEqual([2, 2, 1]);
+    expect(r.pieces.every((p) => p.every((q) => q.x >= 2))).toBe(true);
+  });
+  it('refuses a cut that only touches the outline between the crossings', () => {
+    // a V notch in the top whose tip touches the cutting line at (2, 2)
+    const notched = [{ x: 0, y: 0 }, { x: 4, y: 0 }, { x: 4, y: 3 }, { x: 2, y: 2 }, { x: 0, y: 3 }];
+    expect(trimRegionOutline(notched, { x: 2, y: 0 }, [seg(-1, 2, 5, 2)]).error).toMatch(/only touches/);
+  });
+  it('trims the top off one arm without splitting', () => {
+    const cut = [seg(-1, 2, 4, 2)];
     // trimming the top off one arm is fine
     expect(trimRegionOutline(u, { x: 2.5, y: 3 }, cut).points).toEqual([
       { x: 2, y: 2 }, { x: 2, y: 1 }, { x: 1, y: 1 }, { x: 1, y: 3 }, { x: 0, y: 3 }, { x: 0, y: 0 }, { x: 3, y: 0 }, { x: 3, y: 2 },
@@ -252,5 +277,74 @@ describe('trimming a region outline (#166)', () => {
     const bound = { geometry: { regions: [{ material_id: 'mat-a', vertices: [{ x: { param: 'w' }, y: 0 }, ...square.slice(1)] }] } };
     expect(() => trimRegionMark(bound, 0, { x: 4, y: 1 }, [seg(3, -1, 3, 3)])).toThrow(/plain-number/);
     expect(() => trimRegionMark(doc, 3, { x: 4, y: 1 }, [])).toThrow(/No region/);
+  });
+  it('trimRegionMark adds the second piece as a copy of the region (#185)', () => {
+    const region = { material_id: 'mat-a', vertices: u, priority: 3, depth_m: 0.1, tags: { package: 'frame' }, outline_mm: 0.5 };
+    const doc = { geometry: { regions: [{ material_id: 'mat-b', vertices: square }, region] } };
+    const r = trimRegionMark(doc, 1, { x: 1.5, y: 0 }, [seg(-1, 2, 4, 2)]);
+    expect(r.pieces).toBe(2);
+    const [, a, b] = r.doc.geometry.regions;
+    expect(r.doc.geometry.regions).toHaveLength(3);
+    const { vertices: _a, ...restA } = a;
+    const { vertices: _b, ...restB } = b;
+    expect(restA).toEqual({ material_id: 'mat-a', priority: 3, depth_m: 0.1, tags: { package: 'frame' }, outline_mm: 0.5 });
+    expect(restB).toEqual(restA);
+    expect(restB.tags).not.toBe(restA.tags);
+    expect(area(a.vertices) + area(b.vertices)).toBe(2);
+  });
+});
+
+describe('extend always to edges carried on (#185)', () => {
+  const line = [{ x: 0, y: 0 }, { x: 2, y: 0 }];
+  it('off (the default): a real boundary ahead wins over a nearer edge carried on', () => {
+    expect(extendLine(line, { x: 2, y: 0 }, [seg(4, 1, 4, 3), seg(7, -1, 7, 1)]).points[1]).toEqual({ x: 7, y: 0 });
+  });
+  it('on: the nearer edge carried on wins, and says so', () => {
+    const r = extendLine(line, { x: 2, y: 0 }, [seg(4, 1, 4, 3), seg(7, -1, 7, 1)], { always: true });
+    expect(r).toMatchObject({ carried: true, points: [{ x: 0, y: 0 }, { x: 4, y: 0 }] });
+  });
+  it('on: a real boundary nearer than any edge carried on still wins, and is not called carried', () => {
+    const r = extendLine(line, { x: 2, y: 0 }, [seg(3, -1, 3, 1), seg(5, 1, 5, 3)], { always: true });
+    expect(r).toMatchObject({ carried: false, points: [{ x: 0, y: 0 }, { x: 3, y: 0 }] });
+  });
+  it('arcs too, and extendMark passes the setting on', () => {
+    const arc = { type: 'arc', centre: { x: 0, y: 0 }, radius_m: 1, start_deg: 180, end_deg: 270 };
+    // the end at 270 degrees runs on anticlockwise; x = 0.5 (a short segment well above) carried down meets it at 300
+    const bs = [seg(0.5, 2, 0.5, 3), seg(1, -1, 1, 1)];
+    expect(extendArc(arc, { x: 0, y: -1 }, bs).carried).toBe(false);
+    const r = extendArc(arc, { x: 0, y: -1 }, bs, { always: true });
+    expect(r.carried).toBe(true);
+    expect(r.arc.end_deg).toBeCloseTo(300, 6);
+    const doc = { annotations: [{ type: 'line', points: line }] };
+    expect(extendMark(doc, 0, { x: 2, y: 0 }, [seg(4, 1, 4, 3), seg(7, -1, 7, 1)], { always: true }).doc.annotations[0].points[1]).toEqual({ x: 4, y: 0 });
+  });
+});
+
+describe('extending a region edge (#185)', () => {
+  const square = [{ x: 0, y: 0 }, { x: 2, y: 0 }, { x: 2, y: 2 }, { x: 0, y: 2 }];
+  it('moves the vertex nearer the pick on along the edge to the next boundary', () => {
+    // the bottom edge, picked near its right end, runs on to x = 3; the right edge leans to follow
+    const r = extendRegionEdge(square, { x: 1.9, y: 0 }, [seg(3, -1, 3, 1)]);
+    expect(r).toMatchObject({ vertex: 1, carried: false });
+    expect(r.points).toEqual([{ x: 0, y: 0 }, { x: 3, y: 0 }, { x: 2, y: 2 }, { x: 0, y: 2 }]);
+  });
+  it('works from either end of the edge, and to an edge carried on', () => {
+    const r = extendRegionEdge(square, { x: 0.1, y: 0 }, [seg(-3, 1, -3, 3)]);
+    expect(r).toMatchObject({ vertex: 0, carried: true });
+    expect(r.points[0]).toEqual({ x: -3, y: 0 });
+  });
+  it('reports when nothing lies ahead, or the outline would cross itself', () => {
+    expect(extendRegionEdge(square, { x: 1.9, y: 0 }, []).error).toMatch(/Nothing lies ahead/);
+    // a notch whose tip (1, 1), run on to x = -1, passes out through the left side of the outline
+    const dart = [{ x: 0, y: 0 }, { x: 4, y: 0 }, { x: 1, y: 1 }, { x: 4, y: 2 }, { x: 0, y: 2 }];
+    expect(extendRegionEdge(dart, { x: 1.2, y: 1.07 }, [seg(-1, -5, -1, 5)]).error).toMatch(/cross itself/);
+  });
+  it('extendRegionMark changes only that vertex and refuses bound vertices', () => {
+    const doc = { geometry: { regions: [{ material_id: 'm', vertices: square, priority: 2 }] } };
+    const r = extendRegionMark(doc, 0, { x: 1.9, y: 0 }, [seg(3, -1, 3, 1)]);
+    expect(r.doc.geometry.regions[0]).toEqual({ material_id: 'm', priority: 2, vertices: [{ x: 0, y: 0 }, { x: 3, y: 0 }, { x: 2, y: 2 }, { x: 0, y: 2 }] });
+    const bound = { geometry: { regions: [{ material_id: 'm', vertices: [{ x: { param: 'w' }, y: 0 }, ...square.slice(1)] }] } };
+    expect(() => extendRegionMark(bound, 0, { x: 1.9, y: 0 }, [seg(3, -1, 3, 1)])).toThrow(/plain-number/);
+    expect(() => extendRegionMark(doc, 0, { x: 1.9, y: 0 }, [])).toThrow(DetailEditError);
   });
 });
