@@ -4,12 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>OEBF Editor</title>
-  <link rel="icon" href="/oebf/icons/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/oebf/fonts/barlow.css">
+  <link rel="icon" href="/icons/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/fonts/barlow.css">
   <link rel="stylesheet" href="/src/ui/ui.css">
   <style>
     [hidden] { display: none !important; }
-    @media (max-width: 1599px) {
+    @media (max-width: 1799px) {
       .short .lbl { display: none; }
       .short-text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }   /* still read out */
       #toolbar { gap: 6px; }
@@ -218,6 +218,23 @@
     .welcome-starter:hover { background: #333; border-color: #4a8aaa; }
     .welcome-starter strong { display: block; font-size: 13px; }
     .welcome-starter span { display: block; font-size: 12px; color: #aaa; margin-top: 2px; }
+
+    /* Phones (#160): one toolbar row that scrolls inside itself, icon-only buttons (each has a title and an
+       aria-label), and the two side panels as drawers over the 3D view, closed to their toggle strip. */
+    @media (max-width: 699px) {
+      #toolbar { flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; padding: 6px 8px; gap: 4px; scrollbar-width: thin; }
+      #toolbar > * { flex-shrink: 0; }
+      #toolbar .lbl { display: none; }
+      .toolbar-sep { margin: 0 2px; }
+      #main { position: relative; }
+      #scene-tree:not(.collapsed) { position: absolute; top: 0; bottom: 0; left: 0; z-index: 20; width: min(280px, 85vw); box-shadow: 4px 0 12px rgba(0,0,0,0.5); }
+      #props-panel:not(.collapsed) { position: absolute; top: 0; bottom: 0; right: 0; z-index: 20; width: min(300px, 85vw); box-shadow: -4px 0 12px rgba(0,0,0,0.5); }
+      #status-strip { gap: 8px; padding: 4px 8px; }
+      #status-mode { flex-shrink: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+      #welcome-box { min-width: 0; margin: 16px; padding: 24px 20px; }
+      #welcome-box .welcome-btns { flex-wrap: wrap; }
+      #help-dialog dl { grid-template-columns: 1fr; }
+    }
   </style>
   <script>
     // Keep uncaught errors where headless checks and bug reports can read them.
@@ -245,8 +262,8 @@
   <dialog id="object-dialog"></dialog>
   <div id="toolbar">
     <a href="launch.html" class="home-link" title="All OEBF applications" aria-label="All OEBF applications"><i data-icon="home"></i></a>
-    <button id="new-btn" aria-label="New bundle" title="New project"><i data-icon="new"></i><span class="lbl">New</span></button>
-    <button id="open-btn" aria-label="Open bundle">
+    <button id="new-btn" aria-label="New bundle" title="New project" class="short"><i data-icon="new"></i><span class="lbl">New</span></button>
+    <button id="open-btn" aria-label="Open bundle" title="Open a project" class="short">
       <i data-icon="open"></i><span class="lbl">Open</span></button>
     <button id="save-btn" disabled aria-label="Save" title="Save (Ctrl+S)">
       <i data-icon="save"></i><span class="lbl">Save</span></button>
@@ -266,8 +283,8 @@
     <button id="snap-settings-btn" title="Snap settings: which snaps are on, grid spacing, angle step" aria-label="Snap settings"><i data-icon="chevron-down" data-size="12"></i></button>
     </span>
     <div class="toolbar-sep"></div>
-    <button id="view-3d" class="active" aria-label="3D view" title="3D view (3)"><img src="/oebf/icons/plane-vertical.svg" width="16" height="16" alt=""><span class="lbl">3D</span></button>
-    <button id="view-plan" aria-label="Plan view" title="Plan view (2)"><img src="/oebf/icons/plane-horizontal.svg" width="16" height="16" alt=""><span class="lbl">Plan</span></button>
+    <button id="view-3d" class="active short" aria-label="3D view" title="3D view (3)"><img src="/icons/plane-vertical.svg" width="16" height="16" alt=""><span class="lbl">3D</span></button>
+    <button id="view-plan" class="short" aria-label="Plan view" title="Plan view (2)"><img src="/icons/plane-horizontal.svg" width="16" height="16" alt=""><span class="lbl">Plan</span></button>
     <div class="toolbar-sep"></div>
     <span class="toolbar-group">
     <button id="render-solid"       title="Solid shaded view"                   aria-label="Solid view" class="short"><i data-icon="solid"></i><span class="lbl">Solid</span></button>
@@ -388,6 +405,12 @@
       const collapsed = sceneTree.classList.toggle('collapsed');
       sceneToggle.textContent = collapsed ? '›' : '‹';
     });
+
+    // On a phone the panels are drawers over the 3D view: start with both closed (#160).
+    if (matchMedia('(max-width: 699px)').matches) {
+      if (!sceneTree.classList.contains('collapsed')) sceneToggle.click();
+      if (!propsPanel.classList.contains('collapsed')) propsToggle.click();
+    }
   </script>
   <dialog id="material-dialog">
     <form method="dialog" id="material-form">

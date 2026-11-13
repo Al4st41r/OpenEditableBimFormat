@@ -21,6 +21,12 @@ test('each app takes the shared control styles and links back to the application
   }
 });
 
+test('pages link public files without the base, so Vite adds /oebf/ once in dev and build (#175)', () => {
+  for (const page of readdirSync(root).filter((f) => f.endsWith('.html'))) {
+    expect(read(page), page).not.toMatch(/(href|src)="\/oebf\//);
+  }
+});
+
 test('the launch page has a card for every app, and a title of its own', () => {
   const launch = read('launch.html');
   for (const app of APPS) expect(launch, app).toContain(`<a href="${app}" class="card">`);

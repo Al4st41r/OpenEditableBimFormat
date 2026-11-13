@@ -12,6 +12,7 @@
 import { FsaAdapter } from '../editor/storageAdapter.js';
 import { renderIcons } from '../ui/icons.js';
 import { fitSelectToChoice } from '../ui/selectWidth.js';
+import { isPhone } from '../ui/smallScreen.js';
 import { AXO_READY, AXO_BUNDLE, isMessage, readerFor } from './editorHandoff.js';
 import { AxoViewer } from './axoScene.js';
 import { buildAxoModel, materialsUsed, usagesOf, AXO_VIEWS } from './detailAxo.js';
@@ -82,6 +83,7 @@ function syncCompare() {
   $('compare-btn').hidden = !originals.has(selectedId);
   $('compare-btn').classList.toggle('active', showOriginal);
   $('compare-btn').querySelector('.lbl').textContent = showOriginal ? 'Showing original' : 'Original';
+  $('compare-btn').setAttribute('aria-label', $('compare-btn').querySelector('.lbl').textContent);   // the label is hidden below 1600 px
 }
 
 /** The detail's embodied carbon (A1-A3): overlap-aware volumes times CarbonBench factors. */
@@ -335,6 +337,8 @@ async function open(readJson, label, handle = null) {
 
 $('view-select').innerHTML = Object.entries(AXO_VIEWS).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join('');
 $('view-select').addEventListener('change', (e) => viewer.setView(e.target.value));
+fitSelectToChoice($('view-select'));   // as narrow as the chosen view, like the overlay select (#158)
+document.fonts?.ready.then(() => fitSelectToChoice($('view-select')));
 for (const [btn, key] of [['members-btn', 'members'], ['regions-btn', 'regions'], ['edges-btn', 'edges'], ['guides-btn', 'guides'], ['clip-btn', 'clip']]) {
   $(btn).addEventListener('click', () => {
     const on = !viewer.show[key];
@@ -404,18 +408,25 @@ if (!window.showDirectoryPicker) {
 }
 
 // ── panels ───────────────────────────────────────────────────────────────────
-for (const [btn, panel, key] of [['left-btn', 'left-panel', 'oebf-axo-left'], ['right-btn', 'right-panel', 'oebf-axo-right']]) {
-  const set = (on) => {
-    $(panel).hidden = !on;
-    $(btn).classList.toggle('active', on);
-    try { localStorage.setItem(key, on ? '1' : '0'); } catch { /* storage unavailable */ }
-    viewer.resize();
-    draw2d();
-  };
-  $(btn).addEventListener('click', () => set($(panel).hidden));
+// On a phone the panels are drawers over the panes (#160): they start closed, one at a time is open, and opening or
+// closing one there is not remembered for a larger screen.
+const PANELS = [['left-btn', 'left-panel', 'oebf-axo-left'], ['right-btn', 'right-panel', 'oebf-axo-right']];
+const setPanel = (btn, panel, key, on) => {
+  $(panel).hidden = !on;
+  $(btn).classList.toggle('active', on);
+  if (!isPhone()) { try { localStorage.setItem(key, on ? '1' : '0'); } catch { /* storage unavailable */ } }
+  viewer.resize();
+  draw2d();
+};
+for (const [btn, panel, key] of PANELS) {
+  $(btn).addEventListener('click', () => {
+    const on = $(panel).hidden;
+    if (on && isPhone()) for (const other of PANELS) if (other[0] !== btn && !$(other[1]).hidden) setPanel(...other, false);
+    setPanel(btn, panel, key, on);
+  });
   let saved = null;
   try { saved = localStorage.getItem(key); } catch { /* storage unavailable */ }
-  if (saved === '0') set(false);
+  if (saved === '0' || isPhone()) setPanel(btn, panel, key, false);
 }
 document.addEventListener('keydown', (e) => {
   if (e.target.matches?.('input, select, textarea') || e.ctrlKey || e.metaKey || e.altKey) return;

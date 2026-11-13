@@ -78,6 +78,7 @@ import { importIfcText } from '../ifc/ifcImporter.js';
 import { exportBundleToIfc } from '../ifc/ifcExporter.js';
 import { ask, askForm, confirmDialog, notify, idValidator } from '../ui/dialog.js';
 import { tidyToolbarSeparators } from '../ui/toolbar.js';
+import { noteSmallScreen } from '../ui/smallScreen.js';
 import { enableTreeKeyboard } from '../ui/treeKeys.js';
 import { showBusy, setBusy, hideBusy, showError } from '../ui/notice.js';
 import { renderIcons } from '../ui/icons.js';
@@ -2975,4 +2976,5 @@ storeyManager.onSelect = _showStoreyProps;
 
 renderIcons();
 tidyToolbarSeparators(document.getElementById('toolbar'));
+noteSmallScreen('editor', 'The editor is made for a larger screen. Here you can open and view a model; the panels open from the strips at each side.');
 enableTreeKeyboard(document.getElementById('scene-tree-body'));
