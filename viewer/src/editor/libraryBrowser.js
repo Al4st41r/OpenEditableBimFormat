@@ -1,91 +1,37 @@
 /**
- * libraryBrowser.js — Library browser modal for the OEBF editor.
+ * libraryBrowser.js — The 3D editor's wiring of the library panel.
  *
- * Fetches /oebf/library/materials/library.json for materials and
- * known profile JSON files from /oebf/library/profiles/ for profiles.
- * Displays items by category/type and allows importing into the open bundle.
+ * The data (fetching, filtering) is materials/libraryData.js and the panel is materials/libraryPanel.js, both shared with
+ * the detail editor. This file says what Use does here: write the material or profile into the open bundle through the
+ * editor's storage adapter.
  */
 
 import { writeEntity } from './bundleWriter.js';
-import { libraryMaterialToBundle, bundleMaterialId } from '../loader/loadProfile.js';
-import { libraryProfileToBundle } from '../loader/loadProfile.js';
+import { libraryMaterialToBundle, bundleMaterialId, libraryProfileToBundle } from '../loader/loadProfile.js';
+import { librarySource, extractProfileMaterialIds, filterMaterials, inProjectIds } from '../materials/libraryData.js';
+import { openLibraryPanel } from '../materials/libraryPanel.js';
+
+export { extractProfileMaterialIds, filterMaterials };
 
 let _adapter            = null;
-let _library            = null; // { version, materials[] } — cached after first fetch
-let _profiles           = null; // Profile[] — cached after first fetch
 let _onMaterialImported = null; // optional callback(mat) fired after each material import
-
-const PROFILE_FILENAMES = [
-  'cavity-wall.json',
-  'solid-wall.json',
-  'concrete-slab.json',
-];
 
 export function setAdapter(a) {
   _adapter            = a;
-  _library            = null; // invalidate on bundle change
-  _profiles           = null;
+  librarySource.reset(); // invalidate on bundle change
   _onMaterialImported = null;
 }
 
-/**
- * Open the library browser modal. It opens at once, saying 'Loading library…' until the library has been fetched
- * (issue #155); Esc, the close button or a click on the backdrop closes it.
- */
-export async function openLibraryBrowser({ onMaterialImported } = {}) {
-  _onMaterialImported = onMaterialImported ?? null;
-  const shell = _openShell();
-  if (!_library) {
-    try {
-      const res  = await fetch('/oebf/library/materials/library.json');
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      _library   = await res.json();
-    } catch (e) {
-      shell.showMessage(`Could not load the material library: ${e.message}`);
-      return;
-    }
-  }
-  if (!_profiles) {
-    const loaded = [];
-    for (const filename of PROFILE_FILENAMES) {
-      try {
-        const res = await fetch(`/oebf/library/profiles/${filename}`);
-        if (res.ok) loaded.push(await res.json());
-      } catch { /* skip on network error */ }
-    }
-    _profiles = loaded;
-  }
-  if (!shell.isOpen()) return;   // closed while loading
-  await _renderModal(shell, _library, _profiles);
-}
-
-/** Return the material IDs referenced by a profile's layers. Exported for unit testing. */
-export function extractProfileMaterialIds(profile) {
-  return (profile.layers ?? []).map(l => l.material_id).filter(Boolean);
-}
-
-/** Filter materials by category and search query. Exported for unit testing. */
-export function filterMaterials(materials, query, cat) {
-  const q = query.toLowerCase();
-  return materials.filter(m =>
-    (cat === 'all' || m.category === cat) &&
-    (!q || m.name.toLowerCase().includes(q) || m.category.toLowerCase().includes(q))
-  );
-}
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
 /** Load the set of entity IDs (materials + profiles) already in the open bundle. */
 async function _loadInProject() {
-  const s = new Set();
+  let s = new Set();
   if (!_adapter) return s;
   try {
     const existing = await _adapter.readJson('materials/library.json');
-    // the library lists ids without "mat-"; a bundle holds them with it
-    (existing.materials ?? []).forEach(m => { s.add(m.id); s.add(String(m.id).replace(/^mat-/, '')); });
+    s = inProjectIds(existing.materials);
   } catch { /* no library yet */ }
   // Check which library profiles are already in the bundle
-  for (const prof of (_profiles ?? [])) {
+  for (const prof of await librarySource.profiles()) {
     try {
       await _adapter.readJson(`profiles/${prof.id}.json`);
       s.add(prof.id);
@@ -94,278 +40,32 @@ async function _loadInProject() {
   return s;
 }
 
-// ── Modal ────────────────────────────────────────────────────────────────────
-
 /**
- * The modal's frame: backdrop, panel and header with a close button, shown at once with a loading line in its body.
- * Esc closes it; a later call replaces it.
+ * Open the library browser modal. It opens at once, saying 'Loading library…' until the library has been fetched
+ * (issue #155); Esc, the close button or a click on the backdrop closes it.
  */
-function _openShell() {
-  document.getElementById('lib-modal')?.remove();
-
-  const modal = document.createElement('div');
-  modal.id = 'lib-modal';
-  modal.setAttribute('role', 'dialog');
-  modal.setAttribute('aria-modal', 'true');
-  modal.setAttribute('aria-label', 'Library');
-  modal.style.cssText = [
-    'position:fixed', 'inset:0', 'z-index:500', 'display:flex',
-    'align-items:center', 'justify-content:center',
-    'background:rgba(0,0,0,0.6)',
-  ].join(';');
-
-  const panel = document.createElement('div');
-  panel.style.cssText = [
-    'background:#1e1e1e', 'border:1px solid #444', 'border-radius:6px',
-    'width:520px', 'max-width:calc(100vw - 32px)', 'max-height:80vh', 'display:flex', 'flex-direction:column',
-    'overflow:hidden',
-  ].join(';');
-
-  const header = document.createElement('div');
-  header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #333;flex-shrink:0';
-  const title = document.createElement('span');
-  title.textContent = 'Library';
-  title.style.cssText = 'font-size:13px;font-weight:bold;color:#ddd;';
-  const closeBtn = document.createElement('button');
-  closeBtn.textContent = '×';
-  closeBtn.title = 'Close (Esc)';
-  closeBtn.setAttribute('aria-label', 'Close');
-  closeBtn.style.cssText = 'background:none;border:none;color:#888;font-size:18px;cursor:pointer;padding:0 4px;';
-  header.appendChild(title); header.appendChild(closeBtn);
-
-  const message = document.createElement('div');
-  message.id = 'lib-loading';
-  message.setAttribute('role', 'status');
-  message.textContent = 'Loading library…';
-  message.style.cssText = 'padding:16px 14px;color:#aaa;font-size:12px;';
-
-  panel.appendChild(header);
-  panel.appendChild(message);
-  modal.appendChild(panel);
-  document.body.appendChild(modal);
-
-  const onKey = (e) => {
-    if (e.key !== 'Escape' || !modal.isConnected) return;
-    if (document.querySelector('dialog[open]')) return;   // a dialog opened over the library takes its own Esc first
-    e.preventDefault(); e.stopPropagation();
-    close();
-  };
-  function close() {
-    modal.remove();
-    document.removeEventListener('keydown', onKey, true);
-  }
-  document.addEventListener('keydown', onKey, true);
-  closeBtn.addEventListener('click', close);
-  modal.addEventListener('click', e => { if (e.target === modal) close(); });
-  closeBtn.focus();
-
-  return {
-    modal, panel, message,
-    isOpen: () => modal.isConnected,
-    showMessage: (text) => { message.textContent = text; message.style.color = '#e88'; },
-  };
-}
-
-async function _renderModal(shell, library, profiles) {
-  const { modal, panel, message } = shell;
-
-  // Tab switcher
-  const tabs = document.createElement('div');
-  tabs.style.cssText = 'display:flex;gap:0;padding:8px 14px 0;border-bottom:1px solid #333;flex-shrink:0;';
-
-  let activeTab = 'materials';
-
-  const tabStyle = (active) => [
-    'font-size:12px', 'padding:4px 14px', 'cursor:pointer',
-    'border:1px solid #444', 'border-bottom:none', 'border-radius:4px 4px 0 0',
-    'background:' + (active ? '#2a2a2a' : '#1a1a1a'),
-    'color:' + (active ? '#ddd' : '#888'),
-    'margin-right:4px',
-  ].join(';');
-
-  const matTab = document.createElement('button');
-  matTab.textContent = 'Materials';
-  matTab.style.cssText = tabStyle(true);
-
-  const profTab = document.createElement('button');
-  profTab.textContent = 'Profiles';
-  profTab.style.cssText = tabStyle(false);
-
-  tabs.appendChild(matTab);
-  tabs.appendChild(profTab);
-
-  // Controls area (search + category filter — materials only)
-  const controls = document.createElement('div');
-  controls.style.cssText = 'display:flex;gap:8px;padding:8px 14px;border-bottom:1px solid #333;flex-shrink:0';
-
-  const searchInp = document.createElement('input');
-  searchInp.type = 'text'; searchInp.placeholder = 'Search…';
-  searchInp.style.cssText = 'flex:1;background:#2a2a2a;color:#ddd;border:1px solid #555;border-radius:3px;padding:4px 8px;font-size:12px;';
-
-  const categories = ['all', ...new Set(library.materials.map(m => m.category))];
-  const catSel = document.createElement('select');
-  catSel.style.cssText = 'background:#2a2a2a;color:#ddd;border:1px solid #555;border-radius:3px;padding:4px 6px;font-size:12px;';
-  for (const cat of categories) {
-    const opt = document.createElement('option');
-    opt.value = cat; opt.textContent = cat === 'all' ? 'All categories' : cat;
-    catSel.appendChild(opt);
-  }
-  controls.appendChild(searchInp); controls.appendChild(catSel);
-
-  // List area
-  const list = document.createElement('div');
-  list.style.cssText = 'overflow-y:auto;flex:1;padding:6px 0;';
-
-  function _renderMaterialList(inProject) {
-    list.innerHTML = '';
-    const query = searchInp.value;
-    const cat   = catSel.value;
-
-    const filtered = filterMaterials(library.materials, query, cat);
-
-    for (const mat of filtered) {
-      const row = document.createElement('div');
-      row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:6px 14px;border-bottom:1px solid #2a2a2a;';
-
-      const swatch = document.createElement('span');
-      swatch.style.cssText = `width:18px;height:18px;border-radius:3px;background:${mat.colour_hex};flex-shrink:0;`;
-
-      const info = document.createElement('div');
-      info.style.cssText = 'flex:1;min-width:0;';
-      const nameEl = document.createElement('div');
-      nameEl.textContent = mat.name;
-      nameEl.style.cssText = 'font-size:12px;color:#ddd;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
-      const metaEl = document.createElement('div');
-      metaEl.textContent = `${mat.carbon_kgCO2e_per_kg} kgCO₂e/kg · ${mat.category}`;
-      metaEl.style.cssText = 'font-size:10px;color:#888;';
-      info.appendChild(nameEl); info.appendChild(metaEl);
-
-      const actionEl = document.createElement('div');
-      actionEl.style.cssText = 'flex-shrink:0;';
-
-      if (inProject.has(mat.id)) {
-        const badge = document.createElement('span');
-        badge.textContent = 'In project';
-        badge.style.cssText = 'font-size:10px;color:#4a8;padding:2px 6px;border:1px solid #4a8;border-radius:3px;';
-        actionEl.appendChild(badge);
-      } else {
-        const useBtn = document.createElement('button');
-        useBtn.textContent = 'Use';
-        useBtn.style.cssText = 'font-size:11px;padding:3px 8px;cursor:pointer;background:#2a4a6a;color:#ddd;border:1px solid #4a8aaa;border-radius:3px;';
-        useBtn.addEventListener('click', async () => {
-          await _importMaterial(mat);
-          inProject.add(mat.id); // update in-place — no extra readJson needed
-          _renderMaterialList(inProject); // refresh to show "In project"
-        });
-        actionEl.appendChild(useBtn);
-      }
-
-      row.appendChild(swatch); row.appendChild(info); row.appendChild(actionEl);
-      list.appendChild(row);
-    }
-
-    if (filtered.length === 0) {
-      const empty = document.createElement('div');
-      empty.textContent = 'No materials found.';
-      empty.style.cssText = 'padding:16px 14px;color:#666;font-size:12px;';
-      list.appendChild(empty);
-    }
-  }
-
-  function _renderProfileList(inProject) {
-    list.innerHTML = '';
-
-    for (const prof of profiles) {
-      const row = document.createElement('div');
-      row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:6px 14px;border-bottom:1px solid #2a2a2a;';
-
-      const info = document.createElement('div');
-      info.style.cssText = 'flex:1;min-width:0;';
-      const nameEl = document.createElement('div');
-      nameEl.textContent = prof.description ?? prof.id;
-      nameEl.style.cssText = 'font-size:12px;color:#ddd;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
-      const metaEl = document.createElement('div');
-      metaEl.textContent = prof.profile_type
-        ? prof.profile_type.charAt(0).toUpperCase() + prof.profile_type.slice(1)
-        : 'Profile';
-      metaEl.style.cssText = 'font-size:10px;color:#888;';
-      info.appendChild(nameEl); info.appendChild(metaEl);
-
-      const actionEl = document.createElement('div');
-      actionEl.style.cssText = 'flex-shrink:0;';
-
-      if (inProject.has(prof.id)) {
-        const badge = document.createElement('span');
-        badge.textContent = 'In project';
-        badge.style.cssText = 'font-size:10px;color:#4a8;padding:2px 6px;border:1px solid #4a8;border-radius:3px;';
-        actionEl.appendChild(badge);
-      } else {
-        const useBtn = document.createElement('button');
-        useBtn.textContent = 'Use';
-        useBtn.style.cssText = 'font-size:11px;padding:3px 8px;cursor:pointer;background:#2a4a6a;color:#ddd;border:1px solid #4a8aaa;border-radius:3px;';
-        useBtn.addEventListener('click', async () => {
-          if (_adapter) {
-            // Auto-import any materials the profile references
-            const depIds = extractProfileMaterialIds(prof);
-            for (const matId of depIds) {
-              if (!inProject.has(matId)) {
-                const libMat = (_library?.materials ?? []).find(m => m.id === matId);
-                if (libMat) {
-                  await _importMaterial(libMat);
-                  inProject.add(libMat.id);
-                }
-              }
-            }
-            // The library stores profiles as layers[]; a bundle needs assembly[] (issue #91)
-            await writeEntity(_adapter, `profiles/${prof.id}.json`, libraryProfileToBundle(prof, { mapMaterial: bundleMaterialId }));
+export async function openLibraryBrowser({ onMaterialImported } = {}) {
+  _onMaterialImported = onMaterialImported ?? null;
+  await openLibraryPanel({
+    source: librarySource,
+    getInProject: _loadInProject,
+    onUseMaterial: _importMaterial,
+    onUseProfile: async (prof, inProject) => {
+      if (_adapter) {
+        // Auto-import any materials the profile references
+        for (const matId of extractProfileMaterialIds(prof)) {
+          if (inProject.has(matId)) continue;
+          const libMat = librarySource.cachedMaterial(matId);
+          if (libMat) {
+            await _importMaterial(libMat);
+            inProject.add(libMat.id);
           }
-          inProject.add(prof.id); // update in-place — no extra readJson needed
-          _renderProfileList(inProject); // refresh to show "In project"
-        });
-        actionEl.appendChild(useBtn);
+        }
+        // The library stores profiles as layers[]; a bundle needs assembly[] (issue #91)
+        await writeEntity(_adapter, `profiles/${prof.id}.json`, libraryProfileToBundle(prof, { mapMaterial: bundleMaterialId }));
       }
-
-      row.appendChild(info); row.appendChild(actionEl);
-      list.appendChild(row);
-    }
-
-    if (profiles.length === 0) {
-      const empty = document.createElement('div');
-      empty.textContent = 'No profiles found.';
-      empty.style.cssText = 'padding:16px 14px;color:#666;font-size:12px;';
-      list.appendChild(empty);
-    }
-  }
-
-  // Load inProject once; shared across both tabs and all re-renders.
-  const inProject = await _loadInProject();
-  if (!modal.isConnected) return;   // closed while reading the bundle
-
-  function _switchTab(tab) {
-    activeTab = tab;
-    matTab.style.cssText = tabStyle(tab === 'materials');
-    profTab.style.cssText = tabStyle(tab === 'profiles');
-    controls.style.display = tab === 'materials' ? 'flex' : 'none';
-    if (tab === 'materials') {
-      _renderMaterialList(inProject);
-    } else {
-      _renderProfileList(inProject);
-    }
-  }
-
-  matTab.addEventListener('click', () => _switchTab('materials'));
-  profTab.addEventListener('click', () => _switchTab('profiles'));
-
-  searchInp.addEventListener('input', () => _renderMaterialList(inProject));
-  catSel.addEventListener('change', () => _renderMaterialList(inProject));
-
-  message.remove();
-  panel.appendChild(tabs);
-  panel.appendChild(controls);
-  panel.appendChild(list);
-
-  _renderMaterialList(inProject);
-  searchInp.focus();
+    },
+  });
 }
 
 async function _importMaterial(mat) {

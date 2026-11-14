@@ -16,11 +16,13 @@
  * tests can answer it (tests/e2e/dialogAnswers.js).
  */
 
+import { bindColourPair } from './colourPair.js';
+
 /**
  * @typedef {object} Field
  * @property {string} name
  * @property {string} label
- * @property {'text'|'number'|'select'} [type='text']
+ * @property {'text'|'number'|'select'|'textarea'|'colour'} [type='text'] - 'colour' is a hex text input with a colour picker beside it
  * @property {string|number} [value]
  * @property {{ value: string, label: string }[]} [options] - for type 'select'
  * @property {boolean} [required] - a blank value is refused
@@ -61,6 +63,10 @@ export function idValidator(taken = () => false) {
 }
 
 const CSS = `
+.oebf-dialog textarea { width: 100%; box-sizing: border-box; background: #2a2a2a; color: #eee; border: 1px solid #555; border-radius: 3px; padding: 6px 8px; font: inherit; resize: vertical; }
+.oebf-dialog textarea:focus { outline: 2px solid #6e8ec8; outline-offset: 0; }
+.oebf-dialog .oebf-dialog-colour { display: flex; gap: 8px; align-items: center; }
+.oebf-dialog .oebf-dialog-colour input[type=color] { width: 44px; height: 32px; padding: 0; flex: none; cursor: pointer; }
 .oebf-dialog { margin: auto; background: #222; color: #ddd; border: 1px solid #555; border-radius: 6px; padding: 16px 18px; min-width: 300px; max-width: 480px; font: 13px 'Barlow', system-ui, sans-serif; }
 .oebf-dialog::backdrop { background: rgba(0,0,0,0.5); }
 .oebf-dialog h3 { margin: 0 0 10px; font-size: 14px; font-weight: 700; color: #fff; }
@@ -118,12 +124,22 @@ function open({ kind, title, message, fields = [], ok = 'OK', cancel = 'Cancel',
         input = el('select', { id, name: f.name });
         for (const o of f.options ?? []) input.appendChild(el('option', { value: o.value }, o.label));
         if (f.value != null) input.value = String(f.value);
+      } else if (f.type === 'textarea') {
+        input = el('textarea', { id, name: f.name, rows: String(f.rows ?? 3), placeholder: f.placeholder, spellcheck: 'false' });
+        input.value = f.value != null ? String(f.value) : '';
       } else {
         input = el('input', { id, name: f.name, type: 'text', inputmode: f.type === 'number' ? 'decimal' : null, placeholder: f.placeholder, autocomplete: 'off', spellcheck: 'false' });
         input.value = f.value != null ? String(f.value) : '';
       }
       inputs[f.name] = input;
-      form.appendChild(input);
+      if (f.type === 'colour') {
+        // a swatch (the browser's colour picker) beside the hex text; the text is the field's value
+        const swatch = el('input', { type: 'color', class: 'oebf-dialog-swatch', 'aria-label': `${f.label}: pick` });
+        bindColourPair(swatch, input);
+        const row = el('div', { class: 'oebf-dialog-colour' });
+        row.append(swatch, input);
+        form.appendChild(row);
+      } else form.appendChild(input);
       if (f.hint) form.appendChild(el('div', { class: 'oebf-dialog-hint' }, f.hint));
       const err = el('div', { class: 'oebf-dialog-error', id: `${id}-err`, role: 'alert' });
       input.setAttribute('aria-describedby', `${id}-err`);

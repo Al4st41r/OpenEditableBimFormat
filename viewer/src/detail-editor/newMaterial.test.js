@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest';
-import { materialFields, materialFromAnswers, addToContext, similarNote, NEW_MATERIAL } from './newMaterial.js';
+import { materialFields, materialFromAnswers, addToContext, similarNote, NEW_MATERIAL, IMPORT_MATERIAL } from './newMaterial.js';
 import { saveNewMaterials } from './detailStore.js';
 import { materialsAddedMessage, parseMaterialsAdded } from './messages.js';
 import { checkFields } from '../ui/dialog.js';
@@ -72,6 +72,32 @@ describe('materialFromAnswers', () => {
   });
 });
 
+describe('colour, IFC name and specification fields (#197)', () => {
+  const fields = materialFields(existing);
+
+  test('the colour is a colour field (swatch and hex), the specification a textarea', () => {
+    expect(fields.find((f) => f.name === 'colour').type).toBe('colour');
+    expect(fields.find((f) => f.name === 'properties').type).toBe('textarea');
+    expect(fields.map((f) => f.name)).toEqual(['name', 'id', 'colour', 'category', 'ifcMaterialName', 'properties']);
+  });
+
+  test('the optional fields may be blank', () => {
+    expect(errors({ ifcMaterialName: '', properties: '' })).toEqual({});
+  });
+
+  test('they end up on the material as in the 3D editor', () => {
+    const m = materialFromAnswers(answers({ ifcMaterialName: ' Oak ', properties: 'fire: D-s2, d0\nnote without colon\ndensity: 470 kg/m3' }), existing);
+    expect(m.ifc_material_name).toBe('Oak');
+    expect(m.properties).toEqual({ fire: 'D-s2, d0', density: '470 kg/m3' });
+  });
+
+  test('left blank they are left off', () => {
+    const m = materialFromAnswers(answers({ ifcMaterialName: '', properties: '' }), existing);
+    expect('ifc_material_name' in m).toBe(false);
+    expect('properties' in m).toBe(false);
+  });
+});
+
 describe('addToContext', () => {
   test('adds the material to the map and the id list once', () => {
     const ctx = { materials: { 'mat-oak': existing[0] }, materialIds: ['mat-oak'] };
@@ -83,8 +109,10 @@ describe('addToContext', () => {
     expect(ctx.materialIds).toHaveLength(2);
   });
 
-  test('the new-material option value can never be a material id', () => {
+  test('the new-material and import option values can never be a material id', () => {
     expect(NEW_MATERIAL).not.toMatch(/^mat-/);
+    expect(IMPORT_MATERIAL).not.toMatch(/^mat-/);
+    expect(IMPORT_MATERIAL).not.toBe(NEW_MATERIAL);
   });
 });
 

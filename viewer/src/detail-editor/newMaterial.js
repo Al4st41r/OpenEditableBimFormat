@@ -7,13 +7,14 @@
  */
 
 import { askForm, idValidator } from '../ui/dialog.js';
-import { buildMaterial, materialIdFor, findSimilar } from '../editor/materialForm.js';
+import { buildMaterial, materialIdFor, findSimilar, isHexColour } from '../editor/materialForm.js';
 
 /** The value of the "New material…" option in a picker; never a material id (ids are lowercase letters, digits, hyphens). */
 export const NEW_MATERIAL = '__new__';
 export const NEW_MATERIAL_LABEL = 'New material…';
-
-const HEX = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i;
+/** The value of the "Import from library…" option; likewise never a material id. */
+export const IMPORT_MATERIAL = '__import__';
+export const IMPORT_MATERIAL_LABEL = 'Import from library…';
 
 /**
  * The fields of the New material dialog.
@@ -31,12 +32,18 @@ export function materialFields(existing) {
       validate: (v) => (v.trim().startsWith('mat-') ? idValidator((id) => taken.has(id))(v) : 'A material id starts with "mat-".'),
     },
     {
-      name: 'colour', label: 'Colour (hex)', required: true, value: '#888888', placeholder: '#C8A96E',
-      validate: (v) => (HEX.test(v.trim()) ? null : 'Use a hex colour such as #C8A96E.'),
+      name: 'colour', label: 'Colour (hex)', type: 'colour', required: true, value: '#888888', placeholder: '#C8A96E',
+      validate: (v) => (isHexColour(v) ? null : 'Use a hex colour such as #C8A96E.'),
     },
     {
       name: 'category', label: 'Category', placeholder: 'custom',
       hint: categories.length ? `In use: ${categories.join(', ')}. Blank is "custom".` : 'Blank is "custom".',
+    },
+    { name: 'ifcMaterialName', label: 'IFC material name (optional)' },
+    {
+      name: 'properties', label: 'Specification (optional)', type: 'textarea', rows: 3,
+      placeholder: 'nmb_item: 301\nfire: Euroclass D-s2, d0\ndensity: 470 kg/m3',
+      hint: 'One key: value per line.',
     },
   ];
 }
@@ -49,7 +56,7 @@ export function similarNote(existing, name) {
 
 /** The new material entity from the dialog's answers. */
 export function materialFromAnswers(answers, existing) {
-  return buildMaterial(answers.name, answers.colour, existing, { id: answers.id, category: answers.category });
+  return buildMaterial(answers.name, answers.colour, existing, { id: answers.id, category: answers.category, ifcMaterialName: answers.ifcMaterialName, properties: answers.properties });
 }
 
 /**
