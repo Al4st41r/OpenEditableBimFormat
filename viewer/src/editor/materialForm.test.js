@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest';
-import { materialIdFor, findSimilar, normaliseColour, buildMaterial, parseProperties, propertiesText, withUnsetMaterial } from './materialForm.js';
+import { materialIdFor, findSimilar, normaliseColour, isHexColour, buildMaterial, parseProperties, propertiesText, withUnsetMaterial } from './materialForm.js';
 
 const lib = [
   { id: 'mat-brick-common', name: 'Common Brick', colour_hex: '#C4693A' },
@@ -28,6 +28,13 @@ describe('findSimilar', () => {
   test('nothing for an empty or unrelated name', () => {
     expect(findSimilar(lib, '')).toEqual([]);
     expect(findSimilar(lib, 'Glass')).toEqual([]);
+  });
+});
+
+describe('isHexColour', () => {
+  test('accepts #rgb and #rrggbb, hash optional, and nothing else', () => {
+    for (const ok of ['#abc', 'ABC', '#C8A96E', ' c8a96e ']) expect(isHexColour(ok)).toBe(true);
+    for (const bad of ['red', '#abcd', '', null, undefined, '#12345g']) expect(isHexColour(bad)).toBe(false);
   });
 });
 

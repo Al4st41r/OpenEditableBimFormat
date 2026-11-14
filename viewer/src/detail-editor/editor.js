@@ -26,7 +26,10 @@ import { findCounterpart, counterpartDraft, counterpartId, otherPlane } from './
 import { materialOptions, materialLabel } from './materialNames.js';
 import { openObjectMaker } from './objectMakerDialog.js';
 import { loadDetailContext, saveDetail, saveProfileEdit, saveNewMaterials } from './detailStore.js';
-import { NEW_MATERIAL, NEW_MATERIAL_LABEL, askNewMaterial, addToContext } from './newMaterial.js';
+import { NEW_MATERIAL, NEW_MATERIAL_LABEL, IMPORT_MATERIAL, IMPORT_MATERIAL_LABEL, askNewMaterial, addToContext } from './newMaterial.js';
+import { librarySource, inProjectIds } from '../materials/libraryData.js';
+import { openLibraryPanel } from '../materials/libraryPanel.js';
+import { libraryMaterialToBundle } from '../loader/loadProfile.js';
 import { snapshotToContext } from './bundleSnapshot.js';
 import { readyMessage, parseIncoming, savedMessage, focusMessage, profileSavedMessage, materialsAddedMessage } from './messages.js';
 import { buildBuildingReference } from './buildingReference.js';
@@ -133,6 +136,7 @@ syncThin();
 $('material-select').addEventListener('change', (e) => {
   if (!bundle) return;
   if (e.target.value === NEW_MATERIAL) { newMaterial((id) => fillMaterialPicker(id), () => fillMaterialPicker(lastToolbarMaterial)); return; }
+  if (e.target.value === IMPORT_MATERIAL) { importMaterial((id) => fillMaterialPicker(id), () => fillMaterialPicker(lastToolbarMaterial)); return; }
   lastToolbarMaterial = e.target.value;
   e.target.title = `Material for new regions: ${materialLabel(e.target.value, bundle.ctx.materials)}`;
 });
@@ -276,6 +280,7 @@ const actions = {
   rotateMember: (role, v) => apply((d) => D.rotateMember(d, role, v)),
   setRegionMaterial: (i, v) => apply((d) => D.setRegionMaterial(d, i, v)),
   newMaterial: (done, cancelled) => newMaterial(done, cancelled),
+  importMaterial: (done, cancelled) => importMaterial(done, cancelled),
   setRegionPriority: (i, v) => apply((d) => D.setRegionPriority(d, i, v)),
   refresh: () => refresh(),   // for panel controls that change which fields are shown
   // Move or copy the selection (regions, a mark or a member) by a typed or picked distance; rotate and mirror below
@@ -683,7 +688,8 @@ function fillMaterialPicker(selected) {
   mat.replaceChildren(
     ...(ctx.materialIds.length ? [] : [opt('', '— no materials —')]),
     ...materialOptions(ctx.materialIds, ctx.materials).map((o) => opt(o.value, o.label, o.value)),
-    opt(NEW_MATERIAL, NEW_MATERIAL_LABEL));
+    opt(NEW_MATERIAL, NEW_MATERIAL_LABEL),
+    opt(IMPORT_MATERIAL, IMPORT_MATERIAL_LABEL));
   mat.value = ctx.materialIds.includes(selected) ? selected : (ctx.materialIds[0] ?? '');
   lastToolbarMaterial = mat.value;
   mat.title = `Material for new regions: ${materialLabel(mat.value, ctx.materials)}`;
@@ -719,6 +725,36 @@ async function newMaterial(done, cancelled) {
   done(material.id);
   refresh();
   status(`Material added: ${material.name}.`);
+}
+
+/**
+ * Import a material from the default library (#197), from any picker. The panel lists the library; Use writes the
+ * material into the bundle's library the way a new one is, every picker offers it, and done(id) selects it where the
+ * picker was opened. Closing the panel without choosing, or a failed write, calls cancelled(), which puts the picker back.
+ */
+async function importMaterial(done, cancelled) {
+  if (!bundle) return;
+  let chosen = false;
+  await openLibraryPanel({
+    source: librarySource,
+    getInProject: async () => inProjectIds(Object.values(bundle.ctx.materials)),
+    closeOnUse: true,
+    onClose: () => { if (!chosen) cancelled(); },
+    onUseMaterial: async (libMaterial) => {
+      const material = libraryMaterialToBundle(libMaterial);
+      const have = bundle.ctx.materials[material.id];
+      if (!have) {
+        try { await persistNewMaterial(material); }
+        catch (err) { status(`Material not imported: ${err.message}`, true); throw err; }   // the panel stays open and says why
+        addToContext(bundle.ctx, material);
+      }
+      chosen = true;
+      fillMaterialPicker(lastToolbarMaterial);
+      done(material.id);
+      refresh();
+      status(`Material imported: ${material.name}.`);
+    },
+  });
 }
 
 function openContext(ctx, adapter, source, activeId = null) {

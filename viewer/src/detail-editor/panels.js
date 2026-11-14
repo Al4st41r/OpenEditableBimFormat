@@ -18,7 +18,7 @@ import { LINE_STYLES } from './annotationOps.js';
 import { REFERENCE_KINDS, AXES, CLIP_SIDES } from './referenceOps.js';
 import { LAYERS, LAYER_LABELS } from './layers.js';
 import { materialOptions } from './materialNames.js';
-import { NEW_MATERIAL, NEW_MATERIAL_LABEL } from './newMaterial.js';
+import { NEW_MATERIAL, NEW_MATERIAL_LABEL, IMPORT_MATERIAL, IMPORT_MATERIAL_LABEL } from './newMaterial.js';
 
 function h(tag, attrs = {}, ...children) {
   const e = document.createElement(tag);
@@ -37,18 +37,20 @@ function h(tag, attrs = {}, ...children) {
 const options = (values, current) => values.map((v) => h('option', { value: v, selected: v === current }, v));
 const select = (values, current, onChange, attrs = {}) => h('select', { ...attrs, onchange: (e) => onChange(e.target.value) }, options(values, current));
 /**
- * The options of a material picker: names shown, ids stored (#163), then "New material…" (#194). Choosing that one is
+ * The options of a material picker: names shown, ids stored (#163), then "New material…" (#194) and "Import from library…" (#197). Choosing that one is
  * handled by pickMaterial, so the sentinel value never reaches an edit.
  */
 const materialChoices = (ids, materials, current, { blank } = {}) => [
   blank !== undefined ? h('option', { value: '', selected: !current }, blank) : null,
   ...materialOptions(ids, materials).map((o) => h('option', { value: o.value, selected: o.value === current, title: o.value }, o.label)),
-  h('option', { value: NEW_MATERIAL }, NEW_MATERIAL_LABEL)];
+  h('option', { value: NEW_MATERIAL }, NEW_MATERIAL_LABEL),
+  h('option', { value: IMPORT_MATERIAL }, IMPORT_MATERIAL_LABEL)];
 /** A picker's change: a material goes to onChange; "New material…" asks for one first, and a cancelled dialog puts the picker back. */
 const pickMaterial = (a, e, onChange) => {
   const v = e.target.value;
-  if (v !== NEW_MATERIAL) { onChange(v); return; }
-  a.newMaterial((id) => onChange(id), () => a.refresh());
+  if (v === NEW_MATERIAL) { a.newMaterial((id) => onChange(id), () => a.refresh()); return; }
+  if (v === IMPORT_MATERIAL) { a.importMaterial((id) => onChange(id), () => a.refresh()); return; }
+  onChange(v);
 };
 /** A material picker. */
 const materialSelect = (ids, current, materials, a, onChange) => h('select', { title: current ?? '', onchange: (e) => pickMaterial(a, e, onChange) },

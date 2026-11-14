@@ -23,9 +23,14 @@ export function findSimilar(existing, name) {
   });
 }
 
+const HEX = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i;
+
+/** Is this #rgb or #rrggbb (hash optional)? */
+export const isHexColour = (value) => HEX.test(String(value ?? '').trim());
+
 /** #rgb or #rrggbb (hash optional) as upper-case #RRGGBB; anything else is grey. */
 export function normaliseColour(value) {
-  const m = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(String(value ?? '').trim());
+  const m = HEX.exec(String(value ?? '').trim());
   if (!m) return '#888888';
   const hex = m[1].length === 3 ? [...m[1]].map((c) => c + c).join('') : m[1];
   return `#${hex.toUpperCase()}`;
