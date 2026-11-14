@@ -255,6 +255,45 @@
         }
       ]
     },
+    "wall-sloping-l.ifc": {
+      "description": "A wall of two sloping legs, from (0, 0, 0) to (4, 0, 0.5) and on to (4, 3, 1): one sheared solid per leg, each 0.3 m x 2.5 m upright and run on past the corner, then cut at it by a vertical half-space on the mitre plane through (4, 0) (#198). The Axis is a three-dimensional polyline through the three corners. The path has two segments, both rising, and the wall is one element.",
+      "elements": [
+        {
+          "ifc_type": "IfcWall",
+          "segments": [
+            [
+              [
+                0,
+                0,
+                0
+              ],
+              [
+                4,
+                0,
+                0.5
+              ]
+            ],
+            [
+              [
+                4,
+                0,
+                0.5
+              ],
+              [
+                4,
+                3,
+                1.0
+              ]
+            ]
+          ],
+          "width": 0.3,
+          "height_limit_m": 2.5,
+          "materials": [
+            "mat-brick"
+          ]
+        }
+      ]
+    },
     "wall-box.ifc": {
       "description": "A wall extruded up from a 5 m x 0.3 m footprint, 3 m high, its placement moved to (1, 2, 0), with a layer set.",
       "elements": [

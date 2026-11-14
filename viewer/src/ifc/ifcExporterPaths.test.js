@@ -3,7 +3,7 @@
  * #190): lines and arcs, a closed loop, a sloping wall. Each is exported, then read back with the viewer's importer.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { exportBundleToIfc } from './ifcExporter.js';
 import { importIfcText } from './ifcImporter.js';
 
@@ -110,5 +110,60 @@ describe('exporting a wall along its whole path', () => {
     const text = await exportBundleToIfc(bundle([{ type: 'line', start: p(1, 2), end: p(1, 6) }]));
     expect(text).toMatch(/IFCEXTRUDEDAREASOLID\(#\d+,#\d+,#\d+,4\.\)/);
     expect(text).not.toMatch(/'Axis'/);
+  });
+});
+
+describe('angled ends and sloping multi-piece walls (#198)', () => {
+  const L = (z = [0, 0, 0]) => [
+    { type: 'line', start: p(0, 0, z[0]), end: p(4, 0, z[1]) }, { type: 'line', start: p(4, 0, z[1]), end: p(4, 3, z[2]) }];
+  const angled = (adapter, caps) => {
+    const elem = JSON.parse(adapter.store.get('elements/w1.json'));
+    adapter.store.set('elements/w1.json', JSON.stringify({ ...elem, ...caps }));
+    return adapter;
+  };
+  const ANGLED = { cap_start: 'angled', cap_start_angle_deg: 20, cap_end: 'angled', cap_end_angle_deg: -30 };
+
+  it('cuts the angled ends of a straight wall with half-spaces instead of writing them square', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { text, element } = await roundTrip(angled(bundle([{ type: 'line', start: p(0, 0), end: p(4, 0) }]), ANGLED));
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+    expect((text.match(/IFCBOOLEANCLIPPINGRESULT/g) ?? [])).toHaveLength(2);
+    expect(text).toMatch(/'Body','Clipping'/);
+    expect(element.cap_start).toBe('angled');
+    expect(element.cap_start_angle_deg).toBeCloseTo(20, 3);
+    expect(element.cap_end_angle_deg).toBeCloseTo(-30, 3);
+  });
+
+  it('cuts the angled end of a curved wall and an L-shaped wall, and reads the angle back', async () => {
+    const r = 3;
+    const arc = { type: 'arc', start: p(r, 0), mid: p(r * Math.SQRT1_2, r * Math.SQRT1_2), end: p(0, r) };
+    const curved = await roundTrip(angled(bundle([arc], { originX: 0.15 }), { cap_end: 'angled', cap_end_angle_deg: 30 }));
+    expect(curved.element.cap_end_angle_deg).toBeCloseTo(30, 3);
+    expect(curved.path.segments[0].type).toBe('arc');
+    const bent = await roundTrip(angled(bundle(L()), ANGLED));
+    expect(bent.path.segments).toHaveLength(2);
+    expect(bent.element.cap_start_angle_deg).toBeCloseTo(20, 3);
+    expect(bent.element.cap_end_angle_deg).toBeCloseTo(-30, 3);
+  });
+
+  it('writes a sloping L as one mitred solid per leg and a three-dimensional Axis, without a warning, and reads it back', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { text, path } = await roundTrip(bundle(L([0.5, 1, 2])));
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+    expect(text).toMatch(/'Axis','Curve3D'/);
+    expect((text.match(/IFCEXTRUDEDAREASOLID/g) ?? [])).toHaveLength(2);
+    expect((text.match(/IFCBOOLEANCLIPPINGRESULT/g) ?? [])).toHaveLength(2);
+    expect(path.segments.map(s => [s.start.z, s.end.z])).toEqual([[0.5, 1], [1, 2]]);
+  });
+
+  it('writes a sloping arc as chords with the arc and its heights kept in the Axis', async () => {
+    const r = 3;
+    const arc = { type: 'arc', start: p(r, 0, 0), mid: p(r * Math.SQRT1_2, r * Math.SQRT1_2, 0.5), end: p(0, r, 1) };
+    const { text, path } = await roundTrip(bundle([arc], { originX: 0.15 }));
+    expect((text.match(/IFCEXTRUDEDAREASOLID/g) ?? [])).toHaveLength(18);
+    expect(path.segments.map(s => s.type)).toEqual(['arc']);
+    expect([path.segments[0].start.z, path.segments[0].end.z]).toEqual([0, 1]);
   });
 });

@@ -44,6 +44,11 @@ def _p2(coords, scale):
     return (float(coords[0]) * scale, float(coords[1]) * scale)
 
 
+def _pn(coords, scale):
+    """A point of a curve's own list: (x, y), or (x, y, z) when the list is three-dimensional (a sloping wall's Axis)."""
+    return tuple(float(c) * scale for c in coords[:3])
+
+
 def _circle_through(a, m, b):
     """(centre, radius) of the circle through three points, or None when they are in a line."""
     ax, ay = a
@@ -78,7 +83,7 @@ def curve_segments(curve, scale, angle_unit=1.0):
         pts = [_p2(p.Coordinates, scale) for p in curve.Points]
         return [{"type": "line", "start": a, "end": b} for a, b in zip(pts, pts[1:])]
     if curve.is_a("IfcIndexedPolyCurve"):
-        pts = [_p2(c, scale) for c in curve.Points.CoordList]
+        pts = [_pn(c, scale) for c in curve.Points.CoordList]
         if not curve.Segments:
             return [{"type": "line", "start": a, "end": b} for a, b in zip(pts, pts[1:])]
         out = []
@@ -143,7 +148,7 @@ def axis_curve(entity):
                 segs = curve_segments(item, scale, angle_unit)
                 if not segs:
                     continue
-                w = lambda p: tuple(float(v) for v in (matrix @ np.array([p[0], p[1], 0.0, 1.0]))[:3])
+                w = lambda p: tuple(float(v) for v in (matrix @ np.array([p[0], p[1], p[2] if len(p) > 2 else 0.0, 1.0]))[:3])
                 return [{"type": seg["type"], **{k: w(seg[k]) for k in ("start", "mid", "end") if k in seg}}
                         for seg in segs if seg["type"] == "arc" or math.dist(seg["start"], seg["end"]) > 1e-9] or None
     except Exception:
@@ -587,6 +592,10 @@ def section_profile(entity):
         from .ifc_reconstruct import _rect_of
         if len(solids) == 1 and _rect_of(first.SweptArea, scale) is not None:
             return None
+        # rectangles cut at their joints by half-spaces are the mitred pieces of one wall (#198), which the Axis and
+        # the first piece's rectangle describe; a section is swept in plain, unclipped runs
+        if all(cuts for item, _, cuts in body_items(entity) if item.is_a('IfcExtrudedAreaSolid'))                 and all(_rect_of(i.SweptArea, scale) is not None for i, _ in solids):
+            return None
         start = (solid @ np.array([0.0, 0.0, 0.0, 1.0]))[:3]
         got = _run_regions(solids, start, d, depth, scale, angle_unit)
         if got is None:
@@ -806,6 +815,19 @@ def clip_path(entity, segments, height=None, thickness=None):
     # the body's own cuts: not those of an Axis curve that comes first
     body = [i for i in items if not i[0].is_a("IfcCurve")] or items
     cuts = body[0][2] if body else []
+    if len(body) > 1 and segments:
+        # a wall of one solid per piece (#198): each piece is mitred at its joints, which are not the wall's ends; only
+        # the cuts on the path's own start (the first piece's) and end (the last piece's) are the wall's
+        def at(cut_list, point):
+            kept = []
+            for cut in cut_list:
+                plane = _plane(cut[1], cut[2], scale) if cut[1].is_a("IfcHalfSpaceSolid") else None
+                if plane is not None and abs(float(np.dot(np.array(point, dtype=float) - plane[0], plane[1]))) < 1e-6:
+                    kept.append(cut)
+            return kept
+        a, b = segments[0]["start"], segments[-1]["end"]
+        loop = math.dist(a[:2], b[:2]) < 1e-9
+        cuts = [] if loop else at(body[0][2], a) + at(body[-1][2], b)
     for operator, operand, m in cuts:
         if operator != "DIFFERENCE":
             notes.append(f"a boolean {operator.lower()} was left out")
