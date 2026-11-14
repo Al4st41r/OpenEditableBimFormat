@@ -67,6 +67,7 @@ import { courseRows, lateralRange, pairLayer, isRightAngle, cornerEnd, runsThrou
  * @property {{x:number,y:number}} binormal - the other wall's path tangent crossed with Z, in plan
  * @property {Array} shapes                 - the other wall's profile shapes (buildProfileShape)
  * @property {boolean} throughFirst         - this wall runs through on the first course (and every even one)
+ * @property {boolean|'mitre'} [extend]    - this wall carries its layers on past the path end to fill the outer corner (#199): true on a butt (the wall that runs through), 'mitre' on both walls of a mitre
  */
 
 /** Read the sweep options from an element entity. Missing fields give the defaults. */
@@ -155,9 +156,99 @@ export function sweepProfile(pathPoints, profileShapes, options = {}) {
     const coursed = shape.repeat && sweepMode === 'perpendicular'
       ? _sweepCourses(points, frames, shape, caps, { index, bonds, angled: { start: capStart === 'angled', end: capEnd === 'angled' } })
       : null;
-    const swept = coursed ?? _sweepShape(frames, shape.points, shape.materialId, caps);
+    let swept = coursed ?? _sweepShape(frames, shape.points, shape.materialId, caps);
+    // outer corner of a butt or mitre (#199): the layers not bonded at an end get the outer square filled
+    for (const end of ['start', 'end']) {
+      const jb = bonds[end];
+      if (!jb?.extend || (end === 'start' ? capStart : capEnd) === 'angled' || (swept.bondedEnds ?? []).includes(end)) continue;
+      const patch = _cornerPatch(frames, end, shape, jb, profileShapes);
+      if (patch) swept = _joinMesh(swept, patch);
+    }
     return shape.function ? { ...swept, function: shape.function } : swept;
   });
+}
+
+/** Clip a polygon to the half-plane sign * x <= 0 (Sutherland-Hodgman); returns [] when nothing is left. */
+function _clipHalfPlane(poly, sign) {
+  const inside = (p) => sign * p.x <= 1e-12;
+  const out = [];
+  for (let i = 0; i < poly.length; i++) {
+    const a = poly[i], b = poly[(i + 1) % poly.length];
+    if (inside(a)) out.push(a);
+    if (inside(a) !== inside(b)) {
+      const t = a.x / (a.x - b.x);
+      out.push({ x: 0, y: a.y + (b.y - a.y) * t });
+    }
+  }
+  return out.length >= 3 ? out : [];
+}
+
+/** Append mesh `b` (typed arrays) to mesh `a`, keeping a's other fields. */
+function _joinMesh(a, b) {
+  const vertices = new Float32Array(a.vertices.length + b.vertices.length);
+  vertices.set(a.vertices); vertices.set(b.vertices, a.vertices.length);
+  const normals = new Float32Array(a.normals.length + b.normals.length);
+  normals.set(a.normals); normals.set(b.normals, a.normals.length);
+  const indices = new Uint32Array(a.indices.length + b.indices.length);
+  indices.set(a.indices);
+  const base = a.vertices.length / 3;
+  for (let i = 0; i < b.indices.length; i++) indices[a.indices.length + i] = b.indices[i] + base;
+  return { ...a, vertices, normals, indices };
+}
+
+/**
+ * The outer corner of a butt or mitre junction (#199). Paths end on the centreline, so the square outside the corner
+ * (as wide as the other wall's outer half) belongs to neither wall and shows as a notch. The wall that is to cover it
+ * (jb.extend) carries each layer on past its path end over that square: the half of the layer on the outer side of the
+ * path, swept for as far as the other wall's outer face. A mitre trim plane then cuts the two patches along the diagonal.
+ * A layer of the other wall that is bonded at this corner already runs into the square, so the stretch it covers is left
+ * out. Returns mesh data, or null when there is nothing to add.
+ */
+function _cornerPatch(frames, end, shape, jb, ownShapes) {
+  const f = frames[end === 'start' ? 0 : frames.length - 1];
+  if (f.up) return null;
+  const out2 = end === 'start' ? { x: f.tangent.x, y: f.tangent.y } : { x: -f.tangent.x, y: -f.tangent.y };   // own arm, away from the corner
+  const k = jb.binormal.x * out2.x + jb.binormal.y * out2.y;          // other wall's lateral x along the arm: v = x * k
+  if (!(Math.abs(k) > 0.5)) return null;
+  const partnerX = jb.shapes.flatMap(sh => sh.points.map(p => p.x));
+  if (!partnerX.length) return null;
+  const reach = Math.max(0, -Math.min(...partnerX.map(x => x * k)));  // how far past the path end the other wall's outer face is
+  const ownSide = Math.sign(f.binormal.x * jb.dir.x + f.binormal.y * jb.dir.y);   // own lateral x of the side that faces the other wall
+  if (!ownSide) return null;
+  let e = reach;
+  if (jb.extend === 'mitre') e = Math.max(e, -Math.min(0, ...ownShapes.flatMap(sh => sh.points.map(p => p.x * ownSide))));   // the diagonal reaches as far as this wall's own outer face
+  if (!(e > 1e-6)) return null;
+
+  const poly = _clipHalfPlane(shape.points, ownSide);                 // keep the outer side of the path
+  if (poly.length < 3) return null;
+
+  // stretches (distance u past the path end) already filled by bonded layers of the other wall
+  const taken = [];
+  jb.shapes.forEach((ps, j) => {
+    if (!ps.repeat || !pairLayer(ps, j, ownShapes)) return;
+    const xs = ps.points.map(p => p.x * k);
+    taken.push([-Math.max(...xs), -Math.min(...xs)]);
+  });
+  taken.sort((a, b) => a[0] - b[0]);
+  const spans = [];
+  let u = 0;
+  for (const [a, b] of taken) {
+    if (a > u + 1e-9) spans.push([u, Math.min(a, e)]);
+    u = Math.max(u, b);
+  }
+  if (u < e - 1e-9) spans.push([u, e]);
+
+  const out = { positions: [], normals: [], indices: [] };
+  const tris = polygonTriangles(poly);
+  const dir = end === 'start' ? -1 : 1;                               // along the tangent
+  const at = (d) => ({ ...f, origin: { x: f.origin.x + f.tangent.x * dir * d, y: f.origin.y + f.tangent.y * dir * d, z: f.origin.z + f.tangent.z * dir * d } });
+  for (const [u0, u1] of spans) {
+    if (!(u1 - u0 > 1e-6) || u0 >= e) continue;
+    const near = u0 > 1e-9;                                           // a start at the path end is inside the wall, no cap needed
+    if (end === 'end') _appendSweep(out, [at(u0), at(u1)], poly, { start: near, end: true }, tris);
+    else _appendSweep(out, [at(u1), at(u0)], poly, { start: true, end: near }, tris);
+  }
+  return out.indices.length ? _meshOf(out, shape.materialId) : null;
 }
 
 /** The most units (pieces) one layer is drawn as; a layer that would need more is swept whole, with a warning. */
@@ -263,7 +354,8 @@ function _sweepCourses(points, frames, shape, caps, ctx = { index: 0, bonds: {},
 
 /**
  * Where the units of a coursed layer end at each corner, if the layer is to be bonded there (#191, courseBond.js): at
- * every vertex of the path (each a right-angled corner on a horizontal path) and at a path end that meets a corner
+ * every vertex of the path (each a right-angled corner on a horizontal path), at the closing vertex of a closed path
+ * (#199) and at a path end that meets a corner
  * junction (options.bonds). Returns null to keep the old drawing: units split on the mitre frame at a vertex and only
  * clipped by the trim plane at a junction. That is the case when any vertex is not a plain right-angled corner (an
  * angle, a curve tessellated into many small angles, a slope) or when no corner is bonded at all. A junction end is left
@@ -296,11 +388,27 @@ function _cornerBonds(points, seg, shape, ctx) {
     next[k] = (r) => cornerEnd(ownB, partnerB, runsThrough(r, false));
   }
 
+  // a closed path (its last point is its first): the closing vertex is a corner too, the arm that arrives being the last
+  // segment and the arm that leaves the first. A closing angle that is not a right angle leaves the two ends free.
+  const closes = n >= 4 && Math.hypot(points[0].x - points[n - 1].x, points[0].y - points[n - 1].y) < 1e-6
+    && Math.abs(points[0].z - points[n - 1].z) < 1e-6;
+  let closed = false;
+  if (closes) {
+    const a = { dir: { x: -seg[n - 2].tangent.x, y: -seg[n - 2].tangent.y }, binormal: plan(seg[n - 2].binormal) };
+    const b = { dir: plan(seg[0].tangent), binormal: plan(seg[0].binormal) };
+    if (isRightAngle(a.dir, b.dir)) {
+      const ownA = { dir: a.dir, range, joint }, ownB = { dir: b.dir, range, joint };
+      prev[n - 1] = (r) => cornerEnd(ownA, { binormal: b.binormal, range }, runsThrough(r, true));
+      next[0] = (r) => cornerEnd(ownB, { binormal: a.binormal, range }, runsThrough(r, false));
+      closed = true;
+    }
+  }
+
   // a path end at a corner junction
   const junctionEnds = [];
   for (const [end, k, sgi] of [['start', 0, 0], ['end', n - 1, n - 2]]) {
     const jb = ctx.bonds?.[end];
-    if (!jb || ctx.angled?.[end]) continue;
+    if (!jb || ctx.angled?.[end] || closed) continue;
     const own = { dir: end === 'start' ? plan(seg[sgi].tangent) : { x: -seg[sgi].tangent.x, y: -seg[sgi].tangent.y }, range, joint };
     if (!isRightAngle(own.dir, jb.dir)) continue;
     const partnerShape = pairLayer(shape, ctx.index, jb.shapes);
