@@ -27,9 +27,9 @@ import { loadDetails } from '../detail/loadDetails.js';
 import { junctionPoint } from '../detail/junctionPosition.js';
 import { withStoreyGroups, loadStoreyGroups } from '../detail/levelResolver.js';
 import { parsePath } from '../loader/loadPath.js';
-import { loadDetailContext, saveProfileEdit } from '../detail-editor/detailStore.js';
+import { loadDetailContext, saveProfileEdit, saveNewMaterials } from '../detail-editor/detailStore.js';
 import { buildSnapshot } from '../detail-editor/bundleSnapshot.js';
-import { isTrustedReady, buildOpenerReply, parseSaved, parseFocus } from '../detail-editor/messages.js';
+import { isTrustedReady, buildOpenerReply, parseSaved, parseFocus, parseMaterialsAdded } from '../detail-editor/messages.js';
 import { parseJunctionMessage } from '../detail-editor/junctionFields.js';
 import { applySavedDetail, applyJunctionUpdate, refreshDetail, groupsForDetail } from './detailIntegration.js';
 import { buildArrayGroup }    from '../array/arrayRenderer.js';
@@ -2127,12 +2127,27 @@ function _openDetailEditor(detailId = null) {
     const changed = parseJunctionMessage(e, { ownOrigin, tab });
     if (changed) { await _onJunctionUpdated(changed); return; }
     const focus = parseFocus(e, { ownOrigin, tab });
-    if (focus) _focusJunction(focus.junctionId);
+    if (focus) { _focusJunction(focus.junctionId); return; }
+    const added = parseMaterialsAdded(e, { ownOrigin, tab });
+    if (added) await _onMaterialsAdded(added);
   };
   window.addEventListener('message', onMessage);
   const timer = setInterval(() => {
     if (tab.closed) { clearInterval(timer); window.removeEventListener('message', onMessage); }
   }, 2000);
+}
+
+/** Materials added in the detail editor (#194): written here when that page could not write them, then listed in the tree. */
+async function _onMaterialsAdded({ materials, persisted }) {
+  try {
+    if (!persisted) await saveNewMaterials(adapter, materials);
+    for (const mat of materials) {
+      if (activeProfileMap[mat.id]) continue;
+      activeProfileMap[mat.id] = mat;
+      _addMaterialToTree(mat);
+    }
+    statusBar.textContent = `Material added in the detail editor: ${materials.map((m) => m.name ?? m.id).join(', ')}`;
+  } catch (err) { _reportError(`Material from the detail editor was not saved: ${err.message}`); }
 }
 
 /** Select a junction (properties panel) and pan the views to it, keeping the current zoom and angle. */

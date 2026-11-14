@@ -27,6 +27,8 @@
  * @property {string} [hint] - a line of help under the field
  * @property {string} [placeholder]
  * @property {(value: string, all: Record<string, string>) => string|null|undefined} [validate] - a problem, or nothing
+ * @property {{ from: string, make: (source: string) => string }} [follow] - the field starts as make(the value of field `from`)
+ *   and keeps following it as that is typed, until it is edited by hand
  */
 
 /**
@@ -149,6 +151,15 @@ function open({ kind, title, message, fields = [], ok = 'OK', cancel = 'Cancel',
       okBtn.disabled = Object.keys(errors).length > 0;
       return errors;
     };
+    // a field that follows another (an id suggested from a name) stops following once it is typed in
+    const edited = new Set();
+    for (const f of fields) {
+      if (!f.follow) continue;
+      const src = inputs[f.follow.from];
+      const sync = () => { if (!edited.has(f.name)) { inputs[f.name].value = f.follow.make(src.value); touched.add(f.name); refresh(); } };
+      src.addEventListener('input', sync);
+      inputs[f.name].addEventListener('input', () => edited.add(f.name));
+    }
     for (const [name, input] of Object.entries(inputs)) {
       const mark = () => { touched.add(name); refresh(); };
       input.addEventListener('input', mark);

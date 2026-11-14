@@ -73,9 +73,10 @@ Form controls in a panel use the dark look: `background: #333; color: #ddd; bord
 
 Use `viewer/src/ui/dialog.js`, never `window.prompt`, `alert` or `confirm`:
 
-- `askForm` and `ask` for input. Fields are checked as you type, and OK stays disabled until every field is valid.
+- `askForm` and `ask` for input. Fields are checked as you type, and OK stays disabled until every field is valid. A field with `follow: { from, make }` is suggested from another field (an id from a name) until it is typed in.
 - `confirmDialog` for a yes or no question. A destructive action names its verb (Remove, Delete, Discard) and uses `danger: true`.
 - `notify` for a message that needs acknowledging.
+- The detail editor's material pickers (toolbar, region, layer units) end with "New material…", which opens `askForm` with the shared `materialForm.js` helpers (`viewer/src/detail-editor/newMaterial.js`).
 
 ## Feedback
 

@@ -25,9 +25,10 @@ import { createDetail, toJsonText } from './detailSerializer.js';
 import { findCounterpart, counterpartDraft, counterpartId, otherPlane } from './counterpart.js';
 import { materialOptions, materialLabel } from './materialNames.js';
 import { openObjectMaker } from './objectMakerDialog.js';
-import { loadDetailContext, saveDetail, saveProfileEdit } from './detailStore.js';
+import { loadDetailContext, saveDetail, saveProfileEdit, saveNewMaterials } from './detailStore.js';
+import { NEW_MATERIAL, NEW_MATERIAL_LABEL, askNewMaterial, addToContext } from './newMaterial.js';
 import { snapshotToContext } from './bundleSnapshot.js';
-import { readyMessage, parseIncoming, savedMessage, focusMessage, profileSavedMessage } from './messages.js';
+import { readyMessage, parseIncoming, savedMessage, focusMessage, profileSavedMessage, materialsAddedMessage } from './messages.js';
 import { buildBuildingReference } from './buildingReference.js';
 import { DETAIL_FIELDS, applyJunctionFields, validateJunctionFields, junctionMessage } from './junctionFields.js';
 import { assignDetail, unassignDetail, setOverride, setMirrored, setLocation, suggestLocation, validateLocation } from './junctionAssign.js';
@@ -130,7 +131,10 @@ function syncThin() { $('thin-btn').classList.toggle('active', thin); }
 $('thin-btn').addEventListener('click', () => { thin = !thin; localStorage.setItem('oebf-thin', thin ? '1' : '0'); syncThin(); paint(); });
 syncThin();
 $('material-select').addEventListener('change', (e) => {
-  if (bundle) e.target.title = `Material for new regions: ${materialLabel(e.target.value, bundle.ctx.materials)}`;
+  if (!bundle) return;
+  if (e.target.value === NEW_MATERIAL) { newMaterial((id) => fillMaterialPicker(id), () => fillMaterialPicker(lastToolbarMaterial)); return; }
+  lastToolbarMaterial = e.target.value;
+  e.target.title = `Material for new regions: ${materialLabel(e.target.value, bundle.ctx.materials)}`;
 });
 
 function paint() {
@@ -271,6 +275,7 @@ const actions = {
   moveMember: (role, o) => apply((d) => D.moveMember(d, role, o)),
   rotateMember: (role, v) => apply((d) => D.rotateMember(d, role, v)),
   setRegionMaterial: (i, v) => apply((d) => D.setRegionMaterial(d, i, v)),
+  newMaterial: (done, cancelled) => newMaterial(done, cancelled),
   setRegionPriority: (i, v) => apply((d) => D.setRegionPriority(d, i, v)),
   refresh: () => refresh(),   // for panel controls that change which fields are shown
   // Move or copy the selection (regions, a mark or a member) by a typed or picked distance; rotate and mirror below
@@ -666,6 +671,56 @@ $('snap-btn').addEventListener('click', toggleSnap);
 refreshSnapControls();
 
 // ── opening bundles ──────────────────────────────────────────────────────────
+let lastToolbarMaterial = '';
+/**
+ * Fill the toolbar's material picker from the bundle: names, not ids (#163), then "New material…" (#194), which is there
+ * even when the library is empty so the first material can be added. A blank value means no material.
+ */
+function fillMaterialPicker(selected) {
+  const ctx = bundle.ctx;
+  const mat = $('material-select');
+  const opt = (value, textContent, title) => Object.assign(document.createElement('option'), { value, textContent, title: title ?? '' });
+  mat.replaceChildren(
+    ...(ctx.materialIds.length ? [] : [opt('', '— no materials —')]),
+    ...materialOptions(ctx.materialIds, ctx.materials).map((o) => opt(o.value, o.label, o.value)),
+    opt(NEW_MATERIAL, NEW_MATERIAL_LABEL));
+  mat.value = ctx.materialIds.includes(selected) ? selected : (ctx.materialIds[0] ?? '');
+  lastToolbarMaterial = mat.value;
+  mat.title = `Material for new regions: ${materialLabel(mat.value, ctx.materials)}`;
+  mat.disabled = false;
+}
+
+// ── new material (#194) ──────────────────────────────────────────────────────
+/** Write a material added here: into the bundle when this page can write it, or by the 3D editor for a snapshot. */
+async function persistNewMaterial(material) {
+  if (bundle.source === 'snapshot') {
+    if (!window.opener || window.opener.closed) throw new Error('the editor window that opened this page has been closed');
+    window.opener.postMessage(materialsAddedMessage({ materials: [material], persisted: false }), window.location.origin);
+    return;
+  }
+  await saveNewMaterials(bundle.adapter, [material]);
+  if (bundle.source === 'http') editedMaterials.set(material.id, material);   // the served bundle is not written: Publish hands the library over
+  if (window.opener && !window.opener.closed) window.opener.postMessage(materialsAddedMessage({ materials: [material], persisted: true }), window.location.origin);
+}
+
+/**
+ * Ask for a new material from any picker. On confirm it is added to the library, every picker offers it, and done(id)
+ * selects it where the picker was opened (for a region's picker that is an ordinary undoable edit); a cancelled dialog or
+ * a failed write calls cancelled(), which puts the picker back.
+ */
+async function newMaterial(done, cancelled) {
+  if (!bundle) return;
+  const material = await askNewMaterial(Object.values(bundle.ctx.materials));
+  if (!material) { cancelled(); return; }
+  try { await persistNewMaterial(material); }
+  catch (err) { status(`Material not added: ${err.message}`, true); cancelled(); return; }
+  addToContext(bundle.ctx, material);
+  fillMaterialPicker(lastToolbarMaterial);
+  done(material.id);
+  refresh();
+  status(`Material added: ${material.name}.`);
+}
+
 function openContext(ctx, adapter, source, activeId = null) {
   bundle = { ctx, adapter, source };
   $('project-name').textContent = ctx.projectName;
@@ -674,12 +729,7 @@ function openContext(ctx, adapter, source, activeId = null) {
   $('objects-btn').disabled = false;
   $('zip-btn').hidden = source !== 'memory';
 
-  const mat = $('material-select');
-  // names, not ids (#163); the first material in the library stays the default, as before
-  mat.replaceChildren(...materialOptions(ctx.materialIds, ctx.materials).map((o) => Object.assign(document.createElement('option'), { value: o.value, textContent: o.label, title: o.value })));
-  mat.value = ctx.materialIds[0] ?? '';
-  mat.title = `Material for new regions: ${materialLabel(mat.value, ctx.materials)}`;
-  mat.disabled = ctx.materialIds.length === 0;
+  fillMaterialPicker(ctx.materialIds[0] ?? '');   // the first material in the library stays the default
 
   st = null; display = null; draft = null; controller = createController('select');
   updateDetailSelect();

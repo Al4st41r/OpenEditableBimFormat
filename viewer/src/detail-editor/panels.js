@@ -18,6 +18,7 @@ import { LINE_STYLES } from './annotationOps.js';
 import { REFERENCE_KINDS, AXES, CLIP_SIDES } from './referenceOps.js';
 import { LAYERS, LAYER_LABELS } from './layers.js';
 import { materialOptions } from './materialNames.js';
+import { NEW_MATERIAL, NEW_MATERIAL_LABEL } from './newMaterial.js';
 
 function h(tag, attrs = {}, ...children) {
   const e = document.createElement(tag);
@@ -35,9 +36,23 @@ function h(tag, attrs = {}, ...children) {
 
 const options = (values, current) => values.map((v) => h('option', { value: v, selected: v === current }, v));
 const select = (values, current, onChange, attrs = {}) => h('select', { ...attrs, onchange: (e) => onChange(e.target.value) }, options(values, current));
-/** A material picker: names shown, ids stored (#163). */
-const materialSelect = (ids, current, materials, onChange) => h('select', { title: current ?? '', onchange: (e) => onChange(e.target.value) },
-  materialOptions(ids, materials).map((o) => h('option', { value: o.value, selected: o.value === current, title: o.value }, o.label)));
+/**
+ * The options of a material picker: names shown, ids stored (#163), then "New material…" (#194). Choosing that one is
+ * handled by pickMaterial, so the sentinel value never reaches an edit.
+ */
+const materialChoices = (ids, materials, current, { blank } = {}) => [
+  blank !== undefined ? h('option', { value: '', selected: !current }, blank) : null,
+  ...materialOptions(ids, materials).map((o) => h('option', { value: o.value, selected: o.value === current, title: o.value }, o.label)),
+  h('option', { value: NEW_MATERIAL }, NEW_MATERIAL_LABEL)];
+/** A picker's change: a material goes to onChange; "New material…" asks for one first, and a cancelled dialog puts the picker back. */
+const pickMaterial = (a, e, onChange) => {
+  const v = e.target.value;
+  if (v !== NEW_MATERIAL) { onChange(v); return; }
+  a.newMaterial((id) => onChange(id), () => a.refresh());
+};
+/** A material picker. */
+const materialSelect = (ids, current, materials, a, onChange) => h('select', { title: current ?? '', onchange: (e) => pickMaterial(a, e, onChange) },
+  materialChoices(ids, materials, current));
 const row = (label, control) => h('div', { class: 'row' }, h('label', {}, label), control);
 const text = (value, onChange, attrs = {}) => h('input', { type: 'text', value, ...attrs, onchange: (e) => onChange(e.target.value) });
 let notify = () => {};   // set by renderPanels: shows a message in the status line
@@ -302,7 +317,7 @@ function regionEditor(r, pm, bundle, a) {
   return [
     h('h3', {}, `Region ${r.index}`),
     r.pickedCount > 1 ? h('div', { class: 'note warn' }, `${r.pickedCount} regions are selected. Changes here apply to region ${r.index} only.`) : null,
-    row('Material', materialSelect(bundle.materialIds.includes(r.materialId) ? bundle.materialIds : [r.materialId, ...bundle.materialIds], r.materialId, bundle.materials, (v) => a.setRegionMaterial(r.index, v))),
+    row('Material', materialSelect(bundle.materialIds.includes(r.materialId) ? bundle.materialIds : [r.materialId, ...bundle.materialIds], r.materialId, bundle.materials, a, (v) => a.setRegionMaterial(r.index, v))),
     row('Priority', h('input', {
       type: 'number', step: 1, min: -99, max: 99, value: r.priority, id: 'region-priority',
       title: 'Which solid owns an overlap: a higher priority is drawn over a lower one and owns the area they share. Members have 0; among equal priorities the smaller wins.',
@@ -486,9 +501,8 @@ function layerDetailFold(m, role, bundle, a) {
   const bands = m.layers.filter((l) => l.type !== 'region');
   if (m.stacked || !bands.length) return null;
   const axis = m.plane === 'plan' ? 'plan' : 'section';
-  const matSelect = (current, onChange, blank) => h('select', { onchange: (e) => onChange(e.target.value || undefined) },
-    h('option', { value: '', selected: !current }, blank),
-    ...materialOptions(bundle.materialIds, bundle.materials).map((o) => h('option', { value: o.value, selected: o.value === current, title: o.value }, o.label)));
+  const matSelect = (current, onChange, blank) => h('select', { onchange: (e) => pickMaterial(a, e, (v) => onChange(v || undefined)) },
+    materialChoices(bundle.materialIds, bundle.materials, current, { blank }));
   const rows = bands.map((l) => {
     const u = l.unit;
     const preset = u ? (UNIT_PRESETS.find((p) => Math.abs(p[axis][0] - u.depth_m) < 1e-9 && Math.abs(p[axis][1] - u.repeat_m) < 1e-9)?.id ?? 'custom') : 'strip';
