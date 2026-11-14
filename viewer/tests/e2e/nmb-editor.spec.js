@@ -11,7 +11,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { unzipSync } from 'fflate';
+import { withoutPickers, readSavedOebfz, unpackSavedOebfz } from './savedArchive.js';
 import { autoAnswerDialogs } from './dialogAnswers.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
@@ -39,6 +39,7 @@ async function openBundle(page) {
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
+  await withoutPickers(page);
   await page.goto('editor.html');
   await page.waitForFunction(() => window.__editor);
   await page.locator('#welcome-overlay').evaluate((el) => el.classList.add('hidden'));   // the Open flow dismisses it first
@@ -87,7 +88,8 @@ test('saving writes a bundle that has every file and still parses', async ({ pag
   const download = page.waitForEvent('download');
   await page.locator('#save-btn').click();
   const file = await download;
-  const zip = unzipSync(new Uint8Array(fs.readFileSync(await file.path())));
+  expect(file.suggestedFilename()).toMatch(/\.oebfz$/);
+  const zip = readSavedOebfz(await file.path());
   const names = Object.keys(zip);
   for (const rel of ['manifest.json', 'model.json', 'materials/library.json']) {
     expect(names.some((n) => n.endsWith(rel)), rel).toBe(true);
@@ -134,13 +136,7 @@ test('the detail editor opens every NMB detail with no validation errors', async
 async function saveAndValidate(page) {
   const download = page.waitForEvent('download');
   await page.locator('#save-btn').dispatchEvent('click');
-  const zip = unzipSync(new Uint8Array(fs.readFileSync(await (await download).path())));
-  const out = fs.mkdtempSync(path.join(os.tmpdir(), 'nmb-saved-'));
-  for (const [name, bytes] of Object.entries(zip)) {
-    if (name.endsWith('/')) continue;
-    fs.mkdirSync(path.dirname(path.join(out, name)), { recursive: true });
-    fs.writeFileSync(path.join(out, name), Buffer.from(bytes));
-  }
+  const out = unpackSavedOebfz(await (await download).path(), path.join(os.tmpdir(), 'nmb-saved-'));
   let result = '';
   try {
     result = execFileSync('uv', ['run', '--project', path.join(ROOT, 'ifc-tools'), 'oebf', 'validate', out], { encoding: 'utf8', stdio: 'pipe' });

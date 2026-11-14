@@ -3,7 +3,7 @@
  * stacked walls, a slab with its own thickness and top face, a column, a path node below the storey, doors and
  * windows, and a junction at a grid location. The saved bundle is then checked with `oebf validate`.
  *
- * The bundle is saved through the editor's own Save (a zip download), unpacked, and validated with the Python tool
+ * The bundle is saved through the editor's own Save (a .oebfz download), unpacked, and validated with the Python tool
  * (needs uv; the test skips when it is missing).
  */
 import { test, expect } from '@playwright/test';
@@ -13,7 +13,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { autoAnswerDialogs } from './dialogAnswers.js';
-import { unzipSync } from 'fflate';
+import { withoutPickers, unpackSavedOebfz } from './savedArchive.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 
@@ -33,6 +33,7 @@ test('a blank bundle can be built up to the NMB example\'s kinds of content in t
   const files = () => ed(() => [...window.__editor.adapter()._map.keys()]);
 
   // ── a blank bundle ──────────────────────────────────────────────────────────
+  await withoutPickers(page);
   await page.goto('editor.html');
   await page.waitForFunction(() => window.__editor);
   await answer('NMB authoring check');
@@ -199,14 +200,7 @@ test('a blank bundle can be built up to the NMB example\'s kinds of content in t
   // ── save, unpack and validate ───────────────────────────────────────────────
   const download = page.waitForEvent('download');
   await page.locator('#save-btn').click();
-  const zip = unzipSync(new Uint8Array(fs.readFileSync(await (await download).path())));
-  const out = fs.mkdtempSync(path.join(os.tmpdir(), 'nmb-author-'));
-  for (const [name, bytes] of Object.entries(zip)) {
-    if (name.endsWith('/')) continue;
-    const rel = name;                       // the editor's zip has no root folder
-    fs.mkdirSync(path.dirname(path.join(out, rel)), { recursive: true });
-    fs.writeFileSync(path.join(out, rel), Buffer.from(bytes));
-  }
+  const out = unpackSavedOebfz(await (await download).path(), path.join(os.tmpdir(), 'nmb-author-'));
   const model = JSON.parse(fs.readFileSync(path.join(out, 'model.json'), 'utf8'));
   expect(model.storeys).toEqual(['storey-ground', 'storey-first-floor', 'storey-roof']);
   expect(model.openings).toHaveLength(2);
