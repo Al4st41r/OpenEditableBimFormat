@@ -931,4 +931,10 @@ any. Run it after every edit. Common codes: `schema`, `unlisted-file`,
 `location-parallel`, `location-level`, `override-undeclared`, `override-range`,
 `profile-missing`, `material-missing`, `param-undeclared`.
 
+`oebf validate` also takes a saved archive (`.oebfz`, or the older `.oebf.zip`)
+and checks it without unpacking it by hand. `oebf unpack project.oebfz [folder]`
+unpacks an archive into a bundle folder, and `oebf pack project.oebf [file.oebfz]`
+packs a folder into an archive. Unpacking refuses unsafe paths, links and an
+archive over 200 MB once decompressed.
+
 Run all spec tests: `cd viewer && npm test` and `cd ifc-tools && uv run pytest`

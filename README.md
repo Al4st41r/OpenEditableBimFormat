@@ -29,7 +29,7 @@ The core modelling principle is path-first geometry: every building element is d
 - `OEBF-GUIDE.md` embedded in every bundle to provide LLM editing context without external documentation
 - Reusable construction details placed at junctions by grid location and level
 - IFC 4x3 import and export, both in the browser editor and through the Python CLI (IfcOpenShell)
-- `oebf validate` checks a bundle against its schemas and cross-references; `oebf apply` runs a validated batch of commands (`spec/commands.json`)
+- `oebf validate` checks a bundle (folder or `.oebfz`) against its schemas and cross-references, and `oebf pack` and `oebf unpack` convert between the two; `oebf apply` runs a validated batch of commands (`spec/commands.json`)
 - Browser apps: a 3D viewer, a 3D editor, a profile editor, a detail editor and a detail review page with analytical overlays
 - Desktop wrapper: Tauri v2 with live file watching (planned, Issue #10)
 - JSON Schema draft-07 validation for all entity types, schemas embedded in every bundle
@@ -76,7 +76,7 @@ viewer/                    # Three.js + Vite browser apps
   detail-axo.html          # detail review: 2D drawing, 3D axonometric and overlays
   src/                     # loaders, geometry, editor, detail, IFC and snapping modules
   tests/e2e/               # Playwright end-to-end tests
-ifc-tools/                 # Python CLI: oebf ifc-import, ifc-export, validate, apply
+ifc-tools/                 # Python CLI: oebf ifc-import, ifc-export, validate, apply, pack, unpack
   src/oebf/
   tests/                   # pytest test suite
 scripts/                   # schema sync, library build, CarbonBench sync
@@ -111,6 +111,9 @@ Open the address Vite prints, then choose Open folder and select `example/terrac
 cd ifc-tools
 uv run oebf validate ../example/terraced-house.oebf
 uv run oebf apply ../example/terraced-house.oebf commands.json --dry-run
+uv run oebf validate ../viewer/public/terraced-house.oebfz   # archives are checked directly
+uv run oebf unpack ../viewer/public/terraced-house.oebfz ./unpacked.oebf
+uv run oebf pack ../example/terraced-house.oebf ./terraced-house.oebfz
 uv run oebf ifc-import path/to/model.ifc --output ./output.oebf/
 uv run oebf ifc-export ../example/terraced-house.oebf --output ./model.ifc
 ```

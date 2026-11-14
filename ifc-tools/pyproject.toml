@@ -8,6 +8,7 @@ dependencies = [
     "click>=8.3.1",
     "ifcopenshell>=0.8.4.post1",
     "jsonschema>=4.26.0",
+    "zstandard>=0.25.0",
 ]
 
 [dependency-groups]
