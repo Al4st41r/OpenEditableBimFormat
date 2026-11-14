@@ -40,6 +40,8 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
+    // CSG-heavy geometry tests take about 3 s alone on the Pi and exceed the 5 s default under parallel load.
+    testTimeout: 20000,
     include: ['src/**/*.test.js'],
     server: {
       deps: {
