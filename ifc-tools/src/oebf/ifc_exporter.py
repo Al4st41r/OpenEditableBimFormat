@@ -337,8 +337,9 @@ def _offset_chain(pieces, d, extend, closed=False):
     return out
 
 
-def _curve(ifc, segments, closed=False):
-    """2D segments as an IfcPolyline when they are all lines, else an IfcIndexedPolyCurve with arc segments."""
+def _curve(ifc, segments, closed=False, dims=2):
+    """Segments (2D, or 3D with dims=3) as an IfcPolyline when they are all lines, else an IfcIndexedPolyCurve with
+    arc segments."""
     pts = [segments[0]["start"]]
     index = []
     for seg in segments:
@@ -353,9 +354,9 @@ def _curve(ifc, segments, closed=False):
         last = index[-1][1]
         last[-1] = 1
     if all(kind == "line" for kind, _ in index):
-        ring = [ifc.create_entity("IfcCartesianPoint", Coordinates=[float(x), float(y)]) for x, y in pts]
+        ring = [ifc.create_entity("IfcCartesianPoint", Coordinates=[float(v) for v in p[:dims]]) for p in pts]
         return ifc.create_entity("IfcPolyline", Points=ring + ([ring[0]] if closed else []))
-    plist = ifc.create_entity("IfcCartesianPointList2D", CoordList=[[float(x), float(y)] for x, y in pts])
+    plist = ifc.create_entity(f"IfcCartesianPointList{dims}D", CoordList=[[float(v) for v in p[:dims]] for p in pts])
     segs = [ifc.create_entity("IfcArcIndex" if kind == "arc" else "IfcLineIndex", idx) for kind, idx in index]
     return ifc.create_entity("IfcIndexedPolyCurve", Points=plist, Segments=segs, SelfIntersect=False)
 
@@ -374,8 +375,7 @@ def _assign_footprint_body(ifc, entity, context, axis_context, element_id, path_
     with its X along the first segment. Angled ends are cut by half-spaces as on a straight wall; a curved end is
     cut on its end tangent, its faces run on along that tangent to reach the cut (#190). A closed path (a loop) is
     an outline with a hole: the outer face and the inner one, mitred at every corner, and has no ends to angle. A path
-    that is not level is laid at the height of its start (a sloping straight wall is swept along its slope instead,
-    in _assign_body_geometry: a plan outline cannot follow a slope across several pieces)."""
+    that is not level is not an outline: see _assign_sloping_body (#198)."""
     angles = dict(angles or {})
     pieces = list(pieces)
     meets = math.dist(pieces[0]["start"][:2], pieces[-1]["end"][:2]) < 1e-9
@@ -388,7 +388,7 @@ def _assign_footprint_body(ifc, entity, context, axis_context, element_id, path_
             angles = {}
     zs = [p[key][2] for p in pieces for key in ("start", "end")]
     if max(zs) - min(zs) > 1e-6:
-        print(f"  Warning: {element_id}: its path is not level; the wall was laid at the height of its start")
+        return _assign_sloping_body(ifc, entity, context, axis_context, pieces, closed, angles, total_width, origin_x, height)
     p0 = pieces[0]["start"]
     tx, ty = _tangent(pieces[0], "start")
     to_local = lambda p: ((p[0] - p0[0]) * tx + (p[1] - p0[1]) * ty, -(p[0] - p0[0]) * ty + (p[1] - p0[1]) * tx, 0.0)
@@ -441,6 +441,119 @@ def _assign_footprint_body(ifc, entity, context, axis_context, element_id, path_
                           RepresentationType="Clipping" if angles else "SweptSolid", Items=[body]),
         ifc.create_entity("IfcShapeRepresentation", ContextOfItems=axis_context, RepresentationIdentifier="Axis",
                           RepresentationType="Curve2D", Items=[axis_curve]),
+    ]
+    entity.Representation = ifc.create_entity("IfcProductDefinitionShape", Representations=reps)
+
+
+SLOPING_ARC_STEPS = 72   # chords in a full circle for a curve that also rises or falls (5 degrees each)
+
+
+def _arc_sweep(piece):
+    (cx, cy), _ = _circle_through(piece["start"][:2], piece["mid"][:2], piece["end"][:2])
+    a0 = math.atan2(piece["start"][1] - cy, piece["start"][0] - cx)
+    a1 = math.atan2(piece["end"][1] - cy, piece["end"][0] - cx)
+    return (a1 - a0) % (2 * math.pi) if _arc_ccw(piece) else (a0 - a1) % (2 * math.pi)
+
+
+def _chords(piece):
+    """A plan piece (3-tuples) as straight pieces: a line as it is, an arc as chords, its height following the angle."""
+    if piece["type"] == "line":
+        return [piece]
+    n = max(2, int(math.ceil(_arc_sweep(piece) / (2 * math.pi) * SLOPING_ARC_STEPS - 1e-6)))
+    pts = arc_points(piece["start"][:2], piece["mid"][:2], piece["end"][:2], steps=n)
+    z0, z1 = piece["start"][2], piece["end"][2]
+    pts3 = [(x, y, z0 + (z1 - z0) * i / n) for i, (x, y) in enumerate(pts)]
+    pts3[0], pts3[-1] = tuple(piece["start"]), tuple(piece["end"])
+    return [{"type": "line", "start": a, "end": b} for a, b in zip(pts3, pts3[1:])]
+
+
+def _run_on(t, n, reach):
+    """How far a section reaching `reach` either side of a line running along t must run on past a vertical plane
+    through the line's end (outward normal n) for its whole end to be past the plane: the furthest corner is reach
+    across, so reach * |left(t) . n| / (t . n); no more than ten times reach."""
+    lt = _left(t)
+    return reach * abs(lt[0] * n[0] + lt[1] * n[1]) / max(t[0] * n[0] + t[1] * n[1], 0.1)
+
+
+def _assign_sloping_body(ifc, entity, context, axis_context, pieces, closed, angles, total_width, origin_x, height):
+    """A wall on several legs or a curve whose path rises or falls (#198). One IfcWall with a multi-item Body: one
+    IfcExtrudedAreaSolid per straight piece (an arc as chords of 5 degrees), each swept along its own slope with its
+    section kept upright, as a sloping straight wall is (_assign_body_geometry). Each piece runs on past each joint far
+    enough to pass its mitre plane and is cut there by a vertical half-space (IfcBooleanClippingResult) whose normal
+    bisects the two directions, so neighbours meet on one face with neither a gap nor an overlap. The ends take the
+    angled cuts of a straight wall. The Axis representation is the path itself in three dimensions.
+
+    One IfcWall rather than an IfcBuildingElementPart per piece: the element stays one object (one GUID, one layer
+    set, one set of quantities and properties, one OEBF record), as a level L-shaped wall is; parts would need an
+    IfcRelAggregates and a layer set and properties each, for no gain in the geometry."""
+    p0 = pieces[0]["start"]
+    tx, ty = _tangent(pieces[0], "start")
+    to_local = lambda p: ((p[0] - p0[0]) * tx + (p[1] - p0[1]) * ty, -(p[0] - p0[0]) * ty + (p[1] - p0[1]) * tx, p[2] - p0[2])
+    local = [{**pc, **{k: to_local(pc[k]) for k in ("start", "mid", "end") if k in pc}} for pc in pieces]
+    ifcopenshell.api.geometry.edit_object_placement(ifc, product=entity, matrix=[
+        [tx, -ty, 0.0, p0[0]], [ty, tx, 0.0, p0[1]], [0.0, 0.0, 1.0, p0[2]]])
+
+    reach = max(abs(origin_x), abs(total_width - origin_x))
+    y_offset = origin_x - total_width / 2
+    runs = [c for pc in local for c in _chords(pc)]
+    n = len(runs)
+    dirs = [_unit2((r["end"][0] - r["start"][0], r["end"][1] - r["start"][1])) for r in runs]
+    # an end cap's outward direction is the true tangent of the path's first or last piece (an arc's, not its chord's)
+    cap_dir = {"start": tuple(-v for v in _tangent(local[0], "start")), "end": _tangent(local[-1], "end")}
+
+    def cut_normal(end):
+        a, o = math.radians(angles[end]), cap_dir[end]
+        return (o[0] * math.cos(a) - o[1] * math.sin(a), o[0] * math.sin(a) + o[1] * math.cos(a))
+
+    def mitre_normal(j):
+        """The outward normal, for piece j, of the mitre plane at the end of piece j."""
+        a, b = dirs[j], dirs[(j + 1) % n]
+        m = (a[0] + b[0], a[1] + b[1])
+        return _unit2(m) if math.hypot(*m) > 1e-6 else a
+
+    items = []
+    for i, run in enumerate(runs):
+        t = dirs[i]
+        back = (-t[0], -t[1])
+        cuts, run_on = {}, {"start": 0.0, "end": 0.0}
+        for end, free in (("start", i == 0 and not closed), ("end", i == n - 1 and not closed)):
+            if free:
+                if end not in angles:
+                    continue
+                nrm = cut_normal(end)
+            elif end == "end":
+                nrm = mitre_normal(i)
+            else:
+                nrm = tuple(-v for v in mitre_normal((i - 1) % n))
+            cuts[end] = (run[end][:2], nrm, 0.0)
+            run_on[end] = _run_on(t if end == "end" else back, nrm, reach)
+        dx, dy, dz = (run["end"][k] - run["start"][k] for k in range(3))
+        length = math.hypot(dx, dy)
+        slope = dz / length
+        stretch = math.sqrt(1 + slope * slope)
+        x0 = -run_on["start"]
+        profile = ifc.create_entity(
+            "IfcRectangleProfileDef", ProfileType="AREA",
+            Position=ifc.create_entity("IfcAxis2Placement2D", Location=ifc.create_entity("IfcCartesianPoint", Coordinates=[y_offset, height / 2])),
+            XDim=total_width, YDim=height)
+        # the piece's own frame: Z along its plan direction, X to its left, Y up; the base starts `run_on` before it
+        solid = ifc.create_entity(
+            "IfcExtrudedAreaSolid", SweptArea=profile,
+            Position=ifc.create_entity(
+                "IfcAxis2Placement3D",
+                Location=ifc.create_entity("IfcCartesianPoint", Coordinates=[
+                    float(run["start"][0] + t[0] * x0), float(run["start"][1] + t[1] * x0), float(run["start"][2] + slope * x0)]),
+                Axis=ifc.create_entity("IfcDirection", DirectionRatios=[t[0], t[1], 0.0]),
+                RefDirection=ifc.create_entity("IfcDirection", DirectionRatios=[-t[1], t[0], 0.0])),
+            ExtrudedDirection=ifc.create_entity("IfcDirection", DirectionRatios=[0.0, slope / stretch, 1.0 / stretch]),
+            Depth=(length + run_on["start"] + run_on["end"]) * stretch)
+        items.append(_clip_ends(ifc, solid, cuts))
+
+    reps = [
+        ifc.create_entity("IfcShapeRepresentation", ContextOfItems=context, RepresentationIdentifier="Body",
+                          RepresentationType="Clipping", Items=items),
+        ifc.create_entity("IfcShapeRepresentation", ContextOfItems=axis_context, RepresentationIdentifier="Axis",
+                          RepresentationType="Curve3D", Items=[_curve(ifc, local, closed=closed, dims=3)]),
     ]
     entity.Representation = ifc.create_entity("IfcProductDefinitionShape", Representations=reps)
 

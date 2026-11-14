@@ -125,7 +125,83 @@ def test_a_sloping_wall_with_an_angled_end_is_cut_and_still_rises(tmp_path):
     assert _ends(path) == pytest.approx([0, 0, 0, 4, 0, 1.0], abs=1e-4)
 
 
-def test_a_sloping_multi_leg_wall_still_warns_that_it_was_laid_flat(tmp_path, capsys):
-    segs = [{"type": "line", "start": _p(0, 0, 0), "end": _p(4, 0, 0.5)}, {"type": "line", "start": _p(4, 0, 0.5), "end": _p(4, 3, 1.0)}]
-    _exported(_bundle(tmp_path, segs), tmp_path)
-    assert "not level" in capsys.readouterr().out
+
+
+# ── sloping multi-leg and curved paths (#198) ────────────────────────────────
+
+def _in(tmp_path, name, segments, **kw):
+    (tmp_path / name).mkdir()
+    return _bundle(tmp_path / name, segments, **kw)
+
+
+def _volume_of(bundle, tmp_path, name):
+    out = tmp_path / name
+    export_ifc(bundle, out)
+    (wall,) = ifcopenshell.open(str(out)).by_type("IfcWall")
+    return wall, _volume(wall)
+
+
+def _legs(z):
+    return [{"type": "line", "start": _p(0, 0, z[0]), "end": _p(4, 0, z[1])},
+            {"type": "line", "start": _p(4, 0, z[1]), "end": _p(4, 3, z[2])}]
+
+
+def _closed(bundle):
+    import json
+    path_file = bundle / "paths" / "path-a.json"
+    data = json.loads(path_file.read_text())
+    data["closed"] = True
+    path_file.write_text(json.dumps(data))
+
+
+def test_a_sloping_l_wall_is_one_solid_per_leg_mitred_with_no_gap_or_overlap(tmp_path, capsys):
+    _, v_level = _volume_of(_in(tmp_path, "a", _legs((0, 0, 0))), tmp_path, "a.ifc")
+    sloping, v_slope = _volume_of(_in(tmp_path, "b", _legs((0.5, 1.0, 2.0))), tmp_path, "b.ifc")
+    assert "not level" not in capsys.readouterr().out
+    # a shear keeps volume and the mitres leave the plan outline of the level wall: the volumes agree
+    assert v_slope == pytest.approx(v_level, rel=1e-6)
+    items = sloping.Representation.Representations[0].Items
+    assert len(items) == 2 and all(i.is_a("IfcBooleanClippingResult") for i in items)
+    v, _ = _verts(sloping)
+    assert (v[:, 2].min(), v[:, 2].max()) == pytest.approx((0.5, 4.5), abs=1e-6)
+
+
+def test_a_sloping_l_wall_comes_back_with_both_legs_and_their_heights(tmp_path):
+    _, back, _, path, profile = _round_trip(_in(tmp_path, "a", _legs((0.5, 1.0, 2.0))), tmp_path)
+    assert [s["type"] for s in path["segments"]] == ["line", "line"]
+    zs = [(s["start"]["z"], s["end"]["z"]) for s in path["segments"]]
+    assert zs == pytest.approx([(0.5, 1.0), (1.0, 2.0)], abs=1e-4)
+    assert profile["origin"]["x"] == pytest.approx(0.1)
+    assert validate_bundle(back) == []
+
+
+def test_a_sloping_curved_wall_is_chords_close_to_the_arc_and_comes_back_as_an_arc(tmp_path):
+    arc = [{"type": "arc", "start": _p(R, 0, 0.0), "mid": _p(R * math.cos(math.pi / 4), R * math.sin(math.pi / 4), 0.5),
+            "end": _p(0, R, 1.0)}]
+    model, back, _, path, _ = _round_trip(_in(tmp_path, "a", arc, origin_x=0.15), tmp_path)
+    (wall,) = model.by_type("IfcWall")
+    # the arc's true plan area is 0.3 x R x pi/2; chords of 5 degrees lose a little at most
+    assert _volume(wall) == pytest.approx(0.3 * R * math.pi / 2 * 2.5, rel=2e-3)
+    assert len(wall.Representation.Representations[0].Items) == 18
+    assert [s["type"] for s in path["segments"]] == ["arc"]
+    assert (path["segments"][0]["start"]["z"], path["segments"][0]["end"]["z"]) == pytest.approx((0.0, 1.0), abs=1e-4)
+    v, _ = _verts(wall)
+    assert (v[:, 2].min(), v[:, 2].max()) == pytest.approx((0.0, 3.5), abs=1e-6)
+    assert validate_bundle(back) == []
+
+
+def test_a_sloping_l_wall_with_angled_ends_is_cut_on_both(tmp_path):
+    caps = {"cap_start": "angled", "cap_start_angle_deg": 20.0, "cap_end": "angled", "cap_end_angle_deg": -30.0}
+    _, _, element, _, _ = _round_trip(_in(tmp_path, "a", _legs((0.0, 0.5, 1.0)), caps=caps), tmp_path)
+    assert (element["cap_start_angle_deg"], element["cap_end_angle_deg"]) == pytest.approx((20.0, -30.0), abs=1e-3)
+    _, vol = _volume_of(_in(tmp_path, "b", _legs((0.0, 0.5, 1.0)), caps=caps), tmp_path, "b.ifc")
+    _, vol_level = _volume_of(_in(tmp_path, "c", _legs((0, 0, 0)), caps=caps), tmp_path, "c.ifc")
+    assert vol == pytest.approx(vol_level, rel=1e-6)
+
+
+def test_a_sloping_closed_loop_has_no_gaps(tmp_path):
+    segs = [{**s, "start": {**s["start"], "z": s["start"]["x"] * 0.1}, "end": {**s["end"], "z": s["end"]["x"] * 0.1}} for s in _square()]
+    bundle = _in(tmp_path, "a", segs)
+    _closed(bundle)
+    _, vol = _volume_of(bundle, tmp_path, "a.ifc")
+    assert vol == pytest.approx((4.4 ** 2 - 3.8 ** 2) * 2.5, rel=1e-6)
