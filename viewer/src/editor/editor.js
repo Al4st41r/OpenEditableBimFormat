@@ -1511,6 +1511,36 @@ function _onPathNodeSelected(nodeInfo) {
 }
 
 /**
+ * The `bonds` for a wall (#191, #199): what junctionBonds makes of it and the walls it meets, from the registry, which
+ * holds the paths as edited. `own` is the wall's own entry (undefined when it is bonded nowhere); `neighbours` are the
+ * walls on its junctions, whose corner (bonded or filled out) may change with this one.
+ * @returns {Promise<{own: object|undefined, neighbours: string[]}>}
+ */
+async function _bondsAround(elementId, ownPoints, ownShapes) {
+  const { buildProfileShape } = await import('../loader/loadProfile.js');
+  const { junctionBonds }     = await import('../geometry/junctionBonds.js');
+  const own = _bundleCtx?.junctions?.filter(j => j.elements?.includes(elementId)) ?? [];
+  const ids = new Set(own.flatMap(j => j.elements ?? []));
+  ids.add(elementId);
+  const items = [];
+  const neighbours = [];
+  for (const id of ids) {
+    const r = _elementRegistry.get(id);
+    if (!r || r.kind !== 'element' || !r.pathData) continue;
+    try {
+      let points = ownPoints, shapes = ownShapes;
+      if (id !== elementId) {
+        points = parsePath(r.pathData).points;
+        shapes = buildProfileShape(await readEntity(adapter, `profiles/${r.profileId}.json`));
+        neighbours.push(id);
+      }
+      items.push({ id, points, shapes, options: r.sweep ?? {} });
+    } catch { /* a wall that cannot be read is left out */ }
+  }
+  return { own: junctionBonds(items, own).get(elementId), neighbours };
+}
+
+/**
  * Rebuild the Three.js mesh(es) for one element after its path has been edited.
  * Uses the in-memory pathData supplied by PathEditTool so the visual updates
  * immediately without a round-trip through the adapter.
@@ -1518,11 +1548,12 @@ function _onPathNodeSelected(nodeInfo) {
  * @param {string} elementId
  * @param {object} updatedPathData — the mutated path JSON from pathEditTool._pathData
  */
-async function _reRenderElement(elementId, updatedPathData) {
+async function _reRenderElement(elementId, updatedPathData, { neighbours = true } = {}) {
   const reg = _elementRegistry.get(elementId);
   if (!reg || !updatedPathData) return;
 
   const gen = ++_renderGen;
+  let bondedNeighbours = [];
 
   // Remove existing meshes for this element
   const toRemove = editorScene.modelGroup.children.filter(
@@ -1570,12 +1601,15 @@ async function _reRenderElement(elementId, updatedPathData) {
       if (gen !== _renderGen) return;
       const profileShapes = buildProfileShape(profData);
       const { points: pathPoints } = parsePath(updatedPathData);
-      const layerMeshes = sweepProfile(pathPoints, profileShapes, reg.sweep);
+      const around = await _bondsAround(elementId, pathPoints, profileShapes);
+      if (gen !== _renderGen) return;
+      bondedNeighbours = neighbours ? around.neighbours : [];
+      const layerMeshes = sweepProfile(pathPoints, profileShapes, { ...reg.sweep, bonds: around.own });
       if (gen !== _renderGen) return;
       for (const layerData of layerMeshes) {
         const matData = activeProfileMap[layerData.materialId];
         const colour  = matData?.colour_hex ?? '#888888';
-        editorScene.modelGroup.add(buildThreeMesh({
+        const mesh = buildThreeMesh({
           vertices:    layerData.vertices,
           normals:     layerData.normals,
           indices:     layerData.indices,
@@ -1583,12 +1617,21 @@ async function _reRenderElement(elementId, updatedPathData) {
           opacity:     matData?.opacity,
           elementId,
           description: reg.description,
-        }));
+          bondedEnds:  layerData.bondedEnds,
+        });
+        // as on loading: the junctions' trim planes clip it, except at a bonded end
+        applyJunctionClipping(mesh, _bundleCtx?.junctions ?? []);
+        editorScene.modelGroup.add(mesh);
       }
     }
     if (reg.kind === 'element') _cutOpenings([elementId]);
     editorScene.setRenderMode(editorScene.getRenderMode());
     if (elementId === _selectedElementId) _setElementEdgeHighlight(elementId, true);
+    // the walls it meets are bonded to it, so they are drawn again (once: they do not pass it on)
+    for (const id of bondedNeighbours) {
+      const r = _elementRegistry.get(id);
+      if (r?.pathData) await _reRenderElement(id, r.pathData, { neighbours: false });
+    }
   } catch (err) {
     console.warn(`[OEBF] _reRenderElement ${elementId}:`, err.message);
   }
@@ -1771,7 +1814,8 @@ async function _changeElementProfile(elementId, newProfileId) {
     const profData      = await readEntity(adapter, `profiles/${newProfileId}.json`);
     const profileShapes = buildProfileShape(profData);
     const { points: pathPoints } = parsePath(reg.pathData);
-    const layerMeshes   = sweepProfile(pathPoints, profileShapes, reg.sweep);
+    const around        = await _bondsAround(elementId, pathPoints, profileShapes);
+    const layerMeshes   = sweepProfile(pathPoints, profileShapes, { ...reg.sweep, bonds: around.own });
 
     if (layerMeshes.length === 0) {
       statusBar.textContent = 'Profile change: new profile produced no geometry.';
@@ -1793,7 +1837,7 @@ async function _changeElementProfile(elementId, newProfileId) {
     for (const layerData of layerMeshes) {
       const matData = activeProfileMap[layerData.materialId];
       const colour  = matData?.colour_hex ?? '#888888';
-      editorScene.modelGroup.add(buildThreeMesh({
+      const mesh = buildThreeMesh({
         vertices:    layerData.vertices,
         normals:     layerData.normals,
         indices:     layerData.indices,
@@ -1801,11 +1845,19 @@ async function _changeElementProfile(elementId, newProfileId) {
         opacity:     matData?.opacity,
         elementId,
         description: reg.description,
-      }));
+        bondedEnds:  layerData.bondedEnds,
+      });
+      applyJunctionClipping(mesh, _bundleCtx?.junctions ?? []);   // as on loading
+      editorScene.modelGroup.add(mesh);
     }
     editorScene.setRenderMode(editorScene.getRenderMode());
 
     reg.profileId = newProfileId;
+    // the walls it meets are bonded to the new profile (#199)
+    for (const id of around.neighbours) {
+      const r = _elementRegistry.get(id);
+      if (r?.pathData) await _reRenderElement(id, r.pathData, { neighbours: false });
+    }
     try {
       const existing = await readEntity(adapter, `elements/${elementId}.json`);
       await writeEntity(adapter, `elements/${elementId}.json`, { ...existing, profile_id: newProfileId });
@@ -2241,6 +2293,7 @@ window.__editor = {
   junctionMarkers2: () => (junctionEditor?._junctions ?? []).map((j) => ({ id: j.id, x: j.point.x, y: j.point.y })),
   registry: () => [..._elementRegistry].map(([id, r]) => [id, r.pathData?.id, r.pathData?.segments?.map((g) => [g.start.x, g.start.y, g.end.x, g.end.y])]),
   selectedId: () => _selectedElementId,
+  meshInfo: (id) => editorScene.modelGroup.children.filter((c) => c.userData?.elementId === id).map((m) => ({ bondedEnds: m.userData.bondedEnds ?? [], vertices: m.geometry.attributes.position.count, planes: m.material.clippingPlanes?.length ?? 0 })),   // for headless checks (#199)
   setLength: (elementId, segIndex, text) => _applySegmentLength(elementId, segIndex, { value: text }, ''),   // for headless checks
   openJunctionDialog: _openJunctionDialog,
   openings: () => [..._openings.values()].map((o) => ({ ...o.entity, drawn: !!o.object })),
