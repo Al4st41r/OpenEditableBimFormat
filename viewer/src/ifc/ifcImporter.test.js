@@ -200,3 +200,37 @@ describe('importIfcText — geometry fallback', () => {
     expect(seg.end).toEqual({ x: 7, y: 3, z: 0 }); // start + direction * depth
   });
 });
+
+// ── bodies that need a geometry engine (#198) ────────────────────────────────
+
+describe('importIfcText — curved bodies the browser cannot read', () => {
+  const body = (items, product) =>
+    `#1=IFCPROJECT('proj-01',$,'P',$,$,$,$,$,$);\n${items}\n` +
+    `#30=IFCSHAPEREPRESENTATION($,'Body','AdvancedSweptSolid',(#29));\n` +
+    `#31=IFCPRODUCTDEFINITIONSHAPE($,$,(#30));\n${product}`;
+
+  it('names a wall whose body is a curved advanced BREP and points to the Python importer', async () => {
+    const text = wrapData(body(
+      `#10=IFCCARTESIANPOINT((0.,0.,0.));\n#11=IFCAXIS2PLACEMENT3D(#10,$,$);\n#12=IFCCYLINDRICALSURFACE(#11,0.1);\n` +
+      `#13=IFCADVANCEDFACE((),#12,.T.);\n#14=IFCCLOSEDSHELL((#13));\n#29=IFCADVANCEDBREP(#14);`,
+      `#40=IFCWALL('g1',$,'Round wall',$,$,$,#31,$,$);`));
+    const { warnings } = await importIfcText(text, makeAdapter());
+    const w = warnings.find(x => x.includes('Round wall'));
+    expect(w).toContain('IFCWALL Round wall');
+    expect(w).toContain('could not be read');
+    expect(w).toContain('geometry engine');
+    expect(w).toContain('uv run oebf ifc-import');
+  });
+
+  it('names a beam that is a swept disk on an arc and points to the Python importer', async () => {
+    const text = wrapData(body(
+      `#20=IFCCARTESIANPOINTLIST3D(((0.,0.,3.),(1.,1.,3.),(2.,0.,3.)));\n#21=IFCINDEXEDPOLYCURVE(#20,(IFCARCINDEX((1,2,3))),.F.);\n` +
+      `#29=IFCSWEPTDISKSOLID(#21,0.05,$,$,$);`,
+      `#40=IFCBEAM('g2',$,'Round bar',$,$,$,#31,$,$);`));
+    const { warnings } = await importIfcText(text, makeAdapter());
+    const w = warnings.find(x => x.includes('Round bar'));
+    expect(w).toContain('IFCBEAM Round bar');
+    expect(w).toContain('IFCSWEPTDISKSOLID');
+    expect(w).toContain('uv run oebf ifc-import');
+  });
+});

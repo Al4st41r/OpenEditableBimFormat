@@ -65,8 +65,10 @@ export function tangent(piece, key) {
 /**
  * The pieces moved d to the left of travel (negative: to the right). Corners are mitred, no mitre longer than ten
  * times the offset; a closed chain (the last piece ends where the first starts) is mitred at that corner too.
+ * `extend` ({start, end}, metres) runs the first piece's start and the last piece's end on along their own
+ * direction first, so an angled end's cut has material to cut (#198).
  */
-export function offsetChain(pieces, d, closed = false) {
+export function offsetChain(pieces, d, closed = false, extend = {}) {
   const joint = (p, tIn, tOut) => {
     const nIn = left(tIn), nOut = left(tOut);
     let m = [nIn[0] + nOut[0], nIn[1] + nOut[1]];
@@ -78,7 +80,9 @@ export function offsetChain(pieces, d, closed = false) {
   const last = pieces.length - 1;
   return pieces.map((piece, i) => {
     const t0 = tangent(piece, 'start'), t1 = tangent(piece, 'end');
-    const a = piece.start, b = piece.end;
+    let a = piece.start, b = piece.end;
+    if (i === 0 && !closed && extend.start) a = [a[0] - t0[0] * extend.start, a[1] - t0[1] * extend.start];
+    if (i === last && !closed && extend.end) b = [b[0] + t1[0] * extend.end, b[1] + t1[1] * extend.end];
     const start = (i > 0 || closed)
       ? joint(a, tangent(pieces[(i + last) % pieces.length], 'end'), t0)
       : [a[0] + left(t0)[0] * d, a[1] + left(t0)[1] * d];
@@ -103,4 +107,52 @@ export function ringArea(segments) {
 /** The segments reversed: last first, each end for end. */
 export function reverseChain(segments) {
   return [...segments].reverse().map(s => ({ ...s, start: s.end, end: s.start }));
+}
+
+// ── angled ends and walls that rise or fall (#198) ───────────────────────────
+
+/** {start?, end?: degrees} for the element's 'angled' ends that have an angle other than square (as _end_angles). */
+export function endAngles(elem) {
+  const out = {};
+  for (const end of ['start', 'end']) {
+    const a = elem[`cap_${end}_angle_deg`];
+    if (elem[`cap_${end}`] === 'angled' && typeof a === 'number' && Math.abs(a) > 1e-6 && Math.abs(a) < 89.9) out[end] = a;
+  }
+  return out;
+}
+
+/**
+ * How far a section reaching `reach` either side of a line running along t must run on past a vertical plane through
+ * the line's end (outward normal n) for its whole end to be past the plane: reach * |left(t) . n| / (t . n), no more
+ * than ten times reach.
+ */
+export function runOn(t, n, reach) {
+  const lt = left(t);
+  return reach * Math.abs(lt[0] * n[0] + lt[1] * n[1]) / Math.max(t[0] * n[0] + t[1] * n[1], 0.1);
+}
+
+/** The angle an arc turns through, in radians, always positive. */
+export function arcSweep(piece) {
+  const { c } = circleThrough(piece.start, piece.mid, piece.end);
+  const a0 = Math.atan2(piece.start[1] - c[1], piece.start[0] - c[0]);
+  const a1 = Math.atan2(piece.end[1] - c[1], piece.end[0] - c[0]);
+  const tau = 2 * Math.PI;
+  return arcCcw(piece) ? (((a1 - a0) % tau) + tau) % tau : (((a0 - a1) % tau) + tau) % tau;
+}
+
+export const SLOPING_ARC_STEPS = 72; // chords in a full circle for a curve that also rises or falls (5 degrees each)
+
+/** A piece as straight pieces: a line as it is, an arc as chords, its height following the angle. */
+export function chordPieces(piece) {
+  if (piece.type === 'line') return [piece];
+  const n = Math.max(2, Math.ceil(arcSweep(piece) / (2 * Math.PI) * SLOPING_ARC_STEPS - 1e-6));
+  const { c, r } = circleThrough(piece.start, piece.mid, piece.end);
+  const a0 = Math.atan2(piece.start[1] - c[1], piece.start[0] - c[0]);
+  const sweep = arcSweep(piece) * (arcCcw(piece) ? 1 : -1);
+  const pts = Array.from({ length: n + 1 }, (_, i) => [
+    c[0] + r * Math.cos(a0 + sweep * i / n), c[1] + r * Math.sin(a0 + sweep * i / n),
+    piece.start[2] + (piece.end[2] - piece.start[2]) * i / n]);
+  pts[0] = [...piece.start];
+  pts[n] = [...piece.end];
+  return pts.slice(1).map((b, i) => ({ type: 'line', start: pts[i], end: b }));
 }
