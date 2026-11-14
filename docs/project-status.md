@@ -2,7 +2,7 @@
 
 **Date:** 2026-11-14
 **Branch:** main
-**Tests:** 2482 JS (Vitest, 156 test files) + 552 Python (537 ifc-tools, 15 live-server) + 69 Playwright e2e
+**Tests:** 2509 JS (Vitest, 157 test files) + 580 Python (565 ifc-tools, 15 live-server) + 71 Playwright e2e
 
 ---
 
@@ -118,7 +118,8 @@ The open issue list is the plan: `gh issue list --state open`. On 2026-11-12, #1
 | #168 | CI/SfB codes on the NMB materials need a check against a real CI/SfB table | 8 |
 | #187 | Sloping wall tops: choose how to store them (decision needed; `docs/plans/2026-11-13-sloping-wall-tops.md`) | 8 |
 | #195 | Stacked slab profiles: region coordinate frame (decision needed) | 8 |
-| #196-#200 | Leftovers from #188-#194 (CLI for .oebfz, detail editor material import, IFC sloping and angled-end export, coursed bonding gaps and example decision, npm audit) | 8 |
+| #201 | Coursed walls: tooth T junctions; decide whether an example uses coursed walls (decision needed) | 8 |
+| #202, #203 | IFC export: angled end on a mitred piece, parts per piece; 3D editor Add material uses the shared colour pair | 8 |
 | #150 | Live copy on its own subdomain | Backlog |
 | #117 | Quantities and embodied carbon panel | Backlog |
 | #128 | Research: compare OEBF with IFC (tokens, readability, schema and CLI completeness) | Backlog |
