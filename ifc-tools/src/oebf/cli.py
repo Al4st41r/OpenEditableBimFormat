@@ -29,11 +29,17 @@ def ifc_export(oebf_dir, output):
 
 
 @cli.command()
-@click.argument("oebf_dir", type=click.Path(exists=True, file_okay=False))
+@click.argument("oebf_dir", type=click.Path(exists=True))
 def validate(oebf_dir):
-    """Check a bundle against its schemas and cross-references (exit code 1 if anything is wrong)."""
+    """Check a bundle (a folder, or a .oebfz / .oebf.zip archive) against its schemas and cross-references (exit code 1 if anything is wrong)."""
+    from .archive import open_bundle, ArchiveError
     from .validate import validate_bundle
-    problems = validate_bundle(Path(oebf_dir))
+    try:
+        with open_bundle(Path(oebf_dir)) as folder:
+            problems = validate_bundle(folder)
+    except ArchiveError as exc:
+        click.echo(f"Cannot read {oebf_dir}: {exc}")
+        raise SystemExit(1)
     if not problems:
         click.echo(f"No problems found in {oebf_dir}")
         return
@@ -41,6 +47,37 @@ def validate(oebf_dir):
         click.echo(str(p))
     click.echo(f"{len(problems)} problem(s) in {oebf_dir}")
     raise SystemExit(1)
+
+
+@cli.command()
+@click.argument("archive", type=click.Path(exists=True, dir_okay=False))
+@click.argument("dest", required=False, type=click.Path())
+def unpack(archive, dest):
+    """Unpack a .oebfz (or older .oebf.zip) archive into a bundle folder. DEST defaults to NAME.oebf beside the archive."""
+    from .archive import unpack as do_unpack, archive_name, ArchiveError
+    dest = Path(dest) if dest else Path(archive).resolve().parent / f"{archive_name(archive)}.oebf"
+    try:
+        do_unpack(Path(archive), dest)
+    except ArchiveError as exc:
+        click.echo(f"Not unpacked: {exc}")
+        raise SystemExit(1)
+    click.echo(f"Unpacked {archive} → {dest}")
+
+
+@cli.command()
+@click.argument("oebf_dir", type=click.Path(exists=True, file_okay=False))
+@click.argument("archive", required=False, type=click.Path(dir_okay=False))
+def pack(oebf_dir, archive):
+    """Pack a bundle folder into a .oebfz archive. ARCHIVE defaults to NAME.oebfz beside the folder."""
+    from .archive import pack as do_pack, ArchiveError
+    folder = Path(oebf_dir).resolve()
+    out = Path(archive) if archive else folder.parent / (folder.name.removesuffix(".oebf") + ".oebfz")
+    try:
+        do_pack(folder, out)
+    except ArchiveError as exc:
+        click.echo(f"Not packed: {exc}")
+        raise SystemExit(1)
+    click.echo(f"Packed {oebf_dir} → {out}")
 
 
 @cli.command()
