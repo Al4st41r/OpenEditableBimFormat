@@ -39,8 +39,8 @@ describe('courses (#182)', () => {
     expect(zMax(m)).toBeLessThanOrEqual(2.7);
   });
 
-  test('a unit crossing a corner is split at the vertex', () => {
-    const [m] = sweepProfile([P(0, 0), P(0.5, 0), P(0.5, 0.5)], buildProfileShape({ ...brick, height_limit_m: 0.07 }));
+  test('a unit crossing a corner that is not a right angle is split at the vertex (a right angle is bonded, #191)', () => {
+    const [m] = sweepProfile([P(0, 0), P(0.5, 0), P(0.75, 0.5 * Math.sin(Math.PI / 3))], buildProfileShape({ ...brick, height_limit_m: 0.07 }));
     // one row: 0-0.215, 0.225-0.44, 0.45-0.665 (split at 0.5), 0.675-0.89, 0.9-1.0
     expect(units(m)).toBe(6);
   });

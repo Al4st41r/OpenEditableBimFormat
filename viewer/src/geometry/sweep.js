@@ -33,6 +33,7 @@
  */
 import { polygonTriangles } from './polygonTriangles.js';
 import { repeatRunSpans } from '../detail-editor/memberShapes.js';
+import { courseRows, lateralRange, pairLayer, isRightAngle, cornerEnd, runsThrough, bondedSpans } from './courseBond.js';
 
 /**
  * Sweep options, taken from an element's fields (see sweepOptionsFromElement).
@@ -54,6 +55,18 @@ import { repeatRunSpans } from '../detail-editor/memberShapes.js';
  * @property {number} [startOffset=0] - metres removed from the start (negative extends)
  * @property {number} [endOffset=0]   - metres removed from the end (negative extends)
  * @property {number} [twistPerMetre=0] - degrees per metre, twisted mode only
+ * @property {{start?: JunctionBond, end?: JunctionBond}} [bonds] - the other wall at a corner junction at either end
+ *   of the path, for bonding coursed layers there (junctionBonds in junctionBonds.js builds it, #191)
+ */
+
+/**
+ * The wall a path end meets at a corner junction, as far as bonding its coursed layers needs.
+ *
+ * @typedef {object} JunctionBond
+ * @property {{x:number,y:number}} dir      - plan direction of the other wall, away from the junction point
+ * @property {{x:number,y:number}} binormal - the other wall's path tangent crossed with Z, in plan
+ * @property {Array} shapes                 - the other wall's profile shapes (buildProfileShape)
+ * @property {boolean} throughFirst         - this wall runs through on the first course (and every even one)
  */
 
 /** Read the sweep options from an element entity. Missing fields give the defaults. */
@@ -136,9 +149,12 @@ export function sweepProfile(pathPoints, profileShapes, options = {}) {
   const frames = _angleEnds(_applyMode(_computeFrames(points), sweepMode, twistPerMetre),
     capStart === 'angled' ? capStartAngleDeg : 0, capEnd === 'angled' ? capEndAngleDeg : 0);
   const caps = { start: capStart !== 'open', end: capEnd !== 'open' };
+  const bonds = options.bonds ?? {};
   // the layer function travels with the mesh, so the renderer can tell a membrane (#127)
-  return profileShapes.map(shape => {
-    const coursed = shape.repeat && sweepMode === 'perpendicular' ? _sweepCourses(points, frames, shape, caps) : null;
+  return profileShapes.map((shape, index) => {
+    const coursed = shape.repeat && sweepMode === 'perpendicular'
+      ? _sweepCourses(points, frames, shape, caps, { index, bonds, angled: { start: capStart === 'angled', end: capEnd === 'angled' } })
+      : null;
     const swept = coursed ?? _sweepShape(frames, shape.points, shape.materialId, caps);
     return shape.function ? { ...swept, function: shape.function } : swept;
   });
@@ -162,7 +178,7 @@ const EPS = 1e-9;
  *
  * @returns {object|null} mesh data, or null to sweep the layer whole (a vertical path, or too many units)
  */
-function _sweepCourses(points, frames, shape, caps) {
+function _sweepCourses(points, frames, shape, caps, ctx = { index: 0, bonds: {}, angled: {} }) {
   const rep = shape.repeat;
   const n = points.length;
   if (n < 2 || frames.some(f => f.up)) return null;
@@ -172,15 +188,8 @@ function _sweepCourses(points, frames, shape, caps) {
   if (!(L > EPS)) return null;
 
   // rows up the profile
-  const ys = shape.points.map(p => p.y);
-  const yhi = Math.max(...ys);
-  const rows = [];
-  for (let r = 0; rows.length <= MAX_COURSE_UNITS; r++) {
-    const dy = rep.rise + (rep.up ? r * rep.pitchUp : 0);
-    if (r > 0 && (!rep.up || !(shape.rowTop > 0) || yhi + dy > shape.rowTop + EPS)) break;
-    rows.push(dy);
-  }
-  const perRow = (rep.alongRun ? Math.ceil(L / rep.pitchRun) + 1 : 1) + (n - 2);
+  const rows = courseRows(shape);
+  const perRow = (rep.alongRun ? Math.ceil(L / rep.pitchRun) + 1 : 1) + (n - 2) + 2 * (n - 1);   // the last term: closers at corners
   if (rows.length * perRow > MAX_COURSE_UNITS) {
     console.warn(`[OEBF] layer ${shape.materialId}: about ${rows.length * perRow} units, more than ${MAX_COURSE_UNITS}; drawn as one sweep`);
     return null;
@@ -205,6 +214,33 @@ function _sweepCourses(points, frames, shape, caps) {
 
   const out = { positions: [], normals: [], indices: [] };
   const tris = polygonTriangles(shape.points);
+
+  const bond = rep.alongRun ? _cornerBonds(points, seg, shape, ctx) : null;
+  if (bond) {
+    // Units laid from each corner, one run per segment. A unit that ends at a corner ends on the square frame of its own
+    // segment, which may be past the vertex (a unit running through) or short of it, so the mitre frames are not used there.
+    const squareAt = (s, j) => {
+      const a = points[j], d = s - dist[j];
+      return { ...seg[j], origin: { x: a.x + seg[j].tangent.x * d, y: a.y + seg[j].tangent.y * d, z: a.z + seg[j].tangent.z * d } };
+    };
+    rows.forEach((dy, r) => {
+      const pts = shape.points.map(p => ({ x: p.x, y: p.y + dy }));
+      for (let j = 0; j < n - 1; j++) {
+        const sv = bond.next[j], ev = bond.prev[j + 1];
+        const lo = dist[j] + (sv ? sv(r) : 0), hi = dist[j + 1] - (ev ? ev(r) : 0);
+        for (const [a, b] of bondedSpans(rep, lo, hi, !!sv, !!ev)) {
+          // an end that is the free end of the path keeps its cap setting and angled-end frame (as in the plain case)
+          const freeStart = j === 0 && !sv && a <= EPS, freeEnd = j === n - 2 && !ev && b >= L - EPS;
+          const f0 = freeStart ? frames[0] : squareAt(a, j);
+          const f1 = freeEnd ? frames[n - 1] : squareAt(b, j);
+          _appendSweep(out, [f0, f1], pts, { start: !freeStart || caps.start, end: !freeEnd || caps.end }, tris);
+        }
+      }
+    });
+    const mesh = _meshOf(out, shape.materialId);
+    return bond.junctionEnds.length ? { ...mesh, bondedEnds: bond.junctionEnds } : mesh;
+  }
+
   rows.forEach((dy, r) => {
     const pts = shape.points.map(p => ({ x: p.x, y: p.y + dy }));
     const spans = rep.alongRun ? repeatRunSpans(rep, [0, L], 0, r % 2 ? rep.stagger : 0) : [[0, L]];
@@ -223,6 +259,61 @@ function _sweepCourses(points, frames, shape, caps) {
     }
   });
   return _meshOf(out, shape.materialId);
+}
+
+/**
+ * Where the units of a coursed layer end at each corner, if the layer is to be bonded there (#191, courseBond.js): at
+ * every vertex of the path (each a right-angled corner on a horizontal path) and at a path end that meets a corner
+ * junction (options.bonds). Returns null to keep the old drawing: units split on the mitre frame at a vertex and only
+ * clipped by the trim plane at a junction. That is the case when any vertex is not a plain right-angled corner (an
+ * angle, a curve tessellated into many small angles, a slope) or when no corner is bonded at all. A junction end is left
+ * to be clipped when the other wall's layer has different course heights (or is not coursed), the walls are not at
+ * right angles, or the end is angled; junctionBonds only offers corners (two walls ending at one point), not a T.
+ *
+ * `prev[k](r)` and `next[k](r)` give, for the arm that ends at vertex k (the segment before it) and the arm that starts
+ * there (the segment after it), the distance from the vertex at which the units of course r end (negative: past the vertex).
+ *
+ * @returns {{prev: Array, next: Array, junctionEnds: string[]}|null}
+ */
+function _cornerBonds(points, seg, shape, ctx) {
+  const n = points.length;
+  const rep = shape.repeat;
+  if (seg.some(sg => Math.abs(sg.tangent.z) > 1e-6)) return null;
+  const range = lateralRange(shape);
+  const joint = rep.pitchRun - rep.depth;
+  const prev = new Array(n).fill(null), next = new Array(n).fill(null);
+  const plan = (v) => ({ x: v.x, y: v.y });
+
+  // corners along the path: the segment before arrives at the vertex, the one after leaves it; the first runs through on
+  // even courses
+  for (let k = 1; k < n - 1; k++) {
+    const a = { dir: { x: -seg[k - 1].tangent.x, y: -seg[k - 1].tangent.y }, binormal: plan(seg[k - 1].binormal) };
+    const b = { dir: plan(seg[k].tangent), binormal: plan(seg[k].binormal) };
+    if (!isRightAngle(a.dir, b.dir)) return null;
+    const ownA = { dir: a.dir, range, joint }, ownB = { dir: b.dir, range, joint };
+    const partnerA = { binormal: b.binormal, range }, partnerB = { binormal: a.binormal, range };
+    prev[k] = (r) => cornerEnd(ownA, partnerA, runsThrough(r, true));
+    next[k] = (r) => cornerEnd(ownB, partnerB, runsThrough(r, false));
+  }
+
+  // a path end at a corner junction
+  const junctionEnds = [];
+  for (const [end, k, sgi] of [['start', 0, 0], ['end', n - 1, n - 2]]) {
+    const jb = ctx.bonds?.[end];
+    if (!jb || ctx.angled?.[end]) continue;
+    const own = { dir: end === 'start' ? plan(seg[sgi].tangent) : { x: -seg[sgi].tangent.x, y: -seg[sgi].tangent.y }, range, joint };
+    if (!isRightAngle(own.dir, jb.dir)) continue;
+    const partnerShape = pairLayer(shape, ctx.index, jb.shapes);
+    if (!partnerShape) continue;
+    const partner = { binormal: jb.binormal, range: lateralRange(partnerShape) };
+    const partnerRows = courseRows(partnerShape).length;
+    const fn = (r) => (r >= partnerRows ? 0 : cornerEnd(own, partner, runsThrough(r, jb.throughFirst)));
+    if (end === 'start') next[k] = fn; else prev[k] = fn;
+    junctionEnds.push(end);
+  }
+
+  if (!next.some(Boolean) && !prev.some(Boolean)) return null;
+  return { prev, next, junctionEnds };
 }
 
 /** Adjust the frames for the sweep mode. perpendicular leaves them alone. */
