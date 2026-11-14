@@ -46,7 +46,7 @@ describe('the viewer imports the shared IFC fixtures as expected.json says', () 
   for (const [name, { elements: expected, slabs: wantSlabs = [] }] of Object.entries(EXPECTED)) {
     it(name, async () => {
       const adapter = memoryAdapter();
-      const { elementIds, slabIds, openingIds, materials } = await importIfcText(readFileSync(`${DIR}${name}`, 'utf8'), adapter);
+      const { elementIds, slabIds, openingIds, objectIds, materials } = await importIfcText(readFileSync(`${DIR}${name}`, 'utf8'), adapter);
       expect(elementIds).toHaveLength(expected.length);
       const rows = elementIds.map((id) => {
         const element = JSON.parse(adapter.store.get(`elements/${id}.json`));
@@ -61,6 +61,7 @@ describe('the viewer imports the shared IFC fixtures as expected.json says', () 
         const got = path.segments.flatMap(s => [s.start, s.end]).flatMap(p => [p.x, p.y, p.z]);
         const options = [want.segments, ...(want.either_direction ? [reversedSegments(want.segments)] : [])].map(o => o.flat(2));
         expect(options.some(exp => exp.length === got.length && got.every((v, k) => close(v, exp[k], 1e-3))), `segments ${got}`).toBe(true);
+        if ('closed' in want) expect(path.closed).toBe(want.closed);
         if (want.segment_types) {
           const types = path.segments.map(s => s.type);
           expect(JSON.stringify(types) === JSON.stringify(want.segment_types)
@@ -98,6 +99,21 @@ describe('the viewer imports the shared IFC fixtures as expected.json says', () 
           openings.forEach((o, k) => {
             for (const key of ['path_position', 'width_m', 'height_m', 'sill_height_m']) expect(close(o[key], want.openings[k][key], 1e-3), `${key}: ${o[key]}`).toBe(true);
             expect(o.path_id).toBe(element.path_id);
+          });
+        }
+        if (want.objects) {
+          const objects = objectIds.map(id => JSON.parse(adapter.store.get(`objects/${id}.json`)))
+            .filter(o => o.host_element_id === element.id).sort((a, b) => a.ifc_type.localeCompare(b.ifc_type));
+          expect(objects).toHaveLength(want.objects.length);
+          [...want.objects].sort((a, b) => a.ifc_type.localeCompare(b.ifc_type)).forEach((w, k) => {
+            const o = objects[k];
+            const symbol = JSON.parse(adapter.store.get(`symbols/${o.symbol_id}.json`));
+            expect(o.ifc_type).toBe(w.ifc_type);
+            expect(symbol.ifc_type).toBe(w.ifc_type);
+            expect('opening_id' in o).toBe(w.in_opening);
+            expect(close(o.path_position, w.path_position, 1e-3)).toBe(true);
+            expect(close(o.base_height_m ?? 0, w.base_height_m ?? 0, 1e-3)).toBe(true);
+            ['width_m', 'depth_m', 'height_m'].forEach(key => expect(close(symbol.parameters[key], w[key], 1e-3), `${key}`).toBe(true));
           });
         }
       });

@@ -1,4 +1,5 @@
 import json
+import math
 import re
 import uuid
 from pathlib import Path
@@ -462,7 +463,9 @@ def _process_element(entity, element_id, oebf_type, group_id, out_dir, rebuilt, 
             "id": path_id,
             "type": "Path",
             "description": f"Imported path for {entity.is_a()} {getattr(entity, 'Name', '') or ''}".strip(),
-            "closed": False,
+            # a wall whose axis comes back to where it began is a loop (#190)
+            "closed": (len(segments) >= 2 and not shape.get("stub") and not shape.get("regions")
+                       and math.dist(segments[0]["start"], segments[-1]["end"]) < 1e-4),
             "segments": [_format_segment(seg) for seg in segments],
             "tags": ["imported"],
         }

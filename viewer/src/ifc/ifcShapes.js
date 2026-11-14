@@ -686,6 +686,48 @@ function runRegions(reader, solids, start, d, depth) {
 }
 
 /**
+ * The points of a straight-sided directrix in the solid's frame, metres: an IfcPolyline, or an IfcIndexedPolyCurve of
+ * line segments on a 3D point list. null for anything else (an arc, a spline).
+ */
+function directrixPoints(reader, curve) {
+  const to3 = (c) => [0, 1, 2].map(i => (Number(c[i]) || 0) * reader.scale);
+  if (curve?.type === 'IFCPOLYLINE') return (curve.attrs[0] ?? []).map(r => coords(reader, r)).filter(Boolean).map(to3);
+  if (curve?.type === 'IFCINDEXEDPOLYCURVE') {
+    const pts = (reader.get(curve.attrs[0])?.attrs[0] ?? []).map(to3);
+    if (!Array.isArray(curve.attrs[1])) return pts;
+    const out = [];
+    for (const seg of curve.attrs[1]) {
+      if (seg.typeName === 'IFCARCINDEX') return null;
+      for (const i of seg) if (pts[i - 1] && out.at(-1) !== pts[i - 1]) out.push(pts[i - 1]);
+    }
+    return out;
+  }
+  return null;
+}
+
+/**
+ * A swept disk (a pipe, a bar, a round member) along a straight-sided directrix as a section: a circle (a ring for
+ * a hollow one) swept along the directrix's segments, as ifc_shapes._swept_disk_section (#189). The browser has no
+ * geometry engine, so a directrix with an arc or a spline is not read. null when the body is not one.
+ */
+function sweptDiskSection(reader, items) {
+  for (const { item, m } of items) {
+    if (item.type !== 'IFCSWEPTDISKSOLID') continue;
+    const pts = directrixPoints(reader, reader.get(item.attrs[0]));
+    if (!pts || pts.length < 2) return null;
+    const world = pts.map(p => apply(m, p));
+    const segments = world.slice(1).map((b, i) => line(world[i], b)).filter(sg => norm(sub(sg.end, sg.start)) > 1e-9);
+    if (!segments.length) return null;
+    const r = (Number(item.attrs[1]) || 0) * reader.scale;
+    const inner = (Number(item.attrs[2]) || 0) * reader.scale;
+    if (r <= 0) return null;
+    const regions = inner > 0 ? annulus(r, r - inner) : [ring(r, r)];
+    return { segments, regions, sources: regions.map(() => null), note: `a swept disk of radius ${+r.toPrecision(6)} m` };
+  }
+  return null;
+}
+
+/**
  * {segments, regions: [[[x, y]]], sources, note} for a beam or column swept from a section that is not a plain
  * rectangle; regions in OEBF profile space measured from the path, sources the profile definition id each came
  * from. Solids of the same section that carry on from where the first ends, in another direction, add a segment
@@ -694,7 +736,7 @@ function runRegions(reader, solids, start, d, depth) {
  */
 export function sectionProfile(reader, product, items) {
   const solids = items.filter(i => i.item.type === 'IFCEXTRUDEDAREASOLID');
-  if (!solids.length) return null;
+  if (!solids.length) return sweptDiskSection(reader, items);
   const { solid, d, depth } = solidFrame(reader, solids[0].item, solids[0].m);
   if (Math.abs(d[2]) >= VERTICAL && product.type !== 'IFCCOLUMN') return null;
   if (solids.length === 1 && rectOf(reader, reader.get(solids[0].item.attrs[0]))) return null;
@@ -855,6 +897,41 @@ export function footprintAxis(reader, items) {
 }
 
 /**
+ * The faces of an advanced BREP as world polygons when every face is a plane bounded by straight edges (a box-like
+ * body written as an advanced BREP); null when any face or edge is curved, as the browser has no geometry engine to
+ * mesh it (#189).
+ */
+function advancedFaces(reader, item, m) {
+  const faces = [];
+  for (const fref of reader.get(item.attrs[0])?.attrs[0] ?? []) {
+    const face = reader.get(fref);
+    if (face?.type !== 'IFCADVANCEDFACE' || reader.get(face.attrs[1])?.type !== 'IFCPLANE') return null;
+    for (const bref of face.attrs[0] ?? []) {
+      const bound = reader.get(bref);
+      if (bound?.type !== 'IFCFACEOUTERBOUND') {
+        if (bound?.type === 'IFCFACEBOUND') continue;   // a hole in the face: not needed for the base outline
+        return null;
+      }
+      const loop = reader.get(bound.attrs[0]);
+      if (loop?.type !== 'IFCEDGELOOP') return null;
+      const pts = [];
+      for (const oref of loop.attrs[0] ?? []) {
+        const oriented = reader.get(oref);
+        const edge = reader.get(oriented?.attrs[2]);
+        if (edge?.type !== 'IFCEDGECURVE' || !['IFCLINE', 'IFCPOLYLINE'].includes(reader.get(edge.attrs[2])?.type)) return null;
+        const forward = isTrue(oriented.attrs[3]);
+        const vertex = reader.get(edge.attrs[forward ? 0 : 1]);
+        const p = coords(reader, vertex?.attrs[0]);
+        if (!p) return null;
+        pts.push(apply(m, p.map(v => v * reader.scale)));
+      }
+      if (pts.length >= 3) faces.push(pts);
+    }
+  }
+  return faces;
+}
+
+/**
  * The faces of a faceted body as world polygons [[x, y, z]]: an IfcFacetedBrep, an IfcTriangulatedFaceSet or an
  * IfcPolygonalFaceSet (the browser has no geometry engine, so other BREPs are not read).
  */
@@ -872,6 +949,9 @@ function bodyFaces(reader, items) {
           if (pts.length >= 3 && bound.type === 'IFCFACEOUTERBOUND') faces.push(pts);
         }
       }
+    } else if (item.type === 'IFCADVANCEDBREP' || item.type === 'IFCADVANCEDBREPWITHVOIDS') {
+      const got = advancedFaces(reader, item, m);
+      if (got) faces.push(...got);
     } else if (item.type === 'IFCTRIANGULATEDFACESET' || item.type === 'IFCPOLYGONALFACESET') {
       const pts = (reader.get(item.attrs[0])?.attrs[0] ?? []).map(p => apply(m, p.map(v => v * reader.scale)));
       const index = item.type === 'IFCTRIANGULATEDFACESET' ? item.attrs[3] ?? [] : (item.attrs[2] ?? []).map(r => reader.get(r)?.attrs[0] ?? []);
@@ -1051,7 +1131,9 @@ export function clipPath(reader, items, segments, height, thickness = null) {
   const angles = {};
   const notes = [];
   const boxes = [];
-  for (const { operator, operand, m } of items[0]?.cuts ?? []) {
+  // the body's own cuts: not those of an Axis curve that comes first
+  const body = items.find(i => !/CURVE$|^IFCPOLYLINE$/.test(i.item.type)) ?? items[0];
+  for (const { operator, operand, m } of body?.cuts ?? []) {
     if (operator !== 'DIFFERENCE') { notes.push(`a boolean ${String(operator).toLowerCase()} was left out`); continue; }
     if (operand?.type !== 'IFCHALFSPACESOLID' && operand?.type !== 'IFCPOLYGONALBOUNDEDHALFSPACE') {
       const pts = extrusionPoints(reader, operand, m);
@@ -1102,7 +1184,18 @@ function trimEnd(segments, point, removed, angles, inside, thickness, height) {
   const side = (p) => dot(sub(p, point), removed);
   for (const end of ['end', 'start']) {
     const seg = end === 'end' ? segments.at(-1) : segments[0];
-    if (seg.type !== 'line') continue;
+    if (seg.type !== 'line') {
+      // an arc ends on the cut (OEBF's own export, #190): the angle is that of the cut to the end tangent
+      const circle = circleThrough(seg.start.slice(0, 2), seg.mid.slice(0, 2), seg.end.slice(0, 2));
+      if (!circle || Math.abs(side(seg[end])) > 1e-6) continue;
+      const radial = unit([seg[end][0] - circle.c[0], seg[end][1] - circle.c[1], 0]);
+      const turn = [-radial[1], radial[0]];
+      const ccw = (seg.mid[0] - seg.start[0]) * (seg.end[1] - seg.start[1]) - (seg.mid[1] - seg.start[1]) * (seg.end[0] - seg.start[0]) > 0;
+      let outward = ccw ? turn : [-turn[0], -turn[1]];   // the direction of travel at the end
+      if (end === 'start') outward = [-outward[0], -outward[1]];
+      if (Math.abs(outward[0] * removed[0] + outward[1] * removed[1]) < 0.9998) angles[end] = endAngle(outward, removed);
+      return true;
+    }
     const [a, b] = end === 'end' ? [seg.start, seg.end] : [seg.end, seg.start];
     if (side(b) < -1e-6 || side(a) >= -1e-9) continue;   // an end on the plane (an Axis stopping at the cut) counts
     const t = side(a) / (side(a) - side(b));
