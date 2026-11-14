@@ -81,6 +81,7 @@ export function buildThreeMesh(meshData) {
   mesh.userData.elementId   = meshData.elementId;
   mesh.userData.description = meshData.description;
   if (membrane) mesh.userData.membrane = true;
+  if (meshData.bondedEnds?.length) mesh.userData.bondedEnds = meshData.bondedEnds;   // coursed units bonded at a corner (#191)
 
   // Edge overlay — toggled by setRenderMode(), hidden by default
   const edgeGeo   = new THREE.EdgesGeometry(geometry, 15);

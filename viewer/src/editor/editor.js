@@ -974,6 +974,7 @@ async function _loadBundleFromAdapter(adapter) {
   const { parsePath }         = await import('../loader/loadPath.js');
   const { buildProfileShape } = await import('../loader/loadProfile.js');
   const { sweepProfile, sweepOptionsFromElement } = await import('../geometry/sweep.js');
+  const { junctionBonds }     = await import('../geometry/junctionBonds.js');
   const { buildSlabMeshData } = await import('../loader/loadSlab.js');
 
   const model    = await adapter.readJson('model.json');
@@ -982,6 +983,7 @@ async function _loadBundleFromAdapter(adapter) {
   for (const m of (matsData.materials ?? [])) matMap[m.id] = m;
 
   const meshes = [];
+  const prepared = [];   // elements read; swept below, once the junctions are known (#191)
   for (const elementId of (model.elements ?? [])) {
     try {
       const element       = await adapter.readJson(`elements/${elementId}.json`);
@@ -989,7 +991,29 @@ async function _loadBundleFromAdapter(adapter) {
       const profData      = await adapter.readJson(`profiles/${element.profile_id}.json`);
       const parsedPath    = parsePath(pathData);
       const profileShapes = buildProfileShape(profData);
-      const sweptMeshes   = sweepProfile(parsedPath.points, profileShapes, sweepOptionsFromElement(element));
+      prepared.push({ id: elementId, element, points: parsedPath.points, shapes: profileShapes, options: sweepOptionsFromElement(element) });
+    } catch (err) {
+      console.warn(`[OEBF] Skipping element ${elementId}: ${err.message}`);
+    }
+  }
+
+  const junctions = [];
+  for (const junctionId of (model.junctions ?? [])) {
+    try {
+      const junction = await adapter.readJson(`junctions/${junctionId}.json`);
+      if (junction.rule === 'custom' && junction.custom_geometry) {
+        junction.geomData = await adapter.readJson(`junctions/${junction.custom_geometry}`);
+      }
+      junctions.push(junction);
+    } catch (err) {
+      console.warn(`[OEBF] Skipping junction ${junctionId}: ${err.message}`);
+    }
+  }
+
+  const bonds = junctionBonds(prepared, junctions);
+  for (const { id: elementId, element, points, shapes, options } of prepared) {
+    try {
+      const sweptMeshes = sweepProfile(points, shapes, { ...options, bonds: bonds.get(elementId) });
       for (const sm of sweptMeshes) {
         const mat = matMap[sm.materialId];
         meshes.push({ ...sm, elementId, colour: mat?.colour_hex ?? '#888888', opacity: mat?.opacity, membrane: isMembrane({ function: sm.function, material: mat }), description: element.description });
@@ -1013,19 +1037,6 @@ async function _loadBundleFromAdapter(adapter) {
       });
     } catch (err) {
       console.warn(`[OEBF] Skipping slab ${slabId}: ${err.message}`);
-    }
-  }
-
-  const junctions = [];
-  for (const junctionId of (model.junctions ?? [])) {
-    try {
-      const junction = await adapter.readJson(`junctions/${junctionId}.json`);
-      if (junction.rule === 'custom' && junction.custom_geometry) {
-        junction.geomData = await adapter.readJson(`junctions/${junction.custom_geometry}`);
-      }
-      junctions.push(junction);
-    } catch (err) {
-      console.warn(`[OEBF] Skipping junction ${junctionId}: ${err.message}`);
     }
   }
 

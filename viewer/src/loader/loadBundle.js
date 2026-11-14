@@ -20,6 +20,7 @@
 import { parsePath }           from './loadPath.js';
 import { buildProfileShape }   from './loadProfile.js';
 import { sweepProfile, sweepOptionsFromElement } from '../geometry/sweep.js';
+import { junctionBonds }      from '../geometry/junctionBonds.js';
 import { buildSlabMeshData }   from './loadSlab.js';
 import { buildOpeningOutline } from './loadOpening.js';
 import { loadObjectPlacement } from './loadObject.js';
@@ -41,6 +42,7 @@ export async function loadBundle(dirHandle) {
   for (const m of materials.materials) matMap[m.id] = m;
 
   const meshes = [];
+  const prepared = [];   // elements read; swept below, once the junctions are known (#191)
 
   for (const elementId of model.elements) {
     try {
@@ -50,7 +52,32 @@ export async function loadBundle(dirHandle) {
 
       const parsedPath    = parsePath(pathData);
       const profileShapes = buildProfileShape(profData);
-      const sweptMeshes   = sweepProfile(parsedPath.points, profileShapes, sweepOptionsFromElement(element));
+      prepared.push({ id: elementId, element, points: parsedPath.points, shapes: profileShapes, options: sweepOptionsFromElement(element) });
+    } catch (err) {
+      console.warn(`[OEBF] Skipping element ${elementId}: ${err.message}`);
+    }
+  }
+
+  const junctions = [];
+  for (const junctionId of (model.junctions ?? [])) {
+    try {
+      const junction = await _readJson(dirHandle, `junctions/${junctionId}.json`);
+      if (junction.rule === 'custom' && junction.custom_geometry) {
+        junction.geomData = await _readJson(
+          dirHandle,
+          `junctions/${junction.custom_geometry}`,
+        );
+      }
+      junctions.push(junction);
+    } catch (err) {
+      console.warn(`[OEBF] Skipping junction ${junctionId}: ${err.message}`);
+    }
+  }
+
+  const bonds = junctionBonds(prepared, junctions);
+  for (const { id: elementId, element, points, shapes, options } of prepared) {
+    try {
+      const sweptMeshes = sweepProfile(points, shapes, { ...options, bonds: bonds.get(elementId) });
 
       for (const sm of sweptMeshes) {
         const mat = matMap[sm.materialId];
@@ -82,22 +109,6 @@ export async function loadBundle(dirHandle) {
       });
     } catch (err) {
       console.warn(`[OEBF] Skipping slab ${slabId}: ${err.message}`);
-    }
-  }
-
-  const junctions = [];
-  for (const junctionId of (model.junctions ?? [])) {
-    try {
-      const junction = await _readJson(dirHandle, `junctions/${junctionId}.json`);
-      if (junction.rule === 'custom' && junction.custom_geometry) {
-        junction.geomData = await _readJson(
-          dirHandle,
-          `junctions/${junction.custom_geometry}`,
-        );
-      }
-      junctions.push(junction);
-    } catch (err) {
-      console.warn(`[OEBF] Skipping junction ${junctionId}: ${err.message}`);
     }
   }
 

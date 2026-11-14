@@ -49,7 +49,9 @@ export function buildClippingPlaneMap(junctions) {
         const constant = -(p.normal[0] * p.origin[0] +
                            p.normal[1] * p.origin[1] +
                            p.normal[2] * p.origin[2]) + CLIP_TOLERANCE;
-        return new THREE.Plane(normal, constant);
+        const plane = new THREE.Plane(normal, constant);
+        plane.atEnd = p.atEnd;     // 'start' | 'end': which end of the element it trims (see applyJunctionClipping)
+        return plane;
       });
 
       if (!map.has(elementId)) map.set(elementId, []);
@@ -77,7 +79,11 @@ export function applyJunctionClipping(sceneRoot, junctions) {
     const elementId = obj.userData.elementId;
     if (!elementId) return;
 
-    const planes = clippingPlaneMap.get(elementId);
+    let planes = clippingPlaneMap.get(elementId);
+    // A coursed layer bonded at an end of its path (#191) has its units cut to the bond already, past the trim plane
+    // where a unit runs through, so that end's plane is left off it.
+    const bonded = obj.userData.bondedEnds;
+    if (planes && bonded?.length) planes = planes.filter(pl => !bonded.includes(pl.atEnd));
     if (!planes || planes.length === 0) return;
 
     // Clone the material so we don't modify a shared material instance
