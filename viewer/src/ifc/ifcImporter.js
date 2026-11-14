@@ -12,8 +12,8 @@
  * opening voiding an imported wall (IfcRelVoidsElement), or a box a boolean cuts out of it, becomes an Opening. It is
  * tested against the IFC fixtures it shares with the Python importer (fixtures/ifc/, sharedFixtures.test.js). An
  * element whose shape cannot be read keeps the old fallback: a path from its first extrusion (else a 1 m stub) and the
- * placeholder profile. Not read here: doors and windows as Objects (the Python importer makes them; here an opening
- * only records the filler's class), and bodies the browser cannot mesh (non-faceted BREPs, swept disks).
+ * placeholder profile. A door or window becomes an Object on its wall with a box Symbol of its own size, as in the
+ * Python importer (#189). Not read here: bodies the browser cannot mesh (non-faceted BREPs, swept disks).
  */
 
 import { parseStep } from './stepParser.js';
@@ -32,6 +32,7 @@ const IFC_TO_OEBF_TYPE = {
   IFCCOLUMN:           'IfcColumn',
 };
 
+const HOST_GAP = 0.05;   // how far a door or window that is in no opening may stand off its wall's face, metres
 const SLAB_TYPES = new Set(['IFCSLAB', 'IFCROOF']);
 
 const PLACEHOLDER_PROFILE  = 'profile-imported-placeholder';
@@ -160,23 +161,30 @@ export async function importIfcText(text, adapter) {
       properties:     { imported_from_ifc: true },
     });
     elementIds.push(elemId);
-    if (segments) walls.set(e.id, { elemId, pathId, segments, name });
+    if (segments) walls.set(e.id, { elemId, pathId, segments, name, thickness: shape?.thickness ?? 0.2 });
   }
 
-  await _importOpenings(reader, adapter, walls, cuts, openingIds, warnings);
-  return { projectName, elementIds, slabIds, openingIds, materials, warnings };
+  const objectIds = [], symbolIds = [];
+  await _importOpenings(reader, adapter, walls, cuts, openingIds, warnings, objectIds, symbolIds);
+  return { projectName, elementIds, slabIds, openingIds, objectIds, symbolIds, materials, warnings };
 }
 
 /**
  * Openings: each IfcRelVoidsElement whose wall was imported, placed along the wall's path from the opening's box
  * (the filler's class, a door or window, is kept as its ifc_type), and each box a boolean cut out of a wall.
  */
-async function _importOpenings(reader, adapter, walls, cuts, openingIds, warnings) {
+async function _importOpenings(reader, adapter, walls, cuts, openingIds, warnings, objectIds = [], symbolIds = []) {
   const fillers = new Map();   // opening entity id -> IFC class of what fills it
+  const fillerEntities = new Map();   // opening entity id -> the doors and windows that fill it
+  const symbols = new Map();   // size key -> symbol id
+  const placedFillers = new Set();
   for (const [, e] of reader.entities) {
     if (e.type !== 'IFCRELFILLSELEMENT') continue;
     const filler = reader.get(e.attrs[5]);
-    if (filler && (filler.type === 'IFCDOOR' || filler.type === 'IFCWINDOW')) fillers.set(e.attrs[4]?.id, filler.type === 'IFCDOOR' ? 'IfcDoor' : 'IfcWindow');
+    if (filler && (filler.type === 'IFCDOOR' || filler.type === 'IFCWINDOW')) {
+      fillers.set(e.attrs[4]?.id, filler.type === 'IFCDOOR' ? 'IfcDoor' : 'IfcWindow');
+      fillerEntities.set(e.attrs[4]?.id, [...(fillerEntities.get(e.attrs[4]?.id) ?? []), filler]);
+    }
   }
   const write = async (id, name, wall, placed, ifcType) => {
     const doc = {
@@ -202,6 +210,9 @@ async function _importOpenings(reader, adapter, walls, cuts, openingIds, warning
     }
     const id = `opening-${_slugify(typeof opening.attrs[0] === 'string' ? opening.attrs[0] : _makeId())}`;
     await write(id, label, wall, placed, fillers.get(opening.id));
+    for (const filler of fillerEntities.get(opening.id) ?? []) {
+      if (await _writeFiller(reader, adapter, filler, id, placed, wall, symbols, objectIds, symbolIds)) placedFillers.add(filler.id);
+    }
   }
   for (const { elemId, boxes } of cuts) {
     const wall = [...walls.values()].find(w => w.elemId === elemId);
@@ -214,6 +225,71 @@ async function _importOpenings(reader, adapter, walls, cuts, openingIds, warning
       await write(`opening-${elemId}-cut-${n + 1}`.slice(0, 120), `Cut ${n + 1} in ${wall.name}`, wall, placed, null);
     }
   }
+  // a door or window that is in no opening is hung on the wall it stands in, without an opening
+  for (const [, filler] of reader.entities) {
+    if ((filler.type !== 'IFCDOOR' && filler.type !== 'IFCWINDOW') || placedFillers.has(filler.id)) continue;
+    let host = null;
+    try {
+      const pts = bodyPoints(reader, filler);
+      for (const wall of walls.values()) {
+        const placed = pts && placeOnPath(pts, wall.segments);
+        if (!placed || placed.width < 1e-3 || placed.height < 1e-3 || placed.gap > HOST_GAP) continue;
+        if (placed.offset > wall.thickness / 2 + HOST_GAP) continue;
+        if (!host || placed.offset < host.placed.offset) host = { wall, placed };
+      }
+    } catch { /* no host below */ }
+    if (!host) {
+      warnings.push(`skipped ${filler.type} ${typeof filler.attrs[2] === 'string' ? filler.attrs[2] : ''}: it is in no opening and stands in no imported wall, so it has no host`);
+      continue;
+    }
+    await _writeFiller(reader, adapter, filler, null, host.placed, host.wall, symbols, objectIds, symbolIds);
+  }
+}
+
+/**
+ * A door or window as an Object on its wall, with a box Symbol of its own size (as the Python importer's
+ * _import_filler). Without an opening, `box` is where the filler itself stands and its height above the path is kept.
+ * Returns true when written.
+ */
+async function _writeFiller(reader, adapter, filler, openingId, box, wall, symbols, objectIds, symbolIds) {
+  let own = null;
+  try { const pts = bodyPoints(reader, filler); own = pts && placeOnPath(pts, wall.segments); } catch { /* the sizes below */ }
+  const attr = (n) => (typeof filler.attrs[n] === 'number' ? filler.attrs[n] * (reader.scale ?? 1) : 0);
+  const width = own?.width || attr(9) || box.width;
+  const height = own?.height || attr(8) || box.height;
+  const depth = own?.depth || 0.1;
+  const ifcClass = filler.type === 'IFCDOOR' ? 'IfcDoor' : 'IfcWindow';
+  const rawPre = typeof filler.attrs[10] === 'string' ? filler.attrs[10] : '';
+  const predefined = rawPre && rawPre !== 'NOTDEFINED' ? rawPre : null;
+  const mm = (v) => Math.round(v * 1000);
+  const key = [ifcClass, predefined, mm(width), mm(depth), mm(height)].join('|');
+  if (!symbols.has(key)) {
+    const kind = ifcClass === 'IfcDoor' ? 'door' : 'window';
+    let symbolId = `symbol-imported-${kind}-${mm(width)}x${mm(height)}`;
+    if ([...symbols.values()].includes(symbolId)) symbolId += `-${mm(depth)}`;
+    symbols.set(key, symbolId);
+    await adapter.writeJson(`symbols/${symbolId}.json`, {
+      $schema: 'oebf://schema/0.1/symbol', id: symbolId, type: 'Symbol',
+      description: `Imported ${kind}, ${mm(width)} x ${mm(height)} mm`,
+      ifc_type: ifcClass, parameters: { width_m: _r4(width), depth_m: _r4(depth), height_m: _r4(height) },
+      geometry_definition: 'box',
+      ...(predefined ? { ifc_predefined_type: predefined } : {}),
+    });
+    symbolIds.push(symbolId);
+  }
+  const name = typeof filler.attrs[2] === 'string' && filler.attrs[2] ? filler.attrs[2] : ifcClass;
+  const objectId = `object-${_slugify(typeof filler.attrs[0] === 'string' ? filler.attrs[0] : _makeId())}`;
+  await adapter.writeJson(`objects/${objectId}.json`, {
+    $schema: 'oebf://schema/0.1/object', id: objectId, type: 'Object',
+    description: name, ifc_type: ifcClass,
+    symbol_id: symbols.get(key), host_element_id: wall.elemId, path_id: wall.pathId,
+    path_position: _r4(box.position + box.width / 2),
+    ...(openingId ? { opening_id: openingId } : { base_height_m: _r4(Math.max(box.sill, 0)) }),
+    parameter_overrides: {}, parent_group_id: '',
+    properties: { imported_from_ifc: true },
+  });
+  objectIds.push(objectId);
+  return true;
 }
 
 /** A slab has one material: its thickest layer's, else its single material, else the placeholder. */
@@ -263,7 +339,11 @@ function _elementShape(reader, product, warnings, label) {
     }
   }
   if (!segments) {
-    if (items.length) warnings.push(`${label}: its shape (${items[0].item.type}) could not be read; it was given a placeholder path`);
+    if (items.length) {
+      const needsEngine = items.some(i => /^IFC(ADVANCEDBREP|SWEPTDISKSOLID|BOOLEANRESULT|CSGSOLID)/.test(i.item.type));
+      warnings.push(`${label}: its shape (${items[0].item.type}) could not be read; it was given a placeholder path`
+        + (needsEngine ? ' (curved and swept bodies need a geometry engine, which the browser lacks: import the file with the Python tool, uv run oebf ifc-import)' : ''));
+    }
     return null;
   }
   return { segments, thickness, height, items, centred };

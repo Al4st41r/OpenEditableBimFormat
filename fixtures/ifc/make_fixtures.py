@@ -462,7 +462,99 @@ def wall_sloping():
     }]
 
 
+# ── added for #189 ───────────────────────────────────────────────────────────
+
+def wall_door_window():
+    """A 6 m x 0.3 m wall, 3 m high, with an opening 1 m wide and 2.1 m high from 1 m along it, filled by an IfcDoor
+    (a 1 m x 0.2 m x 2.1 m box); and an IfcWindow in no opening, 1.2 m wide, 1.2 m high, 0.9 m up, from 3.4 m along. Each
+    becomes an Object with a box Symbol of its own size, the door in its opening, the window with a base height."""
+    ifc, body, _, storey = _file()
+    wall = _product(ifc, storey, body, "IfcWall", [_extrusion(ifc, _rect(ifc, 6.0, 0.3, (3.0, 0)), 3.0)], "Wall with a door")
+    _material(ifc, wall, "Brick")
+    opening = _product(ifc, storey, body, "IfcOpeningElement", [_extrusion(ifc, _rect(ifc, 1.0, 0.4, (1.5, 0)), 2.1)], "Door opening")
+    ifc.create_entity("IfcRelVoidsElement", GlobalId=ifcopenshell.guid.new(), RelatingBuildingElement=wall, RelatedOpeningElement=opening)
+    door = _product(ifc, storey, body, "IfcDoor", [_extrusion(ifc, _rect(ifc, 1.0, 0.2, (1.5, 0)), 2.1)], "Front door")
+    door.OverallWidth, door.OverallHeight = 1.0, 2.1
+    ifc.create_entity("IfcRelFillsElement", GlobalId=ifcopenshell.guid.new(), RelatingOpeningElement=opening, RelatedBuildingElement=door)
+    window = _product(ifc, storey, body, "IfcWindow", [_extrusion(ifc, _rect(ifc, 1.2, 0.2, (4.0, 0)), 1.2, _place(ifc, (0, 0, 0.9)))], "Side window")
+    window.OverallWidth, window.OverallHeight = 1.2, 1.2
+    return ifc, [{
+        "ifc_type": "IfcWall", "segments": [[[0, 0, 0], [6, 0, 0]]], "width": 0.3, "height_limit_m": 3.0, "materials": ["mat-brick"],
+        "openings": [{"path_position": 1.0, "width_m": 1.0, "height_m": 2.1, "sill_height_m": 0.0}],
+        "objects": [
+            {"ifc_type": "IfcDoor", "in_opening": True, "path_position": 1.5, "width_m": 1.0, "depth_m": 0.2, "height_m": 2.1},
+            {"ifc_type": "IfcWindow", "in_opening": False, "path_position": 4.0, "width_m": 1.2, "depth_m": 0.2, "height_m": 1.2, "base_height_m": 0.9},
+        ],
+    }]
+
+
+def beam_swept_disk():
+    """A round member (an IfcBeam) as an IfcSweptDiskSolid of radius 0.05 m along a polyline directrix of two legs: from
+    (0, 0, 3) to (4, 0, 3), then to (4, 3, 3). It is read as a circular section swept along both legs."""
+    ifc, body, _, storey = _file()
+    directrix = ifc.create_entity("IfcPolyline", Points=[_pt(ifc, 0, 0, 3), _pt(ifc, 4, 0, 3), _pt(ifc, 4, 3, 3)])
+    disk = ifc.create_entity("IfcSweptDiskSolid", Directrix=directrix, Radius=0.05)
+    beam = _product(ifc, storey, body, "IfcBeam", [disk], "Round bar", rep_type="AdvancedSweptSolid")
+    _material(ifc, beam, "Steel")
+    return ifc, [{
+        "ifc_type": "IfcBeam", "segments": [[[0, 0, 3], [4, 0, 3]], [[4, 0, 3], [4, 3, 3]]],
+        "regions": {"count": 1, "area": math.pi * 0.05 ** 2, "bounds": [-0.05, 0.05, -0.05, 0.05]},
+        "materials": ["mat-steel"],
+    }]
+
+
+def wall_advanced_brep():
+    """A wall whose body is an IfcAdvancedBrep (planar faces bounded by straight edges): a box 4 m x 0.2 m x 2.7 m from
+    (0, -0.1, 0). The browser reads it from its faces, as the faceted BREP of wall-brep.ifc: a centreline along y = 0."""
+    ifc, body, _, storey = _file()
+    x0, x1, y0, y1, z0, z1 = 0.0, 4.0, -0.1, 0.1, 0.0, 2.7
+    verts = {k: ifc.create_entity("IfcVertexPoint", VertexGeometry=_pt(ifc, *k)) for k in
+             [(x, y, z) for x in (x0, x1) for y in (y0, y1) for z in (z0, z1)]}
+    edges = {}
+
+    def edge(a, b):
+        """The edge a-b and whether it runs the way it was made."""
+        if (a, b) in edges:
+            return edges[(a, b)], True
+        if (b, a) in edges:
+            return edges[(b, a)], False
+        d = tuple(q - p for p, q in zip(a, b))
+        n = math.sqrt(sum(v * v for v in d))
+        line = ifc.create_entity("IfcLine", Pnt=_pt(ifc, *a), Dir=ifc.create_entity("IfcVector", Orientation=_dir(ifc, *d), Magnitude=n))
+        edges[(a, b)] = ifc.create_entity("IfcEdgeCurve", EdgeStart=verts[a], EdgeEnd=verts[b], EdgeGeometry=line, SameSense=True)
+        return edges[(a, b)], True
+
+    faces_def = [  # outward normals: bottom, top, front, right, back, left
+        ([(x0, y0, z0), (x0, y1, z0), (x1, y1, z0), (x1, y0, z0)], (0, 0, -1), (x0, y0, z0)),
+        ([(x0, y0, z1), (x1, y0, z1), (x1, y1, z1), (x0, y1, z1)], (0, 0, 1), (x0, y0, z1)),
+        ([(x0, y0, z0), (x1, y0, z0), (x1, y0, z1), (x0, y0, z1)], (0, -1, 0), (x0, y0, z0)),
+        ([(x1, y0, z0), (x1, y1, z0), (x1, y1, z1), (x1, y0, z1)], (1, 0, 0), (x1, y0, z0)),
+        ([(x1, y1, z0), (x0, y1, z0), (x0, y1, z1), (x1, y1, z1)], (0, 1, 0), (x1, y1, z0)),
+        ([(x0, y1, z0), (x0, y0, z0), (x0, y0, z1), (x0, y1, z1)], (-1, 0, 0), (x0, y1, z0)),
+    ]
+    faces = []
+    for loop, normal, origin in faces_def:
+        oriented = []
+        for a, b in zip(loop, loop[1:] + loop[:1]):
+            e, forward = edge(a, b)
+            oriented.append(ifc.create_entity("IfcOrientedEdge", EdgeElement=e, Orientation=forward))
+        bound = ifc.create_entity("IfcFaceOuterBound", Bound=ifc.create_entity("IfcEdgeLoop", EdgeList=oriented), Orientation=True)
+        ref = (1, 0, 0) if abs(normal[0]) < 0.5 else (0, 1, 0)
+        plane = ifc.create_entity("IfcPlane", Position=_place(ifc, origin, axis=normal, ref=ref))
+        faces.append(ifc.create_entity("IfcAdvancedFace", Bounds=[bound], FaceSurface=plane, SameSense=True))
+    brep = ifc.create_entity("IfcAdvancedBrep", Outer=ifc.create_entity("IfcClosedShell", CfsFaces=faces))
+    wall = _product(ifc, storey, body, "IfcWall", [brep], "Advanced brep wall", rep_type="AdvancedBrep")
+    _material(ifc, wall, "Concrete")
+    return ifc, [{
+        "ifc_type": "IfcWall", "segments": [[[0, 0, 0], [4, 0, 0]]], "either_direction": True,
+        "width": 0.2, "height_limit_m": 2.7, "materials": ["mat-concrete"],
+    }]
+
+
 FIXTURES = {
+    "beam-swept-disk.ifc": beam_swept_disk,
+    "wall-advanced-brep.ifc": wall_advanced_brep,
+    "wall-door-window.ifc": wall_door_window,
     "wall-arc-angled-end.ifc": wall_arc_angled_end,
     "wall-closed-loop.ifc": wall_closed_loop,
     "wall-sloping.ifc": wall_sloping,
@@ -494,7 +586,7 @@ def main():
                        "materials are the sorted material ids of the profile's layers or regions. Optional: segment_types (line or "
                        "arc, in order), arc_radius (the distance of an arc's start, mid and end from the origin), either_direction "
                        "(the path may run the other way), layers (the band names, left to right), layer_thicknesses, origin_x "
-                       "(the profile's), closed (the path is a loop), cap_start, cap_end, cap_end_angle_deg, openings (path_position, width_m, height_m, sill_height_m of each, along the path), "
+                       "(the profile's), objects (the doors and windows on the wall: ifc_type, in_opening, path_position of their centre, width_m, depth_m, height_m, base_height_m), closed (the path is a loop), cap_start, cap_end, cap_end_angle_deg, openings (path_position, width_m, height_m, sill_height_m of each, along the path), "
                        "and per fixture slabs (outline points in order, from any start, either way round; thickness_m, "
                        "elevation_m, material_id).",
         "fixtures": {},

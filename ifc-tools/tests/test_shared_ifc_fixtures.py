@@ -94,6 +94,21 @@ def test_a_shared_fixture_imports_as_expected(tmp_path, name):
             openings = sorted((o for o in openings if o["host_element_id"] == element["id"]), key=lambda o: o["path_position"])
             assert [(o["path_position"], o["width_m"], o["height_m"], o["sill_height_m"]) for o in openings] == pytest.approx(
                 [(o["path_position"], o["width_m"], o["height_m"], o["sill_height_m"]) for o in want["openings"]], abs=1e-3)
+    for element, _, _ in rows:
+        wants = next((w["objects"] for w in expected if "objects" in w and w["ifc_type"] == element["ifc_type"]), None)
+        if wants is None:
+            continue
+        objects = [json.loads(f.read_text()) for f in sorted((out / "objects").glob("*.json"))]
+        objects = sorted((o for o in objects if o["host_element_id"] == element["id"]), key=lambda o: o["ifc_type"])
+        assert len(objects) == len(wants)
+        for obj, want in zip(objects, sorted(wants, key=lambda o: o["ifc_type"])):
+            symbol = json.loads((out / "symbols" / f"{obj['symbol_id']}.json").read_text())
+            assert obj["ifc_type"] == symbol["ifc_type"] == want["ifc_type"]
+            assert ("opening_id" in obj) == want["in_opening"]
+            assert obj["path_position"] == pytest.approx(want["path_position"], abs=1e-3)
+            assert obj.get("base_height_m", 0) == pytest.approx(want.get("base_height_m", 0), abs=1e-3)
+            assert [symbol["parameters"][k] for k in ("width_m", "depth_m", "height_m")] == pytest.approx(
+                [want["width_m"], want["depth_m"], want["height_m"]], abs=1e-3)
     slabs = [json.loads(f.read_text()) for f in sorted((out / "slabs").glob("*.json"))] if (out / "slabs").is_dir() else []
     want_slabs = EXPECTED[name].get("slabs", [])
     assert len(slabs) == len(want_slabs)

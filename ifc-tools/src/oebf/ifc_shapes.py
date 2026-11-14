@@ -525,6 +525,47 @@ def _run_regions(solids, start, d, depth, scale, angle_unit):
     return regions, sources, note, used
 
 
+def _directrix_points(curve, scale):
+    """The points (n x 3, metres, in the solid's frame) of a straight-sided directrix: an IfcPolyline, or an
+    IfcIndexedPolyCurve of line segments on a 3D point list. None for anything else (an arc, a spline)."""
+    if curve.is_a("IfcPolyline"):
+        return [[float(v) * scale for v in p.Coordinates] + [0.0] * (3 - len(p.Coordinates)) for p in curve.Points]
+    if curve.is_a("IfcIndexedPolyCurve"):
+        coords = [[float(v) * scale for v in c] + [0.0] * (3 - len(c)) for c in curve.Points.CoordList]
+        if any(seg.is_a("IfcArcIndex") for seg in curve.Segments or []):
+            return None
+        if not curve.Segments:
+            return coords
+        out = []
+        for seg in curve.Segments:
+            for i in seg[0]:
+                if not out or out[-1] is not coords[i - 1]:
+                    out.append(coords[i - 1])
+        return out
+    return None
+
+
+def _swept_disk_section(entity, scale):
+    """A swept disk (a pipe, a bar, a round member) along a straight-sided directrix as a section: a circle (or a ring
+    for a hollow one) swept along the directrix's segments (#189). None when the entity's body is not one."""
+    for item, m, _ in body_items(entity):
+        if not item.is_a("IfcSweptDiskSolid"):
+            continue
+        pts = _directrix_points(item.Directrix, scale)
+        if not pts or len(pts) < 2:
+            return None
+        world = [tuple(float(v) for v in (m @ np.array([p[0], p[1], p[2], 1.0]))[:3]) for p in pts]
+        segments = [(a, b) for a, b in zip(world, world[1:]) if math.dist(a, b) > 1e-9]
+        if not segments:
+            return None
+        r = float(item.Radius) * scale
+        inner = float(item.InnerRadius) * scale if item.InnerRadius else 0.0
+        regions = _annulus(r, r - inner) if inner > 0 else [_ring(0.0, 0.0, r, r)]
+        note = f"a swept disk of radius {r:g} m"
+        return {"segments": segments, "regions": regions, "sources": [None] * len(regions), "note": note}
+    return None
+
+
 def section_profile(entity):
     """{segments: [(start, end)], regions: [[(x, y)]], sources, note} for an element swept from a section that is not
     a plain rectangle, in world metres, with the regions in OEBF profile space (x across, y up, measured from the
@@ -538,7 +579,7 @@ def section_profile(entity):
         angle_unit = _angle_scale(entity)
         solids = [(item, m) for item, m, _ in body_items(entity) if item.is_a("IfcExtrudedAreaSolid")]
         if not solids:
-            return None
+            return _swept_disk_section(entity, scale)
         first, world = solids[0]
         solid, d, depth = _solid_frame(first, world, scale)
         if abs(d[2]) >= VERTICAL and not entity.is_a() in UPRIGHT_SECTIONS:

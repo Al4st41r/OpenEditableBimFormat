@@ -259,7 +259,7 @@ _ifcInput.addEventListener('change', async () => {
   statusBar.textContent = 'Importing IFC…';
   try {
     const text = await file.text();
-    const { projectName, elementIds, slabIds, openingIds, materials } = await importIfcText(text, adapter);
+    const { projectName, elementIds, slabIds, openingIds, objectIds = [], materials } = await importIfcText(text, adapter);
 
     // Merge imported materials into library
     if (materials.length > 0) {
@@ -278,6 +278,7 @@ _ifcInput.addEventListener('change', async () => {
     model.elements = [...new Set([...(model.elements ?? []), ...elementIds])];
     model.slabs    = [...new Set([...(model.slabs    ?? []), ...slabIds])];
     if (openingIds.length) model.openings = [...new Set([...(model.openings ?? []), ...openingIds])];   // #181
+    if (objectIds.length) model.objects = [...new Set([...(model.objects ?? []), ...objectIds])];   // doors and windows (#189)
     await adapter.writeJson('model.json', model);
 
     // Update _modelState
@@ -285,7 +286,7 @@ _ifcInput.addEventListener('change', async () => {
     for (const id of slabIds)    if (!_modelState.slabs.includes(id))    _modelState.slabs.push(id);
 
     await _loadAndRenderBundle(adapter);
-    statusBar.textContent = `Imported ${elementIds.length} elements, ${slabIds.length} slabs${openingIds.length ? `, ${openingIds.length} openings` : ''} from ${file.name}`;
+    statusBar.textContent = `Imported ${elementIds.length} elements, ${slabIds.length} slabs${openingIds.length ? `, ${openingIds.length} openings` : ''}${objectIds.length ? `, ${objectIds.length} doors and windows` : ''} from ${file.name}`;
   } catch (e) {
     _reportError(`IFC import error: ${e.message}`);
   }
