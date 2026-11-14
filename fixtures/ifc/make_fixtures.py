@@ -462,6 +462,32 @@ def wall_sloping():
     }]
 
 
+def wall_sloping_l():
+    """A wall of two sloping legs, from (0, 0, 0) to (4, 0, 0.5) and on to (4, 3, 1): one sheared solid per leg, each 0.3 m
+    x 2.5 m upright and run on past the corner, then cut at it by a vertical half-space on the mitre plane through
+    (4, 0) (#198). The Axis is a three-dimensional polyline through the three corners. The path has two segments, both
+    rising, and the wall is one element."""
+    ifc, body, axis_ctx, storey = _file()
+    run = 0.15   # the outer face runs on by half the thickness at a right-angled corner
+    s2 = math.sqrt(0.5)
+    k1 = math.sqrt(1 + 0.125 ** 2)
+    k2 = math.sqrt(1 + (1 / 6) ** 2)
+    leg1 = _extrusion(ifc, _rect(ifc, 0.3, 2.5, (0, 1.25)), (4 + run) * k1, _place(ifc, (0, 0, 0), axis=(1, 0, 0), ref=(0, 1, 0)),
+                      direction=(0, 0.125 / k1, 1 / k1))
+    leg2 = _extrusion(ifc, _rect(ifc, 0.3, 2.5, (0, 1.25)), (3 + run) * k2, _place(ifc, (4, -run, 0.5 - run / 6), axis=(0, 1, 0), ref=(-1, 0, 0)),
+                      direction=(0, (1 / 6) / k2, 1 / k2))
+    cut1 = ifc.create_entity("IfcBooleanClippingResult", Operator="DIFFERENCE", FirstOperand=leg1, SecondOperand=_half_space(ifc, (4, 0, 0), (s2, s2, 0)))
+    cut2 = ifc.create_entity("IfcBooleanClippingResult", Operator="DIFFERENCE", FirstOperand=leg2, SecondOperand=_half_space(ifc, (4, 0, 0), (-s2, -s2, 0)))
+    axis = ifc.create_entity("IfcShapeRepresentation", ContextOfItems=axis_ctx, RepresentationIdentifier="Axis", RepresentationType="Curve3D",
+                             Items=[_polyline(ifc, [(0, 0, 0), (4, 0, 0.5), (4, 3, 1.0)], closed=False)])
+    wall = _product(ifc, storey, body, "IfcWall", [cut1, cut2], "Sloping L wall", rep_type="Clipping", extra_reps=[axis])
+    _material(ifc, wall, "Brick")
+    return ifc, [{
+        "ifc_type": "IfcWall", "segments": [[[0, 0, 0], [4, 0, 0.5]], [[4, 0, 0.5], [4, 3, 1.0]]], "width": 0.3, "height_limit_m": 2.5,
+        "materials": ["mat-brick"],
+    }]
+
+
 # ── added for #189 ───────────────────────────────────────────────────────────
 
 def wall_door_window():
@@ -558,6 +584,7 @@ FIXTURES = {
     "wall-arc-angled-end.ifc": wall_arc_angled_end,
     "wall-closed-loop.ifc": wall_closed_loop,
     "wall-sloping.ifc": wall_sloping,
+    "wall-sloping-l.ifc": wall_sloping_l,
     "wall-box.ifc": wall_box,
     "wall-axis-mm.ifc": wall_axis_mm,
     "wall-clipped.ifc": wall_clipped,

@@ -362,7 +362,8 @@ const reverseSeg = (s) => ({ ...s, start: s.end, end: s.start });
  */
 export function curveSegments(reader, curve, depth = 0) {
   if (!curve || depth > 10) return null;
-  const xy = (c) => [c[0] * reader.scale, c[1] * reader.scale];
+  // a point keeps its third coordinate when it has one (the Axis of a sloping wall, #198)
+  const xy = (c) => c.slice(0, 3).map(v => v * reader.scale);
   const lines = (pts) => pts.slice(1).map((b, i) => ({ type: 'line', start: pts[i], end: b }));
   if (curve.type === 'IFCPOLYLINE') return lines((curve.attrs[0] ?? []).map(r => coords(reader, r)).filter(Boolean).map(xy));
   if (curve.type === 'IFCINDEXEDPOLYCURVE') {
@@ -740,6 +741,9 @@ export function sectionProfile(reader, product, items) {
   const { solid, d, depth } = solidFrame(reader, solids[0].item, solids[0].m);
   if (Math.abs(d[2]) >= VERTICAL && product.type !== 'IFCCOLUMN') return null;
   if (solids.length === 1 && rectOf(reader, reader.get(solids[0].item.attrs[0]))) return null;
+  // rectangles cut at their joints by half-spaces are the mitred pieces of one wall (#198), which the Axis and the
+  // first piece's rectangle describe; a section is swept in plain, unclipped runs
+  if (solids.every(s => s.cuts?.length) && solids.every(s => rectOf(reader, reader.get(s.item.attrs[0])))) return null;
   const start = apply(solid, [0, 0, 0]);
   const first = runRegions(reader, solids, start, d, depth);
   if (!first) return null;
@@ -789,7 +793,7 @@ export function wallAxis(reader, items) {
 export function axisPath(reader, product) {
   const shape = reader.get(product.attrs[6]);
   const world = placementMatrix(reader, product.attrs[5]);
-  const w = (p) => apply(world, [p[0], p[1], 0]);
+  const w = (p) => apply(world, [p[0], p[1], p[2] ?? 0]);
   for (const ref of shape?.attrs[2] ?? []) {
     const rep = reader.get(ref);
     if (rep?.attrs[1] !== 'Axis') continue;
@@ -1132,8 +1136,25 @@ export function clipPath(reader, items, segments, height, thickness = null) {
   const notes = [];
   const boxes = [];
   // the body's own cuts: not those of an Axis curve that comes first
-  const body = items.find(i => !/CURVE$|^IFCPOLYLINE$/.test(i.item.type)) ?? items[0];
-  for (const { operator, operand, m } of body?.cuts ?? []) {
+  const solidItems = items.filter(i => !/CURVE$|^IFCPOLYLINE$/.test(i.item.type));
+  const body = solidItems[0] ?? items[0];
+  let cuts = body?.cuts ?? [];
+  if (solidItems.length > 1 && segments.length) {
+    // a wall of one solid per piece (#198): each piece is mitred at its joints, which are not the wall's ends; only the
+    // cuts on the path's own start (the first piece's) and end (the last piece's) are the wall's
+    const at = (list, point) => list.filter(({ operand, m }) => {
+      if (operand?.type !== 'IFCHALFSPACESOLID') return false;
+      const surface = reader.get(operand.attrs[0]);
+      if (surface?.type !== 'IFCPLANE') return false;
+      const place = matMul(m, axis2Matrix(reader, surface.attrs[0]));
+      const n = unit([place[0][2], place[1][2], place[2][2]]);
+      const o = [place[0][3], place[1][3], place[2][3]];
+      return Math.abs(n[0] * (point[0] - o[0]) + n[1] * (point[1] - o[1]) + n[2] * (point[2] - o[2])) < 1e-6;
+    });
+    const a = segments[0].start, b = segments.at(-1).end;
+    cuts = Math.hypot(a[0] - b[0], a[1] - b[1]) < 1e-9 ? [] : [...at(solidItems[0].cuts ?? [], a), ...at(solidItems.at(-1).cuts ?? [], b)];
+  }
+  for (const { operator, operand, m } of cuts) {
     if (operator !== 'DIFFERENCE') { notes.push(`a boolean ${String(operator).toLowerCase()} was left out`); continue; }
     if (operand?.type !== 'IFCHALFSPACESOLID' && operand?.type !== 'IFCPOLYGONALBOUNDEDHALFSPACE') {
       const pts = extrusionPoints(reader, operand, m);
