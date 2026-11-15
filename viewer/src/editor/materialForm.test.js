@@ -52,6 +52,11 @@ describe('normaliseColour', () => {
 });
 
 describe('buildMaterial', () => {
+  test('gives an air material an opacity of 0.15 and no other material one', () => {
+    expect(buildMaterial('Cavity', '#e8f1f5', [], { category: 'air' }).opacity).toBe(0.15);
+    expect(buildMaterial('Glass', '#aaccee', [], { category: 'glass' })).not.toHaveProperty('opacity');
+  });
+
   test('builds a schema-shaped material', () => {
     expect(buildMaterial('Glass', '#aaccee', [])).toEqual({
       id: 'mat-glass', type: 'Material', name: 'Glass', category: 'custom',

@@ -67,10 +67,12 @@ export function buildMaterial(name, colour, existing = [], extra = {}) {
   if (!clean) throw new Error('A material needs a name');
   const properties = parseProperties(extra.properties);
   const ifcName = String(extra.ifcMaterialName ?? '').trim();
+  const category = String(extra.category ?? '').trim() || 'custom';
   return {
     id: String(extra.id ?? '').trim() || materialIdFor(clean, existing), type: 'Material', name: clean,
-    category: String(extra.category ?? '').trim() || 'custom',
+    category,
     colour_hex: normaliseColour(colour),
+    ...(category === 'air' ? { opacity: 0.15 } : {}),   // drawn see-through in 3D, like the library's air
     ...(ifcName ? { ifc_material_name: ifcName } : {}),
     ...(properties ? { properties } : {}),
     interactions: {},

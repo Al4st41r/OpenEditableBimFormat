@@ -9,7 +9,11 @@
  */
 
 import { FUNCTIONS, FUNCTION_META } from './profileConstants.js';
-import { openMaterialPicker } from './materialPicker.js';
+import { materialOptions, isPickerAction, adoptMaterial, functionForMaterial } from './materialPicker.js';
+import { NEW_MATERIAL, askNewMaterial } from '../detail-editor/newMaterial.js';
+import { librarySource, inProjectIds } from '../materials/libraryData.js';
+import { openLibraryPanel } from '../materials/libraryPanel.js';
+import { libraryMaterialToBundle } from '../loader/loadProfile.js';
 import { PACKAGES, BARRIERS, FIRE_ROLES, SHEARING_LAYERS, SFB_PATTERN } from '../detail-review/classification.js';
 import { withTag, tagsToSave } from './layerTags.js';
 import { PEN_SERIES } from '../lineweights.js';
@@ -148,48 +152,24 @@ function _appendRow(formEl, layer, index) {
 
   const matSelect = document.createElement('select');
   matSelect.className = 'layer-mat';
-  matIds.forEach(id => {
-    const opt = document.createElement('option');
-    opt.value = id;
-    opt.textContent = matMap[id]?.name ?? id;
-    if (id === layer.material_id) opt.selected = true;
-    matSelect.appendChild(opt);
-  });
+  for (const o of materialOptions(matIds, matMap)) {
+    matSelect.appendChild(Object.assign(document.createElement('option'), { value: o.value, textContent: o.label }));
+  }
+  // a layer naming a material the library lacks still shows it
+  if (layer.material_id && !matIds.includes(layer.material_id)) {
+    matSelect.insertBefore(Object.assign(document.createElement('option'), { value: layer.material_id, textContent: layer.material_id }), matSelect.querySelector(`option[value="${NEW_MATERIAL}"]`));
+  }
+  matSelect.value = layer.material_id;
+  if (matSelect.value !== layer.material_id) matSelect.selectedIndex = 0;
+  matSelect.dataset.prev = matSelect.value;
   matSelect.style.flex = '1 1 90px';
   matSelect.style.minWidth = '0';
 
-  const swatchBtn = document.createElement('button');
-  const swatchColour = matMap[layer.material_id]?.colour_hex ?? '#888888';
-  swatchBtn.style.width = '20px';
-  swatchBtn.style.height = '20px';
-  swatchBtn.style.background = swatchColour;
-  swatchBtn.style.border = '1px solid #666';
-  swatchBtn.style.borderRadius = '2px';
-  swatchBtn.style.cursor = 'pointer';
-  swatchBtn.style.flexShrink = '0';
-  swatchBtn.style.padding = '0';
-  swatchBtn.title = 'Pick material';
-  swatchBtn.addEventListener('click', async () => {
-    const result = await openMaterialPicker(formEl._matMap, { onNewMaterial: formEl._onNewMaterial });
-    if (!result) return;
-    if (result.newMat) {
-      const m = result.newMat;
-      // the page may have added it to the shared maps already, so look at this select, not the map
-      formEl._matMap[m.id] ??= m;
-      if (!formEl._matIds.includes(m.id)) formEl._matIds.push(m.id);
-    }
-    // a material added from the picker is an option on every row's select, not only this one
-    for (const sel of formEl.querySelectorAll('.layer-mat')) {
-      if (![...sel.options].some((o) => o.value === result.id)) {
-        sel.appendChild(Object.assign(document.createElement('option'), { value: result.id, textContent: formEl._matMap[result.id]?.name ?? result.id }));
-      }
-    }
-    matSelect.value = result.id;
-    // an air cavity is classed as a finish
-    if (formEl._matMap[result.id]?.category === 'air') fnSelect.value = 'finish';
-    swatchBtn.style.background = formEl._matMap[result.id]?.colour_hex ?? '#888888';
-    _emit(formEl);
-  });
+  // a plain colour swatch for the chosen material
+  const swatch = document.createElement('span');
+  swatch.className = 'layer-swatch';
+  swatch.style.cssText = `display:inline-block;width:20px;height:20px;box-sizing:border-box;background:${matMap[matSelect.value]?.colour_hex ?? '#888888'};border:1px solid #666;border-radius:2px;flex-shrink:0;`;
+  swatch.title = matMap[matSelect.value]?.name ?? '';
 
   const fnIcon = document.createElement('img');
   fnIcon.src = ICON_BASE + (FUNCTION_META[layer.function]?.icon ?? 'layer-structure.svg');
@@ -213,13 +193,32 @@ function _appendRow(formEl, layer, index) {
   const delBtn  = _btn('delete',       'Delete layer',    () => _deleteRow(formEl, index));
   const insBtn  = _textBtn('+', 'Insert a layer below this one', () => _insertAfter(formEl, index));
 
-  matSelect.addEventListener('change', () => { if (matMap[matSelect.value]?.category === 'air') fnSelect.value = 'finish'; });   // an air cavity is a finish
-  [nameInput, thickInput, matSelect, fnSelect].forEach(el => {
+  /** Show a chosen material on this row: select it, update the swatch, and classify an air cavity as a finish. */
+  const choose = (id) => {
+    const m = formEl._matMap[id];
+    matSelect.value = id;
+    matSelect.dataset.prev = id;
+    swatch.style.background = m?.colour_hex ?? '#888888';
+    swatch.title = m?.name ?? '';
+    fnSelect.value = functionForMaterial(m, fnSelect.value);
+    _emit(formEl);
+  };
+  matSelect.addEventListener('change', () => {
+    if (isPickerAction(matSelect.value)) {
+      // the select goes back at once, so it is never left on an action and no read of the form sees one
+      const action = matSelect.value;
+      matSelect.value = matSelect.dataset.prev;
+      (action === NEW_MATERIAL ? _newMaterial : _importMaterial)(formEl, choose);
+      return;
+    }
+    choose(matSelect.value);
+  });
+  [nameInput, thickInput, fnSelect].forEach(el => {
     el.addEventListener('input', () => _emit(formEl));
     el.addEventListener('change', () => _emit(formEl));
   });
 
-  row.append(nameInput, thickInput, swatchBtn, matSelect, fnIcon, fnSelect, upBtn, downBtn, insBtn, delBtn, _tagsFold(formEl, row));
+  row.append(nameInput, thickInput, swatch, matSelect, fnIcon, fnSelect, upBtn, downBtn, insBtn, delBtn, _tagsFold(formEl, row));
   formEl.appendChild(row);
 
   if (isRegion) {
@@ -262,6 +261,39 @@ function _appendRow(formEl, layer, index) {
     formEl.appendChild(props);
     _summarise();
   }
+}
+
+/** Add a material to the form's maps and to every row's select (before the two actions), then select it on the row that asked. */
+async function _adopt(formEl, material, choose) {
+  try { await formEl._onNewMaterial?.(material); }
+  catch (err) { console.error('Material not added:', err); throw err; }   // the caller leaves the select as it was
+  adoptMaterial(formEl._matMap, formEl._matIds, material);
+  for (const sel of formEl.querySelectorAll('.layer-mat')) {
+    if ([...sel.options].some((o) => o.value === material.id)) continue;
+    sel.insertBefore(Object.assign(document.createElement('option'), { value: material.id, textContent: material.name ?? material.id }), sel.querySelector(`option[value="${NEW_MATERIAL}"]`));
+  }
+  choose(material.id);
+}
+
+/** "New material…": the detail editor's dialog. Cancelling or a failed save leaves the row as it was. */
+async function _newMaterial(formEl, choose) {
+  const material = await askNewMaterial(Object.values(formEl._matMap));
+  if (!material) return;
+  try { await _adopt(formEl, material, choose); } catch { /* already reported; the row keeps its material */ }
+}
+
+/** "Import from library…": the shared library panel. Closing it without a choice leaves the row as it was. */
+async function _importMaterial(formEl, choose) {
+  await openLibraryPanel({
+    source: librarySource,
+    getInProject: async () => inProjectIds(Object.values(formEl._matMap)),
+    closeOnUse: true,
+    onUseMaterial: async (libMaterial) => {
+      const material = libraryMaterialToBundle(libMaterial);
+      if (formEl._matMap[material.id]) choose(material.id);
+      else await _adopt(formEl, material, choose);   // a failure throws, so the panel stays open
+    },
+  });
 }
 
 function _btn(iconName, ariaLabel, onClick) {
