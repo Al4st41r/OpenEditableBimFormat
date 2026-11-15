@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest';
-import { materialFields, materialFromAnswers, addToContext, similarNote, NEW_MATERIAL, IMPORT_MATERIAL } from './newMaterial.js';
+import { materialFields, materialFromAnswers, addToContext, similarNote, materialFooter, NEW_MATERIAL, IMPORT_MATERIAL } from './newMaterial.js';
 import { saveNewMaterials } from './detailStore.js';
 import { materialsAddedMessage, parseMaterialsAdded } from './messages.js';
 import { checkFields } from '../ui/dialog.js';
@@ -161,5 +161,21 @@ describe('materials-added message', () => {
     for (const data of [null, 'x', { type: 'materials-added' }, { ...msg, materials: [] }, { ...msg, materials: [{ id: 3 }, { id: 'mat-x', type: 'Profile' }] }]) {
       expect(parseMaterialsAdded({ origin: OWN, source: tab, data }, c)).toBeNull();
     }
+  });
+});
+
+describe('the list under the New material form', () => {
+  test('lists every material with its colour', () => {
+    const f = materialFooter(existing, { name: '' });
+    expect(f.rows).toEqual([
+      { label: 'Oak', colour: '#B08040', highlight: false },
+      { label: 'Brick', colour: '#A04030', highlight: false },
+    ]);
+    expect(f.note).toBe('');
+  });
+  test('highlights materials with a similar name and says so', () => {
+    const f = materialFooter(existing, { name: 'brick' });
+    expect(f.rows.map((r) => r.highlight)).toEqual([false, true]);
+    expect(f.note).toMatch(/an existing material/);
   });
 });

@@ -44,3 +44,12 @@ test('the Edit profile button has one shared style and one label in both editors
   expect(read('src/editor/editor.js')).not.toMatch(/Edit profile[\s\S]{0,200}background:#2a4a2a/);
   expect(read('src/detail-editor/editor.js')).toContain('editProfile: (id) => openProfileEditor(id)');
 });
+
+test('the 3D editor has no dialog of its own for adding a material; it uses the shared one (#203)', () => {
+  const html = read('editor.html');
+  expect(html).not.toContain('material-dialog');
+  expect(html).not.toMatch(/id="material-(name|colour|ok|cancel|form)/);
+  const src = read('src/editor/editor.js');
+  expect(src).toContain('askNewMaterial(');
+  expect(src).not.toContain('_askMaterial');
+});

@@ -74,7 +74,8 @@ import { snapPoint } from '../snap/snapEngine.js';
 import { loadSettings, saveSettings, enabledKinds, TOGGLE_KINDS, KIND_LABELS, ANGLE_STEPS } from '../snap/snapSettings.js';
 import { buildPlanSnapScene, setPathSegmentLength, setPathNodeWithFollowers } from './planSnap.js';
 import { parseDimension } from '../snap/dimension.js';
-import { findSimilar, normaliseColour, buildMaterial, withUnsetMaterial } from './materialForm.js';
+import { withUnsetMaterial } from './materialForm.js';
+import { askNewMaterial } from '../detail-editor/newMaterial.js';
 import { importIfcText } from '../ifc/ifcImporter.js';
 import { exportBundleToIfc } from '../ifc/ifcExporter.js';
 import { ask, askForm, confirmDialog, notify, idValidator } from '../ui/dialog.js';
@@ -1285,10 +1286,8 @@ document.getElementById('add-material-btn').addEventListener('click', async () =
   catch (err) { _reportError(`Add material failed: the material library could not be read (${err.message})`); return; }
   if (!Array.isArray(lib.materials)) lib.materials = [];
 
-  const input = await _askMaterial(lib.materials);
-  if (!input) return;
-
-  const mat = buildMaterial(input.name, input.colour, lib.materials, input);
+  const mat = await askNewMaterial(lib.materials);   // the dialog the other editors use
+  if (!mat) return;
   lib.materials.push(mat);
   try { await writeEntity(adapter, 'materials/library.json', lib); }
   catch (err) { _reportError(`Add material failed: ${err.message}`); return; }
@@ -1297,59 +1296,6 @@ document.getElementById('add-material-btn').addEventListener('click', async () =
   _addMaterialToTree(mat);
   statusBar.textContent = `Material added: ${mat.name}`;
 });
-
-/**
- * The Add material dialog: name and colour, with the existing library listed below so a duplicate
- * is easy to spot (issue #95). Resolves { name, colour, category, ifcMaterialName, properties } or null when cancelled.
- */
-function _askMaterial(existing) {
-  const dlg = document.getElementById('material-dialog');
-  const name = document.getElementById('material-name');
-  const colour = document.getElementById('material-colour');
-  const hex = document.getElementById('material-colour-hex');
-  const warning = document.getElementById('material-warning');
-  const list = document.getElementById('material-existing');
-  document.getElementById('material-existing-title').textContent = existing.length
-    ? `In this project (${existing.length})` : 'No materials in this project yet.';
-  const category = document.getElementById('material-category');
-  const ifcName = document.getElementById('material-ifc-name');
-  const properties = document.getElementById('material-properties');
-  document.getElementById('material-categories').replaceChildren(...[...new Set(existing.map((m) => m.category).filter(Boolean))].map((c) => {
-    const o = document.createElement('option'); o.value = c; return o;
-  }));
-  name.value = ''; colour.value = '#888888'; hex.value = '#888888'; warning.textContent = '';
-  category.value = ''; ifcName.value = ''; properties.value = '';
-
-  const paint = () => {
-    const similar = new Set(findSimilar(existing, name.value).map((m) => m.id));
-    list.replaceChildren(...existing.map((m) => {
-      const row = document.createElement('div');
-      row.className = `mat-row${similar.has(m.id) ? ' similar' : ''}`;
-      const sw = document.createElement('span');
-      sw.className = 'mat-swatch'; sw.style.background = m.colour_hex ?? '#888';
-      row.append(sw, document.createTextNode(m.name ?? m.id));
-      return row;
-    }));
-    warning.textContent = similar.size ? `Similar to ${similar.size === 1 ? 'an existing material' : similar.size + ' existing materials'} (highlighted). A new one is still allowed.` : '';
-  };
-  name.oninput = paint;
-  colour.oninput = () => { hex.value = colour.value.toUpperCase(); };
-  hex.oninput = () => { const c = normaliseColour(hex.value); if (/^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.test(hex.value.trim())) colour.value = c.toLowerCase(); };
-  paint();
-
-  return new Promise((resolve) => {
-    const finish = (value) => { dlg.onclose = null; if (dlg.open) dlg.close(); resolve(value); };
-    document.getElementById('material-cancel').onclick = () => finish(null);
-    document.getElementById('material-form').onsubmit = (e) => {
-      e.preventDefault();
-      if (!name.value.trim()) { warning.textContent = 'Give the material a name.'; name.focus(); return; }
-      finish({ name: name.value.trim(), colour: hex.value, category: category.value, ifcMaterialName: ifcName.value, properties: properties.value });
-    };
-    dlg.onclose = () => resolve(null);
-    dlg.showModal();
-    name.focus();
-  });
-}
 
 // ── Canvas click — element pick + junction pick (Select / Path Edit mode) ─────
 canvas.addEventListener('click', (e) => {

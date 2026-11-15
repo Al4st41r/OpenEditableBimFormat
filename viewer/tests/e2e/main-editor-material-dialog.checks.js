@@ -18,28 +18,32 @@
     await until(() => E.junctions().length > 0);
     await until(() => !$('add-material-btn').disabled);
     const before = lib().length;
-    $('add-material-btn').click(); await wait(() => $('material-dialog').open && $('material-existing').children.length === before);
-    note($('material-dialog').open, 'the dialog opens (no prompt)');
-    note($('material-existing').children.length === before, 'the existing library is listed below the form', $('material-existing').children.length);
+    const dlg = () => document.querySelector('dialog.oebf-dialog[open]');
+    const field = (n) => dlg().querySelector(`[name="${n}"]`);
+    const type = (n, v) => { field(n).value = v; field(n).dispatchEvent(new Event('input', { bubbles: true })); };
+    const rows = () => dlg().querySelectorAll('.oebf-dialog-row');
+    $('add-material-btn').click(); await wait(() => dlg() && rows().length === before);
+    note(!!dlg(), 'the shared dialog opens');
+    note(rows().length === before, 'the existing library is listed below the form', rows().length);
 
-    $('material-name').value = 'brick'; $('material-name').dispatchEvent(new Event('input', { bubbles: true }));
-    note(/Similar/.test($('material-warning').textContent) && $('material-existing').querySelector('.similar'), 'a similar name is flagged and highlighted', $('material-warning').textContent);
+    type('name', 'brick');
+    note(/Similar/.test(dlg().querySelector('.oebf-dialog-note').textContent) && dlg().querySelector('.oebf-dialog-row.highlight'), 'a similar name is flagged and highlighted');
 
-    $('material-name').value = ''; $('material-form').requestSubmit(); await wait(() => /name/i.test($('material-warning').textContent));
-    note($('material-dialog').open && /name/i.test($('material-warning').textContent), 'an empty name is refused and the dialog stays open');
+    type('name', ''); dlg().querySelector('button[type=submit]').click(); await wait(() => /needed/i.test(dlg().textContent));
+    note(!!dlg() && /needed/i.test(dlg().textContent), 'an empty name is refused and the dialog stays open');
 
-    $('material-name').value = 'Brick Common'; $('material-colour-hex').value = '#fa0'; $('material-colour-hex').dispatchEvent(new Event('input', { bubbles: true }));
-    $('material-form').requestSubmit();
-    await wait(() => !$('material-dialog').open && lib().length === before + 1 && document.querySelector(`#materials-list [data-id="${lib().at(-1).id}"]`));
+    type('name', 'Brick Common'); type('id', 'mat-brick-common-2'); type('colour', '#fa0');
+    dlg().querySelector('button[type=submit]').click();
+    await wait(() => !dlg() && lib().length === before + 1 && document.querySelector(`#materials-list [data-id="${lib().at(-1).id}"]`));
     const added = lib().at(-1);
-    note(!$('material-dialog').open && lib().length === before + 1, 'submit closes the dialog and adds a material', lib().length);
-    note(added.id === 'mat-brick-common-2', 'a duplicate name gets a unique id instead of overwriting', added.id);
+    note(!dlg() && lib().length === before + 1, 'submit closes the dialog and adds a material', lib().length);
+    note(added.id === 'mat-brick-common-2', 'the id is the one given', added.id);
     note(added.colour_hex === '#FFAA00' && added.category === 'custom' && added.type === 'Material', 'colour is normalised and the required category is set', added);
     note(!!document.querySelector(`#materials-list [data-id="${added.id}"]`), 'it appears in the materials list');
 
-    $('add-material-btn').click(); await wait(() => $('material-dialog').open);
-    $('material-cancel').click(); await wait(() => !$('material-dialog').open);
-    note(!$('material-dialog').open && lib().length === before + 1, 'cancel adds nothing');
+    $('add-material-btn').click(); await wait(() => dlg());
+    dlg().querySelector('button[value=cancel]').click(); await wait(() => !dlg());
+    note(!dlg() && lib().length === before + 1, 'cancel adds nothing');
     note(window.__errors === undefined || window.__errors.length === 0, 'no page errors', window.__errors);
     log.push('DONE'); show();
   })().catch((e) => { log.push('ERROR ' + e.message); log.push('DONE'); show(); });

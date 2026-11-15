@@ -54,6 +54,20 @@ export function similarNote(existing, name) {
   return similar.length ? `Similar: ${similar.slice(0, 3).map((m) => m.name ?? m.id).join(', ')}${similar.length > 3 ? ' …' : ''}.` : '';
 }
 
+/**
+ * What the dialog shows under the fields: the library listed (with a swatch each), the ones with a similar name
+ * highlighted, and a note when there are any (#95). Pure.
+ * @param {object[]} existing
+ * @param {{ name?: string }} values
+ */
+export function materialFooter(existing, values) {
+  const similar = new Set(findSimilar(existing, values.name ?? '').map((m) => m.id));
+  return {
+    note: similar.size ? `Similar to ${similar.size === 1 ? 'an existing material' : similar.size + ' existing materials'} (highlighted). A new one is still allowed.` : '',
+    rows: existing.map((m) => ({ label: m.name ?? m.id, colour: m.colour_hex ?? '#888888', highlight: similar.has(m.id) })),
+  };
+}
+
 /** The new material entity from the dialog's answers. */
 export function materialFromAnswers(answers, existing) {
   return buildMaterial(answers.name, answers.colour, existing, { id: answers.id, category: answers.category, ifcMaterialName: answers.ifcMaterialName, properties: answers.properties });
@@ -77,7 +91,8 @@ export function addToContext(ctx, material) {
 export async function askNewMaterial(existing) {
   const a = await askForm({
     title: 'New material', ok: 'Add material', fields: materialFields(existing),
-    message: existing.length ? `The library has ${existing.length} material${existing.length === 1 ? '' : 's'}. Check that none does already.` : undefined,
+    message: existing.length ? `In this project (${existing.length}). Check that none does already.` : 'No materials in this project yet.',
+    footer: (values) => materialFooter(existing, values),
   });
   return a ? materialFromAnswers(a, existing) : null;
 }

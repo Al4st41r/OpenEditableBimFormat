@@ -77,6 +77,11 @@ const CSS = `
 .oebf-dialog input[aria-invalid=true] { border-color: #e8b04a; }
 .oebf-dialog .oebf-dialog-hint { font-size: 12px; color: #aaa; margin-top: 3px; }
 .oebf-dialog .oebf-dialog-error { font-size: 12px; color: #f0c060; margin-top: 3px; min-height: 0; }
+.oebf-dialog .oebf-dialog-note { color: #e8b04a; font-size: 12px; margin-top: 8px; min-height: 0; }
+.oebf-dialog .oebf-dialog-rows { margin-top: 8px; max-height: 160px; overflow-y: auto; border-top: 1px solid #333; padding-top: 6px; }
+.oebf-dialog .oebf-dialog-row { display: flex; align-items: center; gap: 8px; font-size: 12px; padding: 2px 0; }
+.oebf-dialog .oebf-dialog-row.highlight { color: #e8b04a; }
+.oebf-dialog .oebf-dialog-row .oebf-dialog-chip { width: 12px; height: 12px; border: 1px solid #555; display: inline-block; flex: none; }
 .oebf-dialog .oebf-dialog-buttons { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
 .oebf-dialog button { padding: 6px 14px; cursor: pointer; background: #333; color: #ddd; border: 1px solid #555; border-radius: 3px; font: inherit; }
 .oebf-dialog button:hover:not(:disabled) { background: #444; }
@@ -106,7 +111,7 @@ function el(tag, attrs = {}, text) {
  * Open a dialog and settle with whatever `onClose` makes of how it was closed.
  * @returns {Promise<any>}
  */
-function open({ kind, title, message, fields = [], ok = 'OK', cancel = 'Cancel', danger = false }) {
+function open({ kind, title, message, fields = [], ok = 'OK', cancel = 'Cancel', danger = false, footer = null }) {
   ensureStyle();
   return new Promise((resolve) => {
     const dlg = el('dialog', { class: 'oebf-dialog', 'data-kind': kind, 'aria-label': title ?? message ?? kind });
@@ -147,6 +152,10 @@ function open({ kind, title, message, fields = [], ok = 'OK', cancel = 'Cancel',
       form.appendChild(err);
     });
 
+    const noteEl = footer ? el('div', { class: 'oebf-dialog-note', role: 'status' }) : null;
+    const rowsEl = footer ? el('div', { class: 'oebf-dialog-rows' }) : null;
+    if (footer) form.append(noteEl, rowsEl);
+
     const buttons = el('div', { class: 'oebf-dialog-buttons' });
     const cancelBtn = cancel ? el('button', { type: 'button', value: 'cancel' }, cancel) : null;
     const okBtn = el('button', { type: 'submit', value: 'ok', class: danger ? 'danger' : 'primary' }, ok);
@@ -165,6 +174,17 @@ function open({ kind, title, message, fields = [], ok = 'OK', cancel = 'Cancel',
         inputs[f.name].setAttribute('aria-invalid', msg ? 'true' : 'false');
       }
       okBtn.disabled = Object.keys(errors).length > 0;
+      if (footer) {
+        const f = footer(values());
+        noteEl.textContent = f.note ?? '';
+        rowsEl.hidden = !f.rows?.length;
+        rowsEl.replaceChildren(...(f.rows ?? []).map((r) => {
+          const row = el('div', { class: `oebf-dialog-row${r.highlight ? ' highlight' : ''}` });
+          if (r.colour) { const chip = el('span', { class: 'oebf-dialog-chip' }); chip.style.background = r.colour; row.appendChild(chip); }
+          row.appendChild(document.createTextNode(r.label));
+          return row;
+        }));
+      }
       return errors;
     };
     // a field that follows another (an id suggested from a name) stops following once it is typed in
@@ -207,7 +227,9 @@ function open({ kind, title, message, fields = [], ok = 'OK', cancel = 'Cancel',
 
 /**
  * A form of one or more fields.
- * @param {{ title: string, message?: string, fields: Field[], ok?: string, cancel?: string }} spec
+ * `footer(values)` is called as the form changes and gives { note?: string, rows?: { label, colour?, highlight? }[] },
+ * shown under the fields (a warning line and a list, eg the existing items with the similar ones highlighted).
+ * @param {{ title: string, message?: string, fields: Field[], ok?: string, cancel?: string, footer?: (values: Record<string, string>) => { note?: string, rows?: { label: string, colour?: string, highlight?: boolean }[] } }} spec
  * @returns {Promise<Record<string, string>|null>} the values, trimmed, or null if cancelled
  */
 export async function askForm(spec) {

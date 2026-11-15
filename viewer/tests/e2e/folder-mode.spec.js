@@ -67,10 +67,8 @@ test('a bundle opened from a folder is edited, saved in place and still validate
   await answer({ name: 'First floor', z: '3000' });
   await page.locator('#add-storey-btn').click();
   await page.waitForTimeout(300);
+  await answer({ name: 'Folder test material', properties: 'nmb_item: 999' });
   await page.locator('#add-material-btn').click();
-  await page.locator('#material-name').fill('Folder test material');
-  await page.locator('#material-properties').fill('nmb_item: 999');
-  await page.locator('#material-ok').click();
   await answer({ direction: 'y', offset: '4500', label: 'Z' });
   await page.locator('#add-grid-btn').click();
   await page.waitForTimeout(500);
