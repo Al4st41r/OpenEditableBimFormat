@@ -117,7 +117,7 @@ describe('swept meshes wind outward (#208)', () => {
     for (const cw of [false, true]) {
       const [m] = sweepProfile([P(0, 0), P(2, 0)], [box(-0.5, 0.5, 1, cw)]);
       const mesh = asMesh(m);
-      const capFrom = 2 * 4;                                     // the tube's two rings come first, then the caps
+      const capFrom = 4 * 2 * 2;                                 // the sides come first (4 faces, each 2 x 2 vertices of its own, #210), then the caps
       let caps = 0;
       for (const f of mesh.faces) {
         if (!f.every((i) => i >= capFrom)) continue;

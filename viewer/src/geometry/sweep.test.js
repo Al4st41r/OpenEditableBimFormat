@@ -35,10 +35,12 @@ function zVals(verts) {
 }
 
 // ─── vertex / index count math ──────────────────────────────────────────────
-// Tube grid:  N_frames × M_verts
-// Start cap:  M_verts  (fan from first profile point, (M-2) triangles)
+// Sides (#210): each flat side face has its own vertices, so that it has its own normal. A profile of M edges meeting
+// at crisp corners, swept along a path of S segments meeting at sharp corners, has M × 2 × 2 side vertices per
+// segment, M × 2 × 2 × S in all. (Turns under SMOOTH_ANGLE_DEG, in the profile or the path, share them.)
+// Start cap:  M_verts  (ear-clipped, (M-2) triangles)
 // End cap:    M_verts  (same)
-// Total verts: (N + 2) × M
+// Total verts for a box with sharp corners: 16 S + 8
 // Side indices: (N-1) × M × 6
 // Cap indices:  (M-2) × 3 × 2
 
@@ -73,22 +75,22 @@ describe('sweepProfile — output structure', () => {
 });
 
 describe('sweepProfile — vertex counts', () => {
-  // N=2 frames, M=4 profile points → total verts = (2+2)*4 = 16
-  test('2-point path, 4-vertex profile: (N+2)×M = 16 vertices', () => {
+  // one segment, 4 faces of 2 × 2 vertices (16) and two caps of 4 (8) → 24; before #210 the faces shared 2 rings of 4 (16 in all)
+  test('2-point path, 4-vertex profile: 4 × 2 × 2 + 2 × 4 = 24 vertices', () => {
     const path = [{ x: 0, y: 0, z: 0 }, { x: 5, y: 0, z: 0 }];
     const [mesh] = sweepProfile(path, [layerFrom(rect(-0.05, 0.05))]);
-    expect(mesh.vertices.length / 3).toBe(16);
+    expect(mesh.vertices.length / 3).toBe(24);
   });
 
-  // N=3 frames, M=4 → (3+2)*4 = 20
-  test('3-point path, 4-vertex profile: (N+2)×M = 20 vertices', () => {
+  // a right-angled corner is sharp, so each of the two segments has its own 16 side vertices: 32 + 8 = 40 (20 before #210)
+  test('3-point path with a right-angled corner, 4-vertex profile: 2 × 16 + 2 × 4 = 40 vertices', () => {
     const path = [
       { x: 0, y: 0, z: 0 },
       { x: 3, y: 0, z: 0 },
       { x: 3, y: 4, z: 0 },
     ];
     const [mesh] = sweepProfile(path, [layerFrom(rect(-0.05, 0.05))]);
-    expect(mesh.vertices.length / 3).toBe(20);
+    expect(mesh.vertices.length / 3).toBe(40);
   });
 });
 
@@ -212,13 +214,16 @@ describe('sweepProfile — edge cases', () => {
     ];
     const [mesh] = sweepProfile(path, [layerFrom(rect(-0.1, 0.1))]);
 
-    // Tube vertices at frame 1 (4 verts, starting at index 4 in the grid)
+    // The vertices at frame 1, which lie on the bisector x + y = 2 (each side face has its own copies, #210)
     // Expected miter binormal = normalize(cross(normalize((1,1,0)), (0,0,1)))
     //   = (0.707, -0.707, 0)
     // p.x=-0.1 → y offset = (-0.1)×(-0.707) = +0.0707
     // p.x= 0.1 → y offset = ( 0.1)×(-0.707) = -0.0707
     const ys = [];
-    for (let vi = 4; vi < 8; vi++) ys.push(mesh.vertices[vi * 3 + 1]);
+    for (let vi = 0; vi < mesh.vertices.length / 3; vi++) {
+      if (Math.abs(mesh.vertices[vi * 3] + mesh.vertices[vi * 3 + 1] - 2) < 1e-5) ys.push(mesh.vertices[vi * 3 + 1]);
+    }
+    expect(ys.length).toBe(16);                // 4 profile points, each on the two faces that meet there, on both segments
 
     expect(Math.max(...ys)).toBeCloseTo( 0.0707, 2);
     expect(Math.min(...ys)).toBeCloseTo(-0.0707, 2);
@@ -249,9 +254,9 @@ describe('sweepProfile — edge cases', () => {
     ];
     const meshes = sweepProfile(pathPoints, layers);
     expect(meshes).toHaveLength(4);
-    // Each mesh: (N+2)*M vertices = 16
+    // Each mesh: 4 faces of 2 × 2 vertices and two caps of 4 = 24 (#210)
     for (const mesh of meshes) {
-      expect(mesh.vertices.length / 3).toBe(16);
+      expect(mesh.vertices.length / 3).toBe(24);
     }
     // materialIds preserved in order
     expect(meshes[0].materialId).toBe('mat-brick-common');
@@ -319,16 +324,16 @@ describe('sweepProfile — caps', () => {
   const count = (o) => sweepProfile(path, layer, o)[0];
 
   test('flat caps add two cap rings (default)', () => {
-    expect(count({}).vertices.length / 3).toBe(2 * 4 + 2 * 4);
+    expect(count({}).vertices.length / 3).toBe(4 * 2 * 2 + 2 * 4);   // 4 side faces of 2 × 2 vertices (#210), 2 caps of 4
   });
   test('open start omits the start cap', () => {
     const m = count({ capStart: 'open' });
-    expect(m.vertices.length / 3).toBe(2 * 4 + 4);
+    expect(m.vertices.length / 3).toBe(4 * 2 * 2 + 4);
     expect(m.indices.length).toBe(1 * 4 * 6 + 2 * 3);
   });
   test('open at both ends leaves only the tube', () => {
     const m = count({ capStart: 'open', capEnd: 'open' });
-    expect(m.vertices.length / 3).toBe(2 * 4);
+    expect(m.vertices.length / 3).toBe(4 * 2 * 2);
     expect(m.indices.length).toBe(1 * 4 * 6);
   });
   test('angled with no angle, and junction, are capped like flat', () => {
@@ -341,9 +346,13 @@ describe('sweepProfile — angled ends (#179)', () => {
   // Path along +x: profile x runs along the binormal, tangent x Z = -y, so profile x = +0.1 lies at world y = -0.1.
   const path = [P(0, 0), P(4, 0)];
   const layer = [layerFrom(rect(-0.1, 0.1))];
-  /** The x of the vertex at world (y, z) in ring `ring` (0 = start, 1 = end of a two-point path). */
+  /**
+   * The x of the vertex at world (y, z) in ring `ring` (0 = start, 1 = end of a two-point path). The two caps, the last
+   * 8 vertices, hold one copy of each ring (the side faces have their own copies, #210).
+   */
   const xAt = (m, ring, y, z = 0) => {
-    for (let i = ring * 4; i < ring * 4 + 4; i++) {
+    const first = m.vertices.length / 3 - 8 + ring * 4;
+    for (let i = first; i < first + 4; i++) {
       const v = m.vertices;
       if (Math.abs(v[i * 3 + 1] - y) < 1e-6 && Math.abs(v[i * 3 + 2] - z) < 1e-6) return v[i * 3];
     }
@@ -396,7 +405,7 @@ describe('sweepProfile — angled ends (#179)', () => {
 
   test('a junction trim still sees the same path ends (the angle moves vertices, not the path)', () => {
     const m = sweepProfile([P(0, 0), P(2, 0), P(2, 3)], layer, { capStart: 'angled', capStartAngleDeg: 10, capEnd: 'angled', capEndAngleDeg: -10 })[0];
-    expect(m.vertices.length / 3).toBe(3 * 4 + 2 * 4);
+    expect(m.vertices.length / 3).toBe(2 * 4 * 2 * 2 + 2 * 4);   // two segments (a sharp corner) of 4 faces of 2 × 2 (#210), 2 caps
   });
 });
 

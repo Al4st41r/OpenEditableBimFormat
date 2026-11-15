@@ -15,7 +15,7 @@ import { cutOpenings } from './openingCut.js';
 const TH = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../example/terraced-house.oebf/profiles');
 const brick = JSON.parse(fs.readFileSync(path.join(TH, 'profile-brick-leaf-coursed.json'), 'utf8'));
 const P = (x, y, z = 0) => ({ x, y, z });
-const PIECE_VERTS = 16;                       // a box unit: 2 rings of 4 and 2 caps of 4
+const PIECE_VERTS = 24;                       // a box unit: 4 side faces of 2 x 2 vertices, each with its own normal (#210), and 2 caps of 4
 const units = (m) => m.vertices.length / 3 / PIECE_VERTS;
 const zMax = (m) => { let z = -Infinity; for (let i = 2; i < m.vertices.length; i += 3) z = Math.max(z, m.vertices[i]); return z; };
 

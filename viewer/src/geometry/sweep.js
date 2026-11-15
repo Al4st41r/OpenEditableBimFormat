@@ -19,10 +19,12 @@
  * on an upward path), so a column's section lies in plan.
  *
  * Geometry layout per layer (N path frames, M profile vertices):
- *   Tube vertices:   N × M  (grid, row-major by frame)
+ *   Side vertices:   each flat side face has vertices of its own, so that its normal is its own (#210). A profile
+ *                    corner or path corner of SMOOTH_ANGLE_DEG or more splits the vertices there; a gentler turn (an
+ *                    arc tessellated into short edges) shares them, with a smoothed normal. With every corner crisp:
+ *                    (N-1) × M × 4 (a box along a straight line: 16); with every turn gentle: N × M.
  *   Start cap verts: M      (ear-clipped, (M-2) triangles; see polygonTriangles.js)
  *   End cap verts:   M      (same, reversed winding)
- *   Total vertices:  (N+2) × M
  *
  *   Side indices:    (N-1) × M × 6  (two triangles per quad)
  *   Cap indices:     (M-2) × 3 × 2
@@ -623,7 +625,49 @@ function _windingSign(frame, profilePoints) {
   return (area2 >= 0 ? 1 : -1) * s;
 }
 
-/** Append one sweep of profilePoints through frames to `out` ({ positions, normals, indices }). `capTris` triangulates the profile. */
+/**
+ * Largest angle, degrees, between two neighbouring profile edges, or two neighbouring path segments, across which the
+ * side faces share vertices and a smoothed normal (#210). Below it the turn is taken as part of a curve (an arc
+ * tessellated into short edges); at or above it the faces meet at a crisp edge with a vertex each.
+ */
+export const SMOOTH_ANGLE_DEG = 30;
+const SMOOTH_COS = Math.cos(SMOOTH_ANGLE_DEG * Math.PI / 180);
+
+/**
+ * Smoothing groups along a closed or open run of directions (#210). `dirs[i]` is the direction of edge i (unit, or zero
+ * for a degenerate edge, which joins whatever it touches). Edge i starts a new group when the turn from edge i-1 is
+ * SMOOTH_ANGLE_DEG or more. With `cyclic`, the last group joins the first when the turn back to edge 0 is gentle.
+ * @returns {number[]} group id per edge
+ */
+function _smoothGroups(dirs, cyclic) {
+  const n = dirs.length;
+  const smoothAt = (i) => {                          // the turn at the start of edge i, from edge i-1
+    const a = dirs[(i - 1 + n) % n], b = dirs[i];
+    if (_len(a) < 0.5 || _len(b) < 0.5) return true;
+    return _dot(a, b) > SMOOTH_COS;
+  };
+  const group = new Array(n);
+  let g = 0;
+  for (let i = 0; i < n; i++) {
+    if (i > 0 && !smoothAt(i)) g++;
+    group[i] = g;
+  }
+  if (cyclic && n > 1 && g > 0 && smoothAt(0)) {
+    for (let i = n - 1; i >= 0 && group[i] === g; i--) group[i] = 0;
+  }
+  return group;
+}
+
+/**
+ * Append one sweep of profilePoints through frames to `out` ({ positions, normals, indices }). `capTris` triangulates the profile.
+ *
+ * Side faces (#210): each quad (path segment s, profile edge e) uses vertices keyed by its frame, its profile point and
+ * the smoothing groups of s and e (_smoothGroups), so the flat faces either side of a crisp profile corner or a sharp
+ * path corner (a mitre) have vertices of their own, while the facets of a curve share theirs. Each vertex normal is the
+ * area-weighted mean of the outward normals of the triangles that use it, so a flat face has exactly its own normal.
+ * A box swept along a straight line has 4 x 2 x 2 side vertices and 2 x 4 cap vertices; the side vertices come first,
+ * the caps after (start, then end).
+ */
 function _appendSweep(out, frames, profilePoints, caps, capTris) {
   const { positions, normals, indices } = out;
   const base    = positions.length / 3;
@@ -631,25 +675,78 @@ function _appendSweep(out, frames, profilePoints, caps, capTris) {
   const nVerts  = profilePoints.length;
   const w = _windingSign(frames[0], profilePoints);
 
-  // Tube grid: nFrames × nVerts vertices
-  for (const frame of frames) {
-    for (const p of profilePoints) {
-      positions.push(..._place(frame, p));
-      normals.push(frame.binormal.x, frame.binormal.y, frame.binormal.z);
-    }
-  }
+  // the placed rings (flat, by frame then profile point), and the smoothing groups along the profile and along the path
+  const ring = new Float64Array(nFrames * nVerts * 3);
+  frames.forEach((frame, f) => profilePoints.forEach((p, v) => ring.set(_place(frame, p), (f * nVerts + v) * 3)));
+  const edgeDirs = profilePoints.map((p, i) => {
+    const q = profilePoints[(i + 1) % nVerts];
+    return _normalize({ x: q.x - p.x, y: q.y - p.y, z: 0 });
+  });
+  const segDirs = [];
+  for (let s = 0; s < nFrames - 1; s++) segDirs.push(_normalize(_sub(frames[s + 1].origin, frames[s].origin)));
+  const edgeGroup = _smoothGroups(edgeDirs, true);
+  const segGroup = _smoothGroups(segDirs, false);
 
-  // Side quads: two triangles per quad, wound to face out (_windingSign)
+  // A vertex at frame f and profile point v is used by segments f-1 and f and by edges v-1 and v; it is shared between
+  // the two when they are in one smoothing group. slot[] holds its index for each (segment side, edge side); src[] the
+  // ring point it copies, and owner[] the segment and edge it was made for (for a fallback normal).
+  const slot = new Int32Array(nFrames * nVerts * 4).fill(-1);
+  const src = [], owner = [];
+  const vertex = (f, v, s, e) => {
+    const sSide = s === f || (f > 0 && f < nFrames - 1 && segGroup[f - 1] === segGroup[f]) ? 1 : 0;
+    const eSide = e === v || edgeGroup[(v - 1 + nVerts) % nVerts] === edgeGroup[v] ? 1 : 0;
+    const k = (f * nVerts + v) * 4 + sSide * 2 + eSide;
+    let i = slot[k];
+    if (i < 0) {
+      i = slot[k] = src.length;
+      const r = (f * nVerts + v) * 3;
+      positions.push(ring[r], ring[r + 1], ring[r + 2]);
+      src.push(r);
+      owner.push(s, e);
+    }
+    return i;
+  };
+
+  // Side quads: two triangles per quad, wound to face out (_windingSign). Each corner of a quad takes the quad's whole
+  // normal (the sum of its two triangles' normals, each scaled by twice its area), so a vertex is weighted by the area
+  // of the quads round it, whichever diagonal splits them.
+  const sum = new Float64Array(nFrames * nVerts * 4 * 3);   // per vertex, the summed face normal (x, y, z); at most 4 vertices per ring point
+  let acc0 = 0, acc1 = 0, acc2 = 0;
+  const tri = (a, b, c) => {
+    indices.push(base + a, base + b, base + c);
+    const pa = src[a], pb = src[b], pc = src[c];
+    const u0 = ring[pb] - ring[pa], u1 = ring[pb + 1] - ring[pa + 1], u2 = ring[pb + 2] - ring[pa + 2];
+    const v0 = ring[pc] - ring[pa], v1 = ring[pc + 1] - ring[pa + 1], v2 = ring[pc + 2] - ring[pa + 2];
+    acc0 += u1 * v2 - u2 * v1; acc1 += u2 * v0 - u0 * v2; acc2 += u0 * v1 - u1 * v0;
+  };
+  const addTo = (i) => {
+    sum[3 * i] += acc0; sum[3 * i + 1] += acc1; sum[3 * i + 2] += acc2;
+  };
   for (let fi = 0; fi < nFrames - 1; fi++) {
     for (let vi = 0; vi < nVerts; vi++) {
       const next = (vi + 1) % nVerts;
-      const a = base + fi       * nVerts + vi;
-      const b = base + fi       * nVerts + next;
-      const c = base + (fi + 1) * nVerts + next;
-      const d = base + (fi + 1) * nVerts + vi;
-      if (w > 0) indices.push(a, b, c, a, c, d);
-      else       indices.push(a, c, b, a, d, c);
+      const a = vertex(fi, vi, fi, vi);
+      const b = vertex(fi, next, fi, vi);
+      const c = vertex(fi + 1, next, fi, vi);
+      const d = vertex(fi + 1, vi, fi, vi);
+      acc0 = acc1 = acc2 = 0;
+      if (w > 0) { tri(a, b, c); tri(a, c, d); }
+      else       { tri(a, c, b); tri(a, d, c); }
+      addTo(a); addTo(b); addTo(c); addTo(d);
     }
+  }
+
+  for (let i = 0; i < src.length; i++) {
+    const nx = sum[3 * i], ny = sum[3 * i + 1], nz = sum[3 * i + 2];
+    const l = Math.sqrt(nx * nx + ny * ny + nz * nz);
+    if (l > 1e-20) { normals.push(nx / l, ny / l, nz / l); continue; }
+    // every face at this vertex is degenerate (a zero-length edge or segment): the profile edge's outward normal in the frame
+    const f = frames[owner[2 * i]], U = f.up ?? { x: 0, y: 0, z: 1 }, d = edgeDirs[owner[2 * i + 1]];
+    const k = w * (_dot(_cross(f.binormal, U), f.tangent) > 0 ? 1 : -1);   // the profile's own winding: (dy, -dx) is outward when anticlockwise
+    const n = _normalize({
+      x: k * (d.y * f.binormal.x - d.x * U.x), y: k * (d.y * f.binormal.y - d.x * U.y), z: k * (d.y * f.binormal.z - d.x * U.z),
+    });
+    normals.push(n.x, n.y, n.z);
   }
 
   // End caps (separate vertices to allow independent normals): the start faces along -T, the end along +T
@@ -672,13 +769,18 @@ function _appendSweep(out, frames, profilePoints, caps, capTris) {
 function _addCap(positions, normals, indices, frame, profilePoints, atEnd, reverse, capTris) {
   const capBase = positions.length / 3;
   const sign = atEnd ? 1 : -1;
-  // outward normal of the end face: the tangent, turned for an angled end (sign·(T − skew·B), normalised)
+  // outward normal of the end face: the normal of the plane its points lie in, spanned by profile x (the binormal,
+  // moved skew along the tangent on an angled end) and profile y (world Z, or frame.up), turned to face along the
+  // tangent at the end and against it at the start. On a level path this is sign·(T − skew·B); on a sloping path the
+  // face is vertical, not square to the path (#210).
   const k = frame.skew ?? 0;
-  const n = _normalize({
-    x: sign * (frame.tangent.x - k * frame.binormal.x),
-    y: sign * (frame.tangent.y - k * frame.binormal.y),
-    z: sign * (frame.tangent.z - k * frame.binormal.z),
-  });
+  const U = frame.up ?? { x: 0, y: 0, z: 1 };
+  let n = _normalize(_cross({
+    x: frame.binormal.x + k * frame.tangent.x,
+    y: frame.binormal.y + k * frame.tangent.y,
+    z: frame.binormal.z + k * frame.tangent.z,
+  }, U));
+  if (sign * _dot(n, frame.tangent) < 0) n = { x: -n.x, y: -n.y, z: -n.z };
 
   for (const p of profilePoints) {
     positions.push(..._place(frame, p));

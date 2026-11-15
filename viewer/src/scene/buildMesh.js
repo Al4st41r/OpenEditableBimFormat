@@ -65,6 +65,8 @@ export function buildThreeMesh(meshData) {
     color:               new THREE.Color(meshData.colour),
     roughness:           0.8,
     metalness:           0.0,
+    // double-sided although swept faces wind outward (#208) and carry their own normals (#210),
+    // but junction trims are clipping planes, which leave the mesh open at the cut: a single-sided material would show a hole
     side:                THREE.DoubleSide,
     polygonOffset:       true,
     polygonOffsetFactor: 1,
