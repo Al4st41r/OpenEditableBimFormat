@@ -1712,7 +1712,7 @@ async function _showElementProps(id) {
   if (adapter && reg.profileId) {
     const btn = document.createElement('button');
     btn.textContent = 'Edit profile';
-    btn.style.cssText = 'padding:5px 10px;cursor:pointer;background:#2a4a2a;color:#8f8;border:1px solid #555;border-radius:3px;font-size:12px;margin-top:8px;width:100%';
+    btn.className = 'edit-profile-btn';
     btn.addEventListener('click', () => _openDetailInProfileEditor(reg.profileId));
     panel.appendChild(btn);
   }

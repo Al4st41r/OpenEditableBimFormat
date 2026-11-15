@@ -297,6 +297,7 @@ function memberEditor(m, bundle, a) {
     row('Role', text(role, (v) => a.renameMember(role, v))),
     row('Kind', select(KINDS, m.kind, (v) => a.setMemberKind(role, v))),
     row('Profile', select(bundle.profileIds.includes(m.profileId) ? bundle.profileIds : [m.profileId, ...bundle.profileIds], m.profileId, (v) => a.setMemberProfile(role, v))),
+    h('button', { class: 'edit-profile-btn', disabled: !bundle.profileIds.includes(m.profileId), title: 'Open this member\'s profile in the profile editor', onclick: () => a.editProfile(m.profileId) }, 'Edit profile'),
     row('Plan extent', select(EXTENTS, m.extent, (v) => a.setMemberExtent(role, v))),
     insertionPointRow(m, role, a),
     insertionRow('x', m, role, a),
