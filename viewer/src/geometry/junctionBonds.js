@@ -46,6 +46,40 @@ function _arm(item, end) {
 }
 
 /**
+ * The corner a butt or mitre junction makes between two swept walls whose paths end at one point at right angles, or
+ * null when it makes none (see the top of this file).
+ * @param {{id, points, shapes, options?}} A - the junction's first element
+ * @param {{id, points, shapes, options?}} B - its second
+ * @param {object} j - the junction entity
+ * @returns {{ea: string, eb: string, a: object, b: object, throughA: boolean, walls: Array<{arm, binormal, shapes}>}|null}
+ *   the path ends that meet ('start' or 'end') and their arms (_arm), whether A runs through, and the two walls as
+ *   cornerLayers.js takes them: [the wall that runs through on a butt (the one named first in priority), the other]
+ */
+export function junctionCorner(A, B, j) {
+  if (!j || (j.rule !== 'butt' && j.rule !== 'mitre')) return null;
+  if (!A || !B || A === B) return null;
+  if ((A.options?.sweepMode ?? 'perpendicular') !== 'perpendicular' || (B.options?.sweepMode ?? 'perpendicular') !== 'perpendicular') return null;
+
+  // the ends of the two paths that are one point
+  let best = null;
+  for (const ea of ['start', 'end']) {
+    for (const eb of ['start', 'end']) {
+      const a = _arm(A, ea), b = _arm(B, eb);
+      if (!a || !b) continue;
+      const d = dist2d(a.point, b.point);
+      if (d <= CORNER_TOLERANCE && Math.abs(a.point.z - b.point.z) <= CORNER_TOLERANCE && (!best || d < best.d)) best = { d, ea, eb, a, b };
+    }
+  }
+  if (!best || !isRightAngle(best.a.dir, best.b.dir)) return null;
+
+  // the wall named first in priority (the one that runs through) is through on the first course
+  const throughA = j.priority?.[0] === B.id ? false : true;
+  const wall = (item, arm) => ({ arm: arm.dir, binormal: arm.binormal, shapes: item.shapes });
+  const walls = throughA ? [wall(A, best.a), wall(B, best.b)] : [wall(B, best.b), wall(A, best.a)];
+  return { ea: best.ea, eb: best.eb, a: best.a, b: best.b, throughA, walls };
+}
+
+/**
  * @param {Array<{id: string, points: Array<{x,y,z}>, shapes: Array, options?: object, profile?: object}>} items
  *   the swept elements: path points as parsed, profile shapes (buildProfileShape), sweep options (sweepOptionsFromElement)
  *   and, for a detail's layer ends, the profile entity
@@ -61,26 +95,13 @@ export function junctionBonds(items, junctions, ctx = {}) {
   const out = new Map();
   const taken = new Set();                                    // 'id:end', one corner per path end
   for (const j of junctions ?? []) {
-    if (!j || (j.rule !== 'butt' && j.rule !== 'mitre') || !Array.isArray(j.elements) || j.elements.length !== 2) continue;
+    if (!j || !Array.isArray(j.elements) || j.elements.length !== 2) continue;
     const [A, B] = j.elements.map(id => byId.get(id));
-    if (!A || !B || A === B) continue;
-    if ((A.options?.sweepMode ?? 'perpendicular') !== 'perpendicular' || (B.options?.sweepMode ?? 'perpendicular') !== 'perpendicular') continue;
-
-    // the ends of the two paths that are one point
-    let best = null;
-    for (const ea of ['start', 'end']) {
-      for (const eb of ['start', 'end']) {
-        const a = _arm(A, ea), b = _arm(B, eb);
-        if (!a || !b) continue;
-        const d = dist2d(a.point, b.point);
-        if (d <= CORNER_TOLERANCE && Math.abs(a.point.z - b.point.z) <= CORNER_TOLERANCE && (!best || d < best.d)) best = { d, ea, eb, a, b };
-      }
-    }
-    if (!best || !isRightAngle(best.a.dir, best.b.dir)) continue;
+    const best = junctionCorner(A, B, j);
+    if (!best) continue;
+    const { throughA } = best;
     if (taken.has(`${A.id}:${best.ea}`) || taken.has(`${B.id}:${best.eb}`)) continue;
 
-    // the wall named first in priority (the one that runs through) is through on the first course
-    const throughA = j.priority?.[0] === B.id ? false : true;
     taken.add(`${A.id}:${best.ea}`); taken.add(`${B.id}:${best.eb}`);
     if (!out.has(A.id)) out.set(A.id, {});
     if (!out.has(B.id)) out.set(B.id, {});
@@ -91,13 +112,12 @@ export function junctionBonds(items, junctions, ctx = {}) {
     const extendA = mitred ? (trimmed(A.id) && trimmed(B.id) ? 'mitre' : false) : throughA;
     const extendB = mitred ? extendA : !throughA;
     // each layer to its own layer (#206): T is the wall that runs through on a butt
-    const [T, O] = throughA ? [{ item: A, arm: best.a }, { item: B, arm: best.b }] : [{ item: B, arm: best.b }, { item: A, arm: best.a }];
-    const wall = (w) => ({ arm: w.arm.dir, binormal: w.arm.binormal, shapes: w.item.shapes });
-    const ends = cornerLayerEnds(wall(T), wall(O), mitred ? 'mitre' : 'butt');
+    const [T, O] = throughA ? [A, B] : [B, A];
+    const ends = cornerLayerEnds(best.walls[0], best.walls[1], mitred ? 'mitre' : 'butt');
     // a CSG junction (junction-csg.js) is cut by the other wall's solid, so its layers are left whole
     if (j.trim_method === 'csg') ends.a.fill(null), ends.b.fill(null);
-    const fromDetail = j.detail_id && j.trim_method !== 'csg' ? detailLayerEnds(details.get(j.detail_id), [wall(T), wall(O)], profiles) : null;
-    const layerEnds = (w, own, byKey) => w.item.shapes.map((s, i) => byKey?.get(s.layer) ?? own[i]);
+    const fromDetail = j.detail_id && j.trim_method !== 'csg' ? detailLayerEnds(details.get(j.detail_id), best.walls, profiles) : null;
+    const layerEnds = (item, own, byKey) => item.shapes.map((s, i) => byKey?.get(s.layer) ?? own[i]);
     const endsT = layerEnds(T, ends.a, fromDetail?.a), endsO = layerEnds(O, ends.b, fromDetail?.b);
     const [endsA, endsB] = throughA ? [endsT, endsO] : [endsO, endsT];
 
