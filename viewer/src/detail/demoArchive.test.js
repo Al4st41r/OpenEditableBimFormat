@@ -1,15 +1,16 @@
 /**
  * The viewer's demo button loads public/terraced-house.oebfz, a packed copy of
  * the example bundle. It must stay in step with example/terraced-house.oebf or
- * the demo silently shows an older model. Re-pack with:
- *   cd ifc-tools && uv run --with zstandard python ../tools/pack_oebfz.py \
- *     ../example/terraced-house.oebf ../viewer/public/terraced-house.oebfz
+ * the demo silently shows an older model. Re-pack both demo archives with:
+ *   cd ifc-tools && uv run oebf pack ../example/terraced-house.oebf ../viewer/public/terraced-house.oebfz
+ *   cd ifc-tools && uv run oebf pack ../example/nmb-two-storey.oebf ../viewer/public/nmb-two-storey.oebfz
+ * The last describe block compares every file of each archive with its source bundle, so any drift fails here (#209).
  */
 import { describe, test, expect, vi } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { loadBundleZstd } from '../loader/loadBundleZstd.js';
+import { loadBundleZstd, readArchiveFiles } from '../loader/loadBundleZstd.js';
 import { assertValidGeometry } from './fixtures.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
@@ -39,5 +40,33 @@ describe('demo archive (public/terraced-house.oebfz)', () => {
     const r = await loadBundleZstd(archive());
     const example = JSON.parse(fs.readFileSync(path.join(ROOT, 'example/terraced-house.oebf/details/detail-corner-cavity-butt.json'), 'utf8'));
     expect(r.details[0]).toEqual(example);
+  });
+});
+
+/** Every file under a folder, as a Map of relative path -> text. No file is exempt: the archive is a plain pack of the folder. */
+function readFolder(dir, rel = '', out = new Map()) {
+  for (const entry of fs.readdirSync(path.join(dir, rel), { withFileTypes: true })) {
+    const p = rel ? `${rel}/${entry.name}` : entry.name;
+    if (entry.isDirectory()) readFolder(dir, p, out);
+    else out.set(p, fs.readFileSync(path.join(dir, p), 'utf8'));
+  }
+  return out;
+}
+
+describe.each(['terraced-house', 'nmb-two-storey'])('demo archive %s against its source bundle', (name) => {
+  const files = readArchiveFiles(new Uint8Array(fs.readFileSync(path.join(ROOT, `viewer/public/${name}.oebfz`))));
+  const source = readFolder(path.join(ROOT, `example/${name}.oebf`));
+
+  test('holds exactly the files of the source bundle', () => {
+    expect([...files.keys()].sort()).toEqual([...source.keys()].sort());
+  });
+
+  test('every file (guide, details, profiles, materials, junctions, elements, paths, schemas) is identical', () => {
+    const drifted = [...source].filter(([p, text]) => files.get(p) !== text).map(([p]) => p);
+    expect(drifted, `re-pack public/${name}.oebfz from example/${name}.oebf`).toEqual([]);
+  });
+
+  test('the guide carries the layer_ends note', () => {
+    expect(files.get('OEBF-GUIDE.md')).toContain('layer_ends');
   });
 });
