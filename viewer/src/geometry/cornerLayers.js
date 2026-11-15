@@ -102,35 +102,38 @@ export function cornerLayerEnds(A, B, rule) {
 }
 
 /**
- * The layer ends a plan detail gives a corner, or null when it gives none or does not fit this corner.
+ * How a plan detail sits at a corner, found from its members and the two walls (#206, #207), or null when it cannot be
+ * found: the detail is not a plan detail of two members that each end at the origin (extent 'forward' or 'backward'),
+ * a member's profile is missing, or the members' layers do not lie where the walls' layers do.
+ *
+ * The detail is not placed with the primary wall's direction of travel, which points into the corner at a wall that
+ * ends there. Instead the plan map M that takes each member's arm to a wall's arm is found (a rotation or a reflection:
+ * detail_mirrored is not needed), trying both ways round, and kept when every band layer of each member, mapped by M,
+ * lies across the wall where the wall's layer with the same number lies (to DETAIL_FIT_TOLERANCE). When both ways fit
+ * (two walls of one profile), the member whose role names the through wall, else the first member, goes to the wall
+ * that runs through. Layers are matched by their number in the profile.
  *
  * Mapping. Each member of the detail runs along its local x turned by rotation_deg; its across axis is local y, and
  * profile x lies along local -y from the insertion point (memberShapes.js). Its arm, the direction away from the
  * detail origin, is local +x for extent 'forward' and local -x for 'backward' (a 'centred' member has no end at the
- * origin, so the detail gives no ends). Its insertion point is placed at the offsets, measured from its reference
- * lines (resolvePlacement). The near end of layer i lies, along the member's arm, at
+ * origin). Its insertion point is placed at the offsets, measured from its reference lines (resolvePlacement). The
+ * near end of layer i lies, along the member's arm, at
  *
  *     s_i = origin . arm - near_m(i)
  *
  * from the detail origin (forward: local x = -near_m; backward: local x = +near_m and the arm is -x). The detail origin
  * is the junction's location, which is taken to be J, the point where the two paths end.
  *
- * The detail is not placed with detailFrame.js here: that frame follows the primary wall's direction of travel, which
- * points into the corner at a wall that ends there. Instead the plan map M that takes each member's arm to a wall's arm
- * is found (a rotation or a reflection: detail_mirrored is not needed), trying both ways round, and kept when every
- * band layer of each member, mapped by M, lies across the wall where the wall's layer with the same number lies (to
- * DETAIL_FIT_TOLERANCE). When both ways fit (two walls of one profile), the member whose role names the through wall,
- * else the first member, goes to the wall that runs through. Layers are matched by their number in the profile.
- *
  * @param {object} detail
- * @param {Array<{arm, binormal, shapes, profile, profileId}>} walls - [A, B], A being the wall that runs through on a butt
+ * @param {Array<{arm, binormal, shapes}>} walls - [A, B], A being the wall that runs through on a butt
  * @param {Map<string, object>} profiles - profile entities by id, for the members' profiles
- * @returns {{a: Map<number, object>, b: Map<number, object>}|null} layer number -> end, for each wall
+ * @returns {{x: {x,y}, y: {x,y}, ends: {a: Map<number, object>, b: Map<number, object>}}|null} x and y are the plan
+ *   directions of the detail's local +x and +y (M applied to them; a reflection when x cross y is negative); ends are
+ *   the layer ends (layer number -> end) for each wall, from near_m (0 for a layer without one)
  */
-export function detailLayerEnds(detail, walls, profiles) {
+export function detailPlanMap(detail, walls, profiles) {
   if (!detail || (detail.plane ?? 'section') !== 'plan' || !Array.isArray(detail.members) || detail.members.length !== 2) return null;
-  if (!detail.members.some((m) => Array.isArray(m.layer_ends) && m.layer_ends.length)) return null;
-
+  if (!Array.isArray(walls) || walls.length !== 2 || walls.some((w) => !w?.arm || !w?.binormal || !Array.isArray(w?.shapes))) return null;
   const members = [];
   for (const m of detail.members) {
     const profile = profiles?.get(m.profile_id);
@@ -173,7 +176,7 @@ export function detailLayerEnds(detail, walls, profiles) {
       if (!ends.size) return null;
       out.set(w, ends);
     }
-    return out;
+    return { M, ends: out };
   };
   const straight = fits([0, 1]), swapped = fits([1, 0]);
   let chosen = straight ?? swapped;
@@ -182,5 +185,19 @@ export function detailLayerEnds(detail, walls, profiles) {
     chosen = throughIndex === 0 ? straight : swapped;
   }
   if (!chosen) return null;
-  return { a: chosen.get(walls[0]), b: chosen.get(walls[1]) };
+  return { x: chosen.M({ x: 1, y: 0 }), y: chosen.M({ x: 0, y: 1 }), ends: { a: chosen.ends.get(walls[0]), b: chosen.ends.get(walls[1]) } };
+}
+
+/**
+ * The layer ends a plan detail gives a corner, or null when it gives none or does not fit this corner. The detail is
+ * placed by detailPlanMap; the ends come from the members' layer_ends.
+ *
+ * @param {object} detail
+ * @param {Array<{arm, binormal, shapes, profile, profileId}>} walls - [A, B], A being the wall that runs through on a butt
+ * @param {Map<string, object>} profiles - profile entities by id, for the members' profiles
+ * @returns {{a: Map<number, object>, b: Map<number, object>}|null} layer number -> end, for each wall
+ */
+export function detailLayerEnds(detail, walls, profiles) {
+  if (!Array.isArray(detail?.members) || !detail.members.some((m) => Array.isArray(m.layer_ends) && m.layer_ends.length)) return null;
+  return detailPlanMap(detail, walls, profiles)?.ends ?? null;
 }

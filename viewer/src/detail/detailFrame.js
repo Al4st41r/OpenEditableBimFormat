@@ -20,10 +20,24 @@
  * primary member's axis: v is flipped (plan) or u is flipped (section). That
  * frame is left-handed, so `mirrored: true` tells detailToGeometry to reverse
  * face winding. The origin z includes the datum offset (see datum.js).
+ *
+ * Corners (#207). The primary member's direction of travel is a poor guide at a
+ * corner: at a wall whose path runs into the corner it points the detail the
+ * wrong way. So when ctx.corner gives the two walls (junctionCorner in
+ * junctionBonds.js) and the detail is a plan detail whose members fit them
+ * (detailPlanMap in cornerLayers.js, the mapping the walls' layer ends use, #206),
+ * u and v are the plan directions the members' arms map to, so the detail's
+ * regions sit where its members sit on the walls. That map is a rotation or a
+ * reflection, found from the walls alone, so detail_mirrored does not change it
+ * (a mirrored detail fits the same corner by the same placement); `mirrored` is
+ * then true when the map is a reflection. Where the members cannot be matched
+ * (a section detail, a centred member, a detail that does not fit the walls, or
+ * no corner) the frame above is used, with detail_mirrored as before.
  */
 
 import { resolveLocation } from './locationResolver.js';
 import { datumOffset } from './datum.js';
+import { detailPlanMap } from '../geometry/cornerLayers.js';
 
 const EPS = 1e-9;
 const n = (x) => x + 0; // normalise -0 to 0
@@ -61,13 +75,18 @@ export function pathTangentAt(points, point) {
 /**
  * @param {object} detail
  * @param {object} junction
- * @param {{ model: object, grids: object[], elementPaths: Map<string, Array> }} ctx
+ * @param {{ model: object, grids: object[], elementPaths: Map<string, Array>,
+ *   corner?: { walls: Array<{arm, binormal, shapes}>, profiles: Map<string, object> } }} ctx
+ *   corner: the two walls at the junction, the one that runs through first, and the profiles the detail's members use
  * @returns {{ origin, u, v, w, mirrored }} each of origin, u, v, w is {x, y, z}
  */
 export function buildDetailFrame(detail, junction, ctx) {
   if (!junction.location) throw new Error(`Junction "${junction.id}" has no location`);
   const origin = resolveLocation(junction.location, ctx);
   if (detail.datum) origin.z += datumOffset(detail.datum, junction.location.level_id, ctx.slabs);
+
+  const fitted = ctx.corner ? cornerFrame(detail, ctx.corner) : null;
+  if (fitted) return { origin, ...fitted };
 
   const primaryId = junction.priority?.[0] ?? junction.elements[0];
   const points = ctx.elementPaths?.get(primaryId);
@@ -85,4 +104,19 @@ export function buildDetailFrame(detail, junction, ctx) {
   return (detail.plane ?? 'section') === 'plan'
     ? { origin, u: T, v: mirrored ? flip(P) : P, w: UP, mirrored }
     : { origin, u: mirrored ? P : R, v: UP, w: flip(T), mirrored };
+}
+
+/**
+ * The plan frame that places a detail's members on the two walls of a corner, or null when they cannot be matched.
+ * @param {object} detail
+ * @param {{ walls: Array<{arm, binormal, shapes}>, profiles: Map<string, object> }} corner
+ * @returns {{ u, v, w, mirrored }|null}
+ */
+export function cornerFrame(detail, corner) {
+  if ((detail.plane ?? 'section') !== 'plan') return null;
+  const map = detailPlanMap(detail, corner.walls, corner.profiles);
+  if (!map) return null;
+  const u = { x: n(map.x.x), y: n(map.x.y), z: 0 };
+  const v = { x: n(map.y.x), y: n(map.y.y), z: 0 };
+  return { u, v, w: { x: 0, y: 0, z: 1 }, mirrored: u.x * v.y - u.y * v.x < 0 };
 }

@@ -16,6 +16,9 @@
 import { parsePath } from '../loader/loadPath.js';
 import { detailToGeometry } from './detailToGeometry.js';
 import { withStoreyGroups, loadStoreyGroups } from './levelResolver.js';
+import { buildProfileShape } from '../loader/loadProfile.js';
+import { sweepOptionsFromElement } from '../geometry/sweep.js';
+import { junctionCorner } from '../geometry/junctionBonds.js';
 
 /**
  * The Detail entities of model.details, in order. One that cannot be read is skipped with a warning.
@@ -92,6 +95,34 @@ export async function loadDetails({ readJson, model, junctions, grids, details: 
     return pathCache.get(elementId);
   };
 
+  const profileCache = new Map(); // profileId -> Promise<profile>
+  const profileFor = (profileId) => {
+    if (!profileCache.has(profileId)) profileCache.set(profileId, readJson(`profiles/${profileId}.json`));
+    return profileCache.get(profileId);
+  };
+
+  // A plan detail at a corner is placed by the walls it joins (#207): the two walls as junctionBonds sees them, and the
+  // profiles the detail's members use. Null (the frame then follows the primary member) when any of it cannot be read.
+  const cornerFor = async (detail, junction) => {
+    if ((detail.plane ?? 'section') !== 'plan' || (junction.rule !== 'butt' && junction.rule !== 'mitre')) return null;
+    if (!Array.isArray(junction.elements) || junction.elements.length !== 2) return null;
+    try {
+      const items = [];
+      for (const id of junction.elements) {
+        const element = await readJson(`elements/${id}.json`);
+        const profile = await profileFor(element.profile_id);
+        items.push({ id, points: await pointsFor(id), shapes: buildProfileShape(profile), options: sweepOptionsFromElement(element) });
+      }
+      const corner = junctionCorner(items[0], items[1], junction);
+      if (!corner) return null;
+      const profiles = new Map();
+      for (const m of detail.members ?? []) if (m.profile_id) profiles.set(m.profile_id, await profileFor(m.profile_id));
+      return { walls: corner.walls, profiles };
+    } catch {
+      return null;
+    }
+  };
+
   for (const junction of junctions) {
     if (!junction.detail_id) continue;
     try {
@@ -102,7 +133,9 @@ export async function loadDetails({ readJson, model, junctions, grids, details: 
       const primaryId = junction.priority?.[0] ?? junction.elements[0];
       const elementPaths = new Map([[primaryId, await pointsFor(primaryId)]]);
 
-      const { geometry, warnings } = detailToGeometry(detail, junction, { model: levelModel, grids, elementPaths, slabs });
+      const corner = await cornerFor(detail, junction);
+
+      const { geometry, warnings } = detailToGeometry(detail, junction, { model: levelModel, grids, elementPaths, slabs, corner });
       if (geometry) junction.detailGeometry = geometry;
       if (warnings.length) junction.detailWarnings = warnings;
     } catch (err) {
