@@ -33,3 +33,14 @@ test('the launch page has a card for every app, and a title of its own', () => {
   const title = (html) => html.match(/<title>([^<]+)<\/title>/)[1];
   expect(title(launch)).not.toBe(title(read('index.html')));
 });
+
+test('the Edit profile button has one shared style and one label in both editors (#205)', () => {
+  expect(read('src/ui/ui.css')).toMatch(/\.edit-profile-btn\s*\{[^}]*background: #2a4a2a[^}]*color: #8f8/);
+  for (const f of ['src/editor/editor.js', 'src/detail-editor/panels.js']) {
+    const src = read(f);
+    expect(src, f).toContain("edit-profile-btn");
+    expect(src, f).toContain("'Edit profile'");
+  }
+  expect(read('src/editor/editor.js')).not.toMatch(/Edit profile[\s\S]{0,200}background:#2a4a2a/);
+  expect(read('src/detail-editor/editor.js')).toContain('editProfile: (id) => openProfileEditor(id)');
+});

@@ -275,6 +275,7 @@ const actions = {
   renameMember: (role, to) => { apply((d) => D.renameMemberRole(d, role, to)); if (st.doc.members.some((m) => m.role === to)) { st = select(st, { type: 'member', role: to }); refresh(); } },
   setMemberKind: (role, v) => apply((d) => D.setMemberKind(d, role, v)),
   setMemberProfile: (role, v) => apply((d) => D.setMemberProfile(d, role, v)),
+  editProfile: (id) => openProfileEditor(id),
   setMemberExtent: (role, v) => apply((d) => D.setMemberExtent(d, role, v)),
   moveMember: (role, o) => apply((d) => D.moveMember(d, role, o)),
   rotateMember: (role, v) => apply((d) => D.rotateMember(d, role, v)),
@@ -1047,9 +1048,9 @@ async function persistProfile(saved) {
   await saveProfileEdit(bundle.adapter, saved);
 }
 
-$('profile-btn').addEventListener('click', () => {
+/** Open the profile editor on a profile; saved changes come back into the bundle. */
+function openProfileEditor(active) {
   if (!bundle || !st) { status('Open a detail first.', true); return; }
-  const active = profileToEdit();
   const tab = window.open(`${import.meta.env.BASE_URL}profile-editor.html`, '_blank');
   if (!tab) { status('The browser blocked the profile editor tab. Allow pop-ups for this site.', true); return; }
   const send = (e) => {
@@ -1079,7 +1080,9 @@ $('profile-btn').addEventListener('click', () => {
     }
   };
   window.addEventListener('message', send);
-});
+}
+
+$('profile-btn').addEventListener('click', () => openProfileEditor(profileToEdit()));
 
 // ── publish ──────────────────────────────────────────────────────────────────
 // The served bundle is a build of the repository, so the page cannot write to it. Publish downloads the edited detail

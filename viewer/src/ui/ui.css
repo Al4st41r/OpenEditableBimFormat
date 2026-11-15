@@ -17,6 +17,13 @@
 :where(button:disabled) { opacity: 0.4; cursor: default; }
 :where(button:focus-visible) { outline: 2px solid #6fc0ff; outline-offset: 1px; }
 
+/* The green "Edit profile" button, on the 3D editor's properties panel and the detail editor's member panel. */
+.edit-profile-btn {
+  width: 100%; margin-top: 8px; padding: 5px 10px; font-size: 12px;
+  background: #2a4a2a; color: #8f8; border: 1px solid #555; border-radius: 3px;
+}
+.edit-profile-btn:hover:not(:disabled) { background: #345c34; }
+
 /* A dialog's buttons are a little wider. */
 :where(dialog button) { padding: 5px 14px; }
 
