@@ -214,14 +214,16 @@ describe('sweepProfile — edge cases', () => {
 
     // Tube vertices at frame 1 (4 verts, starting at index 4 in the grid)
     // Expected miter binormal = normalize(cross(normalize((1,1,0)), (0,0,1)))
-    //   = (0.707, -0.707, 0)
-    // p.x=-0.1 → y offset = (-0.1)×(-0.707) = +0.0707
-    // p.x= 0.1 → y offset = ( 0.1)×(-0.707) = -0.0707
-    const ys = [];
-    for (let vi = 4; vi < 8; vi++) ys.push(mesh.vertices[vi * 3 + 1]);
+    //   = (0.707, -0.707, 0), stretched by 1 / cos(45°) so the faces keep
+    //   their offset through the corner (#212): the corner points are
+    //   (1.9, 0.1) and (2.1, -0.1), where the side faces meet.
+    const xs = [], ys = [];
+    for (let vi = 4; vi < 8; vi++) { xs.push(mesh.vertices[vi * 3]); ys.push(mesh.vertices[vi * 3 + 1]); }
 
-    expect(Math.max(...ys)).toBeCloseTo( 0.0707, 2);
-    expect(Math.min(...ys)).toBeCloseTo(-0.0707, 2);
+    expect(Math.max(...ys)).toBeCloseTo( 0.1, 5);
+    expect(Math.min(...ys)).toBeCloseTo(-0.1, 5);
+    expect(Math.max(...xs)).toBeCloseTo( 2.1, 5);
+    expect(Math.min(...xs)).toBeCloseTo( 1.9, 5);
   });
 
   test('path with sharp corner (~170° turn): all normals are finite', () => {

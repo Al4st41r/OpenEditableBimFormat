@@ -149,11 +149,14 @@ export function sweepProfile(pathPoints, profileShapes, options = {}) {
     capStartAngleDeg = 0, capEndAngleDeg = 0,
   } = options;
   const points = offsetPolyline(pathPoints, startOffset, endOffset);
-  const frames = _angleEnds(_applyMode(_computeFrames(points), sweepMode, twistPerMetre),
-    capStart === 'angled' ? capStartAngleDeg : 0, capEnd === 'angled' ? capEndAngleDeg : 0);
-  const caps = { start: capStart !== 'open', end: capEnd !== 'open' };
-  const bonds = options.bonds ?? {};
-  const angled = { start: capStart === 'angled', end: capEnd === 'angled' };
+  // a closed path (last point is the first, after any offsets) is a ring (#212): mitred at the closing vertex like any
+  // other, with no end caps, no angled ends and nothing from a junction at its ends
+  const ring = sweepMode === 'perpendicular' && isClosedPath(points);
+  const frames = _angleEnds(_applyMode(_computeFrames(points, ring), sweepMode, twistPerMetre),
+    capStart === 'angled' && !ring ? capStartAngleDeg : 0, capEnd === 'angled' && !ring ? capEndAngleDeg : 0);
+  const caps = ring ? { start: false, end: false } : { start: capStart !== 'open', end: capEnd !== 'open' };
+  const bonds = ring ? {} : (options.bonds ?? {});
+  const angled = ring ? { start: false, end: false } : { start: capStart === 'angled', end: capEnd === 'angled' };
   const coursedSweep = (pts, frs, shape, index, bondsFor) => (shape.repeat && sweepMode === 'perpendicular'
     ? _sweepCourses(pts, frs, shape, caps, { index, bonds: bondsFor, angled })
     : null);
@@ -447,8 +450,7 @@ function _cornerBonds(points, seg, shape, ctx) {
 
   // a closed path (its last point is its first): the closing vertex is a corner too, the arm that arrives being the last
   // segment and the arm that leaves the first. A closing angle that is not a right angle leaves the two ends free.
-  const closes = n >= 4 && Math.hypot(points[0].x - points[n - 1].x, points[0].y - points[n - 1].y) < 1e-6
-    && Math.abs(points[0].z - points[n - 1].z) < 1e-6;
+  const closes = isClosedPath(points);
   let closed = false;
   if (closes) {
     const a = { dir: { x: -seg[n - 2].tangent.x, y: -seg[n - 2].tangent.y }, binormal: plan(seg[n - 2].binormal) };
@@ -529,33 +531,58 @@ function _angleEnds(frames, startDeg, endDeg) {
   return out;
 }
 
+/** True when a path's last point is its first (a ring of at least three segments): its closing vertex is a corner (#212). */
+export function isClosedPath(points) {
+  const n = points.length;
+  if (n < 4) return false;
+  const a = points[0], b = points[n - 1];
+  return Math.hypot(a.x - b.x, a.y - b.y) < 1e-6 && Math.abs(a.z - b.z) < 1e-6;
+}
+
 // ─── Frame computation ───────────────────────────────────────────────────────
+
+/** The longest a mitre stretches the section across the path (a turn of about 168 degrees); sharper turns are blunted. */
+export const MAX_MITRE_SCALE = 10;
 
 /**
  * Compute a reference frame at each path point.
  * Uses a fixed world-Z "up" reference to keep walls vertical on horizontal paths.
+ *
+ * At a vertex between two segments the frame is a mitre: its tangent bisects the turn, so the section lies on the plane
+ * that halves the corner, and `mitre` (1 / cos of half the turn in plan) stretches the section across the path so that
+ * each side face keeps its offset from the path and the wall keeps its width through the corner. On a closed path
+ * (`closed`, see isClosedPath) the first and last points are the closing vertex, mitred between the last segment and
+ * the first (#212); on an open path they are square to their own segment.
  */
-function _computeFrames(points) {
+function _computeFrames(points, closed = false) {
   const n = points.length;
   const frames = [];
   const worldUp = { x: 0, y: 0, z: 1 };
 
   for (let i = 0; i < n; i++) {
+    // the segment arriving at the point and the one leaving it; a free end has only one
+    let tIn = null, tOut = null;
+    if (i > 0) tIn = _normalize(_sub(points[i], points[i - 1]));
+    else if (closed) tIn = _normalize(_sub(points[n - 1], points[n - 2]));
+    if (i < n - 1) tOut = _normalize(_sub(points[i + 1], points[i]));
+    else if (closed) tOut = _normalize(_sub(points[1], points[0]));
+
     let tangent;
-    if (i === 0) {
-      tangent = _normalize(_sub(points[1], points[0]));
-    } else if (i === n - 1) {
-      tangent = _normalize(_sub(points[n - 1], points[n - 2]));
+    let mitre = 1;
+    if (!tIn || !tOut) {
+      tangent = tIn ?? tOut;
     } else {
-      // Miter: average the incoming and outgoing unit tangents so the
+      // Mitre: average the incoming and outgoing unit tangents so the
       // cross-section ring at this node bisects the corner angle.
       // Without this, the ring is oriented to the outgoing segment only,
       // which makes both wall sides converge onto the path centreline.
-      const tIn  = _normalize(_sub(points[i],     points[i - 1]));
-      const tOut = _normalize(_sub(points[i + 1], points[i]));
       const avg  = { x: tIn.x + tOut.x, y: tIn.y + tOut.y, z: tIn.z + tOut.z };
       // Fall back to incoming tangent for near-180° U-turns (avg ≈ zero vector)
       tangent = _len(avg) > 1e-6 ? _normalize(avg) : tIn;
+      const bIn = _normalize(_cross(tIn, worldUp));
+      const bMid = _normalize(_cross(tangent, worldUp));
+      const c = _dot(bIn, bMid);
+      if (_len(bIn) > 1e-6 && _len(bMid) > 1e-6 && c > 1e-9) mitre = Math.min(1 / c, MAX_MITRE_SCALE);
     }
 
     let binormal = _normalize(_cross(tangent, worldUp));
@@ -567,7 +594,9 @@ function _computeFrames(points) {
     }
     const normal = _normalize(_cross(binormal, tangent));
 
-    frames.push({ origin: points[i], tangent, normal, binormal });
+    const frame = { origin: points[i], tangent, normal, binormal };
+    if (mitre > 1 + 1e-12) frame.mitre = mitre;
+    frames.push(frame);
   }
   return frames;
 }
@@ -577,14 +606,16 @@ function _computeFrames(points) {
 /**
  * World position of profile point p in a frame. Profile y is world Z unless the frame has its own up.
  * An angled end frame (frame.skew, see _angleEnds) moves the point p.x · skew along the tangent.
+ * A mitre frame (frame.mitre, see _computeFrames) stretches p.x across the path, for a frame without its own up.
  */
 function _place(frame, p) {
   const up = frame.up;
   const k = frame.skew ? p.x * frame.skew : 0;
+  const x = frame.mitre && !up ? p.x * frame.mitre : p.x;
   return [
-    frame.origin.x + p.x * frame.binormal.x + (up ? p.y * up.x : 0) + k * frame.tangent.x,
-    frame.origin.y + p.x * frame.binormal.y + (up ? p.y * up.y : 0) + k * frame.tangent.y,
-    frame.origin.z + p.x * frame.binormal.z + (up ? p.y * up.z : p.y) + k * frame.tangent.z,
+    frame.origin.x + x * frame.binormal.x + (up ? p.y * up.x : 0) + k * frame.tangent.x,
+    frame.origin.y + x * frame.binormal.y + (up ? p.y * up.y : 0) + k * frame.tangent.y,
+    frame.origin.z + x * frame.binormal.z + (up ? p.y * up.z : p.y) + k * frame.tangent.z,
   ];
 }
 
