@@ -1,58 +1,53 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
-import { sortedMaterials, filterPickerMaterials, _fetchLibMaterials } from './materialPicker.js';
+import { describe, it, expect } from 'vitest';
+import { isPickerAction, materialOptions, adoptMaterial, functionForMaterial } from './materialPicker.js';
+import { NEW_MATERIAL, NEW_MATERIAL_LABEL, IMPORT_MATERIAL, IMPORT_MATERIAL_LABEL } from '../detail-editor/newMaterial.js';
 
 const matMap = {
-  'mat-brick':    { name: 'Brick',    colour_hex: '#C4693A' },
-  'mat-concrete': { name: 'Concrete', colour_hex: '#AAAAAA' },
-  'mat-timber':   { name: 'Timber',   colour_hex: '#D4A96A' },
+  'mat-brick': { name: 'Brick', colour_hex: '#C4693A' },
+  'mat-air': { name: 'Air', category: 'air', colour_hex: '#e8f1f5' },
 };
 
-describe('sortedMaterials', () => {
-  it('returns all entries sorted by name', () => {
-    expect(sortedMaterials(matMap).map(m => m.name)).toEqual(['Brick', 'Concrete', 'Timber']);
+describe('materialOptions', () => {
+  it('lists materials by name in the order given, then New material and Import from library', () => {
+    const opts = materialOptions(['mat-brick', 'mat-air', 'mat-x'], matMap);
+    expect(opts.map((o) => o.label)).toEqual(['Brick', 'Air', 'mat-x', NEW_MATERIAL_LABEL, IMPORT_MATERIAL_LABEL]);
+    expect(opts.slice(-2).map((o) => o.value)).toEqual([NEW_MATERIAL, IMPORT_MATERIAL]);
   });
 
-  it('includes id, name, colour_hex', () => {
-    const result = sortedMaterials(matMap);
-    expect(result[0]).toMatchObject({ id: 'mat-brick', name: 'Brick', colour_hex: '#C4693A' });
-  });
-
-  it('returns empty array for empty matMap', () => {
-    expect(sortedMaterials({})).toEqual([]);
+  it('offers the two actions even with no materials', () => {
+    expect(materialOptions([], {}).map((o) => o.value)).toEqual([NEW_MATERIAL, IMPORT_MATERIAL]);
   });
 });
 
-describe('filterPickerMaterials', () => {
-  it('filters by name substring (case-insensitive)', () => {
-    const all = sortedMaterials(matMap);
-    expect(filterPickerMaterials(all, 'bri')).toHaveLength(1);
-    expect(filterPickerMaterials(all, 'bri')[0].name).toBe('Brick');
-  });
-
-  it('filters case-insensitively with uppercase query', () => {
-    const all = sortedMaterials(matMap);
-    expect(filterPickerMaterials(all, 'BRI')).toHaveLength(1);
-    expect(filterPickerMaterials(all, 'BRI')[0].name).toBe('Brick');
-  });
-
-  it('returns all when query is empty', () => {
-    expect(filterPickerMaterials(sortedMaterials(matMap), '')).toHaveLength(3);
-  });
-
-  it('returns empty array when no match', () => {
-    expect(filterPickerMaterials(sortedMaterials(matMap), 'zzz')).toHaveLength(0);
+describe('isPickerAction', () => {
+  it('is true only for the two action values', () => {
+    expect(isPickerAction(NEW_MATERIAL)).toBe(true);
+    expect(isPickerAction(IMPORT_MATERIAL)).toBe(true);
+    expect(isPickerAction('mat-brick')).toBe(false);
+    expect(isPickerAction('')).toBe(false);
   });
 });
 
-describe('_fetchLibMaterials', () => {
-  afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
+describe('adoptMaterial', () => {
+  it('adds a new material to the map and the list once', () => {
+    const map = { ...matMap }; const ids = ['mat-brick'];
+    expect(adoptMaterial(map, ids, { id: 'mat-new', name: 'New' })).toBe(true);
+    expect(adoptMaterial(map, ids, { id: 'mat-new', name: 'New' })).toBe(false);
+    expect(ids).toEqual(['mat-brick', 'mat-new']);
+    expect(map['mat-new'].name).toBe('New');
+  });
 
-  it('requests the library under the deployed base path', async () => {
-    vi.stubEnv('BASE_URL', '/oebf/');
-    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ materials: [{ id: 'mat-a', name: 'A' }] }) });
-    vi.stubGlobal('fetch', fetchMock);
-    const result = await _fetchLibMaterials();
-    expect(fetchMock).toHaveBeenCalledWith('/oebf/library/materials/library.json');
-    expect(result[0].id).toBe('mat-a');
+  it('adds the id to the list when a callback has already put the material in the map', () => {
+    const map = { 'mat-a': { name: 'A' } }; const ids = [];
+    adoptMaterial(map, ids, { id: 'mat-a', name: 'A' });
+    expect(ids).toEqual(['mat-a']);
+  });
+});
+
+describe('functionForMaterial', () => {
+  it('makes an air material a finish and leaves other functions alone', () => {
+    expect(functionForMaterial(matMap['mat-air'], 'structure')).toBe('finish');
+    expect(functionForMaterial(matMap['mat-brick'], 'structure')).toBe('structure');
+    expect(functionForMaterial(undefined, 'insulation')).toBe('insulation');
   });
 });
