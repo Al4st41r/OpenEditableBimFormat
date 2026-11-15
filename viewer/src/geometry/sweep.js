@@ -603,12 +603,33 @@ function _meshOf({ positions, normals, indices }, materialId) {
   };
 }
 
+/**
+ * Which way round a sweep's faces must go to face out (#208). In a frame, profile x runs along the binormal B and
+ * profile y along U (world Z, or frame.up). An anticlockwise profile therefore faces along B x U, which is -T on a
+ * horizontal or sloping path (B = T x Z) and +T on a vertical one (U = T x B): the frame's handedness s is the sign of
+ * (B x U) . T. With sigma the profile's own winding (+1 anticlockwise), the side triangle (a, b, c) of a quad, a to b
+ * along a profile edge and b to c along the path, has the normal edge x T = sigma * s * (outward), and a cap triangle,
+ * wound as the profile is (polygonTriangles), faces along sigma * s * T. Returns sigma * s; the sweep winds its faces
+ * by it, so they face out whichever way round the profile polygon comes.
+ */
+function _windingSign(frame, profilePoints) {
+  const U = frame.up ?? { x: 0, y: 0, z: 1 };
+  const s = Math.sign(_dot(_cross(frame.binormal, U), frame.tangent)) || -1;
+  let area2 = 0;
+  for (let i = 0; i < profilePoints.length; i++) {
+    const a = profilePoints[i], b = profilePoints[(i + 1) % profilePoints.length];
+    area2 += a.x * b.y - b.x * a.y;
+  }
+  return (area2 >= 0 ? 1 : -1) * s;
+}
+
 /** Append one sweep of profilePoints through frames to `out` ({ positions, normals, indices }). `capTris` triangulates the profile. */
 function _appendSweep(out, frames, profilePoints, caps, capTris) {
   const { positions, normals, indices } = out;
   const base    = positions.length / 3;
   const nFrames = frames.length;
   const nVerts  = profilePoints.length;
+  const w = _windingSign(frames[0], profilePoints);
 
   // Tube grid: nFrames × nVerts vertices
   for (const frame of frames) {
@@ -618,7 +639,7 @@ function _appendSweep(out, frames, profilePoints, caps, capTris) {
     }
   }
 
-  // Side quads: two triangles per quad, CCW winding
+  // Side quads: two triangles per quad, wound to face out (_windingSign)
   for (let fi = 0; fi < nFrames - 1; fi++) {
     for (let vi = 0; vi < nVerts; vi++) {
       const next = (vi + 1) % nVerts;
@@ -626,13 +647,14 @@ function _appendSweep(out, frames, profilePoints, caps, capTris) {
       const b = base + fi       * nVerts + next;
       const c = base + (fi + 1) * nVerts + next;
       const d = base + (fi + 1) * nVerts + vi;
-      indices.push(a, b, c, a, c, d);
+      if (w > 0) indices.push(a, b, c, a, c, d);
+      else       indices.push(a, c, b, a, d, c);
     }
   }
 
-  // End caps (separate vertices to allow independent normals)
-  if (caps.start) _addCap(positions, normals, indices, frames[0],           profilePoints, false, capTris);
-  if (caps.end)   _addCap(positions, normals, indices, frames[nFrames - 1], profilePoints, true,  capTris);
+  // End caps (separate vertices to allow independent normals): the start faces along -T, the end along +T
+  if (caps.start) _addCap(positions, normals, indices, frames[0],           profilePoints, false, w > 0, capTris);
+  if (caps.end)   _addCap(positions, normals, indices, frames[nFrames - 1], profilePoints, true,  w < 0, capTris);
 }
 
 /**
@@ -643,12 +665,13 @@ function _appendSweep(out, frames, profilePoints, caps, capTris) {
  * @param {number[]} indices   - Mutable indices array.
  * @param {object}   frame     - Frame at the cap position.
  * @param {Array}    profilePoints - Profile polygon vertices.
- * @param {boolean}  flip      - true = end cap (reversed winding).
+ * @param {boolean}  atEnd     - true = end cap (faces along the tangent), false = start cap (faces against it).
+ * @param {boolean}  reverse   - true = wind each triangle the other way from capTris, so that it faces out.
  * @param {Array<[number, number, number]>} capTris - polygonTriangles(profilePoints)
  */
-function _addCap(positions, normals, indices, frame, profilePoints, flip, capTris) {
+function _addCap(positions, normals, indices, frame, profilePoints, atEnd, reverse, capTris) {
   const capBase = positions.length / 3;
-  const sign = flip ? 1 : -1;
+  const sign = atEnd ? 1 : -1;
   // outward normal of the end face: the tangent, turned for an angled end (sign·(T − skew·B), normalised)
   const k = frame.skew ?? 0;
   const n = _normalize({
@@ -663,8 +686,8 @@ function _addCap(positions, normals, indices, frame, profilePoints, flip, capTri
   }
 
   for (const [a, b, c] of capTris) {
-    if (flip) indices.push(capBase + a, capBase + c, capBase + b);
-    else      indices.push(capBase + a, capBase + b, capBase + c);
+    if (reverse) indices.push(capBase + a, capBase + c, capBase + b);
+    else         indices.push(capBase + a, capBase + b, capBase + c);
   }
 }
 
@@ -676,6 +699,7 @@ const _cross    = (a, b) => ({
   y: a.z * b.x - a.x * b.z,
   z: a.x * b.y - a.y * b.x,
 });
+const _dot      = (a, b) => a.x * b.x + a.y * b.y + a.z * b.z;
 const _len      = v => Math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
 const _normalize = v => {
   const l = _len(v);

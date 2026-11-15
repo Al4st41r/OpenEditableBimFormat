@@ -171,10 +171,10 @@ function reconstructPolygons(edges) {
  * Ensure polygon winding gives a normal in the direction of outNormal.
  * Reverses the polygon in-place if winding is opposite.
  *
- * Scans through consecutive triples to find the first non-degenerate
- * (non-collinear) triple, which is necessary when the reconstructed cap
- * polygon starts with collinear vertices (common when a triangulated mesh
- * has internal diagonal edges that all cross the clip plane at the same line).
+ * The polygon's normal is Newell's, summed over every edge, so a cap that is not convex (a cut through an L- or
+ * I-shaped section) or that starts with collinear vertices (common when a triangulated mesh has internal diagonal
+ * edges that all cross the clip plane at the same line) is turned the right way (#208). The cross product of one
+ * corner would point the wrong way at a reflex corner.
  *
  * @param {number[][]} verts - full output vertex array
  * @param {number[]} poly - array of vertex indices (modified in place if reversed)
@@ -183,17 +183,14 @@ function reconstructPolygons(edges) {
 function ensureWinding(verts, poly, outNormal) {
   const n = poly.length;
   if (n < 3) return poly;
+  const c = [0, 0, 0];
   for (let i = 0; i < n; i++) {
-    const v0 = verts[poly[i]];
-    const v1 = verts[poly[(i + 1) % n]];
-    const v2 = verts[poly[(i + 2) % n]];
-    const c = cross(sub(v1, v0), sub(v2, v0));
-    const lenSq = c[0] * c[0] + c[1] * c[1] + c[2] * c[2];
-    if (lenSq > 1e-24) {
-      if (dot(c, outNormal) < 0) poly.reverse();
-      return poly;
-    }
+    const a = verts[poly[i]], b = verts[poly[(i + 1) % n]];
+    c[0] += (a[1] - b[1]) * (a[2] + b[2]);
+    c[1] += (a[2] - b[2]) * (a[0] + b[0]);
+    c[2] += (a[0] - b[0]) * (a[1] + b[1]);
   }
+  if (dot(c, outNormal) < 0) poly.reverse();
   return poly;
 }
 
