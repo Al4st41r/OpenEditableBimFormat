@@ -10,7 +10,7 @@
  *   { meshes, manifest, junctions, arrays, grids }
  */
 
-import { loadDetails } from '../detail/loadDetails.js';
+import { loadDetails, detailContext } from '../detail/loadDetails.js';
 import { Decompress } from 'fzstd';
 import { unzipSync } from 'fflate';
 import { parsePath }           from './loadPath.js';
@@ -174,7 +174,7 @@ export async function loadBundleZstd(file) {
       const profData = readJson(`profiles/${element.profile_id}.json`);
       const parsedPath    = parsePath(pathData);
       const profileShapes = buildProfileShape(profData);
-      prepared.push({ id: elementId, element, points: parsedPath.points, shapes: profileShapes, options: sweepOptionsFromElement(element) });
+      prepared.push({ id: elementId, element, points: parsedPath.points, shapes: profileShapes, options: sweepOptionsFromElement(element), profile: profData });
     } catch (err) {
       console.warn(`[OEBF] Skipping element ${elementId}: ${err.message}`);
     }
@@ -193,7 +193,9 @@ export async function loadBundleZstd(file) {
     }
   }
 
-  const bonds = junctionBonds(prepared, junctions);
+  // the details are read first, so a corner can take its layer ends from its detail (#206)
+  const detailCtx = await detailContext(readJson, model, new Map(prepared.map(p => [p.profile.id, p.profile])));
+  const bonds = junctionBonds(prepared, junctions, detailCtx);
   for (const { id: elementId, element, points, shapes, options } of prepared) {
     try {
       const sweptMeshes = sweepProfile(points, shapes, { ...options, bonds: bonds.get(elementId) });
@@ -266,7 +268,7 @@ export async function loadBundleZstd(file) {
     }
   }
 
-  const details = await loadDetails({ readJson, model, junctions, grids });
+  const details = await loadDetails({ readJson, model, junctions, grids, details: detailCtx.details });
 
   return { meshes, manifest, junctions, arrays, grids, openings, objects, details, materials: materials.materials };
 }

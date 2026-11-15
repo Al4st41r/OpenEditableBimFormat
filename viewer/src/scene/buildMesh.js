@@ -82,6 +82,7 @@ export function buildThreeMesh(meshData) {
   mesh.userData.description = meshData.description;
   if (membrane) mesh.userData.membrane = true;
   if (meshData.bondedEnds?.length) mesh.userData.bondedEnds = meshData.bondedEnds;   // coursed units bonded at a corner (#191)
+  if (meshData.cutEnds?.length) mesh.userData.cutEnds = meshData.cutEnds;            // a layer cut to meet its own layer at a corner (#206)
 
   // Edge overlay — toggled by setRenderMode(), hidden by default
   const edgeGeo   = new THREE.EdgesGeometry(geometry, 15);

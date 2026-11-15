@@ -184,7 +184,7 @@ describe('junction bonds on the coursed house fixture (#191)', () => {
   });
 });
 
-describe('the outer corner of a butt or mitre is filled for layers that are not bonded (#199)', () => {
+describe('the outer corner of a butt or mitre is filled for layers that are not bonded (#199, #206)', () => {
   const plain = read('profiles/profile-cavity-250.json');
   const shapes = buildProfileShape(plain);
   const wallOf = (id) => { const element = read(`elements/${id}.json`); return { id, points: parsePath(read(`paths/${element.path_id}.json`)).points, shapes, options: sweepOptionsFromElement(element) }; };
@@ -193,7 +193,7 @@ describe('the outer corner of a butt or mitre is filled for layers that are not 
   const ext = (m) => { const b = { x0: Infinity, x1: -Infinity, y0: Infinity, y1: -Infinity }; for (let i = 0; i < m.vertices.length; i += 3) { b.x0 = Math.min(b.x0, m.vertices[i]); b.x1 = Math.max(b.x1, m.vertices[i]); b.y0 = Math.min(b.y0, m.vertices[i + 1]); b.y1 = Math.max(b.y1, m.vertices[i + 1]); } return b; };
   const brickIndex = plain.assembly.findIndex(l => l.material_id === 'mat-brick-common');
 
-  test('a butt: the wall that runs through carries each layer past its end over the outer square, the butting wall is unchanged', () => {
+  test('a butt: each layer of the wall that runs through goes on to the outer face of its own layer in the butting wall (#206)', () => {
     const bonds = junctionBonds([north, east], [ne]);
     expect(bonds.get(east.id).start.extend).toBe(true);      // east has priority; its path runs from the north corner southwards or the reverse
     const withBonds = (w) => sweepProfile(w.points, w.shapes, { ...w.options, bonds: bonds.get(w.id) });
@@ -202,12 +202,13 @@ describe('the outer corner of a butt or mitre is filled for layers that are not 
     expect(b1.y1).toBeGreaterThan(b0.y1 + 0.1);                // the brick reaches the outer face of the north wall (0.145 past the centreline)
     expect(b1.y1).toBeCloseTo(8.645, 6);
     expect(b1.x1).toBeCloseTo(b0.x1, 9);
-    // the block layer is on the inner side of the through wall, so it is not extended
+    // the block layer stops at the outer face of the north wall's block (0.032 short of the centreline), nested in the brick and PIR
     const blockIndex = plain.assembly.findIndex(l => l.material_id === 'mat-dense-aggregate');
-    expect(ext(bondedEast[blockIndex]).y1).toBeCloseTo(ext(plainEast[blockIndex]).y1, 9);
-    // the butting wall gets nothing
-    const n0 = sweepProfile(north.points, shapes, north.options), n1 = withBonds(north);
-    n1.forEach((m, i) => expect(m.vertices.length).toBe(n0[i].vertices.length));
+    expect(ext(bondedEast[blockIndex]).y1).toBeCloseTo(8.468, 6);
+    // the butting wall's layers stop at the inner faces of the through wall's: brick 0.043 past the centreline, plaster 0.145 short
+    const n1 = withBonds(north);
+    expect(ext(n1[brickIndex]).x1).toBeCloseTo(5.443, 6);
+    expect(ext(n1[3]).x1).toBeCloseTo(5.255, 6);
   });
 
   test('the added part is on the outer side of the through wall only, and clear of the butting wall', () => {

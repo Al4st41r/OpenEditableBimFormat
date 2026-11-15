@@ -18,28 +18,57 @@ import { detailToGeometry } from './detailToGeometry.js';
 import { withStoreyGroups, loadStoreyGroups } from './levelResolver.js';
 
 /**
+ * The Detail entities of model.details, in order. One that cannot be read is skipped with a warning.
+ * @param {(relativePath: string) => object|Promise<object>} readJson
+ * @param {object} model - parsed model.json
+ * @returns {Promise<object[]>}
+ */
+export async function readDetails(readJson, model) {
+  const details = [];
+  for (const id of (model.details ?? [])) {
+    try {
+      const detail = await readJson(`details/${id}.json`);
+      details.push(detail.id ? detail : { ...detail, id });
+    } catch (err) {
+      console.warn(`[OEBF] Skipping detail ${id}: ${err.message}`);
+    }
+  }
+  return details;
+}
+
+/**
+ * What junctionBonds needs to take the layer ends at a corner from its detail (#206): the details, and the profiles
+ * their members use (those the elements already use are not read again). Never throws.
+ * @param {(relativePath: string) => object|Promise<object>} readJson
+ * @param {object} model
+ * @param {Map<string, object>} known - profile entities already read, by id
+ * @returns {Promise<{details: object[], profiles: Map<string, object>}>}
+ */
+export async function detailContext(readJson, model, known = new Map()) {
+  const details = await readDetails(readJson, model);
+  const profiles = new Map(known);
+  for (const id of new Set(details.flatMap((d) => (d.members ?? []).map((m) => m.profile_id)))) {
+    if (!id || profiles.has(id)) continue;
+    try { profiles.set(id, await readJson(`profiles/${id}.json`)); } catch { /* the detail's ends are then not used */ }
+  }
+  return { details, profiles };
+}
+
+/**
  * @param {object} args
  * @param {(relativePath: string) => object|Promise<object>} args.readJson
  * @param {object} args.model - parsed model.json
  * @param {object[]} args.junctions - mutated: detailGeometry / detailWarnings added
  * @param {object[]} args.grids - parsed grid entities
+ * @param {object[]} [args.details] - the details, when already read (readDetails); else they are read here
  * @returns {Promise<object[]>} the loaded Detail entities
  */
-export async function loadDetails({ readJson, model, junctions, grids }) {
-  const details = [];
-  const byId = new Map();
+export async function loadDetails({ readJson, model, junctions, grids, details: preread }) {
   // Levels: the hierarchy's storeys, plus storey groups for bundles made in the editor.
   const levelModel = withStoreyGroups(model, await loadStoreyGroups(readJson, model));
 
-  for (const id of (model.details ?? [])) {
-    try {
-      const detail = await readJson(`details/${id}.json`);
-      details.push(detail);
-      byId.set(detail.id ?? id, detail);
-    } catch (err) {
-      console.warn(`[OEBF] Skipping detail ${id}: ${err.message}`);
-    }
-  }
+  const details = preread ?? await readDetails(readJson, model);
+  const byId = new Map(details.map((d) => [d.id, d]));
 
   // Slabs are only needed to resolve a "bottom" datum.
   let slabs;

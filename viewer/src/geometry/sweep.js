@@ -68,6 +68,8 @@ import { courseRows, lateralRange, pairLayer, isRightAngle, cornerEnd, runsThrou
  * @property {Array} shapes                 - the other wall's profile shapes (buildProfileShape)
  * @property {boolean} throughFirst         - this wall runs through on the first course (and every even one)
  * @property {boolean|'mitre'} [extend]    - this wall carries its layers on past the path end to fill the outer corner (#199): true on a butt (the wall that runs through), 'mitre' on both walls of a mitre
+ * @property {Array<{at:number, skew:number}|null>} [layerEnds] - per layer of this wall, where it ends so that it meets the
+ *   matching layer of the other wall (#206, cornerLayers.js); null for a layer with no match, which keeps `extend` and the trim plane
  */
 
 /** Read the sweep options from an element entity. Missing fields give the defaults. */
@@ -151,21 +153,76 @@ export function sweepProfile(pathPoints, profileShapes, options = {}) {
     capStart === 'angled' ? capStartAngleDeg : 0, capEnd === 'angled' ? capEndAngleDeg : 0);
   const caps = { start: capStart !== 'open', end: capEnd !== 'open' };
   const bonds = options.bonds ?? {};
+  const angled = { start: capStart === 'angled', end: capEnd === 'angled' };
+  const coursedSweep = (pts, frs, shape, index, bondsFor) => (shape.repeat && sweepMode === 'perpendicular'
+    ? _sweepCourses(pts, frs, shape, caps, { index, bonds: bondsFor, angled })
+    : null);
   // the layer function travels with the mesh, so the renderer can tell a membrane (#127)
   return profileShapes.map((shape, index) => {
-    const coursed = shape.repeat && sweepMode === 'perpendicular'
-      ? _sweepCourses(points, frames, shape, caps, { index, bonds, angled: { start: capStart === 'angled', end: capEnd === 'angled' } })
-      : null;
-    let swept = coursed ?? _sweepShape(frames, shape.points, shape.materialId, caps);
-    // outer corner of a butt or mitre (#199): the layers not bonded at an end get the outer square filled
+    // each layer meets its own layer at a corner junction (#206): the ends that get their own cut here
+    const cuts = {};
+    for (const end of ['start', 'end']) {
+      const e = bonds[end]?.layerEnds?.[index];
+      if (e && !angled[end]) cuts[end] = e;
+    }
+    let swept = coursedSweep(points, frames, shape, index, bonds);
+    const bonded = swept?.bondedEnds ?? [];                      // a coursed layer bonded at an end keeps its bond (#191)
+    const live = Object.keys(cuts).filter(end => !bonded.includes(end));
+    const cutEnds = [];
+    if (live.length) {
+      const cut = _cutLayerEnds(points, live.map(end => [end, cuts[end]]), sweepMode, twistPerMetre, capStartAngleDeg, capEndAngleDeg, angled);
+      if (cut) {
+        cutEnds.push(...cut.ends);
+        const rest = { ...bonds };
+        for (const end of cut.ends) delete rest[end];
+        swept = coursedSweep(cut.points, cut.frames, shape, index, rest) ?? _sweepShape(cut.frames, shape.points, shape.materialId, caps);
+      }
+    }
+    swept ??= _sweepShape(frames, shape.points, shape.materialId, caps);
+    // outer corner of a butt or mitre (#199), for a layer that has no matching layer in the other wall: the layers not
+    // bonded or cut at an end get the outer square filled
     for (const end of ['start', 'end']) {
       const jb = bonds[end];
-      if (!jb?.extend || (end === 'start' ? capStart : capEnd) === 'angled' || (swept.bondedEnds ?? []).includes(end)) continue;
+      if (!jb?.extend || angled[end] || (swept.bondedEnds ?? []).includes(end) || cutEnds.includes(end)) continue;
       const patch = _cornerPatch(frames, end, shape, jb, profileShapes);
       if (patch) swept = _joinMesh(swept, patch);
     }
+    if (cutEnds.length) swept = { ...swept, cutEnds };
     return shape.function ? { ...swept, function: shape.function } : swept;
   });
+}
+
+/**
+ * The path and frames for one layer whose ends are cut at a corner junction (#206; cornerLayers.js). `cuts` is
+ * [[end, {at, skew}]]: the layer ends where the distance from the path end, along the arm away from the corner, is
+ * at + skew * x for profile x (negative: past the path end). The end point is moved along its segment to `at` and the
+ * end frame skewed (as an angled end is, _angleEnds), so the end face is square for a butt and on the layer's own
+ * diagonal for a mitre. An end that would use up its segment is left alone.
+ * @returns {{points: Array, frames: Array, ends: string[]}|null}
+ */
+function _cutLayerEnds(points, cuts, sweepMode, twistPerMetre, startDeg, endDeg, angled) {
+  const pts = points.map(p => ({ ...p }));
+  const n = pts.length;
+  const skews = {};
+  const ends = [];
+  for (const [end, { at, skew }] of cuts) {
+    const [i, k] = end === 'start' ? [0, 1] : [n - 1, n - 2];
+    const seg = _sub(pts[k], pts[i]);
+    const len = _len(seg);
+    if (!(len > 1e-9) || !(at < len - 1e-6) || !Number.isFinite(at)) continue;
+    const arm = _normalize(seg);                                 // away from the corner
+    pts[i] = { x: pts[i].x + arm.x * at, y: pts[i].y + arm.y * at, z: pts[i].z + arm.z * at };
+    // the tangent runs along the arm at the start and against it at the end
+    skews[end] = end === 'start' ? (skew ?? 0) : -(skew ?? 0);
+    ends.push(end);
+  }
+  if (!ends.length) return null;
+  let frames = _angleEnds(_applyMode(_computeFrames(pts), sweepMode, twistPerMetre),
+    angled.start ? startDeg : 0, angled.end ? endDeg : 0);
+  frames = frames.slice();
+  if (skews.start) frames[0] = { ...frames[0], skew: skews.start };
+  if (skews.end) frames[n - 1] = { ...frames[n - 1], skew: skews.end };
+  return { points: pts, frames, ends };
 }
 
 /** Clip a polygon to the half-plane sign * x <= 0 (Sutherland-Hodgman); returns [] when nothing is left. */

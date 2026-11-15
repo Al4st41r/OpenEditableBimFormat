@@ -106,7 +106,7 @@ export function profileSweepHeight(profileData) {
  *
  * @param {object} profileData - OEBF profile JSON.
  * @param {number} [wallHeight] - Height of the band layers in metres; by default profileSweepHeight(profileData).
- * @returns {Array<{ points: Array<{x,y}>, materialId: string, width: number, function: string }>}
+ * @returns {Array<{ points: Array<{x,y}>, materialId: string, width: number, function: string, layer: number }>}
  */
 export function buildProfileShape(profileData, wallHeight) {
   profileData = normaliseProfile(profileData);
@@ -115,7 +115,8 @@ export function buildProfileShape(profileData, wallHeight) {
   const originX = profileData.origin?.x ?? (profileData.width / 2);
   let cursor = 0; // running X position from the left face (before origin offset)
 
-  for (const layer of profileData.assembly) {
+  for (const [index, layer] of profileData.assembly.entries()) {
+    const key = layer.layer ?? index + 1;   // the layer's number in the profile, as details refer to it (#206)
     if (layer.type === 'region') {
       // Region layer: arbitrary polygon with explicit vertices in profile space.
       // Must have at least 3 vertices to form a valid polygon.
@@ -125,6 +126,7 @@ export function buildProfileShape(profileData, wallHeight) {
       shapes.push({
         materialId: layer.material_id,
         function:   layer.function,
+        layer:      key,
         width:      0,
         // Apply origin offset so region coordinates align with band layers.
         points: layer.vertices.map(v => ({ x: v.x - originX, y: v.y })),
@@ -138,6 +140,7 @@ export function buildProfileShape(profileData, wallHeight) {
       shapes.push({
         materialId: layer.material_id,
         function:   layer.function,
+        layer:      key,
         width:      layer.thickness,
         // Counter-clockwise rectangle in profile space (XY)
         points: [

@@ -81,9 +81,10 @@ export function applyJunctionClipping(sceneRoot, junctions) {
 
     let planes = clippingPlaneMap.get(elementId);
     // A coursed layer bonded at an end of its path (#191) has its units cut to the bond already, past the trim plane
-    // where a unit runs through, so that end's plane is left off it.
-    const bonded = obj.userData.bondedEnds;
-    if (planes && bonded?.length) planes = planes.filter(pl => !bonded.includes(pl.atEnd));
+    // where a unit runs through, and a layer cut to meet its own layer at a corner (#206) ends where it should, so
+    // that end's plane is left off it.
+    const done = [...(obj.userData.bondedEnds ?? []), ...(obj.userData.cutEnds ?? [])];
+    if (planes && done.length) planes = planes.filter(pl => !done.includes(pl.atEnd));
     if (!planes || planes.length === 0) return;
 
     // Clone the material so we don't modify a shared material instance

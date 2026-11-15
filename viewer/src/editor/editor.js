@@ -23,7 +23,7 @@ import {
   pathSummary, storeyHeights, IFC_ELEMENT_TYPES,
 } from './entityFields.js';
 import { ensureDetailMaterials } from '../detail/detailMaterials.js';
-import { loadDetails } from '../detail/loadDetails.js';
+import { loadDetails, detailContext } from '../detail/loadDetails.js';
 import { junctionPoint } from '../detail/junctionPosition.js';
 import { withStoreyGroups, loadStoreyGroups } from '../detail/levelResolver.js';
 import { parsePath } from '../loader/loadPath.js';
@@ -211,7 +211,7 @@ let guideTool = null;
 let activeTool = null;
 let junctionEditor = null;
 /** What the detail refresh needs from the last loaded bundle. */
-let _bundleCtx = null; // { junctions, grids, libraryMaterials, detailMatMap }
+let _bundleCtx = null; // { junctions, grids, libraryMaterials, detailMatMap, details }
 let pathEditTool = null;
 let _pendingGuideName = null;
 /** The element id currently selected in the elements tree. */
@@ -744,7 +744,7 @@ async function _loadAndRenderBundleInner(adapter, keepView) {
   const detailMatMap = new Map(); // own map: pulled forward so faces flush against a wall do not z-fight
   ensureDetailMaterials(detailMatMap, junctions, libraryMaterials, _makeDetailMaterial);
   for (const group of buildJunctionDetailMeshes(junctions, detailMatMap)) editorScene.modelGroup.add(group);
-  _bundleCtx = { junctions, grids, libraryMaterials, detailMatMap };
+  _bundleCtx = { junctions, grids, libraryMaterials, detailMatMap, details };
   for (const { arrayDef, pathPoints, symbolDef } of arrays) {
     try {
       const symMat = symbolMaterials(symbolDef, libraryMaterials);
@@ -991,7 +991,7 @@ async function _loadBundleFromAdapter(adapter) {
       const profData      = await adapter.readJson(`profiles/${element.profile_id}.json`);
       const parsedPath    = parsePath(pathData);
       const profileShapes = buildProfileShape(profData);
-      prepared.push({ id: elementId, element, points: parsedPath.points, shapes: profileShapes, options: sweepOptionsFromElement(element) });
+      prepared.push({ id: elementId, element, points: parsedPath.points, shapes: profileShapes, options: sweepOptionsFromElement(element), profile: profData });
     } catch (err) {
       console.warn(`[OEBF] Skipping element ${elementId}: ${err.message}`);
     }
@@ -1010,7 +1010,9 @@ async function _loadBundleFromAdapter(adapter) {
     }
   }
 
-  const bonds = junctionBonds(prepared, junctions);
+  // the details are read first, so a corner can take its layer ends from its detail (#206)
+  const detailCtx = await detailContext((rel) => adapter.readJson(rel), model, new Map(prepared.map(p => [p.profile?.id, p.profile])));
+  const bonds = junctionBonds(prepared, junctions, detailCtx);
   for (const { id: elementId, element, points, shapes, options } of prepared) {
     try {
       const sweptMeshes = sweepProfile(points, shapes, { ...options, bonds: bonds.get(elementId) });
@@ -1061,7 +1063,7 @@ async function _loadBundleFromAdapter(adapter) {
 
   const details = await loadDetails({
     readJson: (rel) => adapter.readJson(rel),
-    model, junctions, grids,
+    model, junctions, grids, details: detailCtx.details,
   });
 
   return { meshes, junctions, arrays, grids, details, materials: matsData.materials ?? [] };
@@ -1529,15 +1531,25 @@ async function _bondsAround(elementId, ownPoints, ownShapes) {
     if (!r || r.kind !== 'element' || !r.pathData) continue;
     try {
       let points = ownPoints, shapes = ownShapes;
+      const profile = await readEntity(adapter, `profiles/${r.profileId}.json`).catch(() => null);
       if (id !== elementId) {
         points = parsePath(r.pathData).points;
-        shapes = buildProfileShape(await readEntity(adapter, `profiles/${r.profileId}.json`));
+        shapes = buildProfileShape(profile);
         neighbours.push(id);
       }
-      items.push({ id, points, shapes, options: r.sweep ?? {} });
+      items.push({ id, points, shapes, options: r.sweep ?? {}, ...(profile ? { profile } : {}) });
     } catch { /* a wall that cannot be read is left out */ }
   }
-  return { own: junctionBonds(items, own).get(elementId), neighbours };
+  // a corner takes its layer ends from its detail (#206); member profiles not used by these walls are read as needed
+  const profiles = new Map();
+  for (const d of _bundleCtx?.details ?? []) {
+    for (const m of d.members ?? []) {
+      if (!m.profile_id || profiles.has(m.profile_id)) continue;
+      const p = await readEntity(adapter, `profiles/${m.profile_id}.json`).catch(() => null);
+      if (p) profiles.set(m.profile_id, p);
+    }
+  }
+  return { own: junctionBonds(items, own, { details: _bundleCtx?.details ?? [], profiles }).get(elementId), neighbours };
 }
 
 /**
@@ -1618,6 +1630,7 @@ async function _reRenderElement(elementId, updatedPathData, { neighbours = true 
           elementId,
           description: reg.description,
           bondedEnds:  layerData.bondedEnds,
+          cutEnds:     layerData.cutEnds,
         });
         // as on loading: the junctions' trim planes clip it, except at a bonded end
         applyJunctionClipping(mesh, _bundleCtx?.junctions ?? []);
@@ -1846,6 +1859,7 @@ async function _changeElementProfile(elementId, newProfileId) {
         elementId,
         description: reg.description,
         bondedEnds:  layerData.bondedEnds,
+        cutEnds:     layerData.cutEnds,
       });
       applyJunctionClipping(mesh, _bundleCtx?.junctions ?? []);   // as on loading
       editorScene.modelGroup.add(mesh);

@@ -1,14 +1,16 @@
 # OEBF Project Status
 
-**Date:** 2026-11-14
+**Date:** 2026-11-15
 **Branch:** main
-**Tests:** 2509 JS (Vitest, 157 test files) + 580 Python (565 ifc-tools, 15 live-server) + 71 Playwright e2e
+**Tests:** 2522 JS (Vitest, 158 test files) + 580 Python (565 ifc-tools, 15 live-server) + 71 Playwright e2e
 
 ---
 
 ## Summary
 
 v0.1.0 is released and `v0.2.0-editor-alpha` is tagged. The work planned for v0.3 (IFC in the editor, snapping, the full properties panel) and v0.4 (the junction detail system) is delivered on main but not yet tagged. Since then the project has added the detail review page with seven overlays, the New Model Building example bundle, `oebf validate` and `oebf apply`, openings cut through walls, and editor undo and redo. Phase 8 (editor polish and spec conformance) is in progress. The build is deployed at `architools.drawingtable.net/oebf/`.
+
+**Cavity wall corners: each layer meets its own layer (#206, 2026-11-15).** At a butt or mitre corner each layer of the two walls is now cut on its own (`viewer/src/geometry/cornerLayers.js`, applied in `sweep.js`): on a butt the wall that runs through carries layer i on to the outer face of the same layer of the other wall, which stops at the inner face of the first (nested L shapes); on a mitre each pair of layers is cut on the diagonal of its own corner square. When the junction's plan detail has `layer_ends` that fit the walls, the ends come from the detail, so the 3D view agrees with the drawing. A cut layer has no trim plane at that end (`cutEnds`); a layer with no matching layer in the other wall keeps the trim plane and the #199 outer-corner fill, and coursed layers bonded at a corner keep their bond. The PIR no longer shows through the brick at the terraced house corners.
 
 **Toolbar widths and phones (#158, #160, #175, 2026-11-13).** Every app's toolbar is one row at 1400 px and 1920 px, even with every conditional control shown: secondary commands show only their icon below 1800 px (2400 px in detail review), and a long status shortens with an ellipsis instead of wrapping. Below 700 px each toolbar is one row that scrolls sideways inside itself, side panels become drawers over the canvas, detail review stacks its 2D and 3D panes, the profile editor puts its form below the drawing, and the two editors say once that they are made for a larger screen (`viewer/src/ui/smallScreen.js`). Pages link public files as `/fonts/...` and `/icons/...`, so Barlow and the editor's 3D and Plan icons load on the dev server too. `tests/e2e/layout.spec.js` checks all of this.
 

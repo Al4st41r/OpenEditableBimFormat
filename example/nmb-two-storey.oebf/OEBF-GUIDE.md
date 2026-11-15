@@ -724,7 +724,9 @@ Detail fields:
 - `members[].layer_ends[]` — optional `{ "layer": 1, "near_m": 0.1, "far_m": -0.05 }`: let that
   layer start or finish at a different point along the run (positive extends past the
   member's end, negative shortens), so a cavity wall's leaves can stop at different
-  places. For this use only.
+  places. For this use only. At a butt or mitre corner of two walls the 3D view cuts
+  each layer at its `near_m` end when the detail's members fit the walls; without
+  them each layer meets the same layer of the other wall in nested L shapes.
 - `members[].insertion` — optional `{ "layer": 3, "at": "left-face" }`: put the member's
   insertion point on the left face, centre or right face of that profile layer (eg the
   external face of the blockwork) instead of the profile's own origin.

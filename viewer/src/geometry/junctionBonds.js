@@ -15,9 +15,15 @@
  * corner is part of neither wall. `extend` on a bond tells a wall to carry its layers that are not bonded on over that
  * square (sweep.js, _cornerPatch): the wall that runs through on a butt; both walls of a mitre, which the trim planes
  * then cut on the diagonal.
+ *
+ * Since #206 each bond also carries `layerEnds`: where each layer of the wall ends at the corner so that it meets the
+ * matching layer of the other wall (cornerLayers.js), from the junction's plan detail when it has layer_ends that fit,
+ * else nested L shapes on a butt and a diagonal per layer on a mitre. sweep.js cuts each layer there and leaves the
+ * trim plane and the outer-corner fill to the layers that have no end (no matching layer in the other wall).
  */
 import { offsetPolyline } from './sweep.js';
 import { isRightAngle } from './courseBond.js';
+import { cornerLayerEnds, detailLayerEnds } from './cornerLayers.js';
 
 /** How near (metres) the ends of two paths must be to be one corner. */
 export const CORNER_TOLERANCE = 0.01;
@@ -40,13 +46,18 @@ function _arm(item, end) {
 }
 
 /**
- * @param {Array<{id: string, points: Array<{x,y,z}>, shapes: Array, options?: object}>} items
- *   the swept elements: path points as parsed, profile shapes (buildProfileShape) and sweep options (sweepOptionsFromElement)
+ * @param {Array<{id: string, points: Array<{x,y,z}>, shapes: Array, options?: object, profile?: object}>} items
+ *   the swept elements: path points as parsed, profile shapes (buildProfileShape), sweep options (sweepOptionsFromElement)
+ *   and, for a detail's layer ends, the profile entity
  * @param {Array<object>} junctions - junction entities
+ * @param {{details?: Map<string, object>|Array<object>, profiles?: Map<string, object>}} [ctx] - detail entities, for
+ *   junctions with a detail_id, and the profiles their members use (the items' own profiles are added)
  * @returns {Map<string, {start?: object, end?: object}>} element id -> the `bonds` option for sweepProfile
  */
-export function junctionBonds(items, junctions) {
+export function junctionBonds(items, junctions, ctx = {}) {
   const byId = new Map(items.map(i => [i.id, i]));
+  const details = ctx.details instanceof Map ? ctx.details : new Map((ctx.details ?? []).filter(Boolean).map(d => [d.id, d]));
+  const profiles = new Map([...(ctx.profiles ?? []), ...items.filter(i => i.profile?.id).map(i => [i.profile.id, i.profile])]);
   const out = new Map();
   const taken = new Set();                                    // 'id:end', one corner per path end
   for (const j of junctions ?? []) {
@@ -79,8 +90,19 @@ export function junctionBonds(items, junctions) {
     const trimmed = (id) => (j.trim_planes ?? []).some(tp => tp.element_id === id);
     const extendA = mitred ? (trimmed(A.id) && trimmed(B.id) ? 'mitre' : false) : throughA;
     const extendB = mitred ? extendA : !throughA;
-    out.get(A.id)[best.ea] = { dir: best.b.dir, binormal: best.b.binormal, shapes: B.shapes, throughFirst: throughA, extend: extendA };
-    out.get(B.id)[best.eb] = { dir: best.a.dir, binormal: best.a.binormal, shapes: A.shapes, throughFirst: !throughA, extend: extendB };
+    // each layer to its own layer (#206): T is the wall that runs through on a butt
+    const [T, O] = throughA ? [{ item: A, arm: best.a }, { item: B, arm: best.b }] : [{ item: B, arm: best.b }, { item: A, arm: best.a }];
+    const wall = (w) => ({ arm: w.arm.dir, binormal: w.arm.binormal, shapes: w.item.shapes });
+    const ends = cornerLayerEnds(wall(T), wall(O), mitred ? 'mitre' : 'butt');
+    // a CSG junction (junction-csg.js) is cut by the other wall's solid, so its layers are left whole
+    if (j.trim_method === 'csg') ends.a.fill(null), ends.b.fill(null);
+    const fromDetail = j.detail_id && j.trim_method !== 'csg' ? detailLayerEnds(details.get(j.detail_id), [wall(T), wall(O)], profiles) : null;
+    const layerEnds = (w, own, byKey) => w.item.shapes.map((s, i) => byKey?.get(s.layer) ?? own[i]);
+    const endsT = layerEnds(T, ends.a, fromDetail?.a), endsO = layerEnds(O, ends.b, fromDetail?.b);
+    const [endsA, endsB] = throughA ? [endsT, endsO] : [endsO, endsT];
+
+    out.get(A.id)[best.ea] = { dir: best.b.dir, binormal: best.b.binormal, shapes: B.shapes, throughFirst: throughA, extend: extendA, layerEnds: endsA };
+    out.get(B.id)[best.eb] = { dir: best.a.dir, binormal: best.a.binormal, shapes: A.shapes, throughFirst: !throughA, extend: extendB, layerEnds: endsB };
   }
   return out;
 }

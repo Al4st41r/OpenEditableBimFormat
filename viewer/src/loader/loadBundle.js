@@ -24,7 +24,7 @@ import { junctionBonds }      from '../geometry/junctionBonds.js';
 import { buildSlabMeshData }   from './loadSlab.js';
 import { buildOpeningOutline } from './loadOpening.js';
 import { loadObjectPlacement } from './loadObject.js';
-import { loadDetails }         from '../detail/loadDetails.js';
+import { loadDetails, detailContext } from '../detail/loadDetails.js';
 import { isMembrane }        from '../membrane.js';
 
 /**
@@ -52,7 +52,7 @@ export async function loadBundle(dirHandle) {
 
       const parsedPath    = parsePath(pathData);
       const profileShapes = buildProfileShape(profData);
-      prepared.push({ id: elementId, element, points: parsedPath.points, shapes: profileShapes, options: sweepOptionsFromElement(element) });
+      prepared.push({ id: elementId, element, points: parsedPath.points, shapes: profileShapes, options: sweepOptionsFromElement(element), profile: profData });
     } catch (err) {
       console.warn(`[OEBF] Skipping element ${elementId}: ${err.message}`);
     }
@@ -74,7 +74,10 @@ export async function loadBundle(dirHandle) {
     }
   }
 
-  const bonds = junctionBonds(prepared, junctions);
+  // the details are read first, so a corner can take its layer ends from its detail (#206)
+  const readRel = (rel) => _readJson(dirHandle, rel);
+  const detailCtx = await detailContext(readRel, model, new Map(prepared.map(p => [p.profile.id, p.profile])));
+  const bonds = junctionBonds(prepared, junctions, detailCtx);
   for (const { id: elementId, element, points, shapes, options } of prepared) {
     try {
       const sweptMeshes = sweepProfile(points, shapes, { ...options, bonds: bonds.get(elementId) });
@@ -162,8 +165,8 @@ export async function loadBundle(dirHandle) {
   }
 
   const details = await loadDetails({
-    readJson: (rel) => _readJson(dirHandle, rel),
-    model, junctions, grids,
+    readJson: readRel,
+    model, junctions, grids, details: detailCtx.details,
   });
 
   return { meshes, manifest, junctions, arrays, grids, openings, objects, details, materials: materials.materials };
