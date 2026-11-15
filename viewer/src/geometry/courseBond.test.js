@@ -16,7 +16,7 @@ const read = (rel) => JSON.parse(fs.readFileSync(path.join(FX, rel), 'utf8'));
 const P = (x, y, z = 0) => ({ x, y, z });
 const brick = read('profiles/profile-brick-leaf-coursed.json');
 const cavity = read('profiles/profile-cavity-250-coursed.json');
-const PIECE = 16;                                   // vertices of one unit (a box)
+const PIECE = 24;                                   // vertices of one unit (a box): 4 side faces of 2 x 2, each with its own normal (#210), and 2 caps of 4
 
 /** Plan boxes {x0,x1,y0,y1,z0,z1} of the units of a mesh, row index from the unit's base. */
 function boxes(m, rowPitch = 0.075) {
