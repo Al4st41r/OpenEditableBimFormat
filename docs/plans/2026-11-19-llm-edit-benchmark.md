@@ -2,7 +2,7 @@
 
 **Issue:** #128
 **Date:** 2026-11-19
-**Status:** Draft for review. No runs yet.
+**Status:** Harness built and tested offline (`ifc-tools/bench/`, `ifc-tools/tests/test_bench.py`). No paid runs yet.
 
 ---
 
@@ -52,13 +52,13 @@ All dimensions are in the terraced house's terms: walls on the centrelines x = 0
 | T1 | Move | Move the front door 300 mm east. | The opening and the door move together: opening spans x = 2.55 to 3.45 m (was 2.25 to 3.15). The south wall runs east to west, so a model that adds 0.3 to the position moves it the wrong way. |
 | T2 | Resize | Make the front door 2,200 mm high. | Opening and door 2.2 m high, sill still 0, width unchanged. |
 | T3 | Property | Set the fire rating of the north wall to REI 90. | One property changed on one wall; the other walls keep REI 60. |
-| T4 | Build-up | Thicken the cavity insulation in the external walls from 75 mm to 100 mm, keeping the wall centrelines where they are. | All four walls 315 mm thick, the extra 25 mm in the insulation layer; centrelines unchanged; corners still meet. In IFC both the layer set and the solid widths must change. |
+| T4 | Build-up | Thicken the cavity insulation in the four ground-floor walls from 75 mm to 100 mm, keeping the wall centrelines where they are. | All four walls 315 mm thick, the extra 25 mm in the insulation layer; centrelines unchanged; corners still meet. In IFC both the layer set and the solid widths must change. |
 | T5 | Delete | Remove the cavity wall ties from the south wall. | The ties are gone, with nothing left pointing at them. |
 | T6 | Add | Add a window 1,200 mm wide and 1,200 mm high, sill at 900 mm, centred on the north wall. | A new opening in the north wall, centred at x = 2.7 m, with those sizes. |
 | T7 | Add | Add a 100 mm blockwork internal wall on x = 2.7 m, running from the inside face of the south wall to the inside face of the north wall, full height. | A new wall 100 mm thick, centred on x = 2.7 m, from y = 0.145 to 8.355 m (±10 mm), 2.7 m high, in dense aggregate block. |
 | T8 | Multi-entity | Make the house 600 mm wider by moving the east wall 600 mm east. | East wall on x = 6.0 m; south and north walls reach it; the slab follows; the corners still meet; the door does not move. |
-| T9 | Create | Add a first floor at 2.7 m with the same four external walls as the ground floor. | A new storey at 2.7 m with four walls on the same plan lines and build-up, joined at the corners. |
-| T10 | Read | What is the total centreline length of the external walls, and what is the U-value of the south wall? | 27.8 m and 0.18 W/m²K. Scored on the answer, with no edit. |
+| T9 | Create | Add a first floor at 2.7 m with the same four walls as the ground floor. | A new storey at 2.7 m with four walls on the same plan lines and build-up, joined at the corners. |
+| T10 | Read | What is the total centreline length of the four ground-floor walls, and what is the U-value of the south wall? | 27.8 m and 0.18 W/m²K. Scored on the answer, with no edit. |
 
 T1, T4 and T8 are the most likely to separate the formats: each needs several linked values kept in step.
 
@@ -104,13 +104,13 @@ Recorded for every call:
 
 ## 6. Harness
 
-- **Location:** `ifc-tools/bench/` (Python, `uv`, the Anthropic SDK). Run with `uv run python -m bench run --models ... --runs 3`.
+- **Location:** `ifc-tools/bench/` (Python, `uv`, the Anthropic SDK in the `bench` dependency group). Run from `ifc-tools/` with `uv run --group bench python -m bench run --max-tokens-total <cap>`; `report <results.jsonl>` writes the tables.
 - **Inputs:** `tasks.json` (instruction, kind and checks per task), the two fixtures, the two guides.
 - **Outputs:** one JSON line per run in `bench/results/<date>.jsonl` with the prompt hash, model, format, task, raw reply, gate results, check results and usage.
 - **Report:** `docs/research/llm-edit-benchmark.md`, made from the results: tables per task and format, success rates, tokens per edit, and examples of typical failures.
 - **API key:** read from the `ANTHROPIC_API_KEY` environment variable, never written to a file or a log.
 - **Budget:** the run stops when a set token total is reached (`--max-tokens-total`).
-- **Dry run:** `--dry-run` checks the pipeline with recorded replies, so the scoring is tested before any money is spent. It becomes a pytest suite.
+- **Offline tests:** `tests/test_bench.py` runs the reference edits and typical wrong edits through the scorer, with no model called.
 
 ---
 
@@ -123,9 +123,19 @@ Recorded for every call:
 
 ---
 
-## 8. Decisions Needed Before Running
+## 8. Decisions (2026-11-19)
 
-- **Models:** two models (larger and smaller), or one.
-- **Budget:** a token cap for the whole run.
-- **Repair condition:** include it, or one shot only.
-- **IFC fixture:** our export with the OEBF property sets removed (proposed), or an IFC from another tool.
+- **Models:** two, Claude Opus 5.5 (`claude-opus-5-5`) and Claude Haiku 5.5 (`claude-haiku-5-5`), both at effort `medium` (the default on both). No refusal fallback, so every reply comes from the model under test.
+- **Repair condition:** one repair turn, given only after a gate failure, with the validator's messages.
+- **IFC fixture:** our export with the OEBF property sets removed.
+- **Budget:** a token cap is required on every run (`--max-tokens-total`).
+
+## 9. Notes From Building the Harness
+
+- **Task wording.** T4, T9 and T10 now name "the four ground-floor walls": the east and west walls are party walls, so "external walls" was ambiguous.
+- **Guides differ in length.** The OEBF guide is about 41,800 characters and covers the whole format; the IFC primer is about 11,400 and covers what this model and the tasks use. The report states this.
+- **The same trap in both formats.** In T1 the south wall runs east to west. In OEBF the opening's `path_position` is measured from the east end; in IFC the opening is placed in the wall's frame, whose x axis points west. Moving east means a smaller number in both.
+- **A door follows its opening in OEBF.** A door with an `opening_id` is placed by its opening, so moving the opening alone is a correct T1. In IFC the door is placed separately and must be moved too.
+- **One change against four.** T4 in OEBF is one profile; in IFC each wall has its own layer set, body and offset.
+- **Exporter fix.** The Python exporter put every element in one "Ground Floor" storey, so T9 could not pass through the OEBF route. It now writes one storey per bundle storey with its elevation (`tests/test_ifc_storeys.py`).
+- **Reference edits.** `bench/oracle.py` holds a correct OEBF edit for every task and IFC edits for T3 and T5; the tests prove each succeeds and that typical mistakes fail on the right check.

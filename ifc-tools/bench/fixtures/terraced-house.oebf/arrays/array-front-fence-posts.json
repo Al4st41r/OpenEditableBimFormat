@@ -1,0 +1,16 @@
+{
+  "$schema": "oebf://schema/0.1/array",
+  "id": "array-front-fence-posts",
+  "type": "Array",
+  "description": "Timber fence posts at 1.8 m centres along the front boundary",
+  "source_id": "symbol-fence-post",
+  "path_id": "path-front-boundary",
+  "mode": "spacing",
+  "spacing": 1.8,
+  "start_offset": 0.0,
+  "end_offset": 0.0,
+  "alignment": "fixed",
+  "axes": ["z"],
+  "offset_local": { "x": 0.0, "y": 0.0, "z": 0.0 },
+  "rotation_local_deg": 0
+}

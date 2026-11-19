@@ -1,0 +1,121 @@
+{
+  "$schema": "oebf://schema/0.1/materials",
+  "materials": [
+    {
+      "id": "mat-brick-common",
+      "type": "Material",
+      "name": "Common Brick",
+      "category": "masonry",
+      "colour_hex": "#C4693A",
+      "ifc_material_name": "Common Brick",
+      "properties": {
+        "density_kg_m3": 1800,
+        "thermal_conductivity_W_mK": 0.7,
+        "specific_heat_J_kgK": 840,
+        "vapour_resistance_factor": 16
+      },
+      "interactions": {
+        "adjacent_to": [
+          "mat-mortar-general"
+        ],
+        "bond_type": "mortar"
+      }
+    },
+    {
+      "id": "mat-mortar-general",
+      "type": "Material",
+      "name": "General Purpose Mortar",
+      "category": "mortar",
+      "colour_hex": "#B8B2A4",
+      "ifc_material_name": "Mortar",
+      "properties": {
+        "density_kg_m3": 1900,
+        "thermal_conductivity_W_mK": 0.88,
+        "specific_heat_J_kgK": 840,
+        "vapour_resistance_factor": 20
+      },
+      "interactions": {
+        "adjacent_to": [
+          "mat-brick-common"
+        ],
+        "bond_type": "mortar"
+      }
+    },
+    {
+      "id": "mat-pir-insulation",
+      "type": "Material",
+      "name": "PIR Board Insulation",
+      "category": "insulation",
+      "colour_hex": "#E8D5A3",
+      "ifc_material_name": "PIR Insulation",
+      "properties": {
+        "density_kg_m3": 30,
+        "thermal_conductivity_W_mK": 0.022
+      },
+      "interactions": {}
+    },
+    {
+      "id": "mat-dense-aggregate",
+      "type": "Material",
+      "name": "Dense Aggregate Concrete Block",
+      "category": "masonry",
+      "colour_hex": "#AAAAAA",
+      "ifc_material_name": "Concrete Block Dense",
+      "properties": {
+        "density_kg_m3": 2000,
+        "thermal_conductivity_W_mK": 1.13
+      },
+      "interactions": {}
+    },
+    {
+      "id": "mat-gypsum-plaster",
+      "type": "Material",
+      "name": "Gypsum Plaster Skim",
+      "category": "plaster",
+      "colour_hex": "#F5F5F0",
+      "ifc_material_name": "Gypsum Plaster",
+      "properties": {
+        "density_kg_m3": 1200,
+        "thermal_conductivity_W_mK": 0.4
+      },
+      "interactions": {}
+    },
+    {
+      "type": "Material",
+      "id": "mat-stainless-steel",
+      "name": "Stainless steel",
+      "colour_hex": "#9aa3ab",
+      "category": "metal",
+      "ifc_material_name": "Stainless steel",
+      "properties": {
+        "density_kg_m3": 7900
+      }
+    },
+    {
+      "id": "mat-timber-hardwood",
+      "type": "Material",
+      "name": "Hardwood Timber (Sawn)",
+      "category": "timber",
+      "colour_hex": "#A0785A",
+      "ifc_material_name": "Hardwood",
+      "properties": {
+        "density_kg_m3": 720,
+        "thermal_conductivity_W_mK": 0.18
+      },
+      "interactions": {}
+    },
+    {
+      "id": "mat-timber-treated",
+      "type": "Material",
+      "name": "Treated Softwood Timber",
+      "category": "timber",
+      "colour_hex": "#9C7E52",
+      "ifc_material_name": "Treated Softwood",
+      "properties": {
+        "density_kg_m3": 510,
+        "thermal_conductivity_W_mK": 0.13
+      },
+      "interactions": {}
+    }
+  ]
+}

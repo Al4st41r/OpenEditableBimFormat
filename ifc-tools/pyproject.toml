@@ -12,6 +12,9 @@ dependencies = [
 ]
 
 [dependency-groups]
+bench = [
+    "anthropic>=2.11.0",
+]
 dev = [
     "jsonschema>=4.26.0",
     "pytest>=9.0.2",
@@ -21,7 +24,7 @@ dev = [
 oebf = "oebf.cli:cli"
 
 [tool.pytest.ini_options]
-pythonpath = ["src"]
+pythonpath = ["src", "."]
 
 [build-system]
 requires = ["hatchling"]

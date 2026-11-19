@@ -1,0 +1,31 @@
+{
+  "$schema": "oebf://schema/0.1/profile",
+  "id": "profile-brick-leaf-coursed",
+  "type": "Profile",
+  "description": "102 mm facing brick leaf drawn as bricks: 215 x 65 mm units on a 225 mm pitch in 75 mm courses, half-bond (stretcher bond), 10 mm joints. For details",
+  "svg_file": "profiles/profile-brick-leaf-coursed.svg",
+  "width": 0.102,
+  "height": null,
+  "origin": { "x": 0.0, "y": 0.0 },
+  "alignment": "left-face",
+  "profile_type": "wall",
+  "assembly": [
+    {
+      "layer": 1,
+      "name": "Facing brick",
+      "material_id": "mat-brick-common",
+      "function": "finish",
+      "type": "region",
+      "vertices": [
+        { "x": 0.0, "y": 0.0 },
+        { "x": 0.102, "y": 0.0 },
+        { "x": 0.102, "y": 0.065 },
+        { "x": 0.0, "y": 0.065 }
+      ],
+      "depth_m": 0.215,
+      "repeat_x_m": 0.225,
+      "repeat_y_m": 0.075,
+      "offset_x_m": 0.1125
+    }
+  ]
+}

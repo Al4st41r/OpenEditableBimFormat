@@ -1,0 +1,8 @@
+{
+  "$schema": "oebf://schema/0.1/group",
+  "id": "group-external-doors",
+  "type": "Group",
+  "description": "External doors, for the door schedule",
+  "ifc_type": "IfcGroup",
+  "children": ["object-door-south-gf"]
+}

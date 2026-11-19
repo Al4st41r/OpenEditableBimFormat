@@ -9,6 +9,7 @@ import ifcopenshell.api.unit
 import ifcopenshell.api.context
 import ifcopenshell.api.project
 import ifcopenshell.api.spatial
+import ifcopenshell.util.element
 import ifcopenshell.api.aggregate
 import ifcopenshell.api.geometry
 import ifcopenshell.api.material
@@ -46,12 +47,19 @@ def export_ifc(oebf_dir: Path, ifc_path: Path) -> None:
 
     site = ifcopenshell.api.root.create_entity(ifc, ifc_class="IfcSite", name="Site")
     building = ifcopenshell.api.root.create_entity(ifc, ifc_class="IfcBuilding", name="Building")
-    storey = ifcopenshell.api.root.create_entity(
-        ifc, ifc_class="IfcBuildingStorey", name="Ground Floor"
-    )
     ifcopenshell.api.aggregate.assign_object(ifc, relating_object=project, products=[site])
     ifcopenshell.api.aggregate.assign_object(ifc, relating_object=site, products=[building])
-    ifcopenshell.api.aggregate.assign_object(ifc, relating_object=building, products=[storey])
+    # one IfcBuildingStorey per storey in the bundle, lowest first; everything is exported into the lowest and then
+    # moved to its own (_assign_storeys). A bundle with no storeys gets one "Ground Floor" as before.
+    levels = sorted(_levels(oebf_dir, model_data), key=lambda lv: lv["elevation"])
+    storeys = {}
+    for lv in levels or [{"id": None, "elevation": None, "name": "Ground Floor"}]:
+        st = ifcopenshell.api.root.create_entity(ifc, ifc_class="IfcBuildingStorey", name=lv["name"])
+        if lv["elevation"] is not None:
+            st.Elevation = float(lv["elevation"])
+        ifcopenshell.api.aggregate.assign_object(ifc, relating_object=building, products=[st])
+        storeys[lv["id"]] = st
+    storey = next(iter(storeys.values()))
 
     exported = {}   # OEBF id -> IFC entity, for the property sets that refer back to elements
     for element_id in model_data.get("elements", []):
@@ -65,6 +73,7 @@ def export_ifc(oebf_dir: Path, ifc_path: Path) -> None:
             exported[slab_id] = entity
 
     ifc_openings.export_openings_and_objects(ifc, oebf_dir, model_data, storey, body_context, exported, mapping, mat_by_id)
+    _assign_storeys(ifc, oebf_dir, model_data, storeys, storey)
     _export_junctions(ifc, oebf_dir, model_data, exported)
     _export_bundle_extensions(ifc, project, oebf_dir, model_data, exported)
 
@@ -858,6 +867,39 @@ def _export_junctions(ifc, oebf_dir, model_data, exported):
         props = _junction_properties(junction)
         for entity in members:
             _set_pset(ifc, entity, f"OEBF_Junction_{junction_id}", props)
+
+
+def _storey_members(model_data) -> dict:
+    """{entity id: storey id} from the children of each Storey in the hierarchy."""
+    out = {}
+
+    def walk(node, storey_id=None):
+        if isinstance(node, dict):
+            sid = node["id"] if node.get("type") == "Storey" else storey_id
+            for child in node.get("children", []):
+                walk(child, sid)
+        elif isinstance(node, str) and storey_id:
+            out.setdefault(node, storey_id)
+
+    walk(model_data.get("hierarchy"))
+    return out
+
+
+def _assign_storeys(ifc, oebf_dir, model_data, storeys, default):
+    """Move each exported product to its own storey: its parent_group_id when that is a storey, else the Storey whose
+    children list it in the hierarchy, else the lowest storey (where it was exported)."""
+    if len(storeys) < 2:
+        return
+    members = _storey_members(model_data)
+    folders = ("elements", "slabs", "objects")
+    for product in ifc.by_type("IfcProduct"):
+        oebf_id = ifcopenshell.util.element.get_pset(product, "OEBF_Element", "OebfId")
+        if not oebf_id:
+            continue
+        data = next((d for d in (_read_json(oebf_dir / f / f"{oebf_id}.json") for f in folders) if d), None) or {}
+        target = storeys.get(data.get("parent_group_id")) or storeys.get(members.get(oebf_id)) or default
+        if target is not default:
+            ifcopenshell.api.spatial.assign_container(ifc, relating_structure=target, products=[product])
 
 
 def _levels(oebf_dir, model_data) -> list:

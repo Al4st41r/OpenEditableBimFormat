@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+     viewBox="0 0 0.290 2.700"
+     width="290mm" height="2700mm">
+  <!-- Layer 1: External brick (0–102mm) -->
+  <rect x="0" y="0" width="0.102" height="2.700" fill="#C4693A" stroke="#888" stroke-width="0.002"/>
+  <!-- Layer 2: Cavity + PIR (102–177mm) -->
+  <rect x="0.102" y="0" width="0.075" height="2.700" fill="#E8D5A3" stroke="#888" stroke-width="0.002"/>
+  <!-- Layer 3: Dense block (177–277mm) -->
+  <rect x="0.177" y="0" width="0.100" height="2.700" fill="#AAAAAA" stroke="#888" stroke-width="0.002"/>
+  <!-- Layer 4: Plaster skim (277–290mm) -->
+  <rect x="0.277" y="0" width="0.013" height="2.700" fill="#F5F5F0" stroke="#888" stroke-width="0.002"/>
+  <!-- Origin marker at centre of wall (145mm) -->
+  <circle cx="0.145" cy="0" r="0.005" fill="red"/>
+  <line x1="0.145" y1="-0.020" x2="0.145" y2="0.020" stroke="red" stroke-width="0.002"/>
+</svg>

@@ -1,0 +1,15 @@
+{
+  "format": "oebf",
+  "format_version": "0.1.0",
+  "project_name": "Terraced House — Example",
+  "description": "Single bay mid-terraced house, ground floor only. Example OEBF bundle.",
+  "created": "2026-02-22",
+  "author": "OEBF Example",
+  "units": "metres",
+  "coordinate_system": "right_hand_z_up",
+  "files": {
+    "model": "model.json",
+    "materials": "materials/library.json",
+    "schema": "schema/oebf-schema.json"
+  }
+}

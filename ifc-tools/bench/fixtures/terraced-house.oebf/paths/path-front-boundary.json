@@ -1,0 +1,13 @@
+{
+  "$schema": "oebf://schema/0.1/path",
+  "id": "path-front-boundary",
+  "type": "Path",
+  "description": "Front boundary line — runs west to east, 1.2 m south of south wall",
+  "closed": false,
+  "segments": [{
+    "type": "line",
+    "start": { "x": 0.0, "y": -1.2, "z": 0.0 },
+    "end":   { "x": 5.4, "y": -1.2, "z": 0.0 }
+  }],
+  "tags": ["boundary", "external", "ground-floor"]
+}

@@ -1,0 +1,46 @@
+{
+  "$schema": "oebf://schema/0.1/detail",
+  "id": "detail-wall-cavity-section",
+  "type": "Detail",
+  "description": "Section through the cavity wall with both leaves drawn as units: a brick leaf in stretcher bond and a dense block leaf, PIR board in the cavity and plaster. Every second course is cut through a joint, so the unit beyond it is drawn as a seen line",
+  "members": [
+    {
+      "role": "outer-leaf",
+      "kind": "wall",
+      "profile_id": "profile-brick-leaf-coursed",
+      "placement": { "offset_x_m": 0, "offset_y_m": 0, "rotation_deg": 0 }
+    },
+    {
+      "role": "inner-leaf",
+      "kind": "wall",
+      "profile_id": "profile-block-leaf-coursed",
+      "placement": { "offset_x_m": 0.177, "offset_y_m": 0, "rotation_deg": 0 }
+    }
+  ],
+  "datum": { "kind": "storey", "reference": "elevation" },
+  "plane": "section",
+  "geometry": {
+    "extrusion_m": 1.0,
+    "regions": [
+      {
+        "material_id": "mat-pir-insulation",
+        "vertices": [
+          { "x": 0.127, "y": 0 },
+          { "x": 0.177, "y": 0 },
+          { "x": 0.177, "y": 0.6 },
+          { "x": 0.127, "y": 0.6 }
+        ]
+      },
+      {
+        "material_id": "mat-gypsum-plaster",
+        "vertices": [
+          { "x": 0.277, "y": 0 },
+          { "x": 0.29, "y": 0 },
+          { "x": 0.29, "y": 0.6 },
+          { "x": 0.277, "y": 0.6 }
+        ]
+      }
+    ]
+  },
+  "tags": ["wall", "section", "ground-floor"]
+}

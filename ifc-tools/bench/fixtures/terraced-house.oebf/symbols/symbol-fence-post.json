@@ -1,0 +1,15 @@
+{
+  "$schema": "oebf://schema/0.1/symbol",
+  "id": "symbol-fence-post",
+  "type": "Symbol",
+  "description": "Timber fence post — 75 × 75 mm section, 1.2 m high",
+  "ifc_type": "IfcMember",
+  "ifc_predefined_type": "POST",
+  "parameters": {
+    "width_m":  0.075,
+    "depth_m":  0.075,
+    "height_m": 1.2,
+    "material": "mat-timber-treated"
+  },
+  "geometry_definition": "box"
+}

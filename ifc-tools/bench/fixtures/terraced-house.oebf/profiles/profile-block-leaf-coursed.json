@@ -1,0 +1,31 @@
+{
+  "$schema": "oebf://schema/0.1/profile",
+  "id": "profile-block-leaf-coursed",
+  "type": "Profile",
+  "description": "100 mm dense aggregate block leaf drawn as blocks: 440 x 215 mm units on a 450 mm pitch in 225 mm courses, half-bond, 10 mm joints. For details",
+  "svg_file": "profiles/profile-block-leaf-coursed.svg",
+  "width": 0.1,
+  "height": null,
+  "origin": { "x": 0.0, "y": 0.0 },
+  "alignment": "left-face",
+  "profile_type": "wall",
+  "assembly": [
+    {
+      "layer": 1,
+      "name": "Dense aggregate block",
+      "material_id": "mat-dense-aggregate",
+      "function": "structure",
+      "type": "region",
+      "vertices": [
+        { "x": 0.0, "y": 0.0 },
+        { "x": 0.1, "y": 0.0 },
+        { "x": 0.1, "y": 0.215 },
+        { "x": 0.0, "y": 0.215 }
+      ],
+      "depth_m": 0.44,
+      "repeat_x_m": 0.45,
+      "repeat_y_m": 0.225,
+      "offset_x_m": 0.225
+    }
+  ]
+}

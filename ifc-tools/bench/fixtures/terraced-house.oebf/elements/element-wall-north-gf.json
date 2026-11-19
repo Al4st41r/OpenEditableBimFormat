@@ -1,0 +1,21 @@
+{
+  "$schema": "oebf://schema/0.1/element",
+  "id": "element-wall-north-gf",
+  "type": "Element",
+  "description": "North external wall — ground floor",
+  "ifc_type": "IfcWall",
+  "path_id": "path-wall-north-gf",
+  "profile_id": "profile-cavity-250",
+  "sweep_mode": "perpendicular",
+  "cap_start": "junction",
+  "cap_end": "junction",
+  "start_offset": 0.0,
+  "end_offset": 0.0,
+  "parent_group_id": "storey-gf",
+  "properties": {
+    "fire_rating": "REI 60",
+    "acoustic_rating_Rw": 45,
+    "load_bearing": true,
+    "u_value_W_m2K": 0.18
+  }
+}
