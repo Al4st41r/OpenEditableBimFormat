@@ -1,14 +1,16 @@
 # OEBF Project Status
 
-**Date:** 2026-11-15
+**Date:** 2026-11-19
 **Branch:** main
-**Tests:** 2572 JS (Vitest, 162 test files) + 580 Python (565 ifc-tools, 15 live-server) + 71 Playwright e2e
+**Tests:** 2593 JS (Vitest, 164 test files) + 580 Python (565 ifc-tools, 15 live-server) + 73 Playwright e2e
 
 ---
 
 ## Summary
 
 v0.1.0 is released and `v0.2.0-editor-alpha` is tagged. The work planned for v0.3 (IFC in the editor, snapping, the full properties panel) and v0.4 (the junction detail system) is delivered on main but not yet tagged. Since then the project has added the detail review page with seven overlays, the New Model Building example bundle, `oebf validate` and `oebf apply`, openings cut through walls, and editor undo and redo. Phase 8 (editor polish and spec conformance) is in progress. The build is deployed at `architools.drawingtable.net/oebf/`.
+
+**Milestones, geometry and the detail workflow (2026-11-19).** The roadmap now runs by GitHub milestones (v0.5 detail workflow and geometry correctness, v0.6 quantities and AI-assisted editing, v1.0 desktop and live editing) with a `decision-needed` label; see `docs/roadmap.md`. A path with `closed: true` is a loop in the viewer as in both IFC exporters, an implied straight segment closing it if needed; fixed-mode and untwisted closed paths are rings (#214). The junction trimmer caps a cut whose plane passes through mesh vertices (#211), and walls clipped by a junction's trim planes get cap faces, so they are closed and their outline stops at the cut (#213). The detail editor starts a detail with no building (**File, New detail, no building**: a bundle in memory with the library's wall and slab profiles), and its 3D button works for any bundle, handing it to the review page as the 3D editor does (#216). Sheets can carry the axonometric beside the 2D drawing, as vector SVG painted through a BSP tree (`viewer/src/detail-review/axoSvg.js`), from the review page's current 3D view or a preset in the detail editor (#215).
 
 **Cavity wall corners: each layer meets its own layer (#206, 2026-11-15).** At a butt or mitre corner each layer of the two walls is now cut on its own (`viewer/src/geometry/cornerLayers.js`, applied in `sweep.js`): on a butt the wall that runs through carries layer i on to the outer face of the same layer of the other wall, which stops at the inner face of the first (nested L shapes); on a mitre each pair of layers is cut on the diagonal of its own corner square. When the junction's plan detail has `layer_ends` that fit the walls, the ends come from the detail, so the 3D view agrees with the drawing. A cut layer has no trim plane at that end (`cutEnds`); a layer with no matching layer in the other wall keeps the trim plane and the #199 outer-corner fill, and coursed layers bonded at a corner keep their bond. The PIR no longer shows through the brick at the terraced house corners.
 
@@ -109,27 +111,26 @@ Plan: `docs/plans/2026-10-08-junction-detail-system.md`. Delivered: `detail.sche
 
 ---
 
-## Open Issues (2026-11-12)
+## Open Issues (2026-11-19)
 
-The open issue list is the plan: `gh issue list --state open`. On 2026-11-12, #133, #134, #135 and #137 were closed, along with #138-#149 from a code review. A code review and a screenshot review of every app then opened #150-#171. The rest of #151-#165 and the leftovers #172-#176 were fixed on 2026-11-12 and 2026-11-13.
+GitHub milestones are the plan: `gh issue list --state open --milestone "<title>"`. Issues awaiting the user's choice carry the `decision-needed` label.
 
-| # | Title | Phase |
+| # | Title | Milestone |
 |---|---|---|
-| #127 | Membranes and tapes: round 1 delivered (design note, rendering, `membrane-trial.oebf`); awaiting the user's answers | 8 |
-| #114 | NMB example: placed-detail floor regions can flicker (awaiting a check on a real GPU) | 8 |
-| #168 | CI/SfB codes on the NMB materials need a check against a real CI/SfB table | 8 |
-| #187 | Sloping wall tops: choose how to store them (decision needed; `docs/plans/2026-11-13-sloping-wall-tops.md`) | 8 |
-| #195 | Stacked slab profiles: region coordinate frame (decision needed) | 8 |
-| #201 | Coursed walls: tooth T junctions; decide whether an example uses coursed walls (decision needed) | 8 |
-| #202, #203 | IFC export: angled end on a mitred piece, parts per piece; 3D editor Add material uses the shared colour pair | 8 |
-| #150 | Live copy on its own subdomain | Backlog |
-| #117 | Quantities and embodied carbon panel | Backlog |
-| #128 | Research: compare OEBF with IFC (tokens, readability, schema and CLI completeness) | Backlog |
-| #129 | Junction-based workflow on an imported IFC | Backlog |
-| #131 | Idea: detail game | Backlog |
-| #132 | Archicad import and export alongside IFC | Backlog |
-| #104 | Parametric grid frame generator | Future |
+| #127 | Membranes and tapes: round 1 delivered; awaiting the user's answers (decision needed) | v0.5 |
+| #168 | CI/SfB codes on the NMB materials need a check against a real CI/SfB table (decision needed) | v0.5 |
+| #187 | Sloping wall tops: choose how to store them (decision needed; `docs/plans/2026-11-13-sloping-wall-tops.md`) | v0.5 |
+| #195 | Stacked slab profiles: region coordinate frame (decision needed) | v0.5 |
+| #201 | Coursed walls: tooth T junctions; decide whether an example uses coursed walls (decision needed) | v0.5 |
+| #114 | NMB example: placed-detail floor regions can flicker (awaiting a check on a real GPU) | v0.5 |
+| #202 | IFC export: parts per piece as an option; a foreign multi-piece wall with no Axis (the angled-end item could not be reproduced) | v0.5 |
+| #117 | Quantities and embodied carbon panel | v0.6 |
+| #217 | AI-assisted editing: command palette with an agent loop | v0.6 |
+| #128 | Research: compare OEBF with IFC (tokens, readability, schema and CLI completeness) | v0.6 |
 | #10 | Desktop wrapper: file watching for live LLM editing sessions (Tauri v2) | v1.0 |
+| #150 | Live copy on its own subdomain | v1.0 |
+| #129, #131, #132 | Junction-based IFC workflow; detail game; Archicad | Backlog |
+| #104 | Parametric grid frame generator | Future |
 
 ---
 
