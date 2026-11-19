@@ -71,7 +71,6 @@ Tag the current main as **v0.4.0**. It covers the work planned for v0.3 and v0.4
 - **Sheets with both views (#215):** the 2D drawing to scale beside the axonometric on one sheet.
 - **Geometry correctness:** one rule for `closed: true` paths in the viewer, the validator and the exporters (#214); no gap when a vertex lies on a cut plane (#211); capped junction cuts so meshes are closed (#213), which the quantities work in v0.6 needs.
 - **IFC export gaps (#202)** and **coursed T junctions (#201)**.
-- **Placed-detail flicker (#114):** confirm on a real GPU, then close or fix.
 - **Decisions needed:** membranes and tapes (#127), CI/SfB codes (#168), sloping wall tops (#187), stacked slab region frame (#195), whether an example uses coursed walls (#201).
 
 **Exit:** all v0.5 issues closed or moved; tag v0.5.0.

@@ -122,7 +122,6 @@ GitHub milestones are the plan: `gh issue list --state open --milestone "<title>
 | #187 | Sloping wall tops: choose how to store them (decision needed; `docs/plans/2026-11-13-sloping-wall-tops.md`) | v0.5 |
 | #195 | Stacked slab profiles: region coordinate frame (decision needed) | v0.5 |
 | #201 | Coursed walls: tooth T junctions; decide whether an example uses coursed walls (decision needed) | v0.5 |
-| #114 | NMB example: placed-detail floor regions can flicker (awaiting a check on a real GPU) | v0.5 |
 | #202 | IFC export: parts per piece as an option; a foreign multi-piece wall with no Axis (the angled-end item could not be reproduced) | v0.5 |
 | #117 | Quantities and embodied carbon panel | v0.6 |
 | #217 | AI-assisted editing: command palette with an agent loop | v0.6 |
