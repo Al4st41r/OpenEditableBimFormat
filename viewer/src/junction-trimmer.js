@@ -110,6 +110,30 @@ function vertKey(v) {
   return `${v[0].toFixed(9)},${v[1].toFixed(9)},${v[2].toFixed(9)}`;
 }
 
+/** A point this close to a cut plane (metres) is on it. */
+const ON_PLANE = 1e-7;
+
+/**
+ * The edges of a cut's boundary: edges of `faces` used once (by position, either way round) whose two ends are on the
+ * plane, as pairs of output indices. On-plane points have one index each (see addOrigVert), so the pairs chain.
+ */
+function capBoundary(verts, faces, onPlane) {
+  const key = (i) => vertKey(verts[i]);
+  const uses = new Map();
+  for (const f of faces) {
+    for (let k = 0; k < 3; k++) {
+      const a = f[k], b = f[(k + 1) % 3];
+      if (!onPlane(verts[a]) || !onPlane(verts[b])) continue;
+      const ka = key(a), kb = key(b);
+      if (ka === kb) continue;
+      const id = ka < kb ? `${ka}|${kb}` : `${kb}|${ka}`;
+      const e = uses.get(id);
+      if (e) e.n++; else uses.set(id, { a, b, n: 1 });
+    }
+  }
+  return [...uses.values()].filter((e) => e.n === 1).map((e) => [e.a, e.b]);
+}
+
 // ---------------------------------------------------------------------------
 // Cap polygon reconstruction
 // ---------------------------------------------------------------------------
@@ -223,11 +247,11 @@ export function trimMeshByPlane(mesh, plane) {
   // Maps intersection vertex key → output index
   const intersectMap = new Map();
 
+  // A vertex on the plane is a point of the cut boundary: it shares one output index with any intersection point at
+  // the same position, so the cap and the faces round it meet (#211).
+  const onPlane = (v) => Math.abs(signedDist(v, plane)) < ON_PLANE;
   function addOrigVert(i) {
-    if (!origMap.has(i)) {
-      origMap.set(i, outVerts.length);
-      outVerts.push(vertices[i]);
-    }
+    if (!origMap.has(i)) origMap.set(i, onPlane(vertices[i]) ? addIntersectVert(vertices[i]) : (outVerts.push(vertices[i]), outVerts.length - 1));
     return origMap.get(i);
   }
 
@@ -240,16 +264,13 @@ export function trimMeshByPlane(mesh, plane) {
     return intersectMap.get(key);
   }
 
-  // Pairs of output-vertex indices that form the cut boundary
-  const capEdges = [];
-
   for (const face of faces) {
     const n = face.length;
     const fv = face.map(i => vertices[i]);
     const fd = fv.map(v => signedDist(v, plane));
 
-    const allKeep = fd.every(d => d >= -EPS);
-    const allClip = fd.every(d => d < EPS);
+    const allKeep = fd.every(d => d >= -ON_PLANE);
+    const allClip = fd.every(d => d < ON_PLANE);
 
     if (allKeep) {
       const indices = face.map(i => addOrigVert(i));
@@ -269,12 +290,12 @@ export function trimMeshByPlane(mesh, plane) {
       const dc = fd[k];
       const dn = fd[(k + 1) % n];
 
-      if (dc >= -EPS) {
+      if (dc >= -ON_PLANE) {
         clipped.push({ v: currV, origIdx: face[k], isIntersect: false });
       }
 
       // Edge crosses the plane boundary
-      if ((dc >= -EPS) !== (dn >= -EPS)) {
+      if ((dc >= -ON_PLANE) !== (dn >= -ON_PLANE)) {
         const vi = edgeIntersect(currV, nextV, dc, dn);
         clipped.push({ v: vi, origIdx: null, isIntersect: true });
       }
@@ -288,21 +309,12 @@ export function trimMeshByPlane(mesh, plane) {
     );
 
     outFaces.push(...triangulateFace(outVerts, indices));
-
-    // Collect cap edge from this face (the two intersection points)
-    const intersectIdx = clipped
-      .map((p, k) => (p.isIntersect ? indices[k] : null))
-      .filter(x => x !== null);
-
-    if (intersectIdx.length === 2) {
-      capEdges.push([intersectIdx[0], intersectIdx[1]]);
-    } else if (intersectIdx.length > 2) {
-      // Non-convex face — add consecutive pairs
-      for (let j = 0; j < intersectIdx.length - 1; j++) {
-        capEdges.push([intersectIdx[j], intersectIdx[j + 1]]);
-      }
-    }
   }
+
+  // The cut boundary is every open edge of the kept faces that lies on the plane (#211). Collecting it from the faces
+  // that cross the plane missed edges lying on it, whose faces are wholly kept or wholly clipped. Edges are matched by
+  // position, as neighbouring side faces have their own vertex copies (#210).
+  const capEdges = capBoundary(outVerts, outFaces, onPlane);
 
   // Reconstruct and add cap polygon(s)
   if (capEdges.length > 0) {

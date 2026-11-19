@@ -239,6 +239,24 @@ describe('swept meshes wind outward (#208)', () => {
     expect(meshSignedVolume(asMesh(back))).toBeCloseTo(3 * 0.2 + 0.1 * 0.1, 6);
   });
 
+  test('a cut through vertices that lie on the plane leaves no gap in the cap (#211)', () => {
+    // a two-segment path has a ring of vertices at x = 2; a square cut there puts whole face edges on the plane
+    const [m] = sweepProfile([P(0, 0), P(2, 0), P(4, 0)], [box(-0.5, 0.5, 1)]);
+    for (const normal of [[-1, 0, 0], [1, 0, 0]]) {
+      const c = trimMeshByPlane(asMesh(m), { normal, origin: [2, 0, 0] });
+      expect(meshSignedVolume(c)).toBeCloseTo(2, 6);
+      expect(directedEdgeImbalance(c)).toBe(0);
+    }
+    // a slanted plane through two corners of that ring: single vertices and diagonals on the plane
+    const c = trimMeshByPlane(asMesh(m), { normal: [-1, 0, -1].map((x) => x * Math.SQRT1_2), origin: [2, 0, 0] });
+    expect(directedEdgeImbalance(c)).toBe(0);
+    expect(meshSignedVolume(c)).toBeCloseTo(1.5, 6);   // x + z <= 2: on average 1.5 long
+    // a cut exactly at the end face removes nothing and keeps the mesh closed
+    const end = trimMeshByPlane(asMesh(m), { normal: [-1, 0, 0], origin: [4, 0, 0] });
+    expect(meshSignedVolume(end)).toBeCloseTo(4, 6);
+    expect(directedEdgeImbalance(end)).toBe(0);
+  });
+
   test('trimming an outward mesh keeps it closed and outward', () => {
     const [m] = sweepProfile([P(0, 0), P(2, 0)], [box(-0.5, 0.5, 1)]);
     const trimmed = trimMeshByPlane(asMesh(m), { normal: [-Math.SQRT1_2, Math.SQRT1_2, 0], origin: [1.4, 0, 0] });
