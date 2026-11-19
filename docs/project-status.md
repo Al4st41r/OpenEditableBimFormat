@@ -138,8 +138,6 @@ The open issue list is the plan: `gh issue list --state open`. On 2026-11-12, #1
 | Limitation | Notes |
 |---|---|
 | Undo in the 3D editor redraws only for path edits; other steps (and the first edit after opening, which normalises `model.json`) reload the scene | Correct but slower on a large model |
-| Python and browser IFC implementations are separate and not checked against each other | #133 |
-| Seven Playwright specs fail on main, independent of recent work (detail-assign, detail-editor, detail-reference, homepage, profile-change) | #137 |
 | Playwright's pinned Chromium is not installed on the Pi; run with `PW_CHROMIUM=<headless_shell> npx playwright test -c playwright.local.config.js` | |
 | `v0.2.0-editor-alpha` tag not pushed to GitHub; v0.3 and v0.4 not tagged | |
 
