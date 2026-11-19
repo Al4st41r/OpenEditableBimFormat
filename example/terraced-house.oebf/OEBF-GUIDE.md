@@ -118,6 +118,11 @@ N ▲
 Internal walls have no exterior face requirement — either direction is valid,
 but be consistent with any associated junction trim planes.
 
+A path with `"closed": true` is a loop. If its last segment does not end at
+the first segment's start, a straight segment back to the start is implied;
+it is better to write that segment. A closed wall has no end caps and no
+junctions at its ends: its closing vertex is mitred like any other corner.
+
 ---
 
 ## Registration in model.json

@@ -225,3 +225,22 @@ describe('bezier and spline segments (#97)', () => {
     warn.mockRestore();
   });
 });
+
+describe('parsePath — closed paths (#214)', () => {
+  const L = (a, b) => ({ type: 'line', start: { x: a[0], y: a[1], z: 0 }, end: { x: b[0], y: b[1], z: 0 } });
+  test('closed: true with an open last segment gets a straight segment back to the start', () => {
+    const r = parsePath({ closed: true, segments: [L([0, 0], [4, 0]), L([4, 0], [4, 3])] });
+    expect(r.points).toHaveLength(4);
+    expect(r.points.at(-1)).toEqual({ x: 0, y: 0, z: 0 });
+    expect(r.length).toBeCloseTo(4 + 3 + 5);
+  });
+  test('a closed path that already returns to its start is left as it is', () => {
+    const r = parsePath({ closed: true, segments: [L([0, 0], [4, 0]), L([4, 0], [4, 3]), L([4, 3], [0, 0])] });
+    expect(r.points).toHaveLength(4);
+    expect(r.length).toBeCloseTo(12);
+  });
+  test('closed: false is never closed, and a single closed segment cannot be', () => {
+    expect(parsePath({ closed: false, segments: [L([0, 0], [4, 0]), L([4, 0], [4, 3])] }).points).toHaveLength(3);
+    expect(parsePath({ closed: true, segments: [L([0, 0], [4, 0])] }).points).toHaveLength(2);
+  });
+});

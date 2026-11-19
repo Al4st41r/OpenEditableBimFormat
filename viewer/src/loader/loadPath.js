@@ -50,7 +50,15 @@ export function parsePath(pathData) {
     }
   }
 
-  return { points, length: totalLength, closed: pathData.closed ?? false };
+  // `closed: true` makes the path a loop (#214): when its last segment does not return to the start, a straight segment
+  // back to the first point is implied, as the IFC exporters do. A loop needs at least three points.
+  const closed = pathData.closed ?? false;
+  if (closed && points.length >= 3) {
+    const a = points[0], b = points[points.length - 1];
+    const gap = Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
+    if (gap > 1e-6) { points.push({ ...a }); totalLength += gap; }
+  }
+  return { points, length: totalLength, closed };
 }
 
 /**

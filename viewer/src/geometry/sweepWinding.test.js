@@ -150,6 +150,20 @@ describe('swept meshes wind outward (#208)', () => {
     }
   });
 
+  test('a closed path is a closed ring in fixed mode and with no twist, and capped when it twists (#214)', () => {
+    const pts = [P(0, 0), P(4, 0), P(4, 3), P(0, 3), P(0, 0)];
+    expectOutwardClosed(sweepProfile(pts, [box(-0.1, 0.1, 1)], { sweepMode: 'twisted', twistPerMetre: 0 })[0]);
+    // fixed mode: every section is the first, so the ends meet and are not capped (round a turning loop the section
+    // goes edge-on, so the mesh is not a solid; a straight there-and-back would be). A twisted ring keeps its caps.
+    const capVerts = (m) => m.vertices.length / 3;
+    const fixedRing = sweepProfile(pts, [box(-0.1, 0.1, 1)], { sweepMode: 'fixed' })[0];
+    const fixedOpen = sweepProfile(pts.slice(0, -1), [box(-0.1, 0.1, 1)], { sweepMode: 'fixed' })[0];
+    expect(capVerts(fixedRing)).toBeLessThan(capVerts(fixedOpen) + 4 * 4);
+    const twisted = sweepProfile(pts, [box(-0.1, 0.1, 1)], { sweepMode: 'twisted', twistPerMetre: 5 })[0];
+    const flat = sweepProfile(pts, [box(-0.1, 0.1, 1)], { sweepMode: 'twisted', twistPerMetre: 0 })[0];
+    expect(twisted.indices.length - flat.indices.length).toBeGreaterThanOrEqual(2 * 2 * 3);   // two caps of two triangles
+  });
+
   test('a clockwise path round the same rectangle', () => {
     const pts = [P(0, 0), P(0, 3), P(4, 3), P(4, 0), P(0, 0)];
     const [m] = sweepProfile(pts, [box(-0.1, 0.1, 1)]);

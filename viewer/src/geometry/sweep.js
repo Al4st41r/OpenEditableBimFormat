@@ -152,9 +152,11 @@ export function sweepProfile(pathPoints, profileShapes, options = {}) {
   } = options;
   const points = offsetPolyline(pathPoints, startOffset, endOffset);
   // a closed path (last point is the first, after any offsets) is a ring (#212): mitred at the closing vertex like any
-  // other, with no end caps, no angled ends and nothing from a junction at its ends
-  const ring = sweepMode === 'perpendicular' && isClosedPath(points);
-  const frames = _angleEnds(_applyMode(_computeFrames(points, ring), sweepMode, twistPerMetre),
+  // other, with no end caps, no angled ends and nothing from a junction at its ends. In fixed mode every section is the
+  // first, so the two ends meet too (#214); a twisted ring keeps its caps, as its end section is turned from its start.
+  const twisting = sweepMode === 'twisted' && twistPerMetre !== 0;
+  const ring = !twisting && isClosedPath(points);
+  const frames = _angleEnds(_applyMode(_computeFrames(points, ring && sweepMode !== 'fixed'), sweepMode, twistPerMetre),
     capStart === 'angled' && !ring ? capStartAngleDeg : 0, capEnd === 'angled' && !ring ? capEndAngleDeg : 0);
   const caps = ring ? { start: false, end: false } : { start: capStart !== 'open', end: capEnd !== 'open' };
   const bonds = ring ? {} : (options.bonds ?? {});
