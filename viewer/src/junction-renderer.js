@@ -4,8 +4,8 @@
  * Three.js integration for OEBF junction trimming.
  *
  * Applies trim_planes from junction JSON files to Three.js mesh materials as
- * ClippingPlanes. This is the real-time viewer approach: no geometry is
- * modified; the GPU clips fragments at render time.
+ * ClippingPlanes: the GPU clips fragments at render time. Each clipped mesh
+ * gets cap faces on its planes (#213), so what is drawn is closed.
  *
  * Requires `renderer.localClippingEnabled = true` (set once on the renderer).
  *
@@ -16,7 +16,7 @@
  */
 
 import * as THREE from 'three';
-import { oebfTrimPlanesToPlanes } from './junction-trimmer.js';
+import { oebfTrimPlanesToPlanes, sectionCaps } from './junction-trimmer.js';
 import { polygonTriangles3d } from './geometry/polygonTriangles.js';
 
 /**
@@ -91,7 +91,57 @@ export function applyJunctionClipping(sceneRoot, junctions) {
     obj.material = obj.material.clone();
     obj.material.clippingPlanes = planes;
     obj.material.clipShadows = true;
+    capAtPlanes(obj, planes);
   });
+}
+
+/**
+ * Close a clipped mesh where its trim planes cut it (#213): the cap triangles are added to its geometry on each plane
+ * (the true plane, CLIP_TOLERANCE short of where the GPU clips, so the cap is kept), facing the clipped side. The mesh
+ * is then closed, for quantities and a single-sided material, and the cut shows a face rather than the inside of the
+ * wall. The outline is rebuilt with the caps and clipped with the faces, so lines mode stops at the cut too.
+ */
+function capAtPlanes(obj, planes) {
+  if (obj.userData.capped) return;   // capped when first clipped; a mesh is clipped once, when it is built
+  const geo = obj.geometry;
+  const pos = geo.attributes.position, nor = geo.attributes.normal;
+  if (!pos || !nor || !geo.index || Object.keys(geo.attributes).length !== 2 || geo.groups.length > 0) return;
+  obj.updateWorldMatrix(true, false);
+  const toLocal = obj.matrixWorld.clone().invert();
+  const caps = [];
+  for (const plane of planes) {
+    const p = plane.clone();
+    p.constant -= CLIP_TOLERANCE;
+    p.applyMatrix4(toLocal);
+    const origin = p.coplanarPoint(new THREE.Vector3());
+    const cap = sectionCaps(pos.array, geo.index.array, { normal: p.normal.toArray(), origin: origin.toArray() });
+    if (cap.indices.length) caps.push(cap);
+  }
+  if (caps.length === 0) return;
+  const nv = pos.count + caps.reduce((n, c) => n + c.positions.length / 3, 0);
+  const ni = geo.index.count + caps.reduce((n, c) => n + c.indices.length, 0);
+  const positions = new Float32Array(nv * 3), normals = new Float32Array(nv * 3), indices = new Uint32Array(ni);
+  positions.set(pos.array); normals.set(nor.array); indices.set(geo.index.array);
+  let v = pos.count, i = geo.index.count;
+  for (const c of caps) {
+    positions.set(c.positions, v * 3); normals.set(c.normals, v * 3);
+    for (let k = 0; k < c.indices.length; k++) indices[i + k] = c.indices[k] + v;
+    v += c.positions.length / 3; i += c.indices.length;
+  }
+  const capped = new THREE.BufferGeometry();
+  capped.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  capped.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
+  capped.setIndex(new THREE.BufferAttribute(indices, 1));
+  obj.geometry = capped;
+  geo.dispose();
+  obj.userData.capped = true;
+  const edges = obj.getObjectByName('edges');
+  if (edges) {
+    edges.geometry.dispose();
+    edges.geometry = new THREE.EdgesGeometry(capped, 15);
+    edges.material = edges.material.clone();
+    edges.material.clippingPlanes = planes;
+  }
 }
 
 /**

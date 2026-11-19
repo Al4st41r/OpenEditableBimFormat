@@ -317,6 +317,7 @@ export function trimMeshByPlane(mesh, plane) {
   const capEdges = capBoundary(outVerts, outFaces, onPlane);
 
   // Reconstruct and add cap polygon(s)
+  const capFaces = [];
   if (capEdges.length > 0) {
     const capPolygons = reconstructPolygons(capEdges);
     for (const poly of capPolygons) {
@@ -325,11 +326,57 @@ export function trimMeshByPlane(mesh, plane) {
       // side, i.e., opposite to plane.normal.
       ensureWinding(outVerts, poly, plane.normal.map(x => -x));
       // the cut through an L- or I-shaped section is not convex: ear-clip it rather than fan it
-      outFaces.push(...triangulateFace(outVerts, poly));
+      capFaces.push(...triangulateFace(outVerts, poly));
     }
   }
+  outFaces.push(...capFaces);
 
-  return { vertices: outVerts, faces: outFaces };
+  return { vertices: outVerts, faces: outFaces, capFaces };
+}
+
+/**
+ * The faces that close a triangle mesh where a plane cuts it (#213), for a mesh that is clipped at render time rather
+ * than trimmed. Only the triangles that touch the plane are trimmed, so a large mesh cut near one end costs little.
+ *
+ * @param {ArrayLike<number>} positions - x, y, z per vertex
+ * @param {ArrayLike<number>} indices - three per triangle
+ * @param {{ normal: number[], origin: number[] }} plane - the normal points to the side that is kept
+ * @returns {{ positions: Float32Array, normals: Float32Array, indices: Uint32Array }} the cap triangles, facing the
+ *   clipped side; empty when the plane misses the mesh
+ */
+export function sectionCaps(positions, indices, plane) {
+  const d = (i) => (positions[i * 3] - plane.origin[0]) * plane.normal[0]
+    + (positions[i * 3 + 1] - plane.origin[1]) * plane.normal[1]
+    + (positions[i * 3 + 2] - plane.origin[2]) * plane.normal[2];
+  const vertices = [];
+  const faces = [];
+  const local = new Map();
+  const at = (i) => {
+    if (!local.has(i)) { local.set(i, vertices.length); vertices.push([positions[i * 3], positions[i * 3 + 1], positions[i * 3 + 2]]); }
+    return local.get(i);
+  };
+  for (let t = 0; t < indices.length; t += 3) {
+    const a = indices[t], b = indices[t + 1], c = indices[t + 2];
+    const da = d(a), db = d(b), dc = d(c);
+    const lo = Math.min(da, db, dc), hi = Math.max(da, db, dc);
+    if (lo > ON_PLANE || hi < -ON_PLANE) continue;   // wholly on one side, clear of the plane
+    faces.push([at(a), at(b), at(c)]);
+  }
+  const empty = { positions: new Float32Array(0), normals: new Float32Array(0), indices: new Uint32Array(0) };
+  if (faces.length === 0) return empty;
+  const cut = trimMeshByPlane({ vertices, faces }, plane);
+  if (cut.capFaces.length === 0) return empty;
+  const used = new Map();
+  const out = [];
+  const idx = [];
+  for (const f of cut.capFaces) for (const i of f) {
+    if (!used.has(i)) { used.set(i, out.length / 3); out.push(...cut.vertices[i]); }
+    idx.push(used.get(i));
+  }
+  const n = normalise(plane.normal.map(x => -x)).map(x => x || 0);   // no -0
+  const normals = new Float32Array(out.length);
+  for (let k = 0; k < normals.length; k += 3) normals.set(n, k);
+  return { positions: new Float32Array(out), normals, indices: new Uint32Array(idx) };
 }
 
 /**

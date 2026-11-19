@@ -268,3 +268,71 @@ test('buildCustomJunctionMesh covers a non-convex (L-shaped) face once, not with
   expect(area).toBeCloseTo(0.05, 6);
   expect(upward).toBe(true);
 });
+
+// ─── caps at trim planes (#213) ─────────────────────────────────────────────
+
+import { sweepProfile } from './geometry/sweep.js';
+import { buildThreeMesh } from './scene/buildMesh.js';
+
+describe('applyJunctionClipping caps the cut (#213)', () => {
+  const box = { materialId: 'm', points: [{ x: -0.1, y: 0 }, { x: 0.1, y: 0 }, { x: 0.1, y: 1 }, { x: -0.1, y: 1 }] };
+  const wall = () => {
+    const [m] = sweepProfile([{ x: 0, y: 0, z: 0 }, { x: 6, y: 0, z: 0 }], [box]);
+    return buildThreeMesh({ ...m, colour: '#888888', elementId: 'element-wall-north-gf', description: '' });
+  };
+  // the part of the mesh the GPU keeps: everything with x <= 5.4 (the butt plane above)
+  const keptVolume = (mesh) => {
+    const g = mesh.geometry, p = g.attributes.position.array, ix = g.index.array;
+    const vertices = []; for (let i = 0; i < p.length; i += 3) vertices.push([p[i], p[i + 1], p[i + 2]]);
+    const faces = []; for (let i = 0; i < ix.length; i += 3) faces.push([ix[i], ix[i + 1], ix[i + 2]]);
+    return { vertices, faces };
+  };
+
+  test('the cap lies on the plane, faces the clipped side, and covers the section', () => {
+    const mesh = wall();
+    const before = { v: mesh.geometry.attributes.position.count, i: mesh.geometry.index.count };
+    applyJunctionClipping(mesh, [JUNCTION_BUTT]);
+    expect(mesh.userData.capped).toBe(true);
+    const g = mesh.geometry, p = g.attributes.position.array, n = g.attributes.normal.array, ix = g.index.array;
+    expect(g.index.count).toBeGreaterThan(before.i);
+    for (let v = before.v; v < g.attributes.position.count; v++) {
+      expect(p[v * 3]).toBeCloseTo(5.4, 6);
+      expect([n[v * 3], n[v * 3 + 1], n[v * 3 + 2]]).toEqual([1, 0, 0]);
+    }
+    // the cap triangles cover the 0.2 x 1 section once, wound to face +x (the clipped side)
+    const P = (i) => new THREE.Vector3(p[i * 3], p[i * 3 + 1], p[i * 3 + 2]);
+    let area = 0;
+    for (let t = before.i; t < ix.length; t += 3) {
+      const [a, b, c] = [P(ix[t]), P(ix[t + 1]), P(ix[t + 2])];
+      const cross = b.clone().sub(a).cross(c.clone().sub(a));
+      area += cross.x / 2;
+    }
+    expect(area).toBeCloseTo(0.2, 6);
+  });
+
+  test('the outline is rebuilt with the cap and clipped with the faces', () => {
+    const mesh = wall();
+    applyJunctionClipping(mesh, [JUNCTION_BUTT]);
+    const edges = mesh.getObjectByName('edges');
+    expect(edges.material.clippingPlanes).toHaveLength(1);
+    expect(edges.material.clippingPlanes[0]).toBe(mesh.material.clippingPlanes[0]);
+    const e = edges.geometry.attributes.position.array;
+    let atCut = 0;
+    for (let i = 0; i < e.length; i += 6) {
+      if (Math.abs(e[i] - 5.4) < 1e-6 && Math.abs(e[i + 3] - 5.4) < 1e-6) atCut += Math.hypot(e[i + 4] - e[i + 1], e[i + 5] - e[i + 2]);
+    }
+    expect(atCut).toBeCloseTo(2.4, 6);   // the cap's outline: round the 0.2 x 1 section
+  });
+
+  test('a mesh is capped once, and a plane that misses it adds nothing', () => {
+    const mesh = wall();
+    applyJunctionClipping(mesh, [JUNCTION_BUTT]);
+    const count = mesh.geometry.index.count;
+    applyJunctionClipping(mesh, [JUNCTION_BUTT]);
+    expect(mesh.geometry.index.count).toBe(count);
+    const far = wall();
+    const before = far.geometry.index.count;
+    applyJunctionClipping(far, [{ ...JUNCTION_BUTT, trim_planes: [{ ...TRIM_PLANE, plane_origin: { x: 9, y: 0, z: 0 } }] }]);
+    expect(far.geometry.index.count).toBe(before);
+  });
+});
