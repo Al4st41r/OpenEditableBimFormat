@@ -15,6 +15,7 @@ import * as AN from './annotationOps.js';
 import * as RF from './referenceOps.js';
 import { HttpAdapter, BUNDLE_NAME } from './httpAdapter.js';
 import { buildDetailSheet, embeddedFontCss, deliverSheet } from '../detail-review/sheetExport.js';
+import { AXO_VIEWS } from '../detail-axo/detailAxo.js';
 import { detailToDxf } from './dxfExport.js';
 import { parseDxf, dxfToDetail, scaleFromUnits } from './dxfImport.js';
 import { svgToDetail } from './svgImport.js';
@@ -1199,11 +1200,16 @@ function openSheetDialog() {
   paper.append(mk('option', { value: '', textContent: 'Auto (smallest that fits)' }));
   for (const p of ['A4', 'A3', 'A2', 'A1']) paper.append(mk('option', { value: p, textContent: p }));
   const thin = mk('input', { type: 'checkbox' });
+  // the axonometric beside the drawing (#215), from a preset view
+  const axo = mk('select');
+  axo.append(mk('option', { value: '', textContent: 'None (2D only)' }));
+  for (const [key, v] of Object.entries(AXO_VIEWS)) if (key !== 'plan' && key !== 'front') axo.append(mk('option', { value: key, textContent: v.label }));
   const go = async (kind) => {
     try {
       const built = buildDetailSheet({
         detail: st.doc, profiles: bundle.ctx.profiles, materials: bundle.ctx.materials, scale: Number(scale.value), hairline: thin.checked,
         paper: paper.value, project: bundle.ctx.projectName, fontCss: await embeddedFontCss(import.meta.env.BASE_URL),
+        axo: axo.value ? { view: axo.value } : undefined,
       });
       dlg.close();
       status(deliverSheet(built, kind));
@@ -1217,7 +1223,7 @@ function openSheetDialog() {
   pdfBtn.addEventListener('click', () => go('pdf'));
   cancel.addEventListener('click', () => dlg.close());
   dlg.replaceChildren(
-    mk('h3', { textContent: 'Export a sheet' }), rowOf('Scale', scale), rowOf('Paper', paper), rowOf('Hairlines', thin), msg,
+    mk('h3', { textContent: 'Export a sheet' }), rowOf('Scale', scale), rowOf('Paper', paper), rowOf('Hairlines', thin), rowOf('3D beside it', axo), msg,
     Object.assign(mk('div', { className: 'row' }), {}), svgBtn, pdfBtn, cancel);
   dlg.showModal();
 }

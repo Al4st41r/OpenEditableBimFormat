@@ -8,6 +8,7 @@
 import { buildAxoModel } from '../detail-axo/detailAxo.js';
 import { buildDetailSvg } from './detailSvg.js';
 import { buildSheet, printHtml, sheetFileName } from './sheet.js';
+import { buildAxoSvg } from './axoSvg.js';
 
 /**
  * Barlow as @font-face rules with the font files inline, so an exported sheet looks the same on any machine. Cached.
@@ -30,14 +31,18 @@ export function embeddedFontCss(baseUrl) {
  * @param {{ detail: object, profiles: Map|object, materials: Map|object, scale?: number, hairline?: boolean, paper?: string,
  *           project?: string, legend?: object|null, fills?: Map|null, fontCss?: string, model?: object }} o
  *   model: a prepared axo model for the detail (the review page already has one); built when omitted
+ *   axo: { direction?: {x,y,z}, view?: string, clip?: boolean } puts the axonometric beside the 2D drawing (#215):
+ *     direction is towards the camera (the review page's current 3D view), else view is a preset (AXO_VIEWS)
  * @returns {{ sheet: object, name: string, scale: number }}
  */
 export function buildDetailSheet(o) {
   const model = o.model ?? buildAxoModel(o.detail, { profiles: o.profiles });
   const drawing = buildDetailSvg(model, { materials: o.materials, profiles: o.profiles, scale: o.scale, hairline: o.hairline, fills: o.fills ?? undefined });
   if (!drawing.svg) throw new Error('There is nothing to draw: the detail has no solids.');
+  const axo = o.axo ? (fit) => buildAxoSvg(model, { materials: o.materials, fills: o.fills ?? undefined, direction: o.axo.direction, view: o.axo.view, clip: o.axo.clip, fit }) : undefined;
   return {
     sheet: buildSheet(drawing, {
+      axo, view2d: model.plane === 'plan' ? 'PLAN' : 'SECTION',
       legend: o.legend ?? null, fontCss: o.fontCss, paper: o.paper || undefined,
       title: o.detail.id, description: o.detail.description, project: o.project ?? '',
       date: new Date().toISOString().slice(0, 10),

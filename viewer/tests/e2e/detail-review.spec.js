@@ -50,3 +50,14 @@ test('detail review: the empty 2D pane says what will appear, and the overlay se
   await page.waitForSelector('#drawing svg polygon[data-item]', { timeout: 30_000 });
   await expect(page.locator('#empty-2d')).toBeHidden();
 });
+
+test('detail review: an SVG sheet with the 2D drawing and the axonometric beside it (#215)', async ({ page }) => {
+  await page.goto(URL);
+  await page.waitForSelector('#drawing svg polygon[data-item]', { timeout: 30_000 });
+  const [download] = await Promise.all([page.waitForEvent('download'), page.selectOption('#export-select', 'svg+axo')]);
+  const text = await (await download.createReadStream()).toArray().then((chunks) => Buffer.concat(chunks).toString('utf8'));
+  expect(text).toContain('class="axo-drawing"');
+  expect(text).toContain('AXONOMETRIC NTS');
+  expect(text).toMatch(/SECTION 1:\d+/);
+  await expect(page.locator('#status')).toContainText('Saved');
+});

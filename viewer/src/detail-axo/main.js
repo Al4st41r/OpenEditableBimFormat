@@ -358,8 +358,11 @@ $('png-btn').addEventListener('click', async () => {
   a.click();
   URL.revokeObjectURL(a.href);
 });
-/** The 2D drawing as it stands (without the selection highlight), on a sheet with a title block. */
-async function currentSheet() {
+/**
+ * The 2D drawing as it stands (without the selection highlight), on a sheet with a title block. With `withAxo` the
+ * axonometric is drawn beside it from the 3D view's current direction, cut to the clip region when the view is (#215).
+ */
+async function currentSheet(withAxo = false) {
   if (!model) throw new Error('Pick a detail first.');
   const legend = overlayResult
     ? { title: OVERLAYS.find((o) => o.id === view2d.overlay).label, rows: overlayResult.legend, noData: overlayResult.noData }
@@ -368,6 +371,7 @@ async function currentSheet() {
     detail: currentDetail(), model, profiles: data.profiles, materials: data.materials, scale: view2d.scale, hairline: view2d.hairline,
     fills: overlayResult?.colours, legend, paper: $('paper-select').value, project: data.projectName ?? '',
     fontCss: await embeddedFontCss(import.meta.env.BASE_URL),
+    axo: withAxo ? { direction: viewer.camera.position.clone().sub(viewer.controls.target), clip: viewer.show.clip } : undefined,
   });
 }
 
@@ -388,8 +392,9 @@ $('export-select').addEventListener('change', async (e) => {
       status('Saved a DXF in millimetres.');
       return;
     }
-    const built = await currentSheet();
-    status(deliverSheet(built, kind));
+    const [format, extra] = kind.split('+');
+    const built = await currentSheet(extra === 'axo');
+    status(deliverSheet(built, format));
   } catch (err) { status(err.message, true); }
 });
 

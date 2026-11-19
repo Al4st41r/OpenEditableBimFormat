@@ -20,15 +20,26 @@ const LEGEND_ROWS_MAX = 18;
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const num = (n) => String(Math.round(n * 1000) / 1000);
 
+const AXO_GAP = 12;      // between the 2D drawing and the axonometric beside it
+const AXO_MIN_W = 80;   // the narrowest the axonometric may be squeezed to
+const CAPTION_H = 7;    // a caption under each drawing when there are two
+
 /** Space left for the drawing on a paper size, in mm. */
 export function drawingArea(paper, { legend = false } = {}) {
   const [w, h] = PAPERS[paper];
   return { width: w - 2 * (BORDER + FRAME_PAD) - (legend ? LEGEND_W : 0), height: h - 2 * (BORDER + FRAME_PAD) - TITLE_H };
 }
 
+/** True when a drawing of this size fits the paper: alone, or with room beside it for an axonometric (opts.axo). */
+function fits(paper, width, height, opts = {}) {
+  const a = drawingArea(paper, opts);
+  if (!opts.axo) return width <= a.width && height <= a.height;
+  return width + AXO_GAP + AXO_MIN_W <= a.width && height <= a.height - CAPTION_H;
+}
+
 /** The smallest listed paper the drawing fits on, or null when it fits none. */
 export function smallestPaper(width, height, opts) {
-  return PAPER_NAMES.find((p) => { const a = drawingArea(p, opts); return width <= a.width && height <= a.height; }) ?? null;
+  return PAPER_NAMES.find((p) => fits(p, width, height, opts)) ?? null;
 }
 
 /** Break text into lines of about `max` characters at spaces, at most `lines` lines (the last is cut with an ellipsis). */
@@ -68,29 +79,51 @@ function legendSvg(legend, x, y, font) {
  *   paper: 'A4' | 'A3' | 'A2' | 'A1', or omitted for the smallest that fits
  *   legend: { title, rows: [{ colour, label, count }], noData } draws an overlay key beside the drawing
  *   fontCss: @font-face rules to embed, so the sheet shows the same font anywhere
+ *   axo: ({ width, height }) => { svg, width, height } draws an axonometric to fit that box (mm), placed beside the
+ *     drawing with a caption under each (#215); view2d names the 2D drawing in its caption ('SECTION' or 'PLAN')
  * @returns {{ svg: string, paper: string, width: number, height: number }} the sheet; width and height in mm
  * @throws {Error} when there is no drawing, or the drawing does not fit the paper asked for
  */
 export function buildSheet(drawing, meta) {
   if (!drawing?.svg) throw new Error('There is no drawing to export.');
-  const lg = meta.legend?.rows?.length ? { legend: true } : {};
+  const lg = { ...(meta.legend?.rows?.length ? { legend: true } : {}), ...(meta.axo ? { axo: true } : {}) };
+  const what = meta.axo ? 'The drawing with an axonometric beside it' : 'The drawing';
   const paper = meta.paper ?? smallestPaper(drawing.width, drawing.height, lg);
-  if (!paper) throw new Error(`The drawing (${Math.round(drawing.width)} x ${Math.round(drawing.height)} mm) does not fit on A1. Choose a smaller scale.`);
+  if (!paper) throw new Error(`${what} (${Math.round(drawing.width)} x ${Math.round(drawing.height)} mm) does not fit on A1. Choose a smaller scale.`);
   if (!PAPERS[paper]) throw new Error(`Unknown paper size "${paper}".`);
   const area = drawingArea(paper, lg);
-  if (drawing.width > area.width || drawing.height > area.height) {
-    throw new Error(`The drawing (${Math.round(drawing.width)} x ${Math.round(drawing.height)} mm) does not fit on ${paper}. Choose a larger paper or a smaller scale.`);
+  if (!fits(paper, drawing.width, drawing.height, lg)) {
+    throw new Error(`${what} (${Math.round(drawing.width)} x ${Math.round(drawing.height)} mm) does not fit on ${paper}. Choose a larger paper or a smaller scale.`);
   }
   const [W, H] = PAPERS[paper];
   const fx = BORDER, fy = BORDER, fw = W - 2 * BORDER, fh = H - 2 * BORDER;
   const areaTop = fy + FRAME_PAD;
-  const dx = fx + FRAME_PAD + (area.width - drawing.width) / 2;
-  const dy = areaTop + (area.height - drawing.height) / 2;
   const ty = fy + fh - TITLE_H;
   const font = 'font-family="Barlow, Arial, sans-serif"';
 
   // the drawing's own <svg> element nests as it is; its viewBox maps 1 unit to 1 mm
-  const nested = drawing.svg.replace('<svg xmlns="http://www.w3.org/2000/svg"', `<svg x="${num(dx)}" y="${num(dy)}" width="${num(drawing.width)}" height="${num(drawing.height)}"`);
+  const place = (svg, x, y, w, h) => svg.replace('<svg xmlns="http://www.w3.org/2000/svg"', `<svg x="${num(x)}" y="${num(y)}" width="${num(w)}" height="${num(h)}"`);
+  let nested;
+  if (meta.axo) {
+    // two drawings side by side (#215): the 2D at its scale, the axonometric fitted to the rest, both centred as a pair
+    const h = area.height - CAPTION_H;
+    const axo = meta.axo({ width: area.width - drawing.width - AXO_GAP, height: h });
+    const total = drawing.width + (axo?.svg ? AXO_GAP + axo.width : 0);
+    const x2d = fx + FRAME_PAD + (area.width - total) / 2;
+    const y2d = areaTop + (h - drawing.height) / 2;
+    const caption = (x, y, text) => `<text x="${num(x)}" y="${num(y + 5)}" text-anchor="middle" font-size="2.8" fill="#000" ${font}>${esc(text)}</text>`;
+    nested = place(drawing.svg, x2d, y2d, drawing.width, drawing.height) +
+      caption(x2d + drawing.width / 2, y2d + drawing.height, `${meta.view2d ?? 'SECTION'} 1:${num(drawing.scale)}`);
+    if (axo?.svg) {
+      const xa = x2d + drawing.width + AXO_GAP, ya = areaTop + (h - axo.height) / 2;
+      nested += `<g class="axo-drawing">${place(axo.svg, xa, ya, axo.width, axo.height)}</g>` +
+        caption(xa + axo.width / 2, ya + axo.height, 'AXONOMETRIC NTS');
+    }
+  } else {
+    const dx = fx + FRAME_PAD + (area.width - drawing.width) / 2;
+    const dy = areaTop + (area.height - drawing.height) / 2;
+    nested = place(drawing.svg, dx, dy, drawing.width, drawing.height);
+  }
   const colX = [fx + 4, fx + fw * 0.42, fx + fw * 0.72, fx + fw * 0.86];
   const desc = wrapText(meta.description, Math.floor((fw * 0.42 - 8) / 1.25), 3);
   const cell = (x, label, value, size = 4) =>
