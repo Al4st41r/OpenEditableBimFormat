@@ -321,10 +321,10 @@ async function open(readJson, label, handle = null) {
     data = await loadDetailData(readJson);
     $('project-name').textContent = data.projectName ?? label;
     if (!data.details?.some((d) => d.id === selectedId)) selectedId = null;
+    applyDraft();   // first: a new detail from the editor may be the only one (#216)
     renderList();
     if (!data.details.length) { status('This bundle has no details.', true); return; }
     $('edit-btn').disabled = false;
-    applyDraft();
     const wanted = selectedId ?? params.get('detail');
     select(data.details.some((d) => d.id === wanted) ? wanted : data.details[0].id);
     if (data.warnings.length) status(`${data.warnings.length} file(s) could not be read; see the console.`, true);

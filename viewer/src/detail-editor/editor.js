@@ -31,6 +31,8 @@ import { librarySource, inProjectIds } from '../materials/libraryData.js';
 import { openLibraryPanel } from '../materials/libraryPanel.js';
 import { libraryMaterialToBundle } from '../loader/loadProfile.js';
 import { snapshotToContext } from './bundleSnapshot.js';
+import { blankDetailBundle } from './blankBundle.js';
+import { bundleMessage, isMessage, AXO_READY } from '../detail-axo/editorHandoff.js';
 import { readyMessage, parseIncoming, savedMessage, focusMessage, profileSavedMessage, materialsAddedMessage } from './messages.js';
 import { buildBuildingReference } from './buildingReference.js';
 import { DETAIL_FIELDS, applyJunctionFields, validateJunctionFields, junctionMessage } from './junctionFields.js';
@@ -831,6 +833,22 @@ $('open-btn').addEventListener('click', openFolder);
 $('open-file-btn').addEventListener('click', () => $('oebfz-input').click());
 $('oebfz-input').addEventListener('change', (e) => { const f = e.target.files[0]; if (f) openMemory(f); e.target.value = ''; });
 $('demo-btn').addEventListener('click', openDemo);
+
+/**
+ * A detail with no building (#216): a bundle in memory holding the default library's profiles, then the New detail
+ * dialog. Download .oebfz keeps it; it can be opened in the 3D editor later and the detail placed with a junction.
+ */
+async function openBlank() {
+  if (st && !await okToDiscard()) return;
+  const name = await ask('Project name', 'Detail sketch', { title: 'New detail, no building', ok: 'Create' });
+  if (!name) return;
+  try {
+    const adapter = await blankDetailBundle(name);
+    openContext(await loadDetailContext(adapter), adapter, 'memory');
+    $('new-btn').click();
+  } catch (err) { status(`Could not start a blank bundle: ${err.message}`, true); }
+}
+$('blank-btn').addEventListener('click', openBlank);
 $('zip-btn').addEventListener('click', async () => {
   try {
     const how = await bundle?.adapter?.saveOebfz?.();
@@ -1018,6 +1036,7 @@ async function openFromUrl(name, detailId) {
 }
 const query = new URLSearchParams(window.location.search);
 if (query.has('bundle')) openFromUrl(query.get('bundle'), query.get('detail'));
+else if (query.has('blank')) openBlank();
 else if (query.has('demo')) openDemo();
 
 // Read-only hook for headless checks and bug reports.
@@ -1129,13 +1148,26 @@ $('publish-btn').addEventListener('click', async () => {
 });
 
 // ── 3D ───────────────────────────────────────────────────────────────────────
-// The review page draws the 3D view. It reads the served bundle, so the detail as it is now (saved or not) is left for it
-// in localStorage and shown in place of the stored one. Needs a bundle the review page can open by name.
+// The review page draws the 3D view. The detail as it is now (saved or not), with the profiles and materials edited
+// here, is left for it in localStorage and shown in place of the stored one (?draft=1). A served example is opened by
+// name; any other bundle (a folder, an archive, a blank bundle in memory) is handed over as the 3D editor does it
+// (detail-axo/editorHandoff.js): the review page asks for it once loaded (#216).
 $('view3d-btn').addEventListener('click', () => {
   if (!st) { status('Open a detail first.', true); return; }
-  if (!bundle?.urlName) { status('3D from here works for the served examples. For other bundles, use Edit detail on the review page.', true); return; }
+  if (!bundle?.urlName && !bundle?.adapter) { status('This bundle came from the review page: use its 3D view.', true); return; }
   try { localStorage.setItem('oebf-detail-draft', JSON.stringify({ id: st.doc.id, json: JSON.parse(toJsonText(st.doc)), profiles: Object.fromEntries(editedProfiles), materials: [...editedMaterials.values()] })); } catch (err) { status(`Could not hand the detail over: ${err.message}`, true); return; }
-  window.open(`${import.meta.env.BASE_URL}detail-axo.html?bundle=${encodeURIComponent(bundle.urlName)}&detail=${encodeURIComponent(st.doc.id)}&draft=1`, '_blank');
+  const q = new URLSearchParams({ detail: st.doc.id, draft: '1' });
+  if (bundle.urlName) q.set('bundle', bundle.urlName); else q.set('from', 'editor');
+  const tab = window.open(`${import.meta.env.BASE_URL}detail-axo.html?${q}`, '_blank');
+  if (!tab) { status('Pop-up blocked — allow pop-ups for this site.', true); return; }
+  if (bundle.urlName) return;
+  const adapter = bundle.adapter;
+  const onReady = (e) => {
+    if (!isMessage(e, AXO_READY, { ownOrigin: window.location.origin, source: tab })) return;
+    window.removeEventListener('message', onReady);
+    try { tab.postMessage(bundleMessage(adapter), window.location.origin); } catch (err) { status(`3D view failed: ${err.message}`, true); }
+  };
+  window.addEventListener('message', onReady);
 });
 
 // ── help ─────────────────────────────────────────────────────────────────────
