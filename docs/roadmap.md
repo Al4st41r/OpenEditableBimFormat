@@ -1,7 +1,7 @@
 # OEBF Project Roadmap
 
-**Last updated:** 2026-11-19
-**Latest tag:** `v0.2.0-editor-alpha` (local only; v0.3, v0.4 and Phase 8 delivered on main, not tagged)
+**Last updated:** 2026-11-20
+**Latest tag:** `v0.4.0` (2026-11-20; covers v0.3, v0.4 and Phase 8)
 **Tests:** see `docs/project-status.md`
 **Deployed at:** `architools.drawingtable.net/oebf/`
 
@@ -33,7 +33,7 @@ A three-panel browser editor (`editor.html`) for creating and modifying OEBF bun
 - Junction sprites at their real positions; bezier and spline paths; sweep mode, caps and offsets; one library format (#97, #98, #100).
 - `oebf validate` and `oebf apply` (`spec/commands.json`), with imported bundles passing validation (#101, #106).
 
-### v0.4 — Junction Detail System (delivered, not tagged)
+### v0.4 — Junction Detail System (tagged v0.4.0)
 
 - Reusable details referenced from junctions by grid location and level, with parameter overrides and mirroring (#81).
 - Detail editor (`detail-editor.html`): plan and section, multi-profile members, regions with repeating units, annotations, DXF and SVG import and export, layers, clipboard, fillet and chamfer (#120).
@@ -41,7 +41,7 @@ A three-panel browser editor (`editor.html`) for creating and modifying OEBF bun
 - Detail review (`detail-axo.html`): a scaled 2D drawing beside a 3D axonometric, with seven overlays (subcontractor package, waterproofing and air barriers, fire, embodied carbon, construction sequence, shearing layers, CI/SfB) (#119).
 - `nmb-two-storey.oebf`: a two-storey mass timber and masonry bundle with 59 materials, 31 details and 41 junctions.
 
-### Since v0.4 (Phase 8, delivered on main)
+### Since v0.4 (Phase 8, released in v0.4.0)
 
 - Doors and windows cut through every layer of their host wall (three-bvh-csg), in the viewer and the editor.
 - Editor undo and redo, keyboard shortcuts, a status bar and an unsaved-work warning; starter models on the editor home page (#118).
@@ -58,10 +58,6 @@ A three-panel browser editor (`editor.html`) for creating and modifying OEBF bun
 ## Milestones
 
 Each milestone is a GitHub milestone; its open issues are the plan. Issues waiting on a choice from the project owner carry the `decision-needed` label.
-
-### Release housekeeping (now)
-
-Tag the current main as **v0.4.0**. It covers the work planned for v0.3 and v0.4 and Phase 8 to date, which are delivered but untagged. Push `v0.2.0-editor-alpha` and `v0.4.0` to GitHub.
 
 ### v0.5 — Detail Workflow and Geometry Correctness
 
@@ -111,10 +107,10 @@ See `docs/project-status.md`, Known Limitations, for the current list.
 | Version | Theme | Status |
 |---|---|---|
 | v0.1.0 | Format and viewer: schemas, sweep engine, junction trimmer, read-only viewer, IFC CLI | Released |
-| v0.2.0-alpha | Browser editor: 3D editor, profile editor, library browser, node editing, units | Tagged (local) |
-| v0.3 | IFC in the editor, snapping, properties panel, validate and apply | Delivered, not tagged |
-| v0.4 | Junction detail system: detail editor, building reference, detail review | Delivered, not tagged |
-| Phase 8 | Editor consistency and safety, detail review, IFC coverage, coursed walls | Delivered; to be tagged v0.4.0 |
+| v0.2.0-alpha | Browser editor: 3D editor, profile editor, library browser, node editing, units | Tagged |
+| v0.3 | IFC in the editor, snapping, properties panel, validate and apply | Released in v0.4.0 |
+| v0.4 | Junction detail system: detail editor, building reference, detail review | Released in v0.4.0 |
+| Phase 8 | Editor consistency and safety, detail review, IFC coverage, coursed walls | Released in v0.4.0 |
 | v0.5 | Detail workflow and geometry correctness | In progress |
 | v0.6 | Quantities and embodied carbon; AI-assisted editing | Planned |
 | v1.0 | Desktop app, live editing, format freeze | Planned |

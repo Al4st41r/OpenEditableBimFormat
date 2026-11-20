@@ -1,6 +1,6 @@
 # OEBF Project Status
 
-**Date:** 2026-11-19
+**Date:** 2026-11-20
 **Branch:** main
 **Tests:** 2593 JS (Vitest, 164 test files) + 607 Python (592 ifc-tools, 15 live-server) + 73 Playwright e2e
 
@@ -8,7 +8,7 @@
 
 ## Summary
 
-v0.1.0 is released and `v0.2.0-editor-alpha` is tagged. The work planned for v0.3 (IFC in the editor, snapping, the full properties panel) and v0.4 (the junction detail system) is delivered on main but not yet tagged. Since then the project has added the detail review page with seven overlays, the New Model Building example bundle, `oebf validate` and `oebf apply`, openings cut through walls, and editor undo and redo. Phase 8 (editor polish and spec conformance) is in progress. The build is deployed at `architools.drawingtable.net/oebf/`.
+v0.1.0, `v0.2.0-editor-alpha` and v0.4.0 are tagged. v0.4.0 (2026-11-20) covers the work planned for v0.3 (IFC in the editor, snapping, the full properties panel) and v0.4 (the junction detail system) and Phase 8. Since then the project has added the detail review page with seven overlays, the New Model Building example bundle, `oebf validate` and `oebf apply`, openings cut through walls, and editor undo and redo. Phase 8 (editor polish and spec conformance) is in progress. The build is deployed at `architools.drawingtable.net/oebf/`.
 
 **Milestones, geometry and the detail workflow (2026-11-19).** The roadmap now runs by GitHub milestones (v0.5 detail workflow and geometry correctness, v0.6 quantities and AI-assisted editing, v1.0 desktop and live editing) with a `decision-needed` label; see `docs/roadmap.md`. A path with `closed: true` is a loop in the viewer as in both IFC exporters, an implied straight segment closing it if needed; fixed-mode and untwisted closed paths are rings (#214). The junction trimmer caps a cut whose plane passes through mesh vertices (#211), and walls clipped by a junction's trim planes get cap faces, so they are closed and their outline stops at the cut (#213). The detail editor starts a detail with no building (**File, New detail, no building**: a bundle in memory with the library's wall and slab profiles), and its 3D button works for any bundle, handing it to the review page as the 3D editor does (#216). Sheets can carry the axonometric beside the 2D drawing, as vector SVG painted through a BSP tree (`viewer/src/detail-review/axoSvg.js`), from the review page's current 3D view or a preset in the detail editor (#215).
 
@@ -139,7 +139,6 @@ GitHub milestones are the plan: `gh issue list --state open --milestone "<title>
 |---|---|
 | Undo in the 3D editor redraws only for path edits; other steps (and the first edit after opening, which normalises `model.json`) reload the scene | Correct but slower on a large model |
 | Playwright's pinned Chromium is not installed on the Pi; run with `PW_CHROMIUM=<headless_shell> npx playwright test -c playwright.local.config.js` | |
-| `v0.2.0-editor-alpha` tag not pushed to GitHub; v0.3 and v0.4 not tagged | |
 
 ---
 
