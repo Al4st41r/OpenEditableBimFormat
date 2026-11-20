@@ -14,6 +14,7 @@ dependencies = [
 [dependency-groups]
 bench = [
     "anthropic>=2.11.0",
+    "jsonpatch>=1.48",
 ]
 dev = [
     "jsonschema>=4.26.0",

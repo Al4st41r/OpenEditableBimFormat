@@ -6,6 +6,7 @@ import json
 import pytest
 
 from bench import fixtures
+from bench.fixtures import OEBF
 from bench.oracle import OEBF_ORACLE, IFC_ORACLE
 from bench.protocol import apply_ifc_text, ScriptError, SCHEMAS, system_blocks
 from bench.score import score
@@ -114,8 +115,33 @@ def test_a_wrong_answer_to_the_question_fails():
     assert score("oebf", "T10", {"write": [], "delete": [], "answer": "10.8 m; U-value 0.18"})["checks"][0]["ok"] is False
 
 
+@pytest.mark.parametrize("task_id", [f"T{i}" for i in range(1, 11)])
+def test_a_correct_oebf_patch_edit_succeeds(task_id):
+    from bench.oracle import OEBF_PATCH_ORACLE
+    s = OEBF_PATCH_ORACLE[task_id]()
+    assert all(not (OEBF / w["path"]).exists() for w in s["write"])   # existing files only by patch
+    r = score("oebf-patch", task_id, s)
+    assert r["success"], r
+
+
+def test_a_patch_value_that_is_not_json_is_a_plain_string():
+    s = {"patch": [{"path": "elements/element-wall-north-gf.json",
+                    "ops": [{"op": "replace", "path": "/properties/fire_rating", "value": "REI 90"}]}],
+         "write": [], "delete": [], "answer": ""}
+    assert score("oebf-patch", "T3", s)["success"]
+
+
+def test_a_patch_to_a_missing_pointer_or_file_fails_the_gate():
+    bad_ptr = {"patch": [{"path": "elements/element-wall-north-gf.json",
+                          "ops": [{"op": "replace", "path": "/properties/no_such/x", "value": "1"}]}], "write": [], "delete": [], "answer": ""}
+    bad_file = {"patch": [{"path": "elements/nope.json", "ops": [{"op": "remove", "path": "/id"}]}], "write": [], "delete": [], "answer": ""}
+    for s in (bad_ptr, bad_file):
+        r = score("oebf-patch", "T3", s)
+        assert r["gate"] is False and r["problems"][0].startswith("patch")
+
+
 def test_the_prompts_are_the_same_shape_for_both_formats():
-    for fmt in ("oebf", "ifc"):
+    for fmt in ("oebf", "oebf-patch", "ifc"):
         blocks = system_blocks(fmt)
         assert len(blocks) == 3 and blocks[-1]["cache_control"] == {"type": "ephemeral"}
         assert SCHEMAS[fmt]["additionalProperties"] is False

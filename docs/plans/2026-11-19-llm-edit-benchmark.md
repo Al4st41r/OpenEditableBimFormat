@@ -2,7 +2,7 @@
 
 **Issue:** #128
 **Date:** 2026-11-19
-**Status:** Run on 2026-11-20 (120 runs, Opus 5.5 and Haiku 5.5; IFC side rerun, 60 runs, after a primer correction). Results: `docs/research/llm-edit-benchmark.md`.
+**Status:** Run on 2026-11-20 (120 runs, Opus 5.5 and Haiku 5.5; IFC side rerun after a primer correction; OEBF rerun with JSON Patch edits; 240 runs in all). Results: `docs/research/llm-edit-benchmark.md`.
 
 ---
 

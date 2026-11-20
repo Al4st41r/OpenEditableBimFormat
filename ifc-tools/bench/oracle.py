@@ -194,3 +194,22 @@ def ifc_t5():
 
 
 IFC_ORACLE = {"T3": ifc_t3, "T5": ifc_t5}
+
+
+# ── OEBF as JSON Patch: the whole-file reference edits, turned into patches of the files that exist ────────────
+
+def as_patch(script: dict) -> dict:
+    import jsonpatch
+    patch, write = [], []
+    for w in script["write"]:
+        src = OEBF / w["path"]
+        if src.exists():
+            ops = jsonpatch.make_patch(json.loads(src.read_text()), json.loads(w["content"])).patch
+            ops = [{**op, **({"value": json.dumps(op["value"], ensure_ascii=False)} if "value" in op else {})} for op in ops]
+            patch.append({"path": w["path"], "ops": ops})
+        else:
+            write.append(w)
+    return {"patch": patch, "write": write, "delete": script["delete"], "answer": script["answer"]}
+
+
+OEBF_PATCH_ORACLE = {k: (lambda f=f: as_patch(f())) for k, f in OEBF_ORACLE.items()}
