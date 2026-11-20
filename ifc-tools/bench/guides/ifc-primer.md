@@ -23,15 +23,18 @@ entity instance per line:
 - Real numbers always have a decimal point: `0.29`, `2.7`, `0.`, `-1.`. An integer where a real is expected is an error.
 - Enumerations are written between dots: `.AREA.`, `.T.` (true), `.F.` (false), `.NEGATIVE.`.
 - Lists are in brackets: `(#43,#45,#47,#49)`. A list of one item still has brackets: `(#22)`.
-- Typed values are wrapped in their type: `IFCLABEL('REI 60')`, `IFCBOOLEAN(.T.)`, `IFCLENGTHMEASURE(0.9)`.
+- Typed values are wrapped in their type: `IFCLABEL('REI 60')`, `IFCBOOLEAN(.T.)`, `IFCLENGTHMEASURE(0.9)`. Wrap a
+  value only where the attribute accepts several types, such as a property's `NominalValue`. Where the attribute has
+  one type, such as a door's `OverallHeight`, write the plain value: `2.2`, not `IFCPOSITIVELENGTHMEASURE(2.2)`.
 
 Every line ends with `);` and a line holds exactly one instance.
 
 ### GlobalIds
 
 Rooted entities (elements, relationships, property sets, the project and spatial structure) start with a GlobalId: a
-22-character string from the alphabet `0-9 A-Z a-z _ $`. Each must be unique in the file. When you add a rooted entity,
-make up a new 22-character id in this alphabet, different from every other one in the file.
+22-character string from the alphabet `0-9 A-Z a-z _ $`. It encodes a 128-bit number, so its first character must be
+`0`, `1`, `2` or `3`. Each must be unique in the file. When you add a rooted entity, make up a new 22-character id
+in this alphabet, starting with 0 to 3, different from every other one in the file.
 
 ### Units
 
