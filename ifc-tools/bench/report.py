@@ -69,6 +69,7 @@ def markdown(path) -> str:
         last = r["turns"][-1].get("result") or {}
         why = last.get("problems") or [c["label"] for c in last.get("checks", []) if not c["ok"]] + last.get("changed", [])
         short = [" ".join(str(w).split())[:160] for w in why[:4]]
+        short = [f"`{s}`" if any(c in s for c in "$#*_") else s for s in short]   # IFC text: keep it literal
         more = f" (and {len(why) - 4} more)" if len(why) > 4 else ""
         lines.append(f"- {r['model']} {r['format'].upper()} {r['task']} run {r.get('run')}: " + "; ".join(short) + more)
     return "\n".join(lines) + "\n"
