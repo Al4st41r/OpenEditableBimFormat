@@ -22,6 +22,8 @@ def main():
     r.add_argument("--tasks", nargs="+")
     r.add_argument("--runs", type=int, default=3)
     r.add_argument("--max-tokens-total", type=int, required=True, help="stop once this many tokens are used in all")
+    r.add_argument("--backend", choices=["api", "cli"], default="api", help="api: ANTHROPIC_API_KEY; cli: claude -p on your login")
+    r.add_argument("--workers", type=int, default=1)
     rep = sub.add_parser("report")
     rep.add_argument("results")
     rep.add_argument("-o", "--output")
@@ -32,7 +34,7 @@ def main():
         for (model, fmt), n in runner.count_prompt_tokens().items():
             print(f"{model:20} {fmt:4} {n:,}")
     elif a.cmd == "run":
-        print(runner.run(a.models, a.formats, a.tasks, a.runs, a.max_tokens_total))
+        print(runner.run(a.models, a.formats, a.tasks, a.runs, a.max_tokens_total, backend=a.backend, workers=a.workers))
     elif a.cmd == "report":
         text = report.markdown(a.results)
         if a.output:

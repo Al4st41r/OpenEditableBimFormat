@@ -2,7 +2,7 @@
 
 **Issue:** #128
 **Date:** 2026-11-19
-**Status:** Harness built and tested offline (`ifc-tools/bench/`, `ifc-tools/tests/test_bench.py`). No paid runs yet.
+**Status:** Run on 2026-11-20 (120 runs, Opus 5.5 and Haiku 5.5). Results: `docs/research/llm-edit-benchmark.md`.
 
 ---
 

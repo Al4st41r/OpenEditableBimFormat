@@ -68,5 +68,7 @@ def markdown(path) -> str:
             continue
         last = r["turns"][-1].get("result") or {}
         why = last.get("problems") or [c["label"] for c in last.get("checks", []) if not c["ok"]] + last.get("changed", [])
-        lines.append(f"- {r['model']} {r['format'].upper()} {r['task']} run {r.get('run')}: " + "; ".join(map(str, why[:4])))
+        short = [" ".join(str(w).split())[:160] for w in why[:4]]
+        more = f" (and {len(why) - 4} more)" if len(why) > 4 else ""
+        lines.append(f"- {r['model']} {r['format'].upper()} {r['task']} run {r.get('run')}: " + "; ".join(short) + more)
     return "\n".join(lines) + "\n"

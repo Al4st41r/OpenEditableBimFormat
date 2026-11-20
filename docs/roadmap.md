@@ -77,7 +77,7 @@ Each milestone is a GitHub milestone; its open issues are the plan. Issues waiti
 
 - **Quantities and embodied carbon for the whole building (#117):** areas, volumes and kg CO₂e by element, material and package, from the closed meshes delivered in v0.5.
 - **AI-assisted editing (#217):** a command palette (Ctrl+K) that runs an agent loop against the open bundle, shows a diff of each entity before it is written, validates against `spec/schema/` and undoes as one step. See `docs/ai-integration-plan.md`.
-- **OEBF against IFC (#128):** tokens, readability, schema and CLI completeness, and an LLM edit-accuracy benchmark, which also measures #217.
+- **OEBF against IFC (#128):** tokens, readability, schema and CLI completeness, and an LLM edit-accuracy benchmark, which also measures #217. First benchmark run done (2026-11-20, `docs/research/llm-edit-benchmark.md`); next, a corrected IFC primer, the NMB bundle and a third-party IFC file.
 
 ### v1.0 — Desktop and Live Editing
 
