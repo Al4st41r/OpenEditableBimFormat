@@ -1,7 +1,7 @@
 # LLM Edit Benchmark: OEBF Against IFC, Results
 
 **Issue:** #128
-**Date:** 2026-11-20
+**Date:** 2026-11-20 (terraced house), 2026-11-21 (NMB)
 **Plan and method:** `docs/plans/2026-11-19-llm-edit-benchmark.md`
 **Harness:** `ifc-tools/bench/`
 **Raw results:** `ifc-tools/bench/results/`:
@@ -10,10 +10,15 @@
 - `20261120T224223Z.jsonl`: IFC rerun with the corrected primer.
 - `20261120T225915Z.jsonl`: OEBF with JSON Patch edits.
 - `combined-20261120.jsonl`: OEBF whole-file from the first run, OEBF patch, and the IFC rerun; the generated tables in section 8.
+- `20261121T034307Z.jsonl`: the NMB building, OEBF patch and IFC; `20261121T034307Z-rescored.jsonl` the same replies scored after one check was corrected (section 9).
 
 ---
 
 ## 1. Summary
+
+The benchmark was run on two buildings: the terraced house (sections 1 to 8) and the larger NMB two-storey building (section 9). On the terraced house, OEBF with patch edits was the smallest and fastest format. On NMB the OEBF prompt was 35% larger than the IFC prompt, because the bundle carries information the IFC export drops, but OEBF still needed about half the output tokens and half the time for Haiku 5.5, and both formats were about equally accurate.
+
+### The Terraced House
 
 Three ways of editing were compared on the same 10 tasks, three runs each on Opus 5.5 and Haiku 5.5:
 
@@ -120,7 +125,6 @@ No GlobalId in the rerun broke the first-character rule.
 
 ## 7. Next Steps
 
-- Repeat on the NMB two-storey bundle, where the IFC is much larger and the edits involve more entities.
 - Add an IFC file from an authoring tool, edited by the same tasks, to test the tidy-IFC caveat.
 - A shorter OEBF guide, or a core guide with task-specific sections, to recover the prompt saving.
 - Consider JSON Patch as the documented way for an LLM to edit a bundle (`OEBF-GUIDE.md`, `oebf apply`).
@@ -174,3 +178,127 @@ Source: `combined-20261120.jsonl`, 180 runs.
 - claude-haiku-5-5 OEBF-PATCH T8 run 1: door opening did not move; door did not move; Front door — south wall, ground floor: changed; Front door opening — south wall, ground floor: changed
 - claude-haiku-5-5 OEBF-PATCH T8 run 2: door opening did not move; door did not move; Front door — south wall, ground floor: changed; Front door opening — south wall, ground floor: changed
 - claude-haiku-5-5 OEBF-PATCH T8 run 3: door opening did not move; door did not move; Front door — south wall, ground floor: changed; Front door opening — south wall, ground floor: changed
+
+---
+
+## 9. The NMB Building
+
+The same comparison on the NMB two-storey building (`example/nmb-two-storey.oebf`): 9 x 6 m, three storeys (ground,
+first, roof), 36 elements (external walls of 10 layers, CLT walls, riser walls, columns, upstands, parapets), 12 slab
+layers and 8 openings with no door or window in them. Ten tasks of the same kinds as before (`ifc-tools/bench/tasks_nmb.py`),
+three runs each, OEBF with patch edits against IFC, on Opus 5.5 and Haiku 5.5. The IFC primer for NMB has the same
+sections and rules as the corrected terraced house primer, with its examples taken from the NMB file.
+
+### What Each Model Is Shown
+
+| | OEBF | IFC |
+|---|---|---|
+| Model text | 162,000 characters | 91,000 characters |
+| Whole prompt | about 93,000 tokens | about 69,000 tokens |
+
+On this building the OEBF prompt is about 35% **larger**. The bundle holds information that the IFC export drops: each
+material's carbon, classification and sequence data (IFC keeps the name), each profile's layer detail and the junctions.
+The 31 junction details, 2D drawings that IFC has no place for and that no task touches, were left out of the OEBF
+prompt; with them it would be 380,000 characters. The NMB bundle has no IFC property mapping, so the benchmark's copy
+was given the terraced house's (`fire_rating` and `load_bearing` to `Pset_WallCommon`); the model is not shown it.
+
+### Results
+
+| | OEBF patch | IFC |
+|---|---|---|
+| Opus 5.5, correct first time | 30/30 | 30/30 |
+| Haiku 5.5, correct first time | 28/30 | 28/30 |
+| Haiku 5.5, correct after one repair turn | 29/30 | 28/30 |
+| Haiku 5.5, valid first time | 29/30 | 30/30 |
+| Opus 5.5, output tokens per task (mean) | 1,131 | 1,046 |
+| Haiku 5.5, output tokens per task (mean) | 1,768 | 3,498 |
+| Opus 5.5, time per task (mean) | 11.7 s | 11.6 s |
+| Haiku 5.5, time per task (mean) | 8.9 s | 16.4 s |
+| List-price equivalent, Opus, 30 runs | $3.50 | $1.68 |
+| List-price equivalent, Haiku, 30 runs | $0.08 | $0.09 |
+
+- **Accuracy is level.** Both models did as well in either format. All four failures were Haiku's, on T7 (the
+  first-floor partition) and, for one run, T5:
+  - IFC T7, run 1: Haiku made no change and asked for confirmation, having misread the CLT walls' placements.
+  - IFC T7, run 3: the partition was given the wrong height.
+  - OEBF T7, run 2: Haiku drew the partition from x = 3.0 to 6.0 and set `start_offset` and `end_offset` to 0.173 to
+    stop it at the wall faces. That is correct by the OEBF guide, but the Python IFC exporter ignores the offsets (#220),
+    so the exported wall ran 3.0 to 6.0 and failed. This is an exporter fault counted against OEBF.
+  - OEBF T5, run 1: a patch removed an array index that did not exist. The repair turn fixed it.
+- **Output: OEBF is far smaller for Haiku, level for Opus.** Haiku wrote about half as much for OEBF and took about
+  half the time. For Opus the two formats were within 10% on output and equal on time.
+- **Cost: the larger prompt shows for Opus.** With output level, Opus's cost follows the prompt, and the OEBF runs cost
+  about twice as much at list price. Most of the difference is cache writes: the OEBF prompt was written to the cache
+  three times (about 290,000 tokens; the first parallel calls missed the cache) against once for IFC (82,000), and a
+  cache write costs about 20 times a cache read. Run one call first, then the rest in parallel, and the gap narrows to
+  the prompt sizes.
+- **Adding is still where IFC costs most.** T7 (add a partition) and T9 (add an upstand) took Haiku 7,776 and 9,925
+  output tokens in IFC against 2,855 and 2,014 in OEBF.
+
+| Mean output tokens, first reply | Opus OEBF | Opus IFC | Haiku OEBF | Haiku IFC |
+|---|---|---|---|---|
+| T1 move the entrance door opening | 737 | 576 | 713 | 1,202 |
+| T2 resize a window | 473 | 510 | 830 | 1,255 |
+| T3 change the riser walls' fire rating | 418 | 318 | 543 | 476 |
+| T4 thicken the CLT walls | 1,193 | 914 | 2,173 | 3,445 |
+| T5 remove a column and its upstand | 1,493 | 1,207 | 3,133 | 3,697 |
+| T6 add a window opening | 995 | 1,067 | 1,124 | 3,890 |
+| T7 add a partition | 1,468 | 2,855 | 3,787 | 7,776 |
+| T8 move a wall and its upstand | 1,897 | 466 | 1,434 | 2,251 |
+| T9 add an upstand | 1,654 | 2,014 | 2,961 | 9,925 |
+| T10 answer a question | 985 | 525 | 980 | 1,064 |
+
+### One Check Corrected After the Run
+
+In Opus's OEBF T8 run 3, the model moved the walls and upstand correctly, renamed them ("Internal CLT wall 300 mm east of
+grid line 3, ground floor"), added a grid axis 3a at x = 6.3 and moved the eight junctions on the wall to it. The check
+looked the walls up by their old names and failed the run. The check now matches on name parts, and every saved reply
+was scored again (`python -m bench.rescore`); only that run changed. The tables above use the rescored file.
+
+### What NMB Adds to the Picture
+
+- OEBF's size advantage depends on what the bundle carries. With rich materials, profiles and junctions, the OEBF
+  prompt is larger than an IFC export that drops them. Showing the model only the files a task needs, or a summary of
+  the materials, would recover the advantage.
+- The output advantage held for the smaller model on both buildings, and IFC remained expensive for adding elements.
+- The scoring route through our exporter now has a known fault (#220) that cost OEBF one run.
+
+All NMB runs together took 24 minutes of model time and came to about $5.40 at list price, counted against the plan's
+usage limits.
+
+---
+
+## 10. NMB Generated Tables
+
+
+Source: `20261121T034307Z-rescored.jsonl`, 120 runs.
+
+### Summary
+
+| Model | Format | Runs | Valid first time | Correct first time | Correct after repair | Mean score | Input tokens per task | Output tokens per task |
+|---|---|---|---|---|---|---|---|---|
+| claude-haiku-5-5 | IFC | 30 | 30/30 | 28/30 | 28/30 | 0.96 | 71,802 | 3,498 |
+| claude-haiku-5-5 | OEBF-PATCH | 30 | 29/30 | 28/30 | 29/30 | 0.99 | 99,424 | 1,827 |
+| claude-opus-5-5 | IFC | 30 | 30/30 | 30/30 | 30/30 | 1.00 | 69,231 | 1,046 |
+| claude-opus-5-5 | OEBF-PATCH | 30 | 30/30 | 30/30 | 30/30 | 1.00 | 93,051 | 1,131 |
+
+### Correct After Repair, by Task
+
+| Task | claude-haiku-5-5 IFC | claude-haiku-5-5 OEBF-PATCH | claude-opus-5-5 IFC | claude-opus-5-5 OEBF-PATCH |
+|---|---|---|---|---|
+| T1 move | 3/3 | 3/3 | 3/3 | 3/3 |
+| T2 resize | 3/3 | 3/3 | 3/3 | 3/3 |
+| T3 property | 3/3 | 3/3 | 3/3 | 3/3 |
+| T4 build-up | 3/3 | 3/3 | 3/3 | 3/3 |
+| T5 delete | 3/3 | 3/3 | 3/3 | 3/3 |
+| T6 add | 3/3 | 3/3 | 3/3 | 3/3 |
+| T7 add | 1/3 | 2/3 | 3/3 | 3/3 |
+| T8 multi-entity | 3/3 | 3/3 | 3/3 | 3/3 |
+| T9 create | 3/3 | 3/3 | 3/3 | 3/3 |
+| T10 read | 3/3 | 3/3 | 3/3 | 3/3 |
+
+### Failures
+
+- claude-haiku-5-5 IFC T7 run 1: one new wall
+- claude-haiku-5-5 OEBF-PATCH T7 run 2: from the grid line 2 wall face; to the grid line 3 wall face
+- claude-haiku-5-5 IFC T7 run 3: riser height

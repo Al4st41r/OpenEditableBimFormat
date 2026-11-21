@@ -80,6 +80,13 @@ class ApiChat:
         return reply, rec, rec["usage"]
 
 
+class UsageLimit(Exception):
+    """The account's usage limit was reached: not a model failure. The run stops and the task is not recorded."""
+
+
+LIMIT_MARKERS = ("hit your", "usage limit", "rate limit", "rate_limit", "overloaded")
+
+
 class CliChat:
     """A conversation through headless Claude Code on the user's login."""
 
@@ -109,6 +116,8 @@ class CliChat:
         rec = {"stop_reason": d.get("stop_reason"), "usage": usage, "seconds": round(time.time() - t0, 1),
                "session_id": d.get("session_id"), "subtype": d.get("subtype"), "is_error": d.get("is_error"),
                "cost_usd_list": d.get("total_cost_usd")}
+        if d.get("is_error") and any(m in str(d.get("result")).lower() for m in LIMIT_MARKERS):
+            raise UsageLimit(str(d.get("result"))[:200])
         if d.get("is_error") or d.get("stop_reason") == "refusal":
             rec["error"] = str(d.get("result"))[:500]
             return None, rec, usage
@@ -122,6 +131,8 @@ def run_one(chat, task, budget):
     for turn in (1, 2):
         try:
             text, rec, usage = chat.send(text_in)
+        except anthropic.RateLimitError as e:
+            raise UsageLimit(str(e)[:200])
         except anthropic.APIStatusError as e:
             record["turns"].append({"error": f"{e.status_code}: {e.message}"})
             break
@@ -152,25 +163,36 @@ def run_one(chat, task, budget):
 
 
 def run(models=MODELS, formats=("oebf", "ifc"), task_ids=None, runs=3, max_tokens_total=None, out=None,
-        backend="api", workers=1):
+        backend="api", workers=1, resume=None):
+    """With `resume`, an earlier results file: its (run, model, format, task) records are kept, the missing ones are
+    run, and the new records are appended to it."""
     check()
     client = anthropic.Anthropic() if backend == "api" else None
     tasks = [by_id(t) for t in task_ids] if task_ids else suite_tasks()
     budget = Budget(max_tokens_total)
-    out = Path(out or BENCH / "results" / f"{datetime.now(timezone.utc):%Y%m%dT%H%M%SZ}.jsonl")
+    out = Path(resume or out or BENCH / "results" / f"{datetime.now(timezone.utc):%Y%m%dT%H%M%SZ}.jsonl")
     out.parent.mkdir(parents=True, exist_ok=True)
-    jobs = [(r, m, f, t) for r in range(1, runs + 1) for m in models for f in formats for t in tasks]
+    done = set()
+    if resume and out.exists():
+        done = {(d["run"], d["model"], d["format"], d["task"]) for d in map(json.loads, out.read_text().splitlines()) if d.get("suite", "terraced-house") == FX.SUITE}
+    jobs = [(r, m, f, t) for r in range(1, runs + 1) for m in models for f in formats for t in tasks if (r, m, f, t.id) not in done]
+    stopped = threading.Event()
     lock = threading.Lock()
 
     def job(j):
         r, model, fmt, task = j
-        if budget.spent:
+        if budget.spent or stopped.is_set():
             return
         chat = ApiChat(client, model, fmt) if backend == "api" else CliChat(model, fmt)
         try:
             rec = run_one(chat, task, budget)
+        except UsageLimit as e:
+            if not stopped.is_set():
+                print(f"usage limit reached; stopping. Resume later with --resume {out}\n  {e}", flush=True)
+            stopped.set()
+            return
         finally:
-            if isinstance(chat, CliChat):
+            if getattr(chat, "dir", None):     # a CLI conversation's working folder
                 shutil.rmtree(chat.dir, ignore_errors=True)
         rec["run"], rec["backend"], rec["suite"] = r, backend, FX.SUITE
         with lock, out.open("a") as fh:

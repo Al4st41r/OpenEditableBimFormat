@@ -145,3 +145,31 @@ def test_the_prompts_are_the_same_shape_for_both_formats():
         blocks = system_blocks(fmt)
         assert len(blocks) == 3 and blocks[-1]["cache_control"] == {"type": "ephemeral"}
         assert SCHEMAS[fmt]["additionalProperties"] is False
+
+
+def test_a_usage_limit_stops_the_run_and_records_nothing(tmp_path, monkeypatch):
+    from bench import runner
+
+    class Limited:
+        model, fmt = "m", "oebf"
+
+        def send(self, text):
+            raise runner.UsageLimit("You've hit your limit")
+
+    monkeypatch.setattr(runner, "CliChat", lambda model, fmt: Limited())
+    monkeypatch.setattr(runner, "check", lambda: None)
+    out = runner.run(models=["m"], formats=["oebf"], task_ids=["T3", "T5"], runs=1, backend="cli", out=tmp_path / "r.jsonl")
+    assert not out.exists() or out.read_text() == ""
+
+
+def test_resume_runs_only_the_missing_tasks(tmp_path, monkeypatch):
+    from bench import runner
+    seen = []
+    res = tmp_path / "r.jsonl"
+    res.write_text(json.dumps({"run": 1, "model": "m", "format": "oebf", "task": "T3", "suite": "terraced-house"}) + "\n")
+    monkeypatch.setattr(runner, "check", lambda: None)
+    monkeypatch.setattr(runner, "run_one", lambda chat, task, budget: seen.append(task.id) or
+                        {"first": {"success": True}, "final": {"success": True, "score": 1.0}})
+    monkeypatch.setattr(runner, "CliChat", lambda model, fmt: type("C", (), {"dir": tmp_path / "x"})())
+    runner.run(models=["m"], formats=["oebf"], task_ids=["T3", "T5"], runs=1, backend="cli", resume=res)
+    assert seen == ["T5"] and len(res.read_text().splitlines()) == 2

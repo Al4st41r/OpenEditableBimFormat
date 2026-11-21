@@ -93,11 +93,19 @@ def n7(before, after, answer):
     return out
 
 
+def _parts(facts, cls, *parts):
+    """The one element of `cls` whose name holds every part: a moved element may fairly be renamed to say so
+    ("... 300 mm east of grid line 3 ...")."""
+    found = [f for f in facts.values() if f.cls == cls and all(p.lower() in (f.name or "").lower() for p in parts)]
+    return found[0] if len(found) == 1 else None
+
+
 def n8(before, after, answer):
     out = []
-    for label, part in (("ground-floor CLT wall", "CLT wall on grid line 3, ground floor"), ("first-floor CLT wall", "CLT wall on grid line 3, first floor"),
-                        ("upstand", "upstand under the CLT wall on grid line 3")):
-        a, b = _one(after, "IfcWall", part), _one(before, "IfcWall", part)
+    for label, parts in (("ground-floor CLT wall", ("Internal CLT wall", "grid line 3", "ground floor")),
+                         ("first-floor CLT wall", ("Internal CLT wall", "grid line 3", "first floor")),
+                         ("upstand", ("upstand under the CLT wall", "grid line 3"))):
+        a, b = _parts(after, "IfcWall", *parts), _parts(before, "IfcWall", *parts)
         out.append((f"{label} on x = 6.3", bool(a) and near(a.centre[0], 6.3), a and a.centre[0]))
         out.append((f"{label} otherwise unchanged", bool(a) and near(a.size[0], b.size[0]) and near(a.lo[1], b.lo[1]) and near(a.hi[1], b.hi[1])
                     and near(a.lo[2], b.lo[2]) and near(a.hi[2], b.hi[2]), None))
