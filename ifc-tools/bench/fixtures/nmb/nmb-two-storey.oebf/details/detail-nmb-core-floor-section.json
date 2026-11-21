@@ -1,0 +1,514 @@
+{
+  "$schema": "oebf://schema/0.1/detail",
+  "id": "detail-nmb-core-floor-section",
+  "type": "Detail",
+  "description": "Core wall NMB-IW-01-A through a CLT floor, section. NMB Details v1.0 (2023), pp. 58-59. Floor soffit encapsulated with gypsum board to K2-60. Steel bracket (304) either fixed to the face of the CLT floor panel and over-boarded, or routed into the panel and boarded. Acoustic flanking strip under the walls.",
+  "condition": {
+    "rule": "butt",
+    "member_count": 2,
+    "member_kinds": [
+      "wall",
+      "slab"
+    ]
+  },
+  "members": [
+    {
+      "role": "core-wall",
+      "kind": "wall",
+      "profile_id": "profile-nmb-iw-01-a",
+      "placement": {
+        "offset_x_m": 0.0,
+        "offset_y_m": 0.0,
+        "rotation_deg": 0
+      }
+    },
+    {
+      "role": "floor",
+      "kind": "slab",
+      "profile_id": "profile-nmb-fl-01",
+      "placement": {
+        "offset_x_m": 0.173,
+        "offset_y_m": 0.0,
+        "rotation_deg": 0
+      }
+    }
+  ],
+  "datum": {
+    "kind": "storey",
+    "reference": "elevation"
+  },
+  "plane": "section",
+  "view_direction": "across_path",
+  "geometry": {
+    "extrusion_m": 1.0,
+    "regions": [
+      {
+        "material_id": "mat-nmb-floor-finish",
+        "vertices": [
+          {
+            "x": 0.173,
+            "y": -0.02
+          },
+          {
+            "x": 0.9,
+            "y": -0.02
+          },
+          {
+            "x": 0.9,
+            "y": 0.0
+          },
+          {
+            "x": 0.173,
+            "y": 0.0
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-screedboard",
+        "vertices": [
+          {
+            "x": 0.173,
+            "y": -0.04
+          },
+          {
+            "x": 0.9,
+            "y": -0.04
+          },
+          {
+            "x": 0.9,
+            "y": -0.02
+          },
+          {
+            "x": 0.173,
+            "y": -0.02
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-ufh-insulation",
+        "vertices": [
+          {
+            "x": 0.173,
+            "y": -0.075
+          },
+          {
+            "x": 0.9,
+            "y": -0.075
+          },
+          {
+            "x": 0.9,
+            "y": -0.04
+          },
+          {
+            "x": 0.173,
+            "y": -0.04
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-acoustic-matting",
+        "vertices": [
+          {
+            "x": 0.173,
+            "y": -0.083
+          },
+          {
+            "x": 0.9,
+            "y": -0.083
+          },
+          {
+            "x": 0.9,
+            "y": -0.075
+          },
+          {
+            "x": 0.173,
+            "y": -0.075
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-clt",
+        "vertices": [
+          {
+            "x": 0.173,
+            "y": -0.223
+          },
+          {
+            "x": 0.9,
+            "y": -0.223
+          },
+          {
+            "x": 0.9,
+            "y": -0.083
+          },
+          {
+            "x": 0.173,
+            "y": -0.083
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-wall-lining-board",
+        "vertices": [
+          {
+            "x": 0.173,
+            "y": -0.253
+          },
+          {
+            "x": 0.9,
+            "y": -0.253
+          },
+          {
+            "x": 0.9,
+            "y": -0.223
+          },
+          {
+            "x": 0.173,
+            "y": -0.223
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-floor-finish",
+        "vertices": [
+          {
+            "x": -0.9,
+            "y": -0.02
+          },
+          {
+            "x": -0.173,
+            "y": -0.02
+          },
+          {
+            "x": -0.173,
+            "y": 0.0
+          },
+          {
+            "x": -0.9,
+            "y": 0.0
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-screedboard",
+        "vertices": [
+          {
+            "x": -0.9,
+            "y": -0.04
+          },
+          {
+            "x": -0.173,
+            "y": -0.04
+          },
+          {
+            "x": -0.173,
+            "y": -0.02
+          },
+          {
+            "x": -0.9,
+            "y": -0.02
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-ufh-insulation",
+        "vertices": [
+          {
+            "x": -0.9,
+            "y": -0.075
+          },
+          {
+            "x": -0.173,
+            "y": -0.075
+          },
+          {
+            "x": -0.173,
+            "y": -0.04
+          },
+          {
+            "x": -0.9,
+            "y": -0.04
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-acoustic-matting",
+        "vertices": [
+          {
+            "x": -0.9,
+            "y": -0.083
+          },
+          {
+            "x": -0.173,
+            "y": -0.083
+          },
+          {
+            "x": -0.173,
+            "y": -0.075
+          },
+          {
+            "x": -0.9,
+            "y": -0.075
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-clt",
+        "vertices": [
+          {
+            "x": -0.9,
+            "y": -0.223
+          },
+          {
+            "x": -0.173,
+            "y": -0.223
+          },
+          {
+            "x": -0.173,
+            "y": -0.083
+          },
+          {
+            "x": -0.9,
+            "y": -0.083
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-wall-lining-board",
+        "vertices": [
+          {
+            "x": -0.9,
+            "y": -0.253
+          },
+          {
+            "x": -0.173,
+            "y": -0.253
+          },
+          {
+            "x": -0.173,
+            "y": -0.223
+          },
+          {
+            "x": -0.9,
+            "y": -0.223
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-steel-bracket",
+        "vertices": [
+          {
+            "x": 0.09,
+            "y": -0.216
+          },
+          {
+            "x": 0.096,
+            "y": -0.216
+          },
+          {
+            "x": 0.096,
+            "y": -0.08
+          },
+          {
+            "x": 0.09,
+            "y": -0.08
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-steel-bracket",
+        "vertices": [
+          {
+            "x": -0.096,
+            "y": -0.216
+          },
+          {
+            "x": -0.09,
+            "y": -0.216
+          },
+          {
+            "x": -0.09,
+            "y": -0.08
+          },
+          {
+            "x": -0.096,
+            "y": -0.08
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-steel-bracket",
+        "vertices": [
+          {
+            "x": 0.096,
+            "y": -0.223
+          },
+          {
+            "x": 0.2,
+            "y": -0.223
+          },
+          {
+            "x": 0.2,
+            "y": -0.217
+          },
+          {
+            "x": 0.096,
+            "y": -0.217
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-steel-bracket",
+        "vertices": [
+          {
+            "x": -0.2,
+            "y": -0.223
+          },
+          {
+            "x": -0.096,
+            "y": -0.223
+          },
+          {
+            "x": -0.096,
+            "y": -0.217
+          },
+          {
+            "x": -0.2,
+            "y": -0.217
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-gap-sealer",
+        "vertices": [
+          {
+            "x": 0.15,
+            "y": -0.08
+          },
+          {
+            "x": 0.173,
+            "y": -0.08
+          },
+          {
+            "x": 0.173,
+            "y": -0.055
+          },
+          {
+            "x": 0.15,
+            "y": -0.055
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-gap-sealer",
+        "vertices": [
+          {
+            "x": -0.173,
+            "y": -0.08
+          },
+          {
+            "x": -0.15,
+            "y": -0.08
+          },
+          {
+            "x": -0.15,
+            "y": -0.055
+          },
+          {
+            "x": -0.173,
+            "y": -0.055
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-gap-sealer",
+        "vertices": [
+          {
+            "x": 0.15,
+            "y": -0.28
+          },
+          {
+            "x": 0.173,
+            "y": -0.28
+          },
+          {
+            "x": 0.173,
+            "y": -0.253
+          },
+          {
+            "x": 0.15,
+            "y": -0.253
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-gap-sealer",
+        "vertices": [
+          {
+            "x": -0.173,
+            "y": -0.28
+          },
+          {
+            "x": -0.15,
+            "y": -0.28
+          },
+          {
+            "x": -0.15,
+            "y": -0.253
+          },
+          {
+            "x": -0.173,
+            "y": -0.253
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-acoustic-strip",
+        "vertices": [
+          {
+            "x": 0.173,
+            "y": -0.083
+          },
+          {
+            "x": 0.183,
+            "y": -0.083
+          },
+          {
+            "x": 0.183,
+            "y": 0.0
+          },
+          {
+            "x": 0.173,
+            "y": 0.0
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-acoustic-strip",
+        "vertices": [
+          {
+            "x": -0.183,
+            "y": -0.083
+          },
+          {
+            "x": -0.173,
+            "y": -0.083
+          },
+          {
+            "x": -0.173,
+            "y": 0.0
+          },
+          {
+            "x": -0.183,
+            "y": 0.0
+          }
+        ]
+      }
+    ]
+  },
+  "tags": [
+    "nmb",
+    "core",
+    "floor"
+  ]
+}

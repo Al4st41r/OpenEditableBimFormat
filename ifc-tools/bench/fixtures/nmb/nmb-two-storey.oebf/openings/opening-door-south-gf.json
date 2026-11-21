@@ -1,0 +1,13 @@
+{
+  "$schema": "oebf://schema/0.1/opening",
+  "id": "opening-door-south-gf",
+  "type": "Opening",
+  "description": "Entrance door, south wall, ground floor, centre x = 7.5 m, level threshold through the upstand",
+  "host_element_id": "element-wall-south-gf",
+  "path_id": "path-wall-south-gf",
+  "path_position": 1.05,
+  "width_m": 0.9,
+  "height_m": 2.25,
+  "sill_height_m": -0.15,
+  "ifc_type": "IfcDoor"
+}

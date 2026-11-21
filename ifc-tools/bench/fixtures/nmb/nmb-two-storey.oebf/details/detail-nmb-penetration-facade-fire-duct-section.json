@@ -1,0 +1,136 @@
+{
+  "$schema": "oebf://schema/0.1/detail",
+  "id": "detail-nmb-penetration-facade-fire-duct-section",
+  "type": "Detail",
+  "description": "Service penetration through NMB-EW-01 with a fire rated duct, section. NMB Details v1.0 (2023), pp. 106-107. Fire rated duct (316) constructed from, or encapsulated with, fire rated ductwork insulation; opening in the light steel frame framed using sheathing board.",
+  "condition": {
+    "rule": "butt",
+    "member_count": 2,
+    "member_kinds": [
+      "wall",
+      "other"
+    ]
+  },
+  "members": [
+    {
+      "role": "through-wall",
+      "kind": "wall",
+      "profile_id": "profile-nmb-ew-01-gf",
+      "placement": {
+        "offset_x_m": 0.0,
+        "offset_y_m": 0.0,
+        "rotation_deg": 0
+      }
+    },
+    {
+      "role": "penetration",
+      "kind": "other",
+      "profile_id": "profile-nmb-iw-05-a",
+      "placement": {
+        "offset_x_m": 0.0,
+        "offset_y_m": 0.0,
+        "rotation_deg": 90
+      }
+    }
+  ],
+  "datum": {
+    "kind": "storey",
+    "reference": "elevation"
+  },
+  "plane": "section",
+  "view_direction": "across_path",
+  "geometry": {
+    "extrusion_m": 1.0,
+    "regions": [
+      {
+        "material_id": "mat-nmb-fire-rated-duct",
+        "vertices": [
+          {
+            "x": -0.291,
+            "y": -0.15
+          },
+          {
+            "x": 0.291,
+            "y": -0.15
+          },
+          {
+            "x": 0.291,
+            "y": 0.15
+          },
+          {
+            "x": -0.291,
+            "y": 0.15
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-firestop-wrap",
+        "vertices": [
+          {
+            "x": -0.291,
+            "y": 0.15
+          },
+          {
+            "x": 0.258,
+            "y": 0.15
+          },
+          {
+            "x": 0.258,
+            "y": 0.2
+          },
+          {
+            "x": -0.291,
+            "y": 0.2
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-firestop-wrap",
+        "vertices": [
+          {
+            "x": -0.291,
+            "y": -0.2
+          },
+          {
+            "x": 0.258,
+            "y": -0.2
+          },
+          {
+            "x": 0.258,
+            "y": -0.15
+          },
+          {
+            "x": -0.291,
+            "y": -0.15
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-gap-sealer",
+        "vertices": [
+          {
+            "x": 0.258,
+            "y": -0.158
+          },
+          {
+            "x": 0.291,
+            "y": -0.158
+          },
+          {
+            "x": 0.291,
+            "y": -0.15
+          },
+          {
+            "x": 0.258,
+            "y": -0.15
+          }
+        ]
+      }
+    ]
+  },
+  "tags": [
+    "nmb",
+    "penetration",
+    "facade"
+  ]
+}

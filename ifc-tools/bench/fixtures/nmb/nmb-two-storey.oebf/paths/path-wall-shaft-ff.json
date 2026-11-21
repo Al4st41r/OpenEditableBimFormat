@@ -1,0 +1,26 @@
+{
+  "$schema": "oebf://schema/0.1/path",
+  "id": "path-wall-shaft-ff",
+  "type": "Path",
+  "description": "Riser wall, FF",
+  "closed": false,
+  "segments": [
+    {
+      "type": "line",
+      "start": {
+        "x": 1.5,
+        "y": 3.8,
+        "z": 2.917
+      },
+      "end": {
+        "x": 1.5,
+        "y": 6.0,
+        "z": 2.917
+      }
+    }
+  ],
+  "tags": [
+    "riser",
+    "ff"
+  ]
+}

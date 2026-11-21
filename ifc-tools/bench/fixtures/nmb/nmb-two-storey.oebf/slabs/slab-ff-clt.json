@@ -1,0 +1,21 @@
+{
+  "$schema": "oebf://schema/0.1/slab",
+  "id": "slab-ff-clt",
+  "type": "Slab",
+  "description": "NMB-FL-01: CLT floor panel, 140 mm, 60 minutes REI",
+  "ifc_type": "IfcSlab",
+  "boundary_path_id": "path-slab-perimeter",
+  "thickness_m": 0.14,
+  "material_id": "mat-nmb-clt",
+  "elevation_m": 2.917,
+  "parent_group_id": "storey-ff",
+  "properties": {
+    "slab_type": "FLOOR",
+    "load_bearing": true,
+    "fire_rating": "REI 60"
+  },
+  "tags": [
+    "slab",
+    "nmb"
+  ]
+}

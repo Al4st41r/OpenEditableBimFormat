@@ -1,0 +1,25 @@
+{
+  "$schema": "oebf://schema/0.1/junction",
+  "id": "junction-pen-internal-plan-3-ff",
+  "type": "Junction",
+  "description": "Services boxed in at the grid line 3 CLT wall, plan, y = 4.5 m",
+  "elements": [
+    "element-wall-clt-3-ff",
+    "element-wall-clt-3-gf"
+  ],
+  "detail_id": "detail-nmb-penetration-internal-slab-plan",
+  "location": {
+    "grid_id": "grid-secondary",
+    "axes": [
+      "3",
+      "M-B"
+    ],
+    "level_id": "storey-ff",
+    "level_offset_m": 0.0
+  },
+  "rule": "butt",
+  "priority": [
+    "element-wall-clt-3-ff"
+  ],
+  "trim_method": "none"
+}

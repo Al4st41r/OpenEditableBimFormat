@@ -1,0 +1,53 @@
+{
+  "$schema": "oebf://schema/0.1/profile",
+  "id": "profile-nmb-glulam-column-gf",
+  "type": "Profile",
+  "description": "NMB glulam column (303), ground floor: seated on a masonry upstand and DPC",
+  "svg_file": "profiles/profile-nmb-glulam-column-gf.svg",
+  "width": 0.36,
+  "height": null,
+  "origin": {
+    "x": 0.18,
+    "y": 0.0
+  },
+  "alignment": "center",
+  "profile_type": "wall",
+  "height_limit_m": 2.747,
+  "assembly": [
+    {
+      "layer": 1,
+      "name": "Wall lining board (311)",
+      "material_id": "mat-nmb-wall-lining-board",
+      "thickness": 0.015,
+      "function": "finish"
+    },
+    {
+      "layer": 2,
+      "name": "Wall lining board (311)",
+      "material_id": "mat-nmb-wall-lining-board",
+      "thickness": 0.015,
+      "function": "finish"
+    },
+    {
+      "layer": 3,
+      "name": "Glulam column (303)",
+      "material_id": "mat-nmb-glulam",
+      "thickness": 0.3,
+      "function": "structure"
+    },
+    {
+      "layer": 4,
+      "name": "Wall lining board (311)",
+      "material_id": "mat-nmb-wall-lining-board",
+      "thickness": 0.015,
+      "function": "finish"
+    },
+    {
+      "layer": 5,
+      "name": "Wall lining board (311)",
+      "material_id": "mat-nmb-wall-lining-board",
+      "thickness": 0.015,
+      "function": "finish"
+    }
+  ]
+}

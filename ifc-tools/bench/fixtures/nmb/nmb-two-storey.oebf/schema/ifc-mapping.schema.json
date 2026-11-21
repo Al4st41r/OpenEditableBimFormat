@@ -1,0 +1,37 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "oebf://schema/0.1/ifc-mapping",
+  "title": "OEBF IFC Mapping",
+  "description": "How a bundle's entities are written to IFC. Optional: without ifc/mapping.json the exporter uses each entity's own ifc_type, the material names, and one property set called OEBF_Properties.",
+  "type": "object",
+  "required": ["$schema", "type"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema":     { "type": "string" },
+    "type":        { "type": "string", "const": "IfcMapping" },
+    "description": { "type": "string" },
+    "classes": {
+      "type": "object",
+      "description": "IFC class to write for an entity's ifc_type, for example IfcWall to IfcWallStandardCase. An ifc_type not listed is written as it is.",
+      "additionalProperties": { "type": "string", "pattern": "^Ifc[A-Za-z0-9]+$" }
+    },
+    "property_sets": {
+      "type": "object",
+      "description": "Where an element or slab property goes in IFC, keyed by the OEBF property name. A property not listed goes into OEBF_Properties.",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["pset", "name"],
+        "additionalProperties": false,
+        "properties": {
+          "pset": { "type": "string", "description": "IFC property set, for example Pset_WallCommon" },
+          "name": { "type": "string", "description": "Property name inside that set, for example FireRating" }
+        }
+      }
+    },
+    "materials": {
+      "type": "object",
+      "description": "IFC material name for a material id. A material not listed uses its name from the library.",
+      "additionalProperties": { "type": "string", "minLength": 1 }
+    }
+  }
+}

@@ -1,0 +1,262 @@
+{
+  "$schema": "oebf://schema/0.1/detail",
+  "id": "detail-nmb-penetration-shaft-section",
+  "type": "Detail",
+  "description": "Penetration to a shaft: CLT wall IW-05-A with a floor, and riser partition IP-03-A, section. NMB Details v1.0 (2023), pp. 100-101. Non-loadbearing shaft wall linings designed to suit compartmentation requirements (320); shaft lining board continued to encapsulate the slab edge; soffit encapsulated to K2-60. IP-03-A riser partition shown separately as a profile.",
+  "condition": {
+    "rule": "butt",
+    "member_count": 2,
+    "member_kinds": [
+      "wall",
+      "slab"
+    ]
+  },
+  "members": [
+    {
+      "role": "shaft-wall",
+      "kind": "wall",
+      "profile_id": "profile-nmb-iw-05-a",
+      "placement": {
+        "offset_x_m": 0.0,
+        "offset_y_m": 0.0,
+        "rotation_deg": 0
+      }
+    },
+    {
+      "role": "floor",
+      "kind": "slab",
+      "profile_id": "profile-nmb-fl-01",
+      "placement": {
+        "offset_x_m": -0.17,
+        "offset_y_m": 0.0,
+        "rotation_deg": 0
+      }
+    }
+  ],
+  "datum": {
+    "kind": "storey",
+    "reference": "elevation"
+  },
+  "plane": "section",
+  "view_direction": "across_path",
+  "geometry": {
+    "extrusion_m": 1.0,
+    "regions": [
+      {
+        "material_id": "mat-nmb-floor-finish",
+        "vertices": [
+          {
+            "x": -0.9,
+            "y": -0.02
+          },
+          {
+            "x": -0.17,
+            "y": -0.02
+          },
+          {
+            "x": -0.17,
+            "y": 0.0
+          },
+          {
+            "x": -0.9,
+            "y": 0.0
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-screedboard",
+        "vertices": [
+          {
+            "x": -0.9,
+            "y": -0.04
+          },
+          {
+            "x": -0.17,
+            "y": -0.04
+          },
+          {
+            "x": -0.17,
+            "y": -0.02
+          },
+          {
+            "x": -0.9,
+            "y": -0.02
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-ufh-insulation",
+        "vertices": [
+          {
+            "x": -0.9,
+            "y": -0.075
+          },
+          {
+            "x": -0.17,
+            "y": -0.075
+          },
+          {
+            "x": -0.17,
+            "y": -0.04
+          },
+          {
+            "x": -0.9,
+            "y": -0.04
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-acoustic-matting",
+        "vertices": [
+          {
+            "x": -0.9,
+            "y": -0.083
+          },
+          {
+            "x": -0.17,
+            "y": -0.083
+          },
+          {
+            "x": -0.17,
+            "y": -0.075
+          },
+          {
+            "x": -0.9,
+            "y": -0.075
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-clt",
+        "vertices": [
+          {
+            "x": -0.9,
+            "y": -0.223
+          },
+          {
+            "x": -0.17,
+            "y": -0.223
+          },
+          {
+            "x": -0.17,
+            "y": -0.083
+          },
+          {
+            "x": -0.9,
+            "y": -0.083
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-wall-lining-board",
+        "vertices": [
+          {
+            "x": -0.9,
+            "y": -0.253
+          },
+          {
+            "x": -0.17,
+            "y": -0.253
+          },
+          {
+            "x": -0.17,
+            "y": -0.223
+          },
+          {
+            "x": -0.9,
+            "y": -0.223
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-shaft-lining-board",
+        "vertices": [
+          {
+            "x": 0.17,
+            "y": -0.223
+          },
+          {
+            "x": 0.185,
+            "y": -0.223
+          },
+          {
+            "x": 0.185,
+            "y": -0.08
+          },
+          {
+            "x": 0.17,
+            "y": -0.08
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-gap-sealer",
+        "vertices": [
+          {
+            "x": -0.185,
+            "y": -0.08
+          },
+          {
+            "x": -0.17,
+            "y": -0.08
+          },
+          {
+            "x": -0.17,
+            "y": -0.06
+          },
+          {
+            "x": -0.185,
+            "y": -0.06
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-gap-sealer",
+        "vertices": [
+          {
+            "x": -0.185,
+            "y": -0.26
+          },
+          {
+            "x": -0.17,
+            "y": -0.26
+          },
+          {
+            "x": -0.17,
+            "y": -0.24
+          },
+          {
+            "x": -0.185,
+            "y": -0.24
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-end-grain-sealer",
+        "vertices": [
+          {
+            "x": 0.165,
+            "y": -0.223
+          },
+          {
+            "x": 0.17,
+            "y": -0.223
+          },
+          {
+            "x": 0.17,
+            "y": -0.083
+          },
+          {
+            "x": 0.165,
+            "y": -0.083
+          }
+        ]
+      }
+    ]
+  },
+  "tags": [
+    "nmb",
+    "penetration",
+    "shaft"
+  ]
+}

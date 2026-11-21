@@ -1,0 +1,25 @@
+{
+  "$schema": "oebf://schema/0.1/junction",
+  "id": "junction-roof-parapet-north",
+  "type": "Junction",
+  "description": "North parapet over the first floor wall, bay 2-3",
+  "elements": [
+    "element-parapet-north",
+    "element-wall-north-ff"
+  ],
+  "detail_id": "detail-nmb-roof-parapet-section",
+  "location": {
+    "grid_id": "grid-secondary",
+    "axes": [
+      "2-3",
+      "B"
+    ],
+    "level_id": "storey-roof",
+    "level_offset_m": 0.0
+  },
+  "rule": "butt",
+  "priority": [
+    "element-parapet-north"
+  ],
+  "trim_method": "none"
+}

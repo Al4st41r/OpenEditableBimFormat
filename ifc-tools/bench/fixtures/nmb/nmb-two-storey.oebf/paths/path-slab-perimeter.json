@@ -1,0 +1,64 @@
+{
+  "$schema": "oebf://schema/0.1/path",
+  "id": "path-slab-perimeter",
+  "type": "Path",
+  "description": "Slab boundary on the grid perimeter, clockwise",
+  "closed": true,
+  "segments": [
+    {
+      "type": "line",
+      "start": {
+        "x": 0,
+        "y": 0,
+        "z": 0.0
+      },
+      "end": {
+        "x": 0,
+        "y": 6.0,
+        "z": 0.0
+      }
+    },
+    {
+      "type": "line",
+      "start": {
+        "x": 0,
+        "y": 6.0,
+        "z": 0.0
+      },
+      "end": {
+        "x": 9.0,
+        "y": 6.0,
+        "z": 0.0
+      }
+    },
+    {
+      "type": "line",
+      "start": {
+        "x": 9.0,
+        "y": 6.0,
+        "z": 0.0
+      },
+      "end": {
+        "x": 9.0,
+        "y": 0,
+        "z": 0.0
+      }
+    },
+    {
+      "type": "line",
+      "start": {
+        "x": 9.0,
+        "y": 0,
+        "z": 0.0
+      },
+      "end": {
+        "x": 0,
+        "y": 0,
+        "z": 0.0
+      }
+    }
+  ],
+  "tags": [
+    "slab"
+  ]
+}

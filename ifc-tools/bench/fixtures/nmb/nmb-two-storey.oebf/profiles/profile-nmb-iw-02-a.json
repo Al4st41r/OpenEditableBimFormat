@@ -1,0 +1,67 @@
+{
+  "$schema": "oebf://schema/0.1/profile",
+  "id": "profile-nmb-iw-02-a",
+  "type": "Profile",
+  "description": "NMB-IW-02-A internal CLT wall, apartment/apartment: K2 60 + REI 60, lined direct (no lining system)",
+  "svg_file": "profiles/profile-nmb-iw-02-a.svg",
+  "width": 0.246,
+  "height": null,
+  "origin": {
+    "x": 0.123,
+    "y": 0.0
+  },
+  "alignment": "center",
+  "profile_type": "wall",
+  "height_limit_m": 2.777,
+  "assembly": [
+    {
+      "layer": 1,
+      "name": "Skim and paint",
+      "material_id": "mat-nmb-skim",
+      "thickness": 0.003,
+      "function": "finish"
+    },
+    {
+      "layer": 2,
+      "name": "Wall lining board (311)",
+      "material_id": "mat-nmb-wall-lining-board",
+      "thickness": 0.015,
+      "function": "finish"
+    },
+    {
+      "layer": 3,
+      "name": "Wall lining board (311)",
+      "material_id": "mat-nmb-wall-lining-board",
+      "thickness": 0.015,
+      "function": "finish"
+    },
+    {
+      "layer": 4,
+      "name": "CLT wall panel (301)",
+      "material_id": "mat-nmb-clt",
+      "thickness": 0.18,
+      "function": "structure"
+    },
+    {
+      "layer": 5,
+      "name": "Wall lining board (311)",
+      "material_id": "mat-nmb-wall-lining-board",
+      "thickness": 0.015,
+      "function": "finish"
+    },
+    {
+      "layer": 6,
+      "name": "Wall lining board (311)",
+      "material_id": "mat-nmb-wall-lining-board",
+      "thickness": 0.015,
+      "function": "finish"
+    },
+    {
+      "layer": 7,
+      "name": "Skim and paint",
+      "material_id": "mat-nmb-skim",
+      "thickness": 0.003,
+      "function": "finish"
+    }
+  ]
+}

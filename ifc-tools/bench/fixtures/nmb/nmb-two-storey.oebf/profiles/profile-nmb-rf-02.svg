@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+     viewBox="0 0 1.000 0.591"
+     width="1000mm" height="591mm">
+  <!-- BROOF (t4) roof build up (361): 0-350 mm from the top face -->
+  <rect x="0" y="0.000" width="1.000" height="0.350" fill="#5E6670" stroke="#888" stroke-width="0.002"/>
+  <!-- CLT roof panel (363): 350-558 mm from the top face -->
+  <rect x="0" y="0.350" width="1.000" height="0.208" fill="#D9B36B" stroke="#888" stroke-width="0.002"/>
+  <!-- Wall lining board (311): 558-573 mm from the top face -->
+  <rect x="0" y="0.558" width="1.000" height="0.015" fill="#E6E6E0" stroke="#888" stroke-width="0.002"/>
+  <!-- Wall lining board (311): 573-588 mm from the top face -->
+  <rect x="0" y="0.573" width="1.000" height="0.015" fill="#E6E6E0" stroke="#888" stroke-width="0.002"/>
+  <!-- Skim and paint: 588-591 mm from the top face -->
+  <rect x="0" y="0.588" width="1.000" height="0.003" fill="#F7F7F2" stroke="#888" stroke-width="0.002"/>
+</svg>

@@ -1,0 +1,49 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "oebf://schema/0.1/materials",
+  "title": "OEBF Material Library",
+  "type": "object",
+  "required": ["$schema", "materials"],
+  "additionalProperties": false,
+  "definitions": {
+    "classification": {
+      "description": "Classification used by the detail review overlays. All fields optional. On a material it is the default; the same object under `tags` on an assembly layer or detail region overrides it for that use.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "package":   { "type": "string", "enum": ["groundworks", "concrete", "timber-frame", "cladding", "interiors", "mep", "other"], "description": "Subcontractor package that supplies and fixes the item." },
+        "barrier":   { "type": "array", "uniqueItems": true, "items": { "type": "string", "enum": ["air", "water", "vapour", "breathable"] }, "description": "Which barrier functions the item performs. A layer may perform more than one." },
+        "fire_role": { "type": "string", "enum": ["firestop", "cavity-barrier", "fire-rated"], "description": "Fire strategy role. Reaction class and rating stay in properties.fire." },
+        "sequence":  { "type": "integer", "minimum": 1, "maximum": 99, "description": "Construction sequence: 1 is installed first. On a material it is a default step; on a layer or region `tags` it sets the step for that use. Only the order matters, not the size of the gaps." },
+        "shearing_layer": { "type": "string", "enum": ["site", "structure", "skin", "services", "space-plan", "stuff"], "description": "Brand's shearing layer: how fast the item changes over a building's life. Site, structure, skin, services, space plan (interior finishes and partitions) or stuff (furniture and fittings)." },
+        "sfb": { "type": "string", "pattern": "^\\([0-9]{1,2}\\)$", "description": "CI/SfB element code in brackets, for example (21) external walls, (27) roofs, (43) floor finishes. The SfB overlay groups by the first digit: (1) ground and substructure, (2) structure and primary elements, (3) secondary elements, (4) finishes, (5) and (6) services, (7) fittings, (9) external elements." }
+      }
+    }
+  },
+  "properties": {
+    "$schema": { "type": "string" },
+    "materials": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "type", "name", "category"],
+        "additionalProperties": false,
+        "properties": {
+          "id":                 { "type": "string", "pattern": "^mat-[a-z0-9][a-z0-9-]*$", "description": "Unique slug ID. Must start with 'mat-'. The 'oebf-std:' prefix is reserved for the v0.2 standard library and is not valid in v0.1 project materials." },
+          "type":               { "type": "string", "const": "Material" },
+          "name":               { "type": "string" },
+          "category":           { "type": "string", "description": "Free text grouping, for example masonry, timber, insulation. Two values change how the material is drawn: 'air' is a void (no fill in 2D, see-through in 3D) and 'membrane' is drawn as a membrane wherever it is used (a heavy line on top in 2D, priority over coplanar faces in 3D)." },
+          "colour_hex":         { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" },
+          "opacity":            { "type": "number", "minimum": 0, "maximum": 1, "description": "How opaque the material is drawn in 3D: 1 (the default) is solid, 0 is invisible. Air and other voids are drawn see-through so the layers behind them show." },
+          "ifc_material_name":  { "type": "string" },
+          "properties":         { "type": "object" },
+          "classification":     { "$ref": "#/definitions/classification" },
+          "carbonbench_id":      { "type": "string", "description": "Id of the matching row in the CarbonBench material database. The factors are copied into properties.carbon by scripts/sync-carbonbench.mjs." },
+          "carbonbench_version": { "type": "string", "description": "CarbonBench database release the snapshot was taken from, for example 1.7.9." },
+          "carbon_match":        { "type": "string", "enum": ["exact", "proxy"], "description": "Whether the CarbonBench row is the same product (exact) or a stand-in for it (proxy)." },
+          "interactions":       { "type": "object" }
+        }
+      }
+    }
+  }
+}

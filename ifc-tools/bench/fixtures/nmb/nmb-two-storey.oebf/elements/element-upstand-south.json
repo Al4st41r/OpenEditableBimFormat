@@ -1,0 +1,18 @@
+{
+  "$schema": "oebf://schema/0.1/element",
+  "id": "element-upstand-south",
+  "type": "Element",
+  "description": "Masonry upstand under the south external wall, to 150 mm above floor level",
+  "ifc_type": "IfcWall",
+  "path_id": "path-upstand-south",
+  "profile_id": "profile-nmb-upstand-ext",
+  "sweep_mode": "perpendicular",
+  "cap_start": "junction",
+  "cap_end": "junction",
+  "start_offset": 0.291,
+  "end_offset": 0.291,
+  "parent_group_id": "storey-gf",
+  "properties": {
+    "min_height_above_ground_m": 0.15
+  }
+}

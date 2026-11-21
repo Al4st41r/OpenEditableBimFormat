@@ -1,0 +1,25 @@
+{
+  "$schema": "oebf://schema/0.1/profile",
+  "id": "profile-nmb-upstand-int",
+  "type": "Profile",
+  "description": "Masonry upstand under a ground floor CLT wall: DPC on top",
+  "svg_file": "profiles/profile-nmb-upstand-int.svg",
+  "width": 0.2,
+  "height": null,
+  "origin": {
+    "x": 0.1,
+    "y": 0.0
+  },
+  "alignment": "center",
+  "profile_type": "wall",
+  "height_limit_m": 0.14,
+  "assembly": [
+    {
+      "layer": 1,
+      "name": "Masonry upstand",
+      "material_id": "mat-nmb-upstand-masonry",
+      "thickness": 0.2,
+      "function": "structure"
+    }
+  ]
+}

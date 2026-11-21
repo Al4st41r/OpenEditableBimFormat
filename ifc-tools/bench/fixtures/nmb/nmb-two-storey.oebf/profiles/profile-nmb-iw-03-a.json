@@ -1,0 +1,95 @@
+{
+  "$schema": "oebf://schema/0.1/profile",
+  "id": "profile-nmb-iw-03-a",
+  "type": "Profile",
+  "description": "NMB-IW-03-A internal CLT wall with robust waterproofing to 1.2 m AFFL",
+  "svg_file": "profiles/profile-nmb-iw-03-a.svg",
+  "width": 0.35,
+  "height": null,
+  "origin": {
+    "x": 0.175,
+    "y": 0.0
+  },
+  "alignment": "center",
+  "profile_type": "wall",
+  "height_limit_m": 2.777,
+  "assembly": [
+    {
+      "layer": 1,
+      "name": "Skim and paint",
+      "material_id": "mat-nmb-skim",
+      "thickness": 0.003,
+      "function": "finish"
+    },
+    {
+      "layer": 2,
+      "name": "Wall lining board (311)",
+      "material_id": "mat-nmb-wall-lining-board",
+      "thickness": 0.015,
+      "function": "finish"
+    },
+    {
+      "layer": 3,
+      "name": "Wall lining board (311)",
+      "material_id": "mat-nmb-wall-lining-board",
+      "thickness": 0.015,
+      "function": "finish"
+    },
+    {
+      "layer": 4,
+      "name": "Wall lining system (318) with insulation (317)",
+      "material_id": "mat-nmb-wall-lining-system",
+      "thickness": 0.05,
+      "function": "insulation"
+    },
+    {
+      "layer": 5,
+      "name": "Robust waterproofing layer",
+      "material_id": "mat-nmb-waterproofing",
+      "thickness": 0.002,
+      "function": "membrane"
+    },
+    {
+      "layer": 6,
+      "name": "CLT wall panel (301)",
+      "material_id": "mat-nmb-clt",
+      "thickness": 0.18,
+      "function": "structure"
+    },
+    {
+      "layer": 7,
+      "name": "Robust waterproofing layer",
+      "material_id": "mat-nmb-waterproofing",
+      "thickness": 0.002,
+      "function": "membrane"
+    },
+    {
+      "layer": 8,
+      "name": "Wall lining system (318) with insulation (317)",
+      "material_id": "mat-nmb-wall-lining-system",
+      "thickness": 0.05,
+      "function": "insulation"
+    },
+    {
+      "layer": 9,
+      "name": "Wall lining board (311)",
+      "material_id": "mat-nmb-wall-lining-board",
+      "thickness": 0.015,
+      "function": "finish"
+    },
+    {
+      "layer": 10,
+      "name": "Wall lining board (311)",
+      "material_id": "mat-nmb-wall-lining-board",
+      "thickness": 0.015,
+      "function": "finish"
+    },
+    {
+      "layer": 11,
+      "name": "Skim and paint",
+      "material_id": "mat-nmb-skim",
+      "thickness": 0.003,
+      "function": "finish"
+    }
+  ]
+}

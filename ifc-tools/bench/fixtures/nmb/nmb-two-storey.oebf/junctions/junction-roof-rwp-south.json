@@ -1,0 +1,25 @@
+{
+  "$schema": "oebf://schema/0.1/junction",
+  "id": "junction-roof-rwp-south",
+  "type": "Junction",
+  "description": "Rainwater outlet near the south parapet, bay 3-4",
+  "elements": [
+    "element-parapet-south",
+    "element-wall-south-ff"
+  ],
+  "detail_id": "detail-nmb-penetration-roof-rwp-section",
+  "location": {
+    "grid_id": "grid-secondary",
+    "axes": [
+      "3-4",
+      "A"
+    ],
+    "level_id": "storey-roof",
+    "level_offset_m": 0.0
+  },
+  "rule": "butt",
+  "priority": [
+    "element-parapet-south"
+  ],
+  "trim_method": "none"
+}

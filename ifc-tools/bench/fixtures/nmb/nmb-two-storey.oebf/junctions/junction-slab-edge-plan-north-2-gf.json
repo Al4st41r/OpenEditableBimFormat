@@ -1,0 +1,25 @@
+{
+  "$schema": "oebf://schema/0.1/junction",
+  "id": "junction-slab-edge-plan-north-2-gf",
+  "type": "Junction",
+  "description": "CLT wall on grid line 2 meets the north external wall, GF",
+  "elements": [
+    "element-wall-north-gf",
+    "element-wall-clt-2-gf"
+  ],
+  "detail_id": "detail-nmb-ew-slab-edge-plan",
+  "location": {
+    "grid_id": "grid-secondary",
+    "axes": [
+      "2",
+      "B"
+    ],
+    "level_id": "storey-gf",
+    "level_offset_m": 0.0
+  },
+  "rule": "butt",
+  "priority": [
+    "element-wall-north-gf"
+  ],
+  "trim_method": "none"
+}

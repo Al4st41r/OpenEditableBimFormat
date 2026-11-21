@@ -10,6 +10,7 @@ from the model under test.
 """
 
 import json
+import shutil
 import subprocess
 import tempfile
 import threading
@@ -20,10 +21,11 @@ from pathlib import Path
 
 import anthropic
 
+from . import fixtures as FX
 from .fixtures import BENCH, check
 from .protocol import SCHEMAS, parse_reply, repair_message, system_blocks
 from .score import score
-from .tasks import TASKS, BY_ID
+from .tasks import by_id, suite_tasks
 
 MODELS = ["claude-opus-5-5", "claude-haiku-5-5"]
 EFFORT = "medium"           # the default on both models; stated so the runs are reproducible
@@ -153,7 +155,7 @@ def run(models=MODELS, formats=("oebf", "ifc"), task_ids=None, runs=3, max_token
         backend="api", workers=1):
     check()
     client = anthropic.Anthropic() if backend == "api" else None
-    tasks = [BY_ID[t] for t in task_ids] if task_ids else TASKS
+    tasks = [by_id(t) for t in task_ids] if task_ids else suite_tasks()
     budget = Budget(max_tokens_total)
     out = Path(out or BENCH / "results" / f"{datetime.now(timezone.utc):%Y%m%dT%H%M%SZ}.jsonl")
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -165,8 +167,12 @@ def run(models=MODELS, formats=("oebf", "ifc"), task_ids=None, runs=3, max_token
         if budget.spent:
             return
         chat = ApiChat(client, model, fmt) if backend == "api" else CliChat(model, fmt)
-        rec = run_one(chat, task, budget)
-        rec["run"], rec["backend"] = r, backend
+        try:
+            rec = run_one(chat, task, budget)
+        finally:
+            if isinstance(chat, CliChat):
+                shutil.rmtree(chat.dir, ignore_errors=True)
+        rec["run"], rec["backend"], rec["suite"] = r, backend, FX.SUITE
         with lock, out.open("a") as fh:
             fh.write(json.dumps(rec) + "\n")
             f = rec["final"]
@@ -186,6 +192,6 @@ def count_prompt_tokens(models=MODELS):
     out = {}
     for model in models:
         for fmt in ("oebf", "ifc"):
-            r = client.messages.count_tokens(model=model, system=system_blocks(fmt), messages=[{"role": "user", "content": TASKS[0].instruction}])
+            r = client.messages.count_tokens(model=model, system=system_blocks(fmt), messages=[{"role": "user", "content": suite_tasks()[0].instruction}])
             out[(model, fmt)] = r.input_tokens
     return out

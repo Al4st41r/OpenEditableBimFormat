@@ -1,0 +1,25 @@
+{
+  "$schema": "oebf://schema/0.1/junction",
+  "id": "junction-gs-clt-wall-2-gf",
+  "type": "Junction",
+  "description": "CLT wall on grid line 2 on its upstand, mid-depth",
+  "elements": [
+    "element-wall-clt-2-gf",
+    "element-upstand-clt-2"
+  ],
+  "detail_id": "detail-nmb-gs-clt-wall-section",
+  "location": {
+    "grid_id": "grid-secondary",
+    "axes": [
+      "2",
+      "A-B"
+    ],
+    "level_id": "storey-gf",
+    "level_offset_m": 0.0
+  },
+  "rule": "butt",
+  "priority": [
+    "element-wall-clt-2-gf"
+  ],
+  "trim_method": "none"
+}

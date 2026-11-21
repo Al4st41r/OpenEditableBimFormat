@@ -1,0 +1,19 @@
+{
+  "$schema": "oebf://schema/0.1/slab",
+  "id": "slab-gf-finish",
+  "type": "Slab",
+  "description": "NMB-FL-02: internal floor finish allowance, 25 mm",
+  "ifc_type": "IfcSlab",
+  "boundary_path_id": "path-slab-perimeter",
+  "thickness_m": 0.025,
+  "material_id": "mat-nmb-floor-finish",
+  "elevation_m": 0.0,
+  "parent_group_id": "storey-gf",
+  "properties": {
+    "slab_type": "FINISH"
+  },
+  "tags": [
+    "slab",
+    "nmb"
+  ]
+}

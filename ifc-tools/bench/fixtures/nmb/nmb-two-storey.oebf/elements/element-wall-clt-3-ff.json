@@ -1,0 +1,20 @@
+{
+  "$schema": "oebf://schema/0.1/element",
+  "id": "element-wall-clt-3-ff",
+  "type": "Element",
+  "description": "Internal CLT wall on grid line 3, first floor (NMB-IW-01-A)",
+  "ifc_type": "IfcWall",
+  "path_id": "path-wall-clt-3-ff",
+  "profile_id": "profile-nmb-iw-01-a",
+  "sweep_mode": "perpendicular",
+  "cap_start": "flat",
+  "cap_end": "flat",
+  "start_offset": 0.291,
+  "end_offset": 0.291,
+  "parent_group_id": "storey-ff",
+  "properties": {
+    "nmb_wall_type": "NMB-IW-01-A",
+    "fire_rating": "K2 60 + REI 60",
+    "load_bearing": true
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "$schema": "oebf://schema/0.1/slab",
+  "id": "slab-gf-rc",
+  "type": "Slab",
+  "description": "NMB-FL-02: in-situ reinforced concrete ground slab, 250 mm (to SE design)",
+  "ifc_type": "IfcSlab",
+  "boundary_path_id": "path-slab-perimeter",
+  "thickness_m": 0.25,
+  "material_id": "mat-nmb-concrete",
+  "elevation_m": -0.12,
+  "parent_group_id": "storey-gf",
+  "properties": {
+    "slab_type": "GROUND",
+    "load_bearing": true
+  },
+  "tags": [
+    "slab",
+    "nmb"
+  ]
+}

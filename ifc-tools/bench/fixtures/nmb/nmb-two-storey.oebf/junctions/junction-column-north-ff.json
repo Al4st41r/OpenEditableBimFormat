@@ -1,0 +1,25 @@
+{
+  "$schema": "oebf://schema/0.1/junction",
+  "id": "junction-column-north-ff",
+  "type": "Junction",
+  "description": "Glulam column against the north facade at the first floor edge, bay 3-4",
+  "elements": [
+    "element-wall-north-ff",
+    "element-column-north-ff"
+  ],
+  "detail_id": "detail-nmb-ew-column-section",
+  "location": {
+    "grid_id": "grid-secondary",
+    "axes": [
+      "3-4",
+      "B"
+    ],
+    "level_id": "storey-ff",
+    "level_offset_m": 0.0
+  },
+  "rule": "butt",
+  "priority": [
+    "element-wall-north-ff"
+  ],
+  "trim_method": "none"
+}

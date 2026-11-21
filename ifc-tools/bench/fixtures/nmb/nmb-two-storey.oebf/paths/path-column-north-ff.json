@@ -1,0 +1,26 @@
+{
+  "$schema": "oebf://schema/0.1/path",
+  "id": "path-column-north-ff",
+  "type": "Path",
+  "description": "Glulam column north, FF",
+  "closed": false,
+  "segments": [
+    {
+      "type": "line",
+      "start": {
+        "x": 7.32,
+        "y": 5.564,
+        "z": 2.917
+      },
+      "end": {
+        "x": 7.68,
+        "y": 5.564,
+        "z": 2.917
+      }
+    }
+  ],
+  "tags": [
+    "column",
+    "ff"
+  ]
+}

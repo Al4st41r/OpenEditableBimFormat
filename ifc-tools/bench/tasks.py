@@ -187,3 +187,16 @@ TASKS = [
          "of the south wall?", nothing, t10, edit=False),
 ]
 BY_ID = {t.id: t for t in TASKS}
+
+
+def suite_tasks() -> list:
+    """The tasks of the current suite (fixtures.use)."""
+    from . import fixtures
+    if fixtures.SUITE == "nmb":
+        from .tasks_nmb import TASKS as NMB
+        return NMB
+    return TASKS
+
+
+def by_id(task_id: str) -> Task:
+    return {t.id: t for t in suite_tasks()}[task_id]

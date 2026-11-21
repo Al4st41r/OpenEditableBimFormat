@@ -1,0 +1,199 @@
+{
+  "$schema": "oebf://schema/0.1/detail",
+  "id": "detail-nmb-penetration-facade-fire-collar-section",
+  "type": "Detail",
+  "description": "Service penetration through NMB-EW-01 with a proprietary fire collar, section. NMB Details v1.0 (2023), pp. 108-109. Opening framed using sheathing board, full fill mineral wool to the light steel frame around the penetration (325), proprietary intumescent fire collars (315) fixed through the tabs, AVCL sealed to the penetration; maximum opening 250 mm. Datum y = 0 is the pipe centre line. A free area, air brick or termination duct is provided externally.",
+  "condition": {
+    "rule": "butt",
+    "member_count": 2,
+    "member_kinds": [
+      "wall",
+      "other"
+    ]
+  },
+  "members": [
+    {
+      "role": "through-wall",
+      "kind": "wall",
+      "profile_id": "profile-nmb-ew-01-gf",
+      "placement": {
+        "offset_x_m": 0.0,
+        "offset_y_m": 0.0,
+        "rotation_deg": 0
+      }
+    },
+    {
+      "role": "penetration",
+      "kind": "other",
+      "profile_id": "profile-nmb-iw-05-a",
+      "placement": {
+        "offset_x_m": 0.0,
+        "offset_y_m": 0.0,
+        "rotation_deg": 90
+      }
+    }
+  ],
+  "datum": {
+    "kind": "storey",
+    "reference": "elevation"
+  },
+  "plane": "section",
+  "view_direction": "across_path",
+  "geometry": {
+    "extrusion_m": 1.0,
+    "regions": [
+      {
+        "material_id": "mat-nmb-pipe",
+        "vertices": [
+          {
+            "x": -0.291,
+            "y": -0.125
+          },
+          {
+            "x": 0.291,
+            "y": -0.125
+          },
+          {
+            "x": 0.291,
+            "y": 0.125
+          },
+          {
+            "x": -0.291,
+            "y": 0.125
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-firestop-collar",
+        "vertices": [
+          {
+            "x": 0.258,
+            "y": -0.15
+          },
+          {
+            "x": 0.291,
+            "y": -0.15
+          },
+          {
+            "x": 0.291,
+            "y": -0.125
+          },
+          {
+            "x": 0.258,
+            "y": -0.125
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-firestop-collar",
+        "vertices": [
+          {
+            "x": 0.258,
+            "y": 0.125
+          },
+          {
+            "x": 0.291,
+            "y": 0.125
+          },
+          {
+            "x": 0.291,
+            "y": 0.15
+          },
+          {
+            "x": 0.258,
+            "y": 0.15
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-full-fill-insulation",
+        "vertices": [
+          {
+            "x": 0.107,
+            "y": -0.275
+          },
+          {
+            "x": 0.257,
+            "y": -0.275
+          },
+          {
+            "x": 0.257,
+            "y": -0.125
+          },
+          {
+            "x": 0.107,
+            "y": -0.125
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-full-fill-insulation",
+        "vertices": [
+          {
+            "x": 0.107,
+            "y": 0.125
+          },
+          {
+            "x": 0.257,
+            "y": 0.125
+          },
+          {
+            "x": 0.257,
+            "y": 0.275
+          },
+          {
+            "x": 0.107,
+            "y": 0.275
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-ablative-batt",
+        "vertices": [
+          {
+            "x": 0.107,
+            "y": 0.15
+          },
+          {
+            "x": 0.257,
+            "y": 0.15
+          },
+          {
+            "x": 0.257,
+            "y": 0.25
+          },
+          {
+            "x": 0.107,
+            "y": 0.25
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-gap-sealer",
+        "vertices": [
+          {
+            "x": 0.258,
+            "y": -0.158
+          },
+          {
+            "x": 0.291,
+            "y": -0.158
+          },
+          {
+            "x": 0.291,
+            "y": -0.15
+          },
+          {
+            "x": 0.258,
+            "y": -0.15
+          }
+        ]
+      }
+    ]
+  },
+  "tags": [
+    "nmb",
+    "penetration",
+    "facade"
+  ]
+}

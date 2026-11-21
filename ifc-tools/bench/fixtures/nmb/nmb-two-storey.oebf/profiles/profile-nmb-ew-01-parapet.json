@@ -1,0 +1,88 @@
+{
+  "$schema": "oebf://schema/0.1/profile",
+  "id": "profile-nmb-ew-01-parapet",
+  "type": "Profile",
+  "description": "NMB-EW-01 parapet above the roof build-up: no timber, cavity barrier at the head, coping over",
+  "svg_file": "profiles/profile-nmb-ew-01-parapet.svg",
+  "width": 0.582,
+  "height": null,
+  "origin": {
+    "x": 0.291,
+    "y": 0.0
+  },
+  "alignment": "center",
+  "profile_type": "wall",
+  "height_limit_m": 0.66,
+  "assembly": [
+    {
+      "layer": 1,
+      "name": "Cladding (333)",
+      "material_id": "mat-nmb-cladding",
+      "thickness": 0.02,
+      "function": "finish"
+    },
+    {
+      "layer": 2,
+      "name": "Fixing system (331)",
+      "material_id": "mat-nmb-fixing-system",
+      "thickness": 0.065,
+      "function": "service"
+    },
+    {
+      "layer": 3,
+      "name": "Rainscreen insulation (332)",
+      "material_id": "mat-nmb-rainscreen-insulation",
+      "thickness": 0.3,
+      "function": "insulation"
+    },
+    {
+      "layer": 4,
+      "name": "Breather membrane (351)",
+      "material_id": "mat-nmb-breather-membrane",
+      "thickness": 0.001,
+      "function": "membrane"
+    },
+    {
+      "layer": 5,
+      "name": "Sheathing board (323)",
+      "material_id": "mat-nmb-sheathing-board",
+      "thickness": 0.012,
+      "function": "structure"
+    },
+    {
+      "layer": 6,
+      "name": "Light steel framing (321) with insulation (322)",
+      "material_id": "mat-nmb-lsf",
+      "thickness": 0.15,
+      "function": "structure"
+    },
+    {
+      "layer": 7,
+      "name": "Vapour barrier (352)",
+      "material_id": "mat-nmb-vapour-barrier",
+      "thickness": 0.001,
+      "function": "membrane"
+    },
+    {
+      "layer": 8,
+      "name": "Wall lining board (311)",
+      "material_id": "mat-nmb-wall-lining-board",
+      "thickness": 0.015,
+      "function": "finish"
+    },
+    {
+      "layer": 9,
+      "name": "Wall lining board (311)",
+      "material_id": "mat-nmb-wall-lining-board",
+      "thickness": 0.015,
+      "function": "finish"
+    },
+    {
+      "layer": 10,
+      "name": "Skim and paint",
+      "material_id": "mat-nmb-skim",
+      "thickness": 0.003,
+      "function": "finish"
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "format": "oebf",
+  "format_version": "0.1.0",
+  "project_name": "NMB Two-Storey Example",
+  "description": "Two-storey, 9 m x 6 m building on a 3 m x 6 m grid (four lines at 3 m, two at 6 m), using New Model Building (Waugh Thistleton, 2023) wall, floor and roof build-ups, with its details placed on junctions.",
+  "created": "2026-10-19",
+  "author": "OEBF Example",
+  "units": "metres",
+  "coordinate_system": "right_hand_z_up",
+  "files": {
+    "model": "model.json",
+    "materials": "materials/library.json",
+    "schema": "schema/oebf-schema.json"
+  }
+}

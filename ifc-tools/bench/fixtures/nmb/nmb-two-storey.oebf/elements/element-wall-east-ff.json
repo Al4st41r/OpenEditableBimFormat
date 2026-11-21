@@ -1,0 +1,21 @@
+{
+  "$schema": "oebf://schema/0.1/element",
+  "id": "element-wall-east-ff",
+  "type": "Element",
+  "description": "East external wall, first floor (NMB-EW-01)",
+  "ifc_type": "IfcWall",
+  "path_id": "path-wall-east-ff",
+  "profile_id": "profile-nmb-ew-01-ff",
+  "sweep_mode": "perpendicular",
+  "cap_start": "junction",
+  "cap_end": "junction",
+  "start_offset": -0.291,
+  "end_offset": -0.291,
+  "parent_group_id": "storey-ff",
+  "properties": {
+    "nmb_wall_type": "NMB-EW-01",
+    "fire_rating": "REI 60",
+    "load_bearing": false,
+    "note": "Facade is non-structural; bottom supported by the slab, restrained at the head"
+  }
+}

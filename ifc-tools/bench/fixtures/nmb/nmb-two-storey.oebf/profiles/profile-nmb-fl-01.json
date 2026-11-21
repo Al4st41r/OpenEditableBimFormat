@@ -1,0 +1,73 @@
+{
+  "$schema": "oebf://schema/0.1/profile",
+  "id": "profile-nmb-fl-01",
+  "type": "Profile",
+  "description": "NMB-FL-01 party floor: 60 minutes REI, optional services zone and suspended ceiling not drawn",
+  "svg_file": "profiles/profile-nmb-fl-01.svg",
+  "width": 1.0,
+  "height": 0.256,
+  "origin": {
+    "x": 0.5,
+    "y": 0.0
+  },
+  "alignment": "top-face",
+  "profile_type": "slab",
+  "assembly": [
+    {
+      "layer": 1,
+      "name": "Internal floor finish allowance",
+      "material_id": "mat-nmb-floor-finish",
+      "thickness": 0.02,
+      "function": "finish"
+    },
+    {
+      "layer": 2,
+      "name": "Screedboard",
+      "material_id": "mat-nmb-screedboard",
+      "thickness": 0.02,
+      "function": "finish"
+    },
+    {
+      "layer": 3,
+      "name": "Rigid insulation with underfloor heating",
+      "material_id": "mat-nmb-ufh-insulation",
+      "thickness": 0.035,
+      "function": "insulation"
+    },
+    {
+      "layer": 4,
+      "name": "Acoustic matting",
+      "material_id": "mat-nmb-acoustic-matting",
+      "thickness": 0.008,
+      "function": "membrane"
+    },
+    {
+      "layer": 5,
+      "name": "CLT floor panel (302)",
+      "material_id": "mat-nmb-clt",
+      "thickness": 0.14,
+      "function": "structure"
+    },
+    {
+      "layer": 6,
+      "name": "Wall lining board (311)",
+      "material_id": "mat-nmb-wall-lining-board",
+      "thickness": 0.015,
+      "function": "finish"
+    },
+    {
+      "layer": 7,
+      "name": "Wall lining board (311)",
+      "material_id": "mat-nmb-wall-lining-board",
+      "thickness": 0.015,
+      "function": "finish"
+    },
+    {
+      "layer": 8,
+      "name": "Skim and paint",
+      "material_id": "mat-nmb-skim",
+      "thickness": 0.003,
+      "function": "finish"
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+     viewBox="0 0 0.346 2.747"
+     width="346mm" height="2747mm">
+  <!-- Skim and paint: 0-3 mm -->
+  <rect x="0.000" y="0" width="0.003" height="2.747" fill="#F7F7F2" stroke="#888" stroke-width="0.002"/>
+  <!-- Wall lining board (311): 3-18 mm -->
+  <rect x="0.003" y="0" width="0.015" height="2.747" fill="#E6E6E0" stroke="#888" stroke-width="0.002"/>
+  <!-- Wall lining board (311): 18-33 mm -->
+  <rect x="0.018" y="0" width="0.015" height="2.747" fill="#E6E6E0" stroke="#888" stroke-width="0.002"/>
+  <!-- Wall lining system (318) with insulation (317): 33-83 mm -->
+  <rect x="0.033" y="0" width="0.050" height="2.747" fill="#E5E0B8" stroke="#888" stroke-width="0.002"/>
+  <!-- CLT wall panel (301): 83-263 mm -->
+  <rect x="0.083" y="0" width="0.180" height="2.747" fill="#D9B36B" stroke="#888" stroke-width="0.002"/>
+  <!-- Wall lining system (318) with insulation (317): 263-313 mm -->
+  <rect x="0.263" y="0" width="0.050" height="2.747" fill="#E5E0B8" stroke="#888" stroke-width="0.002"/>
+  <!-- Wall lining board (311): 313-328 mm -->
+  <rect x="0.313" y="0" width="0.015" height="2.747" fill="#E6E6E0" stroke="#888" stroke-width="0.002"/>
+  <!-- Wall lining board (311): 328-343 mm -->
+  <rect x="0.328" y="0" width="0.015" height="2.747" fill="#E6E6E0" stroke="#888" stroke-width="0.002"/>
+  <!-- Skim and paint: 343-346 mm -->
+  <rect x="0.343" y="0" width="0.003" height="2.747" fill="#F7F7F2" stroke="#888" stroke-width="0.002"/>
+  <circle cx="0.173" cy="0" r="0.005" fill="red"/>
+  <line x1="0.173" y1="-0.020" x2="0.173" y2="0.020" stroke="red" stroke-width="0.002"/>
+</svg>

@@ -1,0 +1,53 @@
+{
+  "$schema": "oebf://schema/0.1/profile",
+  "id": "profile-nmb-ip-03-a",
+  "type": "Profile",
+  "description": "NMB-IP-03-A service riser partition: 60 minutes REI",
+  "svg_file": "profiles/profile-nmb-ip-03-a.svg",
+  "width": 0.13,
+  "height": null,
+  "origin": {
+    "x": 0.065,
+    "y": 0.0
+  },
+  "alignment": "center",
+  "profile_type": "wall",
+  "height_limit_m": 2.7,
+  "assembly": [
+    {
+      "layer": 1,
+      "name": "Shaft lining board (320/311)",
+      "material_id": "mat-nmb-shaft-lining-board",
+      "thickness": 0.015,
+      "function": "finish"
+    },
+    {
+      "layer": 2,
+      "name": "Shaft lining board (320/311)",
+      "material_id": "mat-nmb-shaft-lining-board",
+      "thickness": 0.015,
+      "function": "finish"
+    },
+    {
+      "layer": 3,
+      "name": "Shaft lining system (319)",
+      "material_id": "mat-nmb-shaft-lining-system",
+      "thickness": 0.07,
+      "function": "service"
+    },
+    {
+      "layer": 4,
+      "name": "Shaft lining board (320/311)",
+      "material_id": "mat-nmb-shaft-lining-board",
+      "thickness": 0.015,
+      "function": "finish"
+    },
+    {
+      "layer": 5,
+      "name": "Shaft lining board (320/311)",
+      "material_id": "mat-nmb-shaft-lining-board",
+      "thickness": 0.015,
+      "function": "finish"
+    }
+  ]
+}

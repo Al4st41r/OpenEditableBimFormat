@@ -1,0 +1,388 @@
+{
+  "$schema": "oebf://schema/0.1/detail",
+  "id": "detail-nmb-roof-external-wall-section",
+  "type": "Detail",
+  "description": "Roof or terrace meeting an external wall NMB-EW-01, section. NMB Details v1.0 (2023), pp. 78-79. Datum is the roof structure top face. Waterproofing returns up the wall behind a cavity tray to 150 mm minimum above the roof finish.",
+  "condition": {
+    "rule": "butt",
+    "member_count": 2,
+    "member_kinds": [
+      "wall",
+      "roof"
+    ]
+  },
+  "members": [
+    {
+      "role": "external-wall",
+      "kind": "wall",
+      "profile_id": "profile-nmb-ew-01-gf",
+      "placement": {
+        "offset_x_m": 0.0,
+        "offset_y_m": 0.0,
+        "rotation_deg": 0
+      }
+    },
+    {
+      "role": "roof",
+      "kind": "roof",
+      "profile_id": "profile-nmb-rf-01",
+      "placement": {
+        "offset_x_m": -0.8,
+        "offset_y_m": 0.0,
+        "rotation_deg": 0
+      }
+    }
+  ],
+  "datum": {
+    "kind": "storey",
+    "reference": "elevation"
+  },
+  "plane": "section",
+  "view_direction": "across_path",
+  "geometry": {
+    "extrusion_m": 1.0,
+    "regions": [
+      {
+        "material_id": "mat-nmb-roof-buildup",
+        "vertices": [
+          {
+            "x": -1.2,
+            "y": 0.0
+          },
+          {
+            "x": -0.291,
+            "y": 0.0
+          },
+          {
+            "x": -0.291,
+            "y": 0.35
+          },
+          {
+            "x": -1.2,
+            "y": 0.35
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-vapour-barrier",
+        "vertices": [
+          {
+            "x": -1.2,
+            "y": -0.004
+          },
+          {
+            "x": -0.291,
+            "y": -0.004
+          },
+          {
+            "x": -0.291,
+            "y": 0.0
+          },
+          {
+            "x": -1.2,
+            "y": 0.0
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-roof-structure",
+        "vertices": [
+          {
+            "x": -1.2,
+            "y": -0.212
+          },
+          {
+            "x": -0.291,
+            "y": -0.212
+          },
+          {
+            "x": -0.291,
+            "y": -0.004
+          },
+          {
+            "x": -1.2,
+            "y": -0.004
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-wall-lining-board",
+        "vertices": [
+          {
+            "x": -1.2,
+            "y": -0.242
+          },
+          {
+            "x": -0.291,
+            "y": -0.242
+          },
+          {
+            "x": -0.291,
+            "y": -0.212
+          },
+          {
+            "x": -1.2,
+            "y": -0.212
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-cavity-barrier-horizontal",
+        "vertices": [
+          {
+            "x": -0.231,
+            "y": 0.4
+          },
+          {
+            "x": 0.094,
+            "y": 0.4
+          },
+          {
+            "x": 0.094,
+            "y": 0.48
+          },
+          {
+            "x": -0.231,
+            "y": 0.48
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-cavity-tray",
+        "vertices": [
+          {
+            "x": -0.296,
+            "y": 0.0
+          },
+          {
+            "x": -0.291,
+            "y": 0.0
+          },
+          {
+            "x": -0.291,
+            "y": 0.35
+          },
+          {
+            "x": -0.296,
+            "y": 0.35
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-roof-green",
+        "vertices": [
+          {
+            "x": -1.2,
+            "y": 0.35
+          },
+          {
+            "x": -0.6,
+            "y": 0.35
+          },
+          {
+            "x": -0.6,
+            "y": 0.5
+          },
+          {
+            "x": -1.2,
+            "y": 0.5
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-roof-gravel",
+        "vertices": [
+          {
+            "x": -0.6,
+            "y": 0.35
+          },
+          {
+            "x": -0.35,
+            "y": 0.35
+          },
+          {
+            "x": -0.35,
+            "y": 0.45
+          },
+          {
+            "x": -0.6,
+            "y": 0.45
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-full-fill-insulation",
+        "vertices": [
+          {
+            "x": 0.107,
+            "y": -0.35
+          },
+          {
+            "x": 0.245,
+            "y": -0.35
+          },
+          {
+            "x": 0.245,
+            "y": 0.2
+          },
+          {
+            "x": 0.107,
+            "y": 0.2
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-acoustic-strip",
+        "vertices": [
+          {
+            "x": 0.291,
+            "y": -0.103
+          },
+          {
+            "x": 0.301,
+            "y": -0.103
+          },
+          {
+            "x": 0.301,
+            "y": -0.02
+          },
+          {
+            "x": 0.291,
+            "y": -0.02
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-floor-finish",
+        "vertices": [
+          {
+            "x": 0.301,
+            "y": -0.04
+          },
+          {
+            "x": 0.9,
+            "y": -0.04
+          },
+          {
+            "x": 0.9,
+            "y": -0.02
+          },
+          {
+            "x": 0.301,
+            "y": -0.02
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-screedboard",
+        "vertices": [
+          {
+            "x": 0.301,
+            "y": -0.06
+          },
+          {
+            "x": 0.9,
+            "y": -0.06
+          },
+          {
+            "x": 0.9,
+            "y": -0.04
+          },
+          {
+            "x": 0.301,
+            "y": -0.04
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-ufh-insulation",
+        "vertices": [
+          {
+            "x": 0.301,
+            "y": -0.095
+          },
+          {
+            "x": 0.9,
+            "y": -0.095
+          },
+          {
+            "x": 0.9,
+            "y": -0.06
+          },
+          {
+            "x": 0.301,
+            "y": -0.06
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-acoustic-matting",
+        "vertices": [
+          {
+            "x": 0.301,
+            "y": -0.103
+          },
+          {
+            "x": 0.9,
+            "y": -0.103
+          },
+          {
+            "x": 0.9,
+            "y": -0.095
+          },
+          {
+            "x": 0.301,
+            "y": -0.095
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-clt",
+        "vertices": [
+          {
+            "x": 0.301,
+            "y": -0.243
+          },
+          {
+            "x": 0.9,
+            "y": -0.243
+          },
+          {
+            "x": 0.9,
+            "y": -0.103
+          },
+          {
+            "x": 0.301,
+            "y": -0.103
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-wall-lining-board",
+        "vertices": [
+          {
+            "x": 0.301,
+            "y": -0.273
+          },
+          {
+            "x": 0.9,
+            "y": -0.273
+          },
+          {
+            "x": 0.9,
+            "y": -0.243
+          },
+          {
+            "x": 0.301,
+            "y": -0.243
+          }
+        ]
+      }
+    ]
+  },
+  "tags": [
+    "nmb",
+    "roof",
+    "external-wall"
+  ]
+}

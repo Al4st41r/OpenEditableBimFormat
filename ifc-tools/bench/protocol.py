@@ -27,9 +27,11 @@ from oebf.ifc_exporter import export_ifc
 from oebf.validate import validate_bundle
 
 from . import facts as F
-from .fixtures import BENCH, IFC, OEBF, oebf_files, strip_oebf_psets
+from . import fixtures as FX
+from .fixtures import oebf_files, strip_oebf_psets
 
-GUIDES = {"oebf": OEBF / "OEBF-GUIDE.md", "oebf-patch": OEBF / "OEBF-GUIDE.md", "ifc": BENCH / "guides" / "ifc-primer.md"}
+def guide(fmt: str) -> Path:
+    return FX.PRIMER if fmt == "ifc" else FX.OEBF / "OEBF-GUIDE.md"
 
 PROTOCOL = {
     "oebf": """You edit a building model held as an OEBF bundle: a folder of JSON files, one per entity. The whole bundle \
@@ -108,15 +110,15 @@ SCHEMAS = {
 
 def model_text(fmt: str) -> str:
     if fmt.startswith("oebf"):
-        return "\n\n".join(f"=== {path} ===\n{text.rstrip()}" for path, text in oebf_files(OEBF).items())
-    return IFC.read_text()
+        return "\n\n".join(f"=== {path} ===\n{text.rstrip()}" for path, text in oebf_files(FX.OEBF).items())
+    return FX.IFC.read_text()
 
 
 def system_blocks(fmt: str) -> list[dict]:
     """The system prompt: protocol, guide, model. The same for every task in a format, so it is cached."""
     return [
         {"type": "text", "text": PROTOCOL[fmt]},
-        {"type": "text", "text": "# Guide\n\n" + GUIDES[fmt].read_text()},
+        {"type": "text", "text": "# Guide\n\n" + guide(fmt).read_text()},
         {"type": "text", "text": "# The model\n\n" + model_text(fmt), "cache_control": {"type": "ephemeral"}},
     ]
 
@@ -176,7 +178,7 @@ def _patch_file(bundle: Path, entry: dict):
 def apply_oebf(script: dict, work: Path) -> Outcome:
     """Whole-file writes, or (with "patch" in the script) JSON Patch ops on existing files first."""
     bundle = work / "bundle.oebf"
-    shutil.copytree(OEBF, bundle)
+    shutil.copytree(FX.OEBF, bundle)
     try:
         for entry in script.get("patch", []):
             _patch_file(bundle, entry)
@@ -246,7 +248,7 @@ def apply_ifc_text(script: dict, text: str) -> str:
 def apply_ifc(script: dict, work: Path) -> Outcome:
     out = work / "edited.ifc"
     try:
-        out.write_text(apply_ifc_text(script, IFC.read_text()))
+        out.write_text(apply_ifc_text(script, FX.IFC.read_text()))
     except ScriptError as e:
         return Outcome(False, [str(e)], workdir=work)
     problems = []
@@ -267,8 +269,15 @@ def apply_ifc(script: dict, work: Path) -> Outcome:
 
 
 def apply(fmt: str, script: dict) -> Outcome:
+    """Apply a script to a fresh copy of the fixture and read the result. The working copy is removed afterwards: the
+    facts are all a score needs."""
     work = Path(tempfile.mkdtemp(prefix=f"bench-{fmt}-"))
-    return (apply_oebf if fmt.startswith("oebf") else apply_ifc)(script, work)
+    try:
+        out = (apply_oebf if fmt.startswith("oebf") else apply_ifc)(script, work)
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+    out.workdir = None
+    return out
 
 
 def parse_reply(text: str) -> dict:

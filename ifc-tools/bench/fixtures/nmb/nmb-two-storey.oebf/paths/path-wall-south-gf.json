@@ -1,0 +1,26 @@
+{
+  "$schema": "oebf://schema/0.1/path",
+  "id": "path-wall-south-gf",
+  "type": "Path",
+  "description": "South external wall, ground floor",
+  "closed": false,
+  "segments": [
+    {
+      "type": "line",
+      "start": {
+        "x": 9.0,
+        "y": 0,
+        "z": 0.15
+      },
+      "end": {
+        "x": 0,
+        "y": 0,
+        "z": 0.15
+      }
+    }
+  ],
+  "tags": [
+    "external",
+    "gf"
+  ]
+}

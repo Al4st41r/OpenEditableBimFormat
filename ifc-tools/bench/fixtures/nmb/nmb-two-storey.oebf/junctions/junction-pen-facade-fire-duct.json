@@ -1,0 +1,25 @@
+{
+  "$schema": "oebf://schema/0.1/junction",
+  "id": "junction-pen-facade-fire-duct",
+  "type": "Junction",
+  "description": "East facade: service penetration at 1.0 m above floor level",
+  "elements": [
+    "element-wall-east-gf",
+    "element-wall-east-ff"
+  ],
+  "detail_id": "detail-nmb-penetration-facade-fire-duct-section",
+  "location": {
+    "grid_id": "grid-secondary",
+    "axes": [
+      "4",
+      "M-B"
+    ],
+    "level_id": "storey-gf",
+    "level_offset_m": 1.0
+  },
+  "rule": "butt",
+  "priority": [
+    "element-wall-east-gf"
+  ],
+  "trim_method": "none"
+}

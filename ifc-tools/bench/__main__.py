@@ -13,6 +13,7 @@ from . import fixtures, report, runner
 
 def main():
     p = argparse.ArgumentParser(prog="bench")
+    p.add_argument("--suite", choices=sorted(fixtures.SUITES), default="terraced-house")
     sub = p.add_subparsers(dest="cmd", required=True)
     sub.add_parser("fixtures")
     sub.add_parser("count")
@@ -28,6 +29,7 @@ def main():
     rep.add_argument("results")
     rep.add_argument("-o", "--output")
     a = p.parse_args()
+    fixtures.use(a.suite)
     if a.cmd == "fixtures":
         print(fixtures.build())
     elif a.cmd == "count":

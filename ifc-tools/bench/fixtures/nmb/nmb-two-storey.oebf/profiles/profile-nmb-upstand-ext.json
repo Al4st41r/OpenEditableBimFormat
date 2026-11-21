@@ -1,0 +1,39 @@
+{
+  "$schema": "oebf://schema/0.1/profile",
+  "id": "profile-nmb-upstand-ext",
+  "type": "Profile",
+  "description": "Masonry and concrete upstand under a ground floor external wall: 150 mm above floor level, closed cell insulation (327) inside the masonry",
+  "svg_file": "profiles/profile-nmb-upstand-ext.svg",
+  "width": 0.582,
+  "height": null,
+  "origin": {
+    "x": 0.291,
+    "y": 0.0
+  },
+  "alignment": "center",
+  "profile_type": "wall",
+  "height_limit_m": 0.27,
+  "assembly": [
+    {
+      "layer": 1,
+      "name": "Masonry upstand outer leaf",
+      "material_id": "mat-nmb-upstand-masonry",
+      "thickness": 0.098,
+      "function": "structure"
+    },
+    {
+      "layer": 2,
+      "name": "Closed cell perimeter insulation (327)",
+      "material_id": "mat-nmb-closed-cell-insulation",
+      "thickness": 0.31,
+      "function": "insulation"
+    },
+    {
+      "layer": 3,
+      "name": "Concrete upstand",
+      "material_id": "mat-nmb-concrete",
+      "thickness": 0.174,
+      "function": "structure"
+    }
+  ]
+}

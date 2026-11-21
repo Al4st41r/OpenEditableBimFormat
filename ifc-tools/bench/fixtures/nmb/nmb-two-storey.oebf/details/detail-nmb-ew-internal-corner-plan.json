@@ -1,0 +1,170 @@
+{
+  "$schema": "oebf://schema/0.1/detail",
+  "id": "detail-nmb-ew-internal-corner-plan",
+  "type": "Detail",
+  "description": "NMB-EW-01 internal corner with a glulam column, plan. NMB Details v1.0 (2023), pp. 36-37. Fire resistant gap sealer (312) at the plasterboard junctions; encapsulation to the column fitted before the internal lining.",
+  "condition": {
+    "rule": "butt",
+    "member_count": 3,
+    "member_kinds": [
+      "wall",
+      "wall",
+      "column"
+    ]
+  },
+  "members": [
+    {
+      "role": "through-wall",
+      "kind": "wall",
+      "profile_id": "profile-nmb-ew-01-gf",
+      "placement": {
+        "offset_x_m": 0.0,
+        "offset_y_m": 0.0,
+        "rotation_deg": 0
+      }
+    },
+    {
+      "role": "return-wall",
+      "kind": "wall",
+      "profile_id": "profile-nmb-ew-01-gf",
+      "placement": {
+        "offset_x_m": 0.0,
+        "offset_y_m": 0.0,
+        "rotation_deg": 90
+      },
+      "extent": "forward"
+    },
+    {
+      "role": "column",
+      "kind": "column",
+      "profile_id": "profile-nmb-glulam-column",
+      "placement": {
+        "offset_x_m": 0.436,
+        "offset_y_m": -0.436,
+        "rotation_deg": 0
+      }
+    }
+  ],
+  "datum": {
+    "kind": "storey",
+    "reference": "elevation"
+  },
+  "plane": "plan",
+  "view_direction": "along_path",
+  "geometry": {
+    "extrusion_m": 3.0,
+    "regions": [
+      {
+        "material_id": "mat-nmb-glulam",
+        "vertices": [
+          {
+            "x": 0.291,
+            "y": -0.581
+          },
+          {
+            "x": 0.581,
+            "y": -0.581
+          },
+          {
+            "x": 0.581,
+            "y": -0.291
+          },
+          {
+            "x": 0.291,
+            "y": -0.291
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-wall-lining-board",
+        "vertices": [
+          {
+            "x": 0.581,
+            "y": -0.611
+          },
+          {
+            "x": 0.611,
+            "y": -0.611
+          },
+          {
+            "x": 0.611,
+            "y": -0.291
+          },
+          {
+            "x": 0.581,
+            "y": -0.291
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-wall-lining-board",
+        "vertices": [
+          {
+            "x": 0.291,
+            "y": -0.611
+          },
+          {
+            "x": 0.581,
+            "y": -0.611
+          },
+          {
+            "x": 0.581,
+            "y": -0.581
+          },
+          {
+            "x": 0.291,
+            "y": -0.581
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-gap-sealer",
+        "vertices": [
+          {
+            "x": 0.286,
+            "y": -0.301
+          },
+          {
+            "x": 0.298,
+            "y": -0.301
+          },
+          {
+            "x": 0.298,
+            "y": -0.289
+          },
+          {
+            "x": 0.286,
+            "y": -0.289
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-gap-sealer",
+        "vertices": [
+          {
+            "x": 0.289,
+            "y": -0.298
+          },
+          {
+            "x": 0.301,
+            "y": -0.298
+          },
+          {
+            "x": 0.301,
+            "y": -0.286
+          },
+          {
+            "x": 0.289,
+            "y": -0.286
+          }
+        ]
+      }
+    ]
+  },
+  "tags": [
+    "nmb",
+    "column",
+    "corner",
+    "external-wall"
+  ]
+}

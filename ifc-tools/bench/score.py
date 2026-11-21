@@ -3,19 +3,23 @@
 from functools import lru_cache
 
 from . import facts as F
-from .fixtures import IFC
+from . import fixtures as FX
 from .protocol import apply, ScriptError
-from .tasks import BY_ID
+from .tasks import by_id
 
 
-@lru_cache(maxsize=1)
 def baseline():
     """Facts of the starting model (the IFC fixture; the OEBF fixture exports to the same facts, see the tests)."""
-    return F.read(IFC)
+    return _baseline(str(FX.IFC))
+
+
+@lru_cache(maxsize=4)
+def _baseline(path):
+    return F.read(path)
 
 
 def score(fmt: str, task_id: str, script: dict) -> dict:
-    task = BY_ID[task_id]
+    task = by_id(task_id)
     before = baseline()
     if not task.edit:
         checks = task.checks(before, before, script.get("answer", ""))

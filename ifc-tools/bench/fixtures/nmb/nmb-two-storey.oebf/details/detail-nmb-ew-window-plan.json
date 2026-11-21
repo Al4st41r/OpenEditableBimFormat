@@ -1,0 +1,200 @@
+{
+  "$schema": "oebf://schema/0.1/detail",
+  "id": "detail-nmb-ew-window-plan",
+  "type": "Detail",
+  "description": "Typical window jambs in NMB-EW-01 either side of an internal wall, plan. NMB Details v1.0 (2023), pp. 42-43. 60 minute rated cavity barriers to all window jambs; vertical cavity barrier aligned with the internal compartmentation.",
+  "condition": {
+    "rule": "butt",
+    "member_count": 2,
+    "member_kinds": [
+      "wall",
+      "wall"
+    ]
+  },
+  "members": [
+    {
+      "role": "through-wall",
+      "kind": "wall",
+      "profile_id": "profile-nmb-ew-01-gf",
+      "placement": {
+        "offset_x_m": 0.0,
+        "offset_y_m": 0.0,
+        "rotation_deg": 0
+      }
+    },
+    {
+      "role": "internal-wall",
+      "kind": "wall",
+      "profile_id": "profile-nmb-iw-01-a",
+      "placement": {
+        "offset_x_m": 0.0,
+        "offset_y_m": -0.291,
+        "rotation_deg": 90
+      },
+      "extent": "backward"
+    }
+  ],
+  "datum": {
+    "kind": "storey",
+    "reference": "elevation"
+  },
+  "plane": "plan",
+  "view_direction": "along_path",
+  "geometry": {
+    "extrusion_m": 1.2,
+    "regions": [
+      {
+        "material_id": "mat-nmb-cavity-barrier-window",
+        "vertices": [
+          {
+            "x": -0.594,
+            "y": -0.062
+          },
+          {
+            "x": -0.506,
+            "y": -0.062
+          },
+          {
+            "x": -0.506,
+            "y": 0.269
+          },
+          {
+            "x": -0.594,
+            "y": 0.269
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-cavity-barrier-window",
+        "vertices": [
+          {
+            "x": 0.51,
+            "y": -0.062
+          },
+          {
+            "x": 0.598,
+            "y": -0.062
+          },
+          {
+            "x": 0.598,
+            "y": 0.269
+          },
+          {
+            "x": 0.51,
+            "y": 0.269
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-cavity-barrier-vertical",
+        "vertices": [
+          {
+            "x": -0.046,
+            "y": -0.094
+          },
+          {
+            "x": 0.042,
+            "y": -0.094
+          },
+          {
+            "x": 0.042,
+            "y": 0.269
+          },
+          {
+            "x": -0.046,
+            "y": 0.269
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-full-fill-insulation",
+        "vertices": [
+          {
+            "x": -0.331,
+            "y": -0.246
+          },
+          {
+            "x": 0.349,
+            "y": -0.246
+          },
+          {
+            "x": 0.349,
+            "y": -0.107
+          },
+          {
+            "x": -0.331,
+            "y": -0.107
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-linear-firestop",
+        "vertices": [
+          {
+            "x": -0.042,
+            "y": -0.291
+          },
+          {
+            "x": 0.042,
+            "y": -0.291
+          },
+          {
+            "x": 0.042,
+            "y": -0.258
+          },
+          {
+            "x": -0.042,
+            "y": -0.258
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-epdm",
+        "vertices": [
+          {
+            "x": -0.51,
+            "y": 0.2
+          },
+          {
+            "x": -0.506,
+            "y": 0.2
+          },
+          {
+            "x": -0.506,
+            "y": 0.291
+          },
+          {
+            "x": -0.51,
+            "y": 0.291
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-epdm",
+        "vertices": [
+          {
+            "x": 0.51,
+            "y": 0.2
+          },
+          {
+            "x": 0.514,
+            "y": 0.2
+          },
+          {
+            "x": 0.514,
+            "y": 0.291
+          },
+          {
+            "x": 0.51,
+            "y": 0.291
+          }
+        ]
+      }
+    ]
+  },
+  "tags": [
+    "nmb",
+    "window",
+    "external-wall"
+  ]
+}

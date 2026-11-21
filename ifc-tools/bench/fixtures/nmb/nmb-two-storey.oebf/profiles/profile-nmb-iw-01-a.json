@@ -1,0 +1,81 @@
+{
+  "$schema": "oebf://schema/0.1/profile",
+  "id": "profile-nmb-iw-01-a",
+  "type": "Profile",
+  "description": "NMB-IW-01-A internal CLT wall, apartment/apartment: K2 60 + REI 60, 346 mm overall",
+  "svg_file": "profiles/profile-nmb-iw-01-a.svg",
+  "width": 0.346,
+  "height": null,
+  "origin": {
+    "x": 0.173,
+    "y": 0.0
+  },
+  "alignment": "center",
+  "profile_type": "wall",
+  "height_limit_m": 2.777,
+  "assembly": [
+    {
+      "layer": 1,
+      "name": "Skim and paint",
+      "material_id": "mat-nmb-skim",
+      "thickness": 0.003,
+      "function": "finish"
+    },
+    {
+      "layer": 2,
+      "name": "Wall lining board (311)",
+      "material_id": "mat-nmb-wall-lining-board",
+      "thickness": 0.015,
+      "function": "finish"
+    },
+    {
+      "layer": 3,
+      "name": "Wall lining board (311)",
+      "material_id": "mat-nmb-wall-lining-board",
+      "thickness": 0.015,
+      "function": "finish"
+    },
+    {
+      "layer": 4,
+      "name": "Wall lining system (318) with insulation (317)",
+      "material_id": "mat-nmb-wall-lining-system",
+      "thickness": 0.05,
+      "function": "insulation"
+    },
+    {
+      "layer": 5,
+      "name": "CLT wall panel (301)",
+      "material_id": "mat-nmb-clt",
+      "thickness": 0.18,
+      "function": "structure"
+    },
+    {
+      "layer": 6,
+      "name": "Wall lining system (318) with insulation (317)",
+      "material_id": "mat-nmb-wall-lining-system",
+      "thickness": 0.05,
+      "function": "insulation"
+    },
+    {
+      "layer": 7,
+      "name": "Wall lining board (311)",
+      "material_id": "mat-nmb-wall-lining-board",
+      "thickness": 0.015,
+      "function": "finish"
+    },
+    {
+      "layer": 8,
+      "name": "Wall lining board (311)",
+      "material_id": "mat-nmb-wall-lining-board",
+      "thickness": 0.015,
+      "function": "finish"
+    },
+    {
+      "layer": 9,
+      "name": "Skim and paint",
+      "material_id": "mat-nmb-skim",
+      "thickness": 0.003,
+      "function": "finish"
+    }
+  ]
+}

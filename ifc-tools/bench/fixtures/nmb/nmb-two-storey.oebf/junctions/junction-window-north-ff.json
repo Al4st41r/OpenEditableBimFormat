@@ -1,0 +1,25 @@
+{
+  "$schema": "oebf://schema/0.1/junction",
+  "id": "junction-window-north-ff",
+  "type": "Junction",
+  "description": "North facade, bay 2-3: GF window head and FF window cill either side of the floor",
+  "elements": [
+    "element-wall-north-ff",
+    "element-wall-north-gf"
+  ],
+  "detail_id": "detail-nmb-ew-window-section",
+  "location": {
+    "grid_id": "grid-secondary",
+    "axes": [
+      "2-3",
+      "B"
+    ],
+    "level_id": "storey-ff",
+    "level_offset_m": 0.0
+  },
+  "rule": "butt",
+  "priority": [
+    "element-wall-north-ff"
+  ],
+  "trim_method": "none"
+}

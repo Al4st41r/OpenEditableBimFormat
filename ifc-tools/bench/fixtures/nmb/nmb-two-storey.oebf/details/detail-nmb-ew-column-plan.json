@@ -1,0 +1,170 @@
+{
+  "$schema": "oebf://schema/0.1/detail",
+  "id": "detail-nmb-ew-column-plan",
+  "type": "Detail",
+  "description": "External corner of NMB-EW-01 with a glulam column in the inside corner, plan. NMB Details v1.0 (2023), pp. 34-35. Exterior wall lining and external encapsulation define the line of the external wall; vapour barrier lapped and taped to the internal face of the column.",
+  "condition": {
+    "rule": "butt",
+    "member_count": 3,
+    "member_kinds": [
+      "wall",
+      "wall",
+      "column"
+    ]
+  },
+  "members": [
+    {
+      "role": "through-wall",
+      "kind": "wall",
+      "profile_id": "profile-nmb-ew-01-gf",
+      "placement": {
+        "offset_x_m": 0.0,
+        "offset_y_m": 0.0,
+        "rotation_deg": 0
+      }
+    },
+    {
+      "role": "return-wall",
+      "kind": "wall",
+      "profile_id": "profile-nmb-ew-01-gf",
+      "placement": {
+        "offset_x_m": 0.0,
+        "offset_y_m": 0.0,
+        "rotation_deg": -90
+      },
+      "extent": "forward"
+    },
+    {
+      "role": "column",
+      "kind": "column",
+      "profile_id": "profile-nmb-glulam-column",
+      "placement": {
+        "offset_x_m": -0.436,
+        "offset_y_m": -0.436,
+        "rotation_deg": 0
+      }
+    }
+  ],
+  "datum": {
+    "kind": "storey",
+    "reference": "elevation"
+  },
+  "plane": "plan",
+  "view_direction": "along_path",
+  "geometry": {
+    "extrusion_m": 3.0,
+    "regions": [
+      {
+        "material_id": "mat-nmb-glulam",
+        "vertices": [
+          {
+            "x": -0.581,
+            "y": -0.581
+          },
+          {
+            "x": -0.291,
+            "y": -0.581
+          },
+          {
+            "x": -0.291,
+            "y": -0.291
+          },
+          {
+            "x": -0.581,
+            "y": -0.291
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-wall-lining-board",
+        "vertices": [
+          {
+            "x": -0.611,
+            "y": -0.611
+          },
+          {
+            "x": -0.581,
+            "y": -0.611
+          },
+          {
+            "x": -0.581,
+            "y": -0.291
+          },
+          {
+            "x": -0.611,
+            "y": -0.291
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-wall-lining-board",
+        "vertices": [
+          {
+            "x": -0.611,
+            "y": -0.611
+          },
+          {
+            "x": -0.291,
+            "y": -0.611
+          },
+          {
+            "x": -0.291,
+            "y": -0.581
+          },
+          {
+            "x": -0.611,
+            "y": -0.581
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-fire-board",
+        "vertices": [
+          {
+            "x": -0.581,
+            "y": -0.291
+          },
+          {
+            "x": -0.291,
+            "y": -0.291
+          },
+          {
+            "x": -0.291,
+            "y": -0.258
+          },
+          {
+            "x": -0.581,
+            "y": -0.258
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-full-fill-insulation",
+        "vertices": [
+          {
+            "x": -0.581,
+            "y": -0.245
+          },
+          {
+            "x": -0.291,
+            "y": -0.245
+          },
+          {
+            "x": -0.291,
+            "y": -0.107
+          },
+          {
+            "x": -0.581,
+            "y": -0.107
+          }
+        ]
+      }
+    ]
+  },
+  "tags": [
+    "nmb",
+    "column",
+    "corner",
+    "external-wall"
+  ]
+}

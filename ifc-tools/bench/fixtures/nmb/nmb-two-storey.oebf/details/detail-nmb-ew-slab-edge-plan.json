@@ -1,0 +1,158 @@
+{
+  "$schema": "oebf://schema/0.1/detail",
+  "id": "detail-nmb-ew-slab-edge-plan",
+  "type": "Detail",
+  "description": "External wall NMB-EW-01 at an internal CLT wall, plan at the floor edge. NMB Details v1.0 (2023), pp. 30-31. Vertical cavity barrier aligned with the internal compartmentation, full fill insulation between studs over the party wall.",
+  "condition": {
+    "rule": "butt",
+    "member_count": 2,
+    "member_kinds": [
+      "wall",
+      "wall"
+    ]
+  },
+  "members": [
+    {
+      "role": "through-wall",
+      "kind": "wall",
+      "profile_id": "profile-nmb-ew-01-gf",
+      "placement": {
+        "offset_x_m": 0.0,
+        "offset_y_m": 0.0,
+        "rotation_deg": 0
+      }
+    },
+    {
+      "role": "internal-wall",
+      "kind": "wall",
+      "profile_id": "profile-nmb-iw-01-a",
+      "placement": {
+        "offset_x_m": 0.0,
+        "offset_y_m": -0.291,
+        "rotation_deg": 90
+      },
+      "extent": "backward"
+    }
+  ],
+  "datum": {
+    "kind": "storey",
+    "reference": "elevation"
+  },
+  "plane": "plan",
+  "view_direction": "along_path",
+  "geometry": {
+    "extrusion_m": 0.3,
+    "regions": [
+      {
+        "material_id": "mat-nmb-cavity-barrier-vertical",
+        "vertices": [
+          {
+            "x": -0.046,
+            "y": -0.094
+          },
+          {
+            "x": 0.042,
+            "y": -0.094
+          },
+          {
+            "x": 0.042,
+            "y": 0.25
+          },
+          {
+            "x": -0.046,
+            "y": 0.25
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-full-fill-insulation",
+        "vertices": [
+          {
+            "x": -0.331,
+            "y": -0.246
+          },
+          {
+            "x": 0.349,
+            "y": -0.246
+          },
+          {
+            "x": 0.349,
+            "y": -0.107
+          },
+          {
+            "x": -0.331,
+            "y": -0.107
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-linear-firestop",
+        "vertices": [
+          {
+            "x": -0.042,
+            "y": -0.291
+          },
+          {
+            "x": 0.042,
+            "y": -0.291
+          },
+          {
+            "x": 0.042,
+            "y": -0.258
+          },
+          {
+            "x": -0.042,
+            "y": -0.258
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-gap-sealer",
+        "vertices": [
+          {
+            "x": -0.113,
+            "y": -0.306
+          },
+          {
+            "x": -0.098,
+            "y": -0.306
+          },
+          {
+            "x": -0.098,
+            "y": -0.291
+          },
+          {
+            "x": -0.113,
+            "y": -0.291
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-gap-sealer",
+        "vertices": [
+          {
+            "x": 0.098,
+            "y": -0.306
+          },
+          {
+            "x": 0.113,
+            "y": -0.306
+          },
+          {
+            "x": 0.113,
+            "y": -0.291
+          },
+          {
+            "x": 0.098,
+            "y": -0.291
+          }
+        ]
+      }
+    ]
+  },
+  "tags": [
+    "nmb",
+    "slab-edge",
+    "external-wall"
+  ]
+}

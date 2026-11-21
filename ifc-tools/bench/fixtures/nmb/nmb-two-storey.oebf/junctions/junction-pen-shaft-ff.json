@@ -1,0 +1,25 @@
+{
+  "$schema": "oebf://schema/0.1/junction",
+  "id": "junction-pen-shaft-ff",
+  "type": "Junction",
+  "description": "Riser wall through the first floor",
+  "elements": [
+    "element-wall-shaft-ff",
+    "element-wall-shaft-gf"
+  ],
+  "detail_id": "detail-nmb-penetration-shaft-section",
+  "location": {
+    "grid_id": "grid-secondary",
+    "axes": [
+      "1-2",
+      "M-B"
+    ],
+    "level_id": "storey-ff",
+    "level_offset_m": 0.0
+  },
+  "rule": "butt",
+  "priority": [
+    "element-wall-shaft-ff"
+  ],
+  "trim_method": "none"
+}

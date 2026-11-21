@@ -1,0 +1,19 @@
+{
+  "$schema": "oebf://schema/0.1/element",
+  "id": "element-wall-shaft-gf",
+  "type": "Element",
+  "description": "Riser wall, GF (NMB-IW-05-A)",
+  "ifc_type": "IfcWall",
+  "path_id": "path-wall-shaft-gf",
+  "profile_id": "profile-nmb-iw-05-a",
+  "sweep_mode": "perpendicular",
+  "cap_start": "flat",
+  "cap_end": "flat",
+  "start_offset": 0.0,
+  "end_offset": 0.291,
+  "parent_group_id": "storey-gf",
+  "properties": {
+    "nmb_wall_type": "NMB-IW-05-A",
+    "fire_rating": "K2 60 + REI 60"
+  }
+}

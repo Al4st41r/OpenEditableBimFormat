@@ -1,0 +1,315 @@
+{
+  "$schema": "oebf://schema/0.1/detail",
+  "id": "detail-nmb-ew-column-section",
+  "type": "Detail",
+  "description": "External wall NMB-EW-01 at a glulam column and party floor, section. NMB Details v1.0 (2023), pp. 32-33. The column sits inside the light steel frame, encapsulated outside with fire board (346) and inside with two layers of wall lining board (311). End-grain sealer to all column and slab edges (not drawn).",
+  "condition": {
+    "rule": "butt",
+    "member_count": 3,
+    "member_kinds": [
+      "wall",
+      "column",
+      "slab"
+    ]
+  },
+  "members": [
+    {
+      "role": "through-wall",
+      "kind": "wall",
+      "profile_id": "profile-nmb-ew-01-gf",
+      "placement": {
+        "offset_x_m": 0.0,
+        "offset_y_m": 0.0,
+        "rotation_deg": 0
+      }
+    },
+    {
+      "role": "column",
+      "kind": "column",
+      "profile_id": "profile-nmb-glulam-column",
+      "placement": {
+        "offset_x_m": 0.436,
+        "offset_y_m": 0.0,
+        "rotation_deg": 0
+      }
+    },
+    {
+      "role": "floor",
+      "kind": "slab",
+      "profile_id": "profile-nmb-fl-01",
+      "placement": {
+        "offset_x_m": 0.614,
+        "offset_y_m": 0.0,
+        "rotation_deg": 0
+      }
+    }
+  ],
+  "datum": {
+    "kind": "storey",
+    "reference": "elevation"
+  },
+  "plane": "section",
+  "view_direction": "across_path",
+  "geometry": {
+    "extrusion_m": 1.0,
+    "regions": [
+      {
+        "material_id": "mat-nmb-glulam",
+        "vertices": [
+          {
+            "x": 0.288,
+            "y": -0.7
+          },
+          {
+            "x": 0.584,
+            "y": -0.7
+          },
+          {
+            "x": 0.584,
+            "y": 0.5
+          },
+          {
+            "x": 0.288,
+            "y": 0.5
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-wall-lining-board",
+        "vertices": [
+          {
+            "x": 0.584,
+            "y": -0.7
+          },
+          {
+            "x": 0.614,
+            "y": -0.7
+          },
+          {
+            "x": 0.614,
+            "y": 0.5
+          },
+          {
+            "x": 0.584,
+            "y": 0.5
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-fire-board",
+        "vertices": [
+          {
+            "x": 0.258,
+            "y": -0.7
+          },
+          {
+            "x": 0.288,
+            "y": -0.7
+          },
+          {
+            "x": 0.288,
+            "y": 0.5
+          },
+          {
+            "x": 0.258,
+            "y": 0.5
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-cavity-barrier-horizontal",
+        "vertices": [
+          {
+            "x": -0.231,
+            "y": -0.17
+          },
+          {
+            "x": 0.094,
+            "y": -0.17
+          },
+          {
+            "x": 0.094,
+            "y": -0.084
+          },
+          {
+            "x": -0.231,
+            "y": -0.084
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-full-fill-insulation",
+        "vertices": [
+          {
+            "x": 0.107,
+            "y": -0.482
+          },
+          {
+            "x": 0.245,
+            "y": -0.482
+          },
+          {
+            "x": 0.245,
+            "y": 0.07
+          },
+          {
+            "x": 0.107,
+            "y": 0.07
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-floor-finish",
+        "vertices": [
+          {
+            "x": 0.614,
+            "y": -0.02
+          },
+          {
+            "x": 1.05,
+            "y": -0.02
+          },
+          {
+            "x": 1.05,
+            "y": 0.0
+          },
+          {
+            "x": 0.614,
+            "y": 0.0
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-screedboard",
+        "vertices": [
+          {
+            "x": 0.614,
+            "y": -0.04
+          },
+          {
+            "x": 1.05,
+            "y": -0.04
+          },
+          {
+            "x": 1.05,
+            "y": -0.02
+          },
+          {
+            "x": 0.614,
+            "y": -0.02
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-ufh-insulation",
+        "vertices": [
+          {
+            "x": 0.614,
+            "y": -0.075
+          },
+          {
+            "x": 1.05,
+            "y": -0.075
+          },
+          {
+            "x": 1.05,
+            "y": -0.04
+          },
+          {
+            "x": 0.614,
+            "y": -0.04
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-acoustic-matting",
+        "vertices": [
+          {
+            "x": 0.614,
+            "y": -0.083
+          },
+          {
+            "x": 1.05,
+            "y": -0.083
+          },
+          {
+            "x": 1.05,
+            "y": -0.075
+          },
+          {
+            "x": 0.614,
+            "y": -0.075
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-clt",
+        "vertices": [
+          {
+            "x": 0.614,
+            "y": -0.223
+          },
+          {
+            "x": 1.05,
+            "y": -0.223
+          },
+          {
+            "x": 1.05,
+            "y": -0.083
+          },
+          {
+            "x": 0.614,
+            "y": -0.083
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-wall-lining-board",
+        "vertices": [
+          {
+            "x": 0.614,
+            "y": -0.253
+          },
+          {
+            "x": 1.05,
+            "y": -0.253
+          },
+          {
+            "x": 1.05,
+            "y": -0.223
+          },
+          {
+            "x": 0.614,
+            "y": -0.223
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-acoustic-strip",
+        "vertices": [
+          {
+            "x": 0.614,
+            "y": -0.083
+          },
+          {
+            "x": 0.624,
+            "y": -0.083
+          },
+          {
+            "x": 0.624,
+            "y": 0.0
+          },
+          {
+            "x": 0.614,
+            "y": 0.0
+          }
+        ]
+      }
+    ]
+  },
+  "tags": [
+    "nmb",
+    "column",
+    "external-wall"
+  ]
+}

@@ -5,7 +5,8 @@ import json
 from collections import defaultdict
 from pathlib import Path
 
-from .tasks import TASKS
+from . import fixtures as FX
+from .tasks import suite_tasks
 
 
 def load(path):
@@ -59,7 +60,8 @@ def markdown(path) -> str:
     combos = sorted({(m, f) for _, m, f in cells})
     lines += ["", "## Correct After Repair, by Task", "", "| Task | " + " | ".join(f"{m} {f.upper()}" for m, f in combos) + " |",
               "|---|" + "---|" * len(combos)]
-    for t in TASKS:
+    FX.use(recs[0].get("suite", "terraced-house"))
+    for t in suite_tasks():
         row = [f"{c[1]}/{c[0]}" if (c := cells.get((t.id, m, f))) else "-" for m, f in combos]
         lines.append(f"| {t.id} {t.kind} | " + " | ".join(row) + " |")
     lines += ["", "## Failures", ""]

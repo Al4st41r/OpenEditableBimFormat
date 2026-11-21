@@ -1,0 +1,19 @@
+{
+  "$schema": "oebf://schema/0.1/slab",
+  "id": "slab-gf-insulation",
+  "type": "Slab",
+  "description": "NMB-FL-02: rigid closed cell insulation, 205 mm",
+  "ifc_type": "IfcSlab",
+  "boundary_path_id": "path-slab-perimeter",
+  "thickness_m": 0.205,
+  "material_id": "mat-nmb-ground-insulation",
+  "elevation_m": -0.37,
+  "parent_group_id": "storey-gf",
+  "properties": {
+    "slab_type": "INSULATION"
+  },
+  "tags": [
+    "slab",
+    "nmb"
+  ]
+}

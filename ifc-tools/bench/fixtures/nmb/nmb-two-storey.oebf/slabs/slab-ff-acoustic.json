@@ -1,0 +1,19 @@
+{
+  "$schema": "oebf://schema/0.1/slab",
+  "id": "slab-ff-acoustic",
+  "type": "Slab",
+  "description": "NMB-FL-01: acoustic matting, 8 mm",
+  "ifc_type": "IfcSlab",
+  "boundary_path_id": "path-slab-perimeter",
+  "thickness_m": 0.008,
+  "material_id": "mat-nmb-acoustic-matting",
+  "elevation_m": 2.925,
+  "parent_group_id": "storey-ff",
+  "properties": {
+    "slab_type": "ACOUSTIC"
+  },
+  "tags": [
+    "slab",
+    "nmb"
+  ]
+}

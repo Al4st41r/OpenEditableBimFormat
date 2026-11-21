@@ -1,0 +1,199 @@
+{
+  "$schema": "oebf://schema/0.1/detail",
+  "id": "detail-nmb-balcony-door-plan",
+  "type": "Detail",
+  "description": "External balcony door threshold in NMB-EW-01, plan. NMB Details v1.0 (2023), pp. 90-91. Cavity barriers around the door coordinated with the primary bracket barriers for a continuous line of compartmentation. Balcony bracketry coordinated with door openings and facade connectors.",
+  "condition": {
+    "rule": "butt",
+    "member_count": 2,
+    "member_kinds": [
+      "wall",
+      "slab"
+    ]
+  },
+  "members": [
+    {
+      "role": "through-wall",
+      "kind": "wall",
+      "profile_id": "profile-nmb-ew-01-gf",
+      "placement": {
+        "offset_x_m": 0.0,
+        "offset_y_m": 0.0,
+        "rotation_deg": 0
+      }
+    },
+    {
+      "role": "floor",
+      "kind": "slab",
+      "profile_id": "profile-nmb-fl-01",
+      "placement": {
+        "offset_x_m": 0.0,
+        "offset_y_m": -0.8,
+        "rotation_deg": 0
+      }
+    }
+  ],
+  "datum": {
+    "kind": "storey",
+    "reference": "elevation"
+  },
+  "plane": "plan",
+  "view_direction": "along_path",
+  "geometry": {
+    "extrusion_m": 0.3,
+    "regions": [
+      {
+        "material_id": "mat-nmb-cavity-barrier-window",
+        "vertices": [
+          {
+            "x": -0.55,
+            "y": -0.062
+          },
+          {
+            "x": -0.47,
+            "y": -0.062
+          },
+          {
+            "x": -0.47,
+            "y": 0.27
+          },
+          {
+            "x": -0.55,
+            "y": 0.27
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-cavity-barrier-window",
+        "vertices": [
+          {
+            "x": 0.47,
+            "y": -0.062
+          },
+          {
+            "x": 0.55,
+            "y": -0.062
+          },
+          {
+            "x": 0.55,
+            "y": 0.27
+          },
+          {
+            "x": 0.47,
+            "y": 0.27
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-window-frame",
+        "vertices": [
+          {
+            "x": -0.47,
+            "y": -0.04
+          },
+          {
+            "x": 0.47,
+            "y": -0.04
+          },
+          {
+            "x": 0.47,
+            "y": 0.04
+          },
+          {
+            "x": -0.47,
+            "y": 0.04
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-epdm",
+        "vertices": [
+          {
+            "x": -0.47,
+            "y": 0.1
+          },
+          {
+            "x": -0.465,
+            "y": 0.1
+          },
+          {
+            "x": -0.465,
+            "y": 0.291
+          },
+          {
+            "x": -0.47,
+            "y": 0.291
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-epdm",
+        "vertices": [
+          {
+            "x": 0.465,
+            "y": 0.1
+          },
+          {
+            "x": 0.47,
+            "y": 0.1
+          },
+          {
+            "x": 0.47,
+            "y": 0.291
+          },
+          {
+            "x": 0.465,
+            "y": 0.291
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-balcony-connection",
+        "vertices": [
+          {
+            "x": -0.3,
+            "y": -0.3
+          },
+          {
+            "x": -0.2,
+            "y": -0.3
+          },
+          {
+            "x": -0.2,
+            "y": -0.19
+          },
+          {
+            "x": -0.3,
+            "y": -0.19
+          }
+        ]
+      },
+      {
+        "material_id": "mat-nmb-balcony-connection",
+        "vertices": [
+          {
+            "x": 0.2,
+            "y": -0.3
+          },
+          {
+            "x": 0.3,
+            "y": -0.3
+          },
+          {
+            "x": 0.3,
+            "y": -0.19
+          },
+          {
+            "x": 0.2,
+            "y": -0.19
+          }
+        ]
+      }
+    ]
+  },
+  "tags": [
+    "nmb",
+    "balcony",
+    "door"
+  ]
+}

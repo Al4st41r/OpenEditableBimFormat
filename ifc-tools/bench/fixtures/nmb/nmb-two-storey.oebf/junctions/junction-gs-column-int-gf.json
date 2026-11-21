@@ -1,0 +1,25 @@
+{
+  "$schema": "oebf://schema/0.1/junction",
+  "id": "junction-gs-column-int-gf",
+  "type": "Junction",
+  "description": "Interior glulam column on its upstand, bay 3-4 at mid-depth",
+  "elements": [
+    "element-column-int-gf",
+    "element-upstand-column-int"
+  ],
+  "detail_id": "detail-nmb-gs-glulam-column-section",
+  "location": {
+    "grid_id": "grid-secondary",
+    "axes": [
+      "3-4",
+      "A-B"
+    ],
+    "level_id": "storey-gf",
+    "level_offset_m": 0.0
+  },
+  "rule": "butt",
+  "priority": [
+    "element-column-int-gf"
+  ],
+  "trim_method": "none"
+}

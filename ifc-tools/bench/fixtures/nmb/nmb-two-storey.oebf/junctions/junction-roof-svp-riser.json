@@ -1,0 +1,25 @@
+{
+  "$schema": "oebf://schema/0.1/junction",
+  "id": "junction-roof-svp-riser",
+  "type": "Junction",
+  "description": "Soil vent pipe through the roof in the riser",
+  "elements": [
+    "element-wall-shaft-ff",
+    "element-wall-shaft-gf"
+  ],
+  "detail_id": "detail-nmb-penetration-roof-svp-section",
+  "location": {
+    "grid_id": "grid-secondary",
+    "axes": [
+      "1-2",
+      "M-B"
+    ],
+    "level_id": "storey-roof",
+    "level_offset_m": 0.0
+  },
+  "rule": "butt",
+  "priority": [
+    "element-wall-shaft-ff"
+  ],
+  "trim_method": "none"
+}

@@ -1,0 +1,27 @@
+{
+  "$schema": "oebf://schema/0.1/path",
+  "id": "path-wall-clt-2-gf",
+  "type": "Path",
+  "description": "Internal CLT wall on grid line 2, ground floor",
+  "closed": false,
+  "segments": [
+    {
+      "type": "line",
+      "start": {
+        "x": 3.0,
+        "y": 0,
+        "z": 0.03
+      },
+      "end": {
+        "x": 3.0,
+        "y": 6.0,
+        "z": 0.03
+      }
+    }
+  ],
+  "tags": [
+    "internal",
+    "structure",
+    "gf"
+  ]
+}

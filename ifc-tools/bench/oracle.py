@@ -4,11 +4,11 @@ answer (tests/test_bench.py). A few IFC scripts too, for the IFC side of the pip
 import copy
 import json
 
-from .fixtures import OEBF, IFC
+from . import fixtures as FX
 
 
 def _j(rel):
-    return json.loads((OEBF / rel).read_text())
+    return json.loads((FX.OEBF / rel).read_text())
 
 
 def _w(rel, data):
@@ -151,7 +151,7 @@ OEBF_ORACLE = {f"T{i}": f for i, f in enumerate([t1, t2, t3, t4, t5, t6, t7, t8,
 
 def _ifc_line(pattern):
     import re
-    for ln in IFC.read_text().splitlines():
+    for ln in FX.IFC.read_text().splitlines():
         if re.search(pattern, ln):
             return ln
     raise KeyError(pattern)
@@ -160,7 +160,7 @@ def _ifc_line(pattern):
 def ifc_t3():
     """The north wall's Pset_WallCommon FireRating value, REI 60 -> REI 90. Found through the wall's psets."""
     import ifcopenshell, ifcopenshell.util.element as E
-    f = ifcopenshell.open(str(IFC))
+    f = ifcopenshell.open(str(FX.IFC))
     wall = next(w for w in f.by_type("IfcWall") if "North" in w.Name)
     pid = E.get_psets(wall)["Pset_WallCommon"]["id"]
     prop = next(p for p in f.by_id(pid).HasProperties if p.Name == "FireRating")
@@ -171,7 +171,7 @@ def ifc_t3():
 def ifc_t5():
     """Delete the fasteners, their placements and shapes, and take them out of the storey's containment."""
     import ifcopenshell
-    f = ifcopenshell.open(str(IFC))
+    f = ifcopenshell.open(str(FX.IFC))
     ties = f.by_type("IfcMechanicalFastener")
     tie_ids = {t.id() for t in ties}
     delete = set(tie_ids)
@@ -202,7 +202,7 @@ def as_patch(script: dict) -> dict:
     import jsonpatch
     patch, write = [], []
     for w in script["write"]:
-        src = OEBF / w["path"]
+        src = FX.OEBF / w["path"]
         if src.exists():
             ops = jsonpatch.make_patch(json.loads(src.read_text()), json.loads(w["content"])).patch
             ops = [{**op, **({"value": json.dumps(op["value"], ensure_ascii=False)} if "value" in op else {})} for op in ops]

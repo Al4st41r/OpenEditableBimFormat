@@ -1,0 +1,19 @@
+{
+  "$schema": "oebf://schema/0.1/element",
+  "id": "element-column-int-gf",
+  "type": "Element",
+  "description": "Glulam column int, GF (303)",
+  "ifc_type": "IfcColumn",
+  "path_id": "path-column-int-gf",
+  "profile_id": "profile-nmb-glulam-column-gf",
+  "sweep_mode": "perpendicular",
+  "cap_start": "flat",
+  "cap_end": "flat",
+  "start_offset": 0.0,
+  "end_offset": 0.0,
+  "parent_group_id": "storey-gf",
+  "properties": {
+    "load_bearing": true,
+    "material": "glulam"
+  }
+}
