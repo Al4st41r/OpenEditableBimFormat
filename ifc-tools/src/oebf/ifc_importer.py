@@ -12,6 +12,7 @@ import ifcopenshell.util.placement
 
 from . import ifc_reconstruct as rebuild
 from . import ifc_shapes as shapes
+from . import wall_top
 
 
 IFC_TO_OEBF = {
@@ -451,9 +452,9 @@ def _process_element(entity, element_id, oebf_type, group_id, out_dir, rebuilt, 
     try:
         path_id = f"path-{element_id}"
         shape = _element_shape(entity)
-        segments, angled, height = shape["segments"], {}, shape.get("height")
+        segments, angled, height, tops = shape["segments"], {}, shape.get("height"), []
         if not shape.get("stub") and not shape.get("regions"):
-            segments, angled, boxes, notes, height = shapes.clip_path(entity, segments, height, shape.get("thickness"))
+            segments, angled, boxes, notes, height, tops = shapes.clip_path(entity, segments, height, shape.get("thickness"))
             for note in notes:
                 print(f"  Warning: {_label(entity)}: {note}")
             if boxes and cut_boxes is not None:
@@ -494,6 +495,9 @@ def _process_element(entity, element_id, oebf_type, group_id, out_dir, rebuilt, 
         for end in ("start", "end"):
             if end in angled:
                 elem_data[f"cap_{end}_angle_deg"] = angled[end]
+        if tops:   # sloping clips across the top (#187)
+            first, last = tuple(segments[0]["start"]), tuple(segments[-1]["end"])
+            elem_data["top"] = wall_top.to_json(tops, first, last, len(segments) == 1 and segments[0]["type"] == "line")
         (out_dir / "elements" / f"{element_id}.json").write_text(json.dumps(elem_data, indent=2))
         return element_id
     except Exception as exc:

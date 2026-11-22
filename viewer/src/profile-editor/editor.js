@@ -715,17 +715,18 @@ function _renderCanvas() {
 }
 
 /**
- * A face-aligned (stacked) slab is drawn as bands in its own y-down frame, so a region drawn there would get top-down
- * coordinates that the format does not define (#188). The region tools are off on it, with the reason as their title.
+ * The region tools' titles. On a face-aligned (stacked) slab a region's y runs from the origin face into the slab,
+ * down from a top face and up from a bottom face (#195); the titles say so. (Before #195 the tools were off there.)
  */
 const REGION_TOOLS = [['tool-rect-btn', 'Draw a rectangular region'], ['tool-poly-btn', 'Draw a polygon region']];
 function _syncRegionTools() {
   const stacked = isStackedProfile(profileType, alignment);
+  const frame = alignment === 'bottom-face' ? 'y up from the bottom face' : 'y down from the top face';
   for (const [id, title] of REGION_TOOLS) {
     const btn = document.getElementById(id);
     if (!btn) continue;
-    btn.disabled = stacked;
-    btn.title = stacked ? 'Regions cannot be drawn on a stacked slab (top-face or bottom-face): its view shows bands only. Use the Centre alignment to draw regions.' : title;
+    btn.disabled = false;
+    btn.title = stacked ? `${title} (${frame}, x from the left edge)` : title;
   }
 }
 

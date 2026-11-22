@@ -27,6 +27,8 @@ Read this before editing any file in this bundle. Every 3D element sweeps a
 
 **Profile height.** A wall profile's band layers rise from the path to `height_limit_m` (metres). Without it, or at 0, they are 2.7 m tall. Give each wall of another height its own profile: the NMB example's parapet profile has `"height_limit_m": 0.66` and its upstands 0.14. An IFC import writes each wall's height here. Region layers are drawn at their own vertices and ignore it, except that a region repeating up the profile (`repeat_y_m`, below) stops at the last whole row below it.
 
+**Regions on a slab profile aligned to a face.** On a slab profile with `"alignment": "top-face"` or `"bottom-face"` the bands stack from that face, and a region layer is measured the same way: `y` runs from the origin face into the slab (down from a top face, up from a bottom face) and `x` from the left edge of the plan width (`width`). A batten zone 50 mm deep under a top-face deck 150 mm thick runs from `y` 0.15 to 0.2. The profile editor draws and saves these regions; the 3D view and the detail drawings do not draw them yet.
+
 **Repeating units (optional).** A detail region may repeat one drawn unit, such as a brick or a tile. The region's vertices draw one unit. Add `repeat_x_m` or `repeat_y_m` (the pitch, in metres) with `count_x` or `count_y` (how many). `stagger_x_m` shifts every second row for a bond (half the pitch gives a half-bond). `depth_m` states the unit's size along the repeat axis and is checked against the drawing to within 1 mm. A brick 210 mm long on a 220 mm pitch leaves a 10 mm joint; a tile 90 mm deep on a 98 mm pitch leaves 8 mm. The pitch must be at least the unit's size, or `oebf validate` reports an overlap. The gap is empty. A profile region layer (`"type": "region"`) repeats too, with its own fields: its vertices draw one unit's cross-section, `depth_m` is the unit's length along the run and `repeat_x_m` its pitch along the run (give both), `repeat_y_m` repeats rows up the profile, `offset_x_m` shifts every second row along the run for a bond, and `offset_y_m` lifts the first row. `repeat_x_m` must be at least `depth_m` and `repeat_y_m` at least the unit's height, or `oebf validate` reports an overlap; repeat fields on a band layer are reported too, as a band ignores them. In a section the units along the run are centred on the cut; a unit wholly beyond the cut is drawn as a seen line. The example's `profiles/profile-brick-leaf-coursed.json` (a brick leaf in stretcher bond) and `profiles/profile-block-leaf-coursed.json` are drawn in `details/detail-wall-cavity-section.json`, where every second course is cut through a joint and shows the unit beyond. The main 3D model draws a repeating layer as units in courses: the first unit of the bottom row starts at the path start, every second row is shifted by `offset_x_m`, units are cut at the path ends and split at path corners, and rows go up while a whole row fits under the profile height (`height_limit_m`, else 2.7 m). Openings cut through the units and junction trims clip them like any layer. A path that is vertical, or an element swept `fixed` or `twisted`, sweeps the unit's cross-section along the whole run instead, as does a layer of more than 20,000 units.
 
 **Classification tags (optional).** A material may carry `classification` and an assembly layer or detail region may carry `tags`, with the same six fields: `package` (groundworks, concrete, timber-frame, cladding, interiors, mep or other), `barrier` (a list from air, water, vapour, breathable), `fire_role` (firestop, cavity-barrier or fire-rated), `sequence` (a whole number from 1 to 99; 1 is installed first, and only the order matters) `shearing_layer` (site, structure, skin, services, space-plan or stuff) and `sfb` (a CI/SfB element code in brackets, such as `(21)` external walls, `(27)` roofs or `(43)` floor finishes; the overlay groups by the first digit). The tags on a layer or region override the material's, field by field. The detail review view colours the drawing by them. Reaction class and rating stay in `properties.fire`.
@@ -199,6 +201,15 @@ How the optional sweep fields behave:
   the end face, which pivots on the path (between -90 and 90; absent or 0 is square).
 - `start_offset` / `end_offset`: metres removed from that end of the path
   (negative values extend it). Offsets that would remove the whole path are ignored.
+- `top` (optional): a sloping top, for a gable, a wall under a mono-pitch roof or a raking
+  parapet. `{"type": "plane", "height_at_start_m": 2.4, "height_at_end_m": 5.1}` gives the
+  height in metres above the path's first and last points; the top runs straight between
+  them and is level across the wall. For any other plane give a point on it and its normal,
+  in model coordinates: `{"type": "plane", "point": {"x": 0, "y": 0, "z": 2.4}, "normal":
+  {"x": -0.45, "y": 0, "z": 0.89}}`. A list of planes gives a gable: the lowest plane wins at
+  each point, so two planes that cross over the wall make a ridge there. When `top` is
+  present it sets the wall's height and may rise above the profile's `height_limit_m`. To
+  lower the eaves of a mono-pitch wall to 2.2 m, change `height_at_start_m` to 2.2.
 
 
 **Step 3.** Register in `model.json`:
@@ -855,7 +866,9 @@ else from a footprint made of two parallel runs joined by straight ends (an L, a
 several legs, or a curve, which gives an arc), converted from the file's length unit to metres.
 A body that is a mapped item is read through its mapping; a boolean result is read from its
 first operand, a vertical clipping plane across an end trims the path there (an end cut at
-an angle gets `cap_*: "angled"`), and a box cut out of the wall becomes an `Opening`. Any
+an angle gets `cap_*: "angled"`), a level clip across the top sets the wall's height, a
+sloping clip across the top becomes the element's `top` (one plane per clip), and a box cut
+out of the wall becomes an `Opening`. Any
 other body (a BREP or a face set) is stood in for by its plan bounding box, with a warning.
 A beam or column swept from a section that is not a rectangle (I, T, L, U, C, circle,
 ellipse, hollow, polygon) gets a profile of `region` layers, cut into convex pieces; a
@@ -873,8 +886,8 @@ An `IfcOpeningElement` that voids an imported wall becomes an `Opening` (positio
 sill read from its box), and the `IfcDoor` or `IfcWindow` that fills it becomes an `Object` with a box
 `Symbol` of its size. A door or window in no opening hangs on the wall it stands in, as an
 `Object` with `base_height_m` and no `opening_id`; one that stands in no imported wall is
-skipped with a warning. Clips across the top or at a slope, and shapes the import cannot read,
-are left out with a warning. Geometry edited in another tool is not read back when the OEBF record is present; the
+skipped with a warning. A clip bounded to part of the wall, a sloping clip that removes the
+bottom, and shapes the import cannot read, are left out with a warning. Geometry edited in another tool is not read back when the OEBF record is present; the
 import says when an element was moved there.
 
 ### Mapping to IFC classes and property sets (`ifc/mapping.json`)

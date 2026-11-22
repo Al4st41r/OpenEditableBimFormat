@@ -214,21 +214,7 @@ export function renderCanvas(svgEl, layers, originX, matMap, selectedIndex = nul
   layers.forEach((layer, i) => {
     const colour = fill2d(matMap[layer.material_id], matMap[layer.material_id]?.colour_hex ?? '#888888');
 
-    if (layer.type === 'region' && Array.isArray(layer.vertices) && layer.vertices.length >= 3) {
-      _drawRepeat(svgEl, layer, colour);
-      const poly = document.createElementNS(SVG_NS, 'polygon');
-      poly.setAttribute('points', _pts(svgEl, layer.vertices));
-      poly.setAttribute('fill', colour);
-      poly.setAttribute('pointer-events', 'all');   // air has no fill but is still picked by clicking inside it
-      poly.setAttribute('stroke', i === selectedIndex ? '#0080ff' : '#333');
-      _stroke(poly, opts, i, '0.003');
-      poly.style.cursor = 'pointer';
-      poly.addEventListener('click', () => {
-        svgEl.dispatchEvent(new CustomEvent('layer-selected', { detail: { index: i } }));
-      });
-      svgEl.appendChild(poly);
-      return;
-    }
+    if (layer.type === 'region') { _drawRegion(svgEl, layer, i, matMap, selectedIndex, opts); return; }
 
     // Band layer (rect) — existing code
     const rect = document.createElementNS(SVG_NS, 'rect');
@@ -311,17 +297,39 @@ export function renderCanvas(svgEl, layers, originX, matMap, selectedIndex = nul
 
 /**
  * A face-aligned slab profile: layers as horizontal bands across the plan width, layer 1 at the top (alignment
- * top-face) or the bottom (bottom-face). opts: { planWidth, alignment }.
+ * top-face) or the bottom (bottom-face). Profile y runs from the origin face into the slab (#195): down from a top
+ * face (a y-down canvas), up from a bottom face (a y-up canvas, as a wall's). Region layers are drawn in that frame,
+ * x from the left edge of the plan width. opts: { planWidth, alignment }.
  */
+/** A region layer as a polygon (and its repeats), in the canvas's frame (svgY); nothing for fewer than 3 vertices. */
+function _drawRegion(svgEl, layer, i, matMap, selectedIndex, opts) {
+  if (!Array.isArray(layer.vertices) || layer.vertices.length < 3) return;
+  const colour = fill2d(matMap[layer.material_id], matMap[layer.material_id]?.colour_hex ?? '#888888');
+  _drawRepeat(svgEl, layer, colour);
+  const poly = document.createElementNS(SVG_NS, 'polygon');
+  poly.setAttribute('points', _pts(svgEl, layer.vertices));
+  poly.setAttribute('fill', colour);
+  poly.setAttribute('pointer-events', 'all');   // air has no fill but is still picked by clicking inside it
+  poly.setAttribute('stroke', i === selectedIndex ? '#0080ff' : '#333');
+  _stroke(poly, opts, i, '0.003');
+  poly.style.cursor = 'pointer';
+  poly.addEventListener('click', () => {
+    svgEl.dispatchEvent(new CustomEvent('layer-selected', { detail: { index: i } }));
+  });
+  svgEl.appendChild(poly);
+}
+
 function _renderStacked(svgEl, layers, originX, matMap, selectedIndex, opts) {
   const W = opts.planWidth > 0 ? opts.planWidth : 1;
   const bands = layers.map((layer, index) => ({ layer, index })).filter(({ layer }) => layer.type !== 'region');
   const total = Math.round(bands.reduce((s, { layer }) => s + (layer.thickness ?? 0), 0) * 1e6) / 1e6 || 0.1;
-  _applyView(svgEl, W, total, false);
+  const up = opts.alignment === 'bottom-face';
+  _applyView(svgEl, W, total, up);
   let cursor = 0;
   for (const { layer, index } of bands) {
     const t = Math.round((layer.thickness ?? 0) * 1e6) / 1e6;
-    const y = opts.alignment === 'bottom-face' ? Math.round((total - cursor - t) * 1e6) / 1e6 : Math.round(cursor * 1e6) / 1e6;
+    // the rect's top edge in SVG: the band's near face on a y-down canvas, its far face on a y-up one
+    const y = svgY(svgEl, Math.round((up ? cursor + t : cursor) * 1e6) / 1e6);
     const rect = document.createElementNS(SVG_NS, 'rect');
     rect.setAttribute('x', '0'); rect.setAttribute('y', String(y));
     rect.setAttribute('width', String(W)); rect.setAttribute('height', String(t));
@@ -336,9 +344,12 @@ function _renderStacked(svgEl, layers, originX, matMap, selectedIndex, opts) {
     svgEl.appendChild(rect);
     cursor = Math.round((cursor + t) * 1e6) / 1e6;
   }
+  layers.forEach((layer, i) => {
+    if (layer.type === 'region') _drawRegion(svgEl, layer, i, matMap, selectedIndex, opts);
+  });
   _drawMembranes(svgEl, layers, matMap, selectedIndex, opts, { stacked: true, alignment: opts.alignment, planWidth: W });
   const cx = Math.max(0, Math.min(originX, W));
-  const cy = opts.alignment === 'bottom-face' ? total : 0;
+  const cy = 0;
   const line = document.createElementNS(SVG_NS, 'line');
   line.setAttribute('x1', String(cx)); line.setAttribute('x2', String(cx));
   line.setAttribute('y1', String(cy - total * 0.1)); line.setAttribute('y2', String(cy + total * 0.1));

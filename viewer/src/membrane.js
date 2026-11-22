@@ -57,19 +57,17 @@ const r6 = (x) => Math.round(x * 1e6) / 1e6;
  * @param {Array<object>} layers - profile assembly layers
  * @param {object} matMap - material id -> material
  * @param {{ stacked?: boolean, alignment?: string, planWidth?: number, wallHeight?: number }} [opts]
- *   stacked: a face-aligned slab profile, whose bands run across the canvas and whose regions are not drawn
- *   (see profileCanvas._renderStacked)
+ *   stacked: a face-aligned slab profile, whose bands run across the canvas, profile y measured from the origin face
+ *   into the slab (down from a top face, up from a bottom face; #195; see profileCanvas._renderStacked)
  * @returns {Array<{ index: number, closed: boolean, points: Array<{x:number,y:number}> }>}
  */
 export function profileMembraneMarks(layers, matMap = {}, { stacked = false, alignment, planWidth = 1, wallHeight = 2.7 } = {}) {
   const marks = [];
-  const bands = layers.filter((l) => l.type !== 'region');
-  const total = r6(bands.reduce((s, l) => s + (l.thickness ?? 0), 0));
   let cursor = 0;
   layers.forEach((layer, index) => {
     const membrane = isMembrane({ function: layer.function, material: matMap[layer.material_id] });
     if (layer.type === 'region') {
-      if (membrane && !stacked && Array.isArray(layer.vertices) && layer.vertices.length >= 3) {
+      if (membrane && Array.isArray(layer.vertices) && layer.vertices.length >= 3) {
         marks.push({ index, closed: true, points: layer.vertices.map((v) => ({ x: v.x, y: v.y })) });
       }
       return;
@@ -79,7 +77,7 @@ export function profileMembraneMarks(layers, matMap = {}, { stacked = false, ali
     cursor = r6(cursor + t);
     if (!membrane) return;
     if (stacked) {
-      const y = alignment === 'bottom-face' ? r6(total - mid) : mid;
+      const y = mid;
       marks.push({ index, closed: false, points: [{ x: 0, y }, { x: planWidth > 0 ? planWidth : 1, y }] });
     } else {
       marks.push({ index, closed: false, points: [{ x: mid, y: 0 }, { x: mid, y: wallHeight }] });

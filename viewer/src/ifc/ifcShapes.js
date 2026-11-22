@@ -1127,14 +1127,15 @@ export function endAngle(outward, removed) {
  * to where a vertical cut crosses the centreline (an oblique cut gives the end an angle), a level cut lowering the top
  * or raising the base. A polygonal-bounded half-space counts only where its boundary takes in the whole of the
  * wall's end (or, for a level cut, its whole plan), and one that misses the wall is ignored. A solid cut out of the
- * wall gives its world points in `boxes` (an opening made by a boolean). Returns {segments, angles, height, boxes,
- * notes}.
+ * wall gives its world points in `boxes` (an opening made by a boolean); an unbounded sloping cut removing the top
+ * is a sloping top, in `tops` (#187). Returns {segments, angles, height, boxes, notes, tops}.
  */
 export function clipPath(reader, items, segments, height, thickness = null) {
   segments = segments.map(s => ({ ...s, start: [...s.start], end: [...s.end], ...(s.mid ? { mid: [...s.mid] } : {}) }));
   const angles = {};
   const notes = [];
   const boxes = [];
+  const tops = [];   // sloping tops (#187): {point, n} in world coordinates, n up
   // the body's own cuts: not those of an Axis curve that comes first
   const solidItems = items.filter(i => !/CURVE$|^IFCPOLYLINE$/.test(i.item.type));
   const body = solidItems[0] ?? items[0];
@@ -1191,13 +1192,18 @@ export function clipPath(reader, items, segments, height, thickness = null) {
       }
       continue;
     }
-    if (Math.abs(removed[2]) > 0.01) { notes.push(`a sloping clip${bounded} was left out`); continue; }
+    if (Math.abs(removed[2]) > 0.01) {
+      // removes what is above, unbounded: a sloping top (#187), as ifc_shapes.clip_path
+      if (removed[2] > 0 && !inside) tops.push({ point, n: removed });
+      else notes.push(`a sloping clip${bounded} was left out`);
+      continue;
+    }
     const got = trimEnd(segments, point, removed, angles, inside, thickness, height);
     if (got === 'missed') continue;
     if (got === 'partial') notes.push(`a clip${bounded} was left out: its boundary takes in only part of the wall's end`);
     else if (!got) notes.push("a clip that does not cross the end of the wall's centreline was left out");
   }
-  return { segments, angles, height, boxes, notes };
+  return { segments, angles, height, boxes, notes, tops };
 }
 
 /** Cut the path where it crosses the plane, keeping the side away from `removed` (as ifc_shapes._trim). */

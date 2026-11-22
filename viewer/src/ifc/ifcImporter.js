@@ -17,6 +17,7 @@
  */
 
 import { parseStep } from './stepParser.js';
+import { topToJson } from '../geometry/wallTop.js';
 import {
   makeReader, bodyItems, sectionProfile, wallAxis, axisPath, clipPath, footprintAxis, meshAxis, meshPoints, boxAxis,
   slabOutline, bodyPoints, placeOnPath,
@@ -137,6 +138,10 @@ export async function importIfcText(text, adapter) {
         if (end in clipped.angles) { caps[`cap_${end}`] = 'angled'; caps[`cap_${end}_angle_deg`] = clipped.angles[end]; }
       }
       if (clipped.boxes.length) cuts.push({ elemId, boxes: clipped.boxes });
+      if (clipped.tops?.length) {   // sloping clips across the top (#187)
+        const straight = segments.length === 1 && segments[0].type === 'line';
+        caps.top = topToJson(clipped.tops, segments[0].start, segments.at(-1).end, straight);
+      }
       profileId = await profiles.band(reader, e, shape.thickness, clipped.height, addMaterial, shape.centred);
     }
     if (!profileId) profileId = await profiles.placeholder(addMaterial);

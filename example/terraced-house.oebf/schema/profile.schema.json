@@ -88,6 +88,7 @@
             "enum": ["band", "region"]
           },
           "vertices": {
+            "description": "Region layers: the outline in profile coordinates, metres. On a wall (or a centre-aligned slab) y is up from the path. On a slab aligned to a face (top-face or bottom-face) y runs from that face into the slab, down from a top face and up from a bottom face, and x from the left edge of the plan width (#195).",
             "type": "array",
             "items": {
               "type": "object",

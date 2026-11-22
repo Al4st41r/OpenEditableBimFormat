@@ -186,7 +186,10 @@ function regionShape(l, colour, height) {
   return `<polygon points="${vs.map((v) => `${r6(v.x)},${r6(height - v.y)}`).join(' ')}" ${paint}/>`;
 }
 
-/** Layers as horizontal bands: layer 1 at the top for top-face, at the bottom for bottom-face. */
+/**
+ * Layers as horizontal bands: layer 1 at the top for top-face, at the bottom for bottom-face. Region layers follow,
+ * their y measured from the origin face into the slab (#195): SVG y for a top face, total - y for a bottom face.
+ */
 function buildStackedSvg({ layers, originX, matMap, alignment, planWidth }) {
   const W = planWidth > 0 ? planWidth : 1;
   const bands = layers.filter((l) => l.type !== 'region');
@@ -200,6 +203,13 @@ function buildStackedSvg({ layers, originX, matMap, alignment, planWidth }) {
     rects += `  <!-- Layer ${i + 1}: ${l.name} -->\n`;
     rects += `  <rect x="0" y="${y}" width="${W}" height="${t}" fill="${colour}" stroke="#888" stroke-width="0.002"/>\n`;
     cursor = r6(cursor + t);
+  });
+  layers.forEach((l, i) => {
+    if (l.type !== 'region' || !Array.isArray(l.vertices) || l.vertices.length < 3) return;
+    const colour = fill2d(matMap[l.material_id], matMap[l.material_id]?.colour_hex ?? '#888888');
+    // regionShape draws (x, height - y): a top face's y runs down, so it is handed total - y
+    const shape = alignment === 'top-face' ? { ...l, vertices: l.vertices.map((v) => ({ x: v.x, y: r6(total - v.y) })) } : l;
+    rects += `  <!-- Layer ${i + 1}: ${l.name} -->\n  ${regionShape(shape, colour, total)}\n`;
   });
   const ox = r6(originX);
   const oy = alignment === 'top-face' ? 0 : total;

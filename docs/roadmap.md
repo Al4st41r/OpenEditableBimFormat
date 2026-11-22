@@ -67,7 +67,8 @@ Each milestone is a GitHub milestone; its open issues are the plan. Issues waiti
 - **Sheets with both views (#215):** the 2D drawing to scale beside the axonometric on one sheet.
 - **Geometry correctness:** one rule for `closed: true` paths in the viewer, the validator and the exporters (#214); no gap when a vertex lies on a cut plane (#211); capped junction cuts so meshes are closed (#213), which the quantities work in v0.6 needs.
 - **IFC export gaps (#202)** and **coursed T junctions (#201)**.
-- **Decisions needed:** membranes and tapes (#127), CI/SfB codes (#168), sloping wall tops (#187), stacked slab region frame (#195), whether an example uses coursed walls (#201).
+- **Sloping wall tops (#187, done 2026-11-22)** and **regions on face-aligned slab profiles (#195 phase 1, done)**; follow-ups #222 and #221.
+- **Decisions needed:** membranes and tapes (#127), CI/SfB codes (#168), whether an example uses coursed walls (#201).
 
 **Exit:** all v0.5 issues closed or moved; tag v0.5.0.
 

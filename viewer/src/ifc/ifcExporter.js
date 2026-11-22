@@ -7,6 +7,7 @@
  */
 
 import { planPieces, offsetChain, tangent, ringArea, reverseChain, endAngles, runOn, chordPieces } from './ifcWallPlan.js';
+import { topPlanes, insertTopBreaks, maxTopAbovePath } from '../geometry/wallTop.js';
 
 const WALL_HEIGHT = 2.7; // default wall height (metres)
 const dist2 = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
@@ -247,6 +248,27 @@ class IfcGen {
     return body;
   }
 
+  /**
+   * The body clipped by the half-space above each top plane (#187), after any angled-end clips. The world planes
+   * (wallTop.topPlanes) are turned into the element's frame: origin `o`, X along (tx, ty) in plan, Z up.
+   */
+  clipTop(body, tops, o, tx, ty) {
+    const local = (v) => [v[0] * tx + v[1] * ty, -v[0] * ty + v[1] * tx, v[2]];
+    for (const { point, n } of tops) {
+      const p = local([point[0] - o[0], point[1] - o[1], point[2] - o[2]]);
+      const nl = local(n);
+      // RefDirection: any direction in the plane
+      let ref = Math.abs(nl[2]) < 0.9 ? [nl[1], -nl[0], 0] : [0, nl[2], -nl[1]];
+      const k = Math.hypot(...ref);
+      ref = ref.map(v => v / k);
+      const plane = this._emit(this._id(), 'IFCPLANE',
+        this._ref(this.axis2place3d(this.pt3(...p), this.dir3(...nl), this.dir3(...ref))));
+      const half = this._emit(this._id(), 'IFCHALFSPACESOLID', this._ref(plane), '.F.');
+      body = this._emit(this._id(), 'IFCBOOLEANCLIPPINGRESULT', '.DIFFERENCE.', this._ref(body), this._ref(half));
+    }
+    return body;
+  }
+
   wall(elem, pathData, profile, matById, ctxId) {
     const pieces = planPieces(pathData);
     if (!pieces.length) {
@@ -256,8 +278,17 @@ class IfcGen {
     const angles = endAngles(elem);
 
     const totalWidth = profile?.assembly?.reduce((sum, l) => sum + l.thickness, 0) ?? 0.3;
-    const wallHeight = profile?.height_limit_m ?? WALL_HEIGHT;
+    let wallHeight   = profile?.height_limit_m ?? WALL_HEIGHT;
     const originX    = profile?.origin?.x ?? (totalWidth / 2);
+
+    // a sloping top (#187) sets the height: the body reaches its highest point and is clipped to it, as
+    // ifc_exporter._clip_top
+    const pts = [pieces[0].start, ...pieces.map(pc => pc.end)].map(([x, y, z]) => ({ x, y, z }));
+    const tops = topPlanes(elem.top, pts);
+    if (tops.length) {
+      const reach = Math.max(Math.abs(originX), Math.abs(totalWidth - originX));
+      wallHeight = Math.max(maxTopAbovePath(tops, insertTopBreaks(pts, tops), reach) + 0.01, 0.01);
+    }
 
     let lp, bodies, axisRep = null, clipped = false;
     if (pieces.length === 1 && pieces[0].type === 'line') {
@@ -266,6 +297,12 @@ class IfcGen {
       clipped = Object.keys(angles).length > 0;
     } else {
       ({ lp, bodies, axisRep, clipped } = this._footprintBody(elem, pathData, pieces, totalWidth, wallHeight, originX, angles));
+    }
+    if (tops.length) {
+      // every body's placement is in plan at the path's first point, X along its first tangent
+      const o = pieces[0].start, [tx, ty] = tangent(pieces[0], 'start');
+      bodies = bodies.map(b => this.clipTop(b, tops, o, tx, ty));
+      clipped = true;
     }
 
     // Shape representations: the body, and for a wall that is not one straight line its path as the Axis

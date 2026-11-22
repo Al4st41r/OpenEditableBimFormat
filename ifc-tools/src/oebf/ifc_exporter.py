@@ -18,6 +18,8 @@ from . import ifc_mapping
 from . import ifc_openings
 from .ifc_shapes import _circle_through, arc_points, section_frame
 import ifcopenshell.api.pset
+import ifcopenshell.util.placement
+from . import wall_top
 
 # Default wall height when the profile has no explicit height field
 WALL_HEIGHT = 2.7
@@ -114,13 +116,20 @@ def _export_element(ifc, oebf_dir, element_id, storey, body_context, mat_by_id, 
         total_width = sum(layer["thickness"] for layer in _band_layers(profile_data["assembly"]))
         origin_x = profile_data.get("origin", {}).get("x", total_width / 2)
         pieces = _plan_pieces(path_data)
+        height = _wall_height(profile_data)
+        tops = _top_planes(elem, path_data)
+        if tops:   # a sloping top (#187) sets the height: the body reaches its highest point and is clipped to it
+            pts = _path_points(path_data)
+            height = max(wall_top.max_above(tops, pts, max(origin_x, total_width - origin_x)) + 0.01, 0.01)
         if len(pieces) == 1 and pieces[0]["type"] == "line":
             _assign_body_geometry(ifc, entity, body_context,
-                                  start, tangent, path_length, total_width, origin_x, _wall_height(profile_data),
+                                  start, tangent, path_length, total_width, origin_x, height,
                                   _end_angles(elem))
         else:
             _assign_footprint_body(ifc, entity, body_context, axis_context or body_context, element_id, path_data,
-                                   pieces, total_width, origin_x, _wall_height(profile_data), _end_angles(elem))
+                                   pieces, total_width, origin_x, height, _end_angles(elem))
+        if tops:
+            _clip_top(ifc, entity, tops)
         _assign_material_layers(ifc, entity, profile_data["assembly"], mat_by_id, mapping, origin_x)
     _assign_property_set(ifc, entity, elem.get("properties", {}), mapping)
 
@@ -146,6 +155,63 @@ def _wall_height(profile_data):
     """A wall's height: its profile's height_limit_m (an IFC import puts the wall's height there), else WALL_HEIGHT."""
     h = profile_data.get("height_limit_m")
     return float(h) if isinstance(h, (int, float)) and h > 0 else WALL_HEIGHT
+
+
+def _path_points(path_data):
+    """The path's points as (x, y, z): each segment's start, the last one's end (a spline's own points)."""
+    pts = []
+    for seg in path_data["segments"]:
+        if "points" in seg:
+            pts.extend(seg["points"])
+        else:
+            pts.append(seg["start"])
+            if "mid" in seg:
+                pts.append(seg["mid"])
+            last = seg["end"]
+    if "points" not in path_data["segments"][-1]:
+        pts.append(last)
+    return [(p["x"], p["y"], p.get("z", 0.0)) for p in pts]
+
+
+def _top_planes(elem, path_data):
+    """The element's sloping top (#187) as world planes, or []."""
+    if not elem.get("top"):
+        return []
+    pts = _path_points(path_data)
+    return wall_top.planes(elem["top"], pts[0], pts[-1])
+
+
+def _clip_top(ifc, entity, tops):
+    """Clip each body item of the entity by the half-space above each top plane (IfcBooleanClippingResult), after
+    any angled-end clips, so the wall's clipping chain keeps its order. The planes are turned into the entity's own
+    placement, as its body is."""
+    m = np.linalg.inv(np.array(ifcopenshell.util.placement.get_local_placement(entity.ObjectPlacement), dtype=float))
+    for rep in entity.Representation.Representations:
+        if rep.RepresentationIdentifier != "Body":
+            continue
+        items, csg = [], False
+        for body in rep.Items:
+            for point, normal in tops:
+                p = m @ np.array([*point, 1.0])
+                n = m[:3, :3] @ np.array(normal)
+                n = n / np.linalg.norm(n)
+                ref = np.cross(n, [0.0, 0.0, 1.0] if abs(n[2]) < 0.9 else [1.0, 0.0, 0.0])
+                ref = ref / np.linalg.norm(ref)
+                plane = ifc.create_entity("IfcPlane", Position=ifc.create_entity(
+                    "IfcAxis2Placement3D",
+                    Location=ifc.create_entity("IfcCartesianPoint", Coordinates=[float(v) for v in p[:3]]),
+                    Axis=ifc.create_entity("IfcDirection", DirectionRatios=[float(v) for v in n]),
+                    RefDirection=ifc.create_entity("IfcDirection", DirectionRatios=[float(v) for v in ref])))
+                # AgreementFlag FALSE: the half-space is above the plane (the side its normal points to) and is removed
+                half = ifc.create_entity("IfcHalfSpaceSolid", BaseSurface=plane, AgreementFlag=False)
+                # a clipping result takes only a swept solid or another clipping result as its first operand
+                clip = body.is_a("IfcSweptAreaSolid") or body.is_a("IfcSweptDiskSolid") or body.is_a("IfcBooleanClippingResult")
+                body = ifc.create_entity("IfcBooleanClippingResult" if clip else "IfcBooleanResult", Operator="DIFFERENCE",
+                                         FirstOperand=body, SecondOperand=half)
+                csg = csg or not clip
+            items.append(body)
+        rep.Items = items
+        rep.RepresentationType = "CSG" if csg else "Clipping"
 
 
 def _end_angles(elem):

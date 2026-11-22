@@ -1,6 +1,6 @@
 # Sloping wall tops: design note
 
-Issue #180 (a). Date: 2026-11-13. Status: options for a decision; nothing has been added to the schema.
+Issue #180 (a). Date: 2026-11-13. Status: decided 2026-11-22 (option A as recommended, with the answers in #187) and implemented.
 
 ## The problem
 

@@ -20,7 +20,7 @@ import { applyJunctionClipping, buildCustomJunctionMesh, buildJunctionDetailMesh
 import { sweepOptionsFromElement } from '../geometry/sweep.js';
 import {
   elementFieldSpecs, slabFieldSpecs, withMaterialOptions, storeyFieldSpecs, parseFieldValue, applyFieldValue,
-  pathSummary, storeyHeights, IFC_ELEMENT_TYPES,
+  pathSummary, storeyHeights, IFC_ELEMENT_TYPES, fieldValue, TOP_START, TOP_END,
 } from './entityFields.js';
 import { ensureDetailMaterials } from '../detail/detailMaterials.js';
 import { loadDetails, detailContext } from '../detail/loadDetails.js';
@@ -2883,7 +2883,7 @@ const FIELD_CSS = 'background:#2a2a2a;color:#ddd;border:1px solid #444;padding:4
 function _fieldRows(panel, specs, entity, commit, idPrefix = '') {
   const unit = getUnit();
   for (const spec of specs) {
-    const current = entity[spec.key];
+    const current = fieldValue(entity, spec.key);
     let widget;
     if (spec.kind === 'enum') {
       widget = document.createElement('select');
@@ -2902,7 +2902,9 @@ function _fieldRows(panel, specs, entity, commit, idPrefix = '') {
         }
         widget.setAttribute('list', listId);
       }
-      widget.value = spec.kind === 'length' ? String(toDisplay(current ?? 0)) : String(current ?? (spec.kind === 'number' ? 0 : ''));
+      widget.value = spec.kind === 'length'
+        ? (current == null && spec.optional ? '' : String(toDisplay(current ?? 0)))
+        : String(current ?? (spec.kind === 'number' ? 0 : ''));
     }
     widget.id = `field-${idPrefix}${spec.key}`;
     widget.style.cssText = FIELD_CSS;
@@ -2927,11 +2929,12 @@ async function _commitEntityField(id, reg, entityPath, key, value) {
     } else {
       reg.sweep = sweepOptionsFromElement(entity);
       if (key === 'description') reg.description = value;
-      if (['sweep_mode', 'cap_start', 'cap_end', 'start_offset', 'end_offset', 'twist_per_metre'].includes(key)) {
+      if (['sweep_mode', 'cap_start', 'cap_end', 'start_offset', 'end_offset', 'twist_per_metre', TOP_START, TOP_END].includes(key)) {
         await _reRenderElement(id, reg.pathData);
       }
     }
-    statusBar.textContent = key === 'material_id' ? `Material set to ${materialLabel(value, activeProfileMap)}` : `${key.replace(/_/g, ' ')} set to ${value}`;
+    statusBar.textContent = key === 'material_id' ? `Material set to ${materialLabel(value, activeProfileMap)}`
+      : value === null ? `${key.replace(/_/g, ' ')} cleared` : `${key.replace(/_/g, ' ')} set to ${value}`;
     if (key === 'sweep_mode') await _showElementProps(id);   // the twist rate row appears or goes
   } catch (e) {
     statusBar.textContent = `Not saved: ${e.message}`;

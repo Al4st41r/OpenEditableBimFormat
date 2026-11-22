@@ -1,7 +1,7 @@
 import { describe, test, expect } from 'vitest';
 import {
   elementFieldSpecs, slabFieldSpecs, withMaterialOptions, storeyFieldSpecs, parseFieldValue, applyFieldValue,
-  pathSummary, setPathNodeAxis, storeyHeights, IFC_ELEMENT_TYPES,
+  pathSummary, setPathNodeAxis, storeyHeights, IFC_ELEMENT_TYPES, fieldValue, TOP_START, TOP_END,
 } from './entityFields.js';
 
 const element = {
@@ -13,7 +13,8 @@ const spec = (specs, key) => specs.find((s) => s.key === key);
 describe('field specs', () => {
   test('element fields cover ifc type, description, sweep, caps and offsets', () => {
     const keys = elementFieldSpecs(element).map((s) => s.key);
-    expect(keys).toEqual(['ifc_type', 'description', 'sweep_mode', 'cap_start', 'cap_end', 'start_offset', 'end_offset']);
+    expect(keys).toEqual(['ifc_type', 'description', 'sweep_mode', 'cap_start', 'cap_end', 'start_offset', 'end_offset',
+      TOP_START, TOP_END]);
   });
   test('the twist rate only appears for twisted sweeps', () => {
     expect(elementFieldSpecs({ ...element, sweep_mode: 'twisted' }).map((s) => s.key)).toContain('twist_per_metre');
@@ -149,5 +150,25 @@ describe('storeyHeights', () => {
     expect(h.get('a')).toBeCloseTo(3);
     expect(h.get('b')).toBeCloseTo(2.5);
     expect(h.get('c')).toBeNull();
+  });
+});
+
+describe('sloping top fields (#187)', () => {
+  const sloped = { ...element, top: { type: 'plane', height_at_start_m: 2.4, height_at_end_m: 5.1 } };
+  test('the start/end heights are shown, and hidden for a top given by point and normal or as a list', () => {
+    expect(fieldValue(sloped, TOP_START)).toBe(2.4);
+    expect(fieldValue(sloped, TOP_END)).toBe(5.1);
+    expect(fieldValue(element, TOP_START)).toBeUndefined();
+    const other = { ...element, top: { type: 'plane', point: { x: 0, y: 0, z: 2 }, normal: { x: 0, y: 0, z: 1 } } };
+    expect(elementFieldSpecs(other).map(s => s.key)).not.toContain(TOP_START);
+    expect(elementFieldSpecs({ ...element, top: [sloped.top, sloped.top] }).map(s => s.key)).not.toContain(TOP_END);
+  });
+  test('an empty height clears the top; one height on a wall with none gives a level top', () => {
+    const s = elementFieldSpecs(element).find(x => x.key === TOP_START);
+    expect(parseFieldValue(s, '  ')).toEqual({ ok: true, value: null });
+    expect(applyFieldValue(sloped, TOP_END, null)).not.toHaveProperty('top');
+    expect(applyFieldValue(element, TOP_START, 3).top).toEqual({ type: 'plane', height_at_start_m: 3, height_at_end_m: 3 });
+    expect(applyFieldValue(sloped, TOP_END, 6).top).toEqual({ type: 'plane', height_at_start_m: 2.4, height_at_end_m: 6 });
+    expect(applyFieldValue(sloped, TOP_END, 6)).not.toHaveProperty(TOP_END);
   });
 });

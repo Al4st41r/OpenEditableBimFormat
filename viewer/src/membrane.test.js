@@ -69,12 +69,19 @@ describe('profile editor marks', () => {
     expect(marks[0].points).toHaveLength(4);
   });
 
-  it('draws a stacked slab membrane across the plan width, from the face the profile is aligned to', () => {
+  it('draws a stacked slab membrane across the plan width, y measured from the origin face into the slab (#195)', () => {
     const layers = [{ thickness: 0.1, function: 'structure' }, { thickness: 0.0004, function: 'membrane' }];
     const top = profileMembraneMarks(layers, {}, { stacked: true, alignment: 'top-face', planWidth: 2 });
     const bottom = profileMembraneMarks(layers, {}, { stacked: true, alignment: 'bottom-face', planWidth: 2 });
     expect(top[0].points).toEqual([{ x: 0, y: 0.1002 }, { x: 2, y: 0.1002 }]);
-    expect(bottom[0].points[0].y).toBeCloseTo(0.0002, 6);
+    expect(bottom[0].points[0].y).toBeCloseTo(0.1002, 6);   // up from the bottom face: the canvas is y-up
+  });
+
+  it('marks a membrane region on a stacked slab too', () => {
+    const layers = [{ thickness: 0.2, function: 'structure' },
+      { type: 'region', function: 'membrane', vertices: [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 0.01 }] }];
+    const marks = profileMembraneMarks(layers, {}, { stacked: true, alignment: 'top-face', planWidth: 2 });
+    expect(marks.map((m) => [m.index, m.closed])).toEqual([[1, true]]);
   });
 });
 

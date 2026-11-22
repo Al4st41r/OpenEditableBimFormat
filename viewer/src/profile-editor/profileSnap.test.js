@@ -14,10 +14,10 @@ describe('snapTargets', () => {
     expect(t.x.find((a) => a.value === 0.127).label).toBe('centre of Cavity');
     expect(t.y).toEqual([]);
   });
-  test('a stacked slab runs its layers down y; a bottom-face slab counts up from the bottom', () => {
+  test('a stacked slab runs its layers from its origin face: down from a top face, up from a bottom face (#195)', () => {
     const slab = [{ name: 'Screed', thickness: 0.05 }, { name: 'Deck', thickness: 0.15 }];
     expect(snapTargets(slab, { stacked: true, planWidth: 1 }).y.map((a) => a.value)).toEqual([0, 0.05, 0.025, 0.05, 0.2, 0.125]);
-    expect(snapTargets(slab, { stacked: true, alignment: 'bottom-face' }).y.map((a) => a.value)).toEqual([0.15, 0.2, 0.175, 0, 0.15, 0.075]);
+    expect(snapTargets(slab, { stacked: true, alignment: 'bottom-face' }).y.map((a) => a.value)).toEqual([0, 0.05, 0.025, 0.05, 0.2, 0.125]);
   });
   test('region corners are targets on both axes', () => {
     const t = snapTargets([{ type: 'region', name: 'Trim', vertices: [{ x: 0.01, y: 0.2 }, { x: 0.05, y: 0.4 }] }]);

@@ -36,6 +36,7 @@
 import { polygonTriangles } from './polygonTriangles.js';
 import { repeatRunSpans } from '../detail-editor/memberShapes.js';
 import { courseRows, lateralRange, pairLayer, isRightAngle, cornerEnd, runsThrough, bondedSpans } from './courseBond.js';
+import { topPlanes, insertTopBreaks, maxTopAbovePath, clampMeshToTop } from './wallTop.js';
 
 /**
  * Sweep options, taken from an element's fields (see sweepOptionsFromElement).
@@ -57,6 +58,7 @@ import { courseRows, lateralRange, pairLayer, isRightAngle, cornerEnd, runsThrou
  * @property {number} [startOffset=0] - metres removed from the start (negative extends)
  * @property {number} [endOffset=0]   - metres removed from the end (negative extends)
  * @property {number} [twistPerMetre=0] - degrees per metre, twisted mode only
+ * @property {object|object[]} [top] - the element's sloping top (#187, wallTop.js): one plane or a list, the lowest wins
  * @property {{start?: JunctionBond, end?: JunctionBond}} [bonds] - the other wall at a corner junction at either end
  *   of the path, for bonding coursed layers there (junctionBonds in junctionBonds.js builds it, #191)
  */
@@ -86,6 +88,7 @@ export function sweepOptionsFromElement(element) {
     twistPerMetre: e.twist_per_metre ?? 0,
     capStartAngleDeg: e.cap_start_angle_deg ?? 0,
     capEndAngleDeg:   e.cap_end_angle_deg ?? 0,
+    ...(e.top ? { top: e.top } : {}),
   };
 }
 
@@ -145,6 +148,36 @@ function _trimEnd(pts, d, atStart) {
  * @returns {Array<{materialId:string, vertices:Float32Array, normals:Float32Array, indices:Uint32Array}>}
  */
 export function sweepProfile(pathPoints, profileShapes, options = {}) {
+  // a sloping top (#187): the bands are swept tall enough to reach it, and every mesh is then cut down to it
+  const planes = topPlanes(options.top, pathPoints);
+  if (planes.length) {
+    pathPoints = insertTopBreaks(pathPoints, planes);
+    profileShapes = _raiseToTop(profileShapes, planes, offsetPolyline(pathPoints, options.startOffset ?? 0, options.endOffset ?? 0));
+    return _sweepProfile(pathPoints, profileShapes, options).map(m => clampMeshToTop(m, planes));
+  }
+  return _sweepProfile(pathPoints, profileShapes, options);
+}
+
+/**
+ * The profile shapes with the top of the bands (and of every region that reaches it, and the course top of coursed
+ * layers) raised to the highest point of the sloping top above the path, so that the top sets the wall's height (#187).
+ */
+function _raiseToTop(shapes, planes, points) {
+  const bands = shapes.filter(s => s.width > 0);
+  if (!bands.length) return shapes;
+  const wallTop = Math.max(...bands.flatMap(s => s.points.map(p => p.y)));
+  const reach = Math.max(...shapes.flatMap(s => s.points.map(p => Math.abs(p.x)))) * 2;   // past the faces, for mitres: too tall is cut back
+  const h = maxTopAbovePath(planes, points, reach);
+  if (!(h > wallTop + 1e-9)) return shapes;
+  const up = (y) => (Math.abs(y - wallTop) < 1e-9 ? h : y);
+  return shapes.map(s => ({
+    ...s,
+    points: s.points.map(p => ({ x: p.x, y: up(p.y) })),
+    ...(s.rowTop !== undefined ? { rowTop: up(s.rowTop) } : {}),
+  }));
+}
+
+function _sweepProfile(pathPoints, profileShapes, options) {
   const {
     sweepMode = 'perpendicular', capStart = 'flat', capEnd = 'flat',
     startOffset = 0, endOffset = 0, twistPerMetre = 0,

@@ -22,7 +22,8 @@ export function snapTargets(layers, { stacked = false, alignment = 'center', pla
   let cursor = 0;
   for (const { layer, n } of bands) {
     const t = r6(layer.thickness ?? 0);
-    const start = stacked && alignment === 'bottom-face' ? r6(total - cursor - t) : r6(cursor);
+    // a stacked slab's y runs from its origin face into the slab, down from a top face or up from a bottom face (#195)
+    const start = r6(cursor);
     along.push({ value: start, label: `face of ${name(layer, n)}` }, { value: r6(start + t), label: `face of ${name(layer, n)}` }, { value: r6(start + t / 2), label: `centre of ${name(layer, n)}` });
     cursor = r6(cursor + t);
   }

@@ -801,17 +801,20 @@ def clip_path(entity, segments, height=None, thickness=None):
     applied only where its boundary takes in the whole of the wall's end (or, for a level cut, its whole plan), and
     one that misses the wall altogether is ignored.
 
-    Returns (segments, angles, boxes, notes, height): angles maps "start"/"end" to the angle of that end in degrees
+    A sloping half-space that removes what is above, unbounded, is a sloping top (#187): it goes in `tops` as
+    (point, normal), in world coordinates, the normal pointing up.
+
+    Returns (segments, angles, boxes, notes, height, tops): angles maps "start"/"end" to the angle of that end in degrees
     (see `end_angle`), boxes are the world points of solids cut out of the wall (openings made by a boolean), notes
     the cuts that could not be represented."""
     segments = [dict(s) for s in segments]
-    angled, boxes, notes = {}, [], []
+    angled, boxes, notes, tops = {}, [], [], []
     try:
         scale = unit_scale(entity)
         angle_unit = _angle_scale(entity)
         items = body_items(entity)
     except Exception:
-        return segments, angled, boxes, notes, height
+        return segments, angled, boxes, notes, height, tops
     # the body's own cuts: not those of an Axis curve that comes first
     body = [i for i in items if not i[0].is_a("IfcCurve")] or items
     cuts = body[0][2] if body else []
@@ -869,7 +872,10 @@ def clip_path(entity, segments, height=None, thickness=None):
                                     s[key] = (s[key][0], s[key][1], s[key][2] + level - base)
                 continue
             if abs(inward[2]) > 0.01:
-                notes.append(f"a sloping clip{bounded} was left out")
+                if inward[2] > 0 and inside is None:   # removes what is above: a sloping top (#187)
+                    tops.append((np.asarray(point, dtype=float), np.asarray(inward, dtype=float) / np.linalg.norm(inward)))
+                else:
+                    notes.append(f"a sloping clip{bounded} was left out")
                 continue
             got = _trim(segments, point, inward, angled, inside, thickness, height)
             if got == "missed":
@@ -884,7 +890,7 @@ def clip_path(entity, segments, height=None, thickness=None):
             notes.append(f"a cut by an {operand.is_a()} was left out")
             continue
         boxes.append(pts)
-    return segments, angled, boxes, notes, height
+    return segments, angled, boxes, notes, height, tops
 
 
 def end_angle(outward, removed):

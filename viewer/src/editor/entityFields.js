@@ -35,7 +35,34 @@ export function elementFieldSpecs(element) {
     { key: 'start_offset', label: 'Start offset', kind: 'length', hint: 'Metres removed from the start; negative extends' },
     { key: 'end_offset',   label: 'End offset',   kind: 'length', hint: 'Metres removed from the end; negative extends' },
   );
+  // a sloping top (#187): the start/end form is edited here; a plane given by point and normal, or a list, in the JSON
+  const top = element?.top;
+  if (!top || isStartEndTop(top)) {
+    specs.push(
+      { key: TOP_START, label: 'Top at start', kind: 'length', optional: true, hint: 'Height of the top above the path start; empty: level at the profile height' },
+      { key: TOP_END,   label: 'Top at end',   kind: 'length', optional: true, hint: 'Height of the top above the path end; empty: level at the profile height' },
+    );
+  }
   return specs;
+}
+
+/** The editor's names for the two heights of an element's start/end top (#187); they are not keys of the entity. */
+export const TOP_START = 'top_start_m';
+export const TOP_END = 'top_end_m';
+
+/** True for a top that is one plane in the start/end-height form. */
+export function isStartEndTop(top) {
+  return !!top && !Array.isArray(top) && typeof top.height_at_start_m === 'number' && typeof top.height_at_end_m === 'number';
+}
+
+/** The value a field shows: the entity's own key, or a start/end top height (undefined when there is no top). */
+export function fieldValue(entity, key) {
+  if (key === TOP_START || key === TOP_END) {
+    const top = entity?.top;
+    if (!isStartEndTop(top)) return undefined;
+    return key === TOP_START ? top.height_at_start_m : top.height_at_end_m;
+  }
+  return entity?.[key];
 }
 
 /** Fields of a slab. material_id is chosen from the project's materials by the panel; thickness and top face set its vertical extent. */
@@ -92,6 +119,7 @@ export function parseFieldValue(spec, raw, { unit = 'mm' } = {}) {
       return v ? { ok: true, value: v } : { ok: false, error: `${spec.label} is required.` };
     }
     case 'length': {
+      if (spec.optional && text.trim() === '') return { ok: true, value: null };
       const m = parseDimension(text, { unit });
       if (m === null) return { ok: false, error: `Could not read "${text}" as a length. Try 250, 0.25m or 100+150.` };
       if (spec.positive && !(m > 0)) return { ok: false, error: `${spec.label} must be greater than zero.` };
@@ -107,6 +135,14 @@ export function parseFieldValue(spec, raw, { unit = 'mm' } = {}) {
 
 /** A copy of the entity with one field set. */
 export function applyFieldValue(entity, key, value) {
+  if (key === TOP_START || key === TOP_END) {
+    // clearing either height removes the top; setting one on a wall with no top gives a level top at that height
+    const { top, ...rest } = entity;
+    if (value === null) return rest;
+    const was = isStartEndTop(top) ? top : { height_at_start_m: value, height_at_end_m: value };
+    return { ...rest, top: { type: 'plane', height_at_start_m: key === TOP_START ? value : was.height_at_start_m,
+      height_at_end_m: key === TOP_END ? value : was.height_at_end_m } };
+  }
   return { ...entity, [key]: value };
 }
 

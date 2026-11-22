@@ -5,6 +5,38 @@
   "type": "object",
   "required": ["$schema", "id", "type", "ifc_type", "path_id", "profile_id", "sweep_mode", "cap_start", "cap_end", "parent_group_id"],
   "additionalProperties": false,
+  "definitions": {
+    "point3": {
+      "type": "object", "required": ["x", "y", "z"], "additionalProperties": false,
+      "properties": { "x": { "type": "number" }, "y": { "type": "number" }, "z": { "type": "number" } }
+    },
+    "topPlane": {
+      "oneOf": [
+        {
+          "type": "object",
+          "description": "Heights in metres above the path's first and last points. The plane runs straight between them and is level at right angles to the line joining them in plan.",
+          "required": ["type", "height_at_start_m", "height_at_end_m"],
+          "additionalProperties": false,
+          "properties": {
+            "type": { "const": "plane" },
+            "height_at_start_m": { "type": "number" },
+            "height_at_end_m": { "type": "number" }
+          }
+        },
+        {
+          "type": "object",
+          "description": "Any plane, in model coordinates: a point on it and its normal (pointing up, out of the wall; it must not be horizontal).",
+          "required": ["type", "point", "normal"],
+          "additionalProperties": false,
+          "properties": {
+            "type": { "const": "plane" },
+            "point": { "$ref": "#/definitions/point3" },
+            "normal": { "$ref": "#/definitions/point3" }
+          }
+        }
+      ]
+    }
+  },
   "properties": {
     "$schema":         { "type": "string" },
     "id":              { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
@@ -21,6 +53,13 @@
     "start_offset":    { "type": "number" },
     "end_offset":      { "type": "number" },
     "twist_per_metre": { "type": "number" },
+    "top": {
+      "description": "A sloping top (#187): one plane or a list of planes; the wall's top is the lowest of them at each point. When present it sets the wall's height, which may rise above the profile's height_limit_m. Absent: the top is level at the profile height.",
+      "oneOf": [
+        { "$ref": "#/definitions/topPlane" },
+        { "type": "array", "minItems": 1, "items": { "$ref": "#/definitions/topPlane" } }
+      ]
+    },
     "parent_group_id": { "type": "string" },
     "properties":      { "type": "object" }
   }

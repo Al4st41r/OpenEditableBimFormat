@@ -167,3 +167,41 @@ describe('angled ends and sloping multi-piece walls (#198)', () => {
     expect([path.segments[0].start.z, path.segments[0].end.z]).toEqual([0, 1]);
   });
 });
+
+// the browser writes directions to 6 decimals, so a plane comes back to within a few micrometres
+describe('sloping wall tops (#187)', () => {
+  const withTop = (top, segments = [{ type: 'line', start: p(0, 0), end: p(10, 0) }]) => {
+    const a = bundle(segments);
+    const el = JSON.parse(a.store.get('elements/w1.json'));
+    a.store.set('elements/w1.json', JSON.stringify({ ...el, top }));
+    return a;
+  };
+
+  it('clips a mono-pitch wall with a half-space and reads the start and end heights back', async () => {
+    const { text, element, profile } = await roundTrip(withTop({ type: 'plane', height_at_start_m: 2.4, height_at_end_m: 5.4 }));
+    expect(text).toMatch(/IFCHALFSPACESOLID/);
+    expect(element.top.height_at_start_m).toBeCloseTo(2.4, 4);
+    expect(element.top.height_at_end_m).toBeCloseTo(5.4, 4);
+    expect(profile.height_limit_m).toBeGreaterThanOrEqual(5.4);   // the body reaches the top before it is clipped
+  });
+
+  it('writes a gable as two clips and reads both planes back', async () => {
+    const { element } = await roundTrip(withTop([
+      { type: 'plane', height_at_start_m: 2, height_at_end_m: 12 },
+      { type: 'plane', height_at_start_m: 12, height_at_end_m: 2 }]));
+    const got = element.top.map(t => [t.height_at_start_m, t.height_at_end_m]).sort((a, b) => a[0] - b[0]);
+    expect(got[0][0]).toBeCloseTo(2, 4); expect(got[0][1]).toBeCloseTo(12, 4);
+    expect(got[1][0]).toBeCloseTo(12, 4); expect(got[1][1]).toBeCloseTo(2, 4);
+  });
+
+  it('keeps a plane across the wall as point and normal, on an L-shaped wall too', async () => {
+    const n = { x: 0, y: -Math.sin(0.3), z: Math.cos(0.3) };
+    const { element } = await roundTrip(withTop({ type: 'plane', point: p(0, 0, 3), normal: n },
+      [{ type: 'line', start: p(0, 0), end: p(4, 0) }, { type: 'line', start: p(4, 0), end: p(4, 3) }]));
+    expect(element.top.normal.y).toBeCloseTo(n.y, 4);
+    expect(element.top.normal.z).toBeCloseTo(n.z, 4);
+    // the point may be anywhere on the plane: check it lies on the original one
+    const q = element.top.point;
+    expect(n.y * q.y + n.z * (q.z - 3)).toBeCloseTo(0, 4);
+  });
+});

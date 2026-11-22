@@ -1,14 +1,16 @@
 # OEBF Project Status
 
-**Date:** 2026-11-20
+**Date:** 2026-11-22
 **Branch:** main
-**Tests:** 2593 JS (Vitest, 164 test files) + 650 Python (635 ifc-tools, 15 live-server) + 73 Playwright e2e
+**Tests:** 2612 JS (Vitest, 165 test files) + 656 Python (641 ifc-tools, 15 live-server) + 73 Playwright e2e
 
 ---
 
 ## Summary
 
 v0.1.0, `v0.2.0-editor-alpha` and v0.4.0 are tagged. v0.4.0 (2026-11-20) covers the work planned for v0.3 (IFC in the editor, snapping, the full properties panel) and v0.4 (the junction detail system) and Phase 8. Since then the project has added the detail review page with seven overlays, the New Model Building example bundle, `oebf validate` and `oebf apply`, openings cut through walls, and editor undo and redo. Phase 8 (editor polish and spec conformance) is in progress. The build is deployed at `architools.drawingtable.net/oebf/`.
+
+**Sloping wall tops and slab regions (#187, #195, 2026-11-22).** An element may carry `top`: one plane, or a list where the lowest wins (a gable). The editor and the guide use the start/end form (`height_at_start_m`, `height_at_end_m`, above the path's ends); import and hand editing may give a point and normal. When present it sets the wall's height, above the profile's `height_limit_m` if need be. The 3D sweep makes the bands tall enough, adds a path point at a ridge and cuts every layer down to the top (`viewer/src/geometry/wallTop.js`, `ifc-tools/src/oebf/wall_top.py`). Both exporters write each plane as a half-space clip, and both importers read an unbounded sloping clip back as `top` instead of dropping it. The properties panel has Top at start and Top at end fields. On a slab profile aligned to a face, a region's y now runs from that face into the slab (down from a top face, up from a bottom face): the profile editor draws and saves such regions, and the bottom-face canvas is now y-up. Follow-ups: #221 (slab regions in 3D and the detail drawings), #222 (sloping tops in the detail views, coursed gables, bounded clips).
 
 **Milestones, geometry and the detail workflow (2026-11-19).** The roadmap now runs by GitHub milestones (v0.5 detail workflow and geometry correctness, v0.6 quantities and AI-assisted editing, v1.0 desktop and live editing) with a `decision-needed` label; see `docs/roadmap.md`. A path with `closed: true` is a loop in the viewer as in both IFC exporters, an implied straight segment closing it if needed; fixed-mode and untwisted closed paths are rings (#214). The junction trimmer caps a cut whose plane passes through mesh vertices (#211), and walls clipped by a junction's trim planes get cap faces, so they are closed and their outline stops at the cut (#213). The detail editor starts a detail with no building (**File, New detail, no building**: a bundle in memory with the library's wall and slab profiles), and its 3D button works for any bundle, handing it to the review page as the 3D editor does (#216). Sheets can carry the axonometric beside the 2D drawing, as vector SVG painted through a BSP tree (`viewer/src/detail-review/axoSvg.js`), from the review page's current 3D view or a preset in the detail editor (#215).
 
@@ -111,7 +113,7 @@ Plan: `docs/plans/2026-10-08-junction-detail-system.md`. Delivered: `detail.sche
 
 ---
 
-## Open Issues (2026-11-19)
+## Open Issues (2026-11-22)
 
 GitHub milestones are the plan: `gh issue list --state open --milestone "<title>"`. Issues awaiting the user's choice carry the `decision-needed` label.
 
@@ -119,8 +121,9 @@ GitHub milestones are the plan: `gh issue list --state open --milestone "<title>
 |---|---|---|
 | #127 | Membranes and tapes: round 1 delivered; awaiting the user's answers (decision needed) | v0.5 |
 | #168 | CI/SfB codes on the NMB materials need a check against a real CI/SfB table (decision needed) | v0.5 |
-| #187 | Sloping wall tops: choose how to store them (decision needed; `docs/plans/2026-11-13-sloping-wall-tops.md`) | v0.5 |
-| #195 | Stacked slab profiles: region coordinate frame (decision needed) | v0.5 |
+| #221 | Slab profiles aligned to a face: region layers in 3D and the detail drawings (#195 phase 2) | v0.5 |
+| #222 | Sloping wall tops: follow-ups after #187 (detail views, coursed gables, bounded clips) | v0.5 |
+| #218, #219, #220 | IFC export: one storey per bundle storey in the browser; slab property sets; start and end offsets in the Python exporter | v0.5 / - |
 | #201 | Coursed walls: tooth T junctions; decide whether an example uses coursed walls (decision needed) | v0.5 |
 | #202 | IFC export: parts per piece as an option; a foreign multi-piece wall with no Axis (the angled-end item could not be reproduced) | v0.5 |
 | #117 | Quantities and embodied carbon panel | v0.6 |

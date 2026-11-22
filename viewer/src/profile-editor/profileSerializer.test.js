@@ -228,6 +228,16 @@ describe('stacked slab profiles (top-face and bottom-face)', () => {
     expect(bottom).toContain('<rect x="0" y="0.18" width="1" height="0.02" fill="#111111"');
     expect(bottom).toContain('<rect x="0" y="0" width="1" height="0.18" fill="#222222"');
   });
+
+  it('writes region layers measured from the origin face into the slab (#195)', () => {
+    // a 50 mm deep, 100 mm wide notch at the origin face, 200 mm from the left edge
+    const notch = { type: 'region', name: 'Notch', material_id: 'mat-a',
+      vertices: [{ x: 0.2, y: 0 }, { x: 0.3, y: 0 }, { x: 0.3, y: 0.05 }, { x: 0.2, y: 0.05 }] };
+    const top = buildSvg({ layers: [...layers, notch], originX: 0.5, matMap, profileType: 'slab', alignment: 'top-face', planWidth: 1 });
+    expect(top).toContain('<rect x="0.2" y="0" width="0.1" height="0.05" fill="#111111"');   // at the top
+    const bottom = buildSvg({ layers: [...layers, notch], originX: 0.5, matMap, profileType: 'slab', alignment: 'bottom-face', planWidth: 1 });
+    expect(bottom).toContain('<rect x="0.2" y="0.15" width="0.1" height="0.05" fill="#111111"');   // at the bottom
+  });
 });
 
 describe('the NMB example slab profiles survive the profile editor', () => {
